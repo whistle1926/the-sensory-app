@@ -50,21 +50,29 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-[oklch(0.915_0.005_260)] bg-white p-5 shadow-sm">
+      <div>
         <h2 className="text-base font-semibold">Recent Reports</h2>
-        <div className="mt-3">
+        <div className="mt-3 space-y-3">
           {data.recentReports.length === 0 ? (
-            <p className="text-sm text-[oklch(0.5_0.01_260)]">No reports yet. Add a client and generate your first report.</p>
+            <div className="rounded-2xl border border-[oklch(0.915_0.005_260)] bg-white p-10 text-center shadow-sm">
+              <p className="text-sm text-[oklch(0.5_0.01_260)]">No reports yet. Add a client and generate your first report.</p>
+            </div>
           ) : (
-            <ul className="space-y-2">
-              {data.recentReports.map((r) => (
-                <li key={r.id}>
-                  <Link href={`/reports/${r.id}`} className="text-sm font-medium text-[oklch(0.637_0.237_25.331)] hover:underline">
-                    {r.client.firstName} {r.client.lastName} — {new Date(r.reportDate).toLocaleDateString()}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            data.recentReports.map((r) => (
+              <Link key={r.id} href={`/reports/${r.id}`}>
+                <div className="group rounded-2xl border border-[oklch(0.915_0.005_260)] bg-white p-4 shadow-sm transition-all hover:border-[oklch(0.637_0.237_25.331)]/30 hover:shadow-md">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-[oklch(0.17_0.015_280)]">{r.client.firstName} {r.client.lastName}</p>
+                      <p className="mt-0.5 text-sm text-[oklch(0.5_0.01_260)]">
+                        {new Date(r.reportDate).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <FileText className="h-5 w-5 text-[oklch(0.637_0.237_25.331)] opacity-50 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </div>
+              </Link>
+            ))
           )}
         </div>
       </div>
