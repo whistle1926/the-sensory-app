@@ -27,17 +27,21 @@ export function Header({ userName, userRole }: HeaderProps) {
   const roleLabel = userRole.replace("_", " ").toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase());
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-white px-6">
-      <div className="md:hidden text-xl font-bold text-gray-900">
+    <header className="flex h-16 items-center justify-between bg-white px-6">
+      <div className="md:hidden text-lg font-bold text-[oklch(0.17_0.015_280)]">
         The Sensory
       </div>
-      <div className="ml-auto flex items-center gap-4">
-        <span className="hidden text-sm text-gray-500 sm:inline">{roleLabel}</span>
+      <div className="ml-auto flex items-center gap-3">
+        <span className="hidden rounded-full bg-[oklch(0.955_0.015_25)] px-3 py-1 text-xs font-semibold text-[oklch(0.637_0.237_25.331)] sm:inline">
+          {roleLabel}
+        </span>
         <DropdownMenu>
           <DropdownMenuTrigger>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-              <Avatar className="h-9 w-9">
-                <AvatarFallback>{initials}</AvatarFallback>
+            <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0">
+              <Avatar className="h-9 w-9 border-2 border-[oklch(0.637_0.237_25.331)]/20">
+                <AvatarFallback className="bg-[oklch(0.17_0.015_280)] text-xs font-semibold text-white">
+                  {initials}
+                </AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
@@ -50,7 +54,7 @@ export function Header({ userName, userRole }: HeaderProps) {
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => signOut({ callbackUrl: "/login" })}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 text-red-600"
             >
               <LogOut className="h-4 w-4" />
               Sign out

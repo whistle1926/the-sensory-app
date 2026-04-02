@@ -37,16 +37,24 @@ export function MobileNav({ role }: MobileNavProps) {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger >
+      <SheetTrigger>
         <Button variant="ghost" size="icon" className="md:hidden">
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-64 p-0">
-        <div className="flex h-16 items-center border-b px-6">
-          <span className="text-xl font-bold text-gray-900">The Sensory</span>
+      <SheetContent side="left" className="w-64 bg-[oklch(0.17_0.015_280)] p-0 border-0">
+        <div className="flex h-16 items-center gap-3 px-5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[oklch(0.637_0.237_25.331)]">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 4h7v7H4V4Z" fill="white" opacity="0.9" />
+              <path d="M13 4h7v7h-7V4Z" fill="white" opacity="0.6" />
+              <path d="M4 13h7v7H4v-7Z" fill="white" opacity="0.6" />
+              <path d="M13 13h7v7h-7v-7Z" fill="white" opacity="0.9" />
+            </svg>
+          </div>
+          <span className="text-lg font-bold tracking-tight text-white">The Sensory</span>
         </div>
-        <nav className="space-y-1 px-3 py-4">
+        <nav className="mt-4 space-y-1 px-3">
           {filteredItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname.startsWith(item.href);
@@ -56,13 +64,13 @@ export function MobileNav({ role }: MobileNavProps) {
                 href={item.href}
                 onClick={() => setOpen(false)}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
                   isActive
-                    ? "bg-gray-100 text-gray-900"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    ? "bg-[oklch(0.637_0.237_25.331)] text-white"
+                    : "text-[oklch(0.65_0.01_260)] hover:bg-white/8 hover:text-white"
                 )}
               >
-                <Icon className="h-5 w-5" />
+                <Icon className="h-5 w-5 shrink-0" />
                 {item.label}
               </Link>
             );

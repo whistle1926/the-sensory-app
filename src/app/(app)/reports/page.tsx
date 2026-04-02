@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import Link from "next/link";
@@ -25,33 +24,38 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Reports</h1>
-        <Link href="/reports/new" className={buttonVariants()}>
+        <h1 className="text-2xl font-bold tracking-tight">Reports</h1>
+        <Link href="/reports/new" className={buttonVariants({ className: "rounded-xl bg-[oklch(0.637_0.237_25.331)] hover:bg-[oklch(0.57_0.237_25.331)]" })}>
           <Plus className="mr-2 h-4 w-4" />
           New Report
         </Link>
       </div>
 
       {reports.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center">
-            <p className="text-gray-500">No reports yet.</p>
-          </CardContent>
-        </Card>
+        <div className="rounded-2xl border border-[oklch(0.915_0.005_260)] bg-white p-10 text-center shadow-sm">
+          <p className="text-[oklch(0.5_0.01_260)]">No reports yet.</p>
+        </div>
       ) : (
         <div className="space-y-3">
           {reports.map((r) => (
             <Link key={r.id} href={`/reports/${r.id}`}>
-              <Card className="hover:border-gray-300 transition-colors">
-                <CardContent className="flex items-center justify-between py-4">
+              <div className="group rounded-2xl border border-[oklch(0.915_0.005_260)] bg-white p-4 shadow-sm transition-all hover:border-[oklch(0.637_0.237_25.331)]/30 hover:shadow-md">
+                <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium">{r.client.firstName} {r.client.lastName}</p>
-                    <p className="text-sm text-gray-500">
-                      {new Date(r.reportDate).toLocaleDateString()} — {r.status}
+                    <p className="font-semibold text-[oklch(0.17_0.015_280)]">{r.client.firstName} {r.client.lastName}</p>
+                    <p className="mt-0.5 text-sm text-[oklch(0.5_0.01_260)]">
+                      {new Date(r.reportDate).toLocaleDateString()}
                     </p>
                   </div>
-                </CardContent>
-              </Card>
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                    r.status === "final"
+                      ? "bg-green-50 text-green-700"
+                      : "bg-[oklch(0.955_0.015_25)] text-[oklch(0.637_0.237_25.331)]"
+                  }`}>
+                    {r.status}
+                  </span>
+                </div>
+              </div>
             </Link>
           ))}
         </div>
