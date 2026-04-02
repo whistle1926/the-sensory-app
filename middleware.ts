@@ -1,12 +1,8 @@
-// Auth middleware temporarily disabled for preview
-// import { NextResponse } from "next/server";
-// import type { NextRequest } from "next/server";
+import NextAuth from "next-auth";
+import { authConfig } from "@/lib/auth.config";
 
-export function middleware() {
-  // Allow all requests through - auth disabled for preview
-  return;
-}
+export const { auth: middleware } = NextAuth(authConfig);
 
 export const config = {
-  matcher: [],
+  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico).*)"],
 };

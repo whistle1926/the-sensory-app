@@ -1,5 +1,5 @@
 import { auth } from "./auth";
-import { Role } from "@/generated/prisma/client";
+import { Role } from "@prisma/client";
 import { redirect } from "next/navigation";
 
 export async function requireAuth() {

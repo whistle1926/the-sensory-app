@@ -1,12 +1,15 @@
-"use client";
-
 import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { Plus } from "lucide-react";
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
 
-export default function ClientsPage() {
+export default async function ClientsPage() {
+  const clients = await prisma.client.findMany({
+    orderBy: { createdAt: "desc" },
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -17,12 +20,30 @@ export default function ClientsPage() {
         </Link>
       </div>
 
-      <Card>
-        <CardContent className="py-10 text-center">
-          <p className="text-gray-500">No clients yet. Add your first client to get started.</p>
-          <Link href="/clients/new" className={cn(buttonVariants(), "mt-4")}>Add Client</Link>
-        </CardContent>
-      </Card>
+      {clients.length === 0 ? (
+        <Card>
+          <CardContent className="py-10 text-center">
+            <p className="text-gray-500">No clients yet. Add your first client to get started.</p>
+            <Link href="/clients/new" className={cn(buttonVariants(), "mt-4")}>Add Client</Link>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {clients.map((c) => (
+            <Link key={c.id} href={`/clients/${c.id}`}>
+              <Card className="hover:border-gray-300 transition-colors">
+                <CardContent className="pt-6">
+                  <p className="font-medium">{c.firstName} {c.lastName}</p>
+                  <p className="text-sm text-gray-500">{c.diagnosis || "No diagnosis listed"}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    DOB: {new Date(c.dateOfBirth).toLocaleDateString()}
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
