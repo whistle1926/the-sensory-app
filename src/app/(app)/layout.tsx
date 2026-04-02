@@ -5,10 +5,19 @@ import { Header } from "@/components/layout/header";
 import { MobileNav } from "@/components/layout/mobile-nav";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth();
+  let session;
+  try {
+    session = await auth();
+  } catch (e: unknown) {
+    // Rethrow Next.js internal errors (DYNAMIC_SERVER_USAGE, etc.)
+    if (e instanceof Error && "digest" in e) throw e;
+    console.error("[LAYOUT] Auth error:", e);
+    redirect("/login");
+  }
+
   if (!session?.user) redirect("/login");
 
-  const role = session.user.role as "SUPER_ADMIN" | "TEAM_MANAGER" | "CLIENT";
+  const role = (session.user.role || "SUPER_ADMIN") as "SUPER_ADMIN" | "TEAM_MANAGER" | "CLIENT";
 
   return (
     <div className="flex h-screen">
