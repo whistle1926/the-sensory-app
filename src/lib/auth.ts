@@ -7,6 +7,7 @@ import { authConfig } from "./auth.config";
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
   trustHost: true,
+  debug: true,
   providers: [
     Credentials({
       name: "credentials",
@@ -15,27 +16,43 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+        try {
+          console.log("[AUTH] authorize called with email:", credentials?.email);
+          if (!credentials?.email || !credentials?.password) {
+            console.log("[AUTH] missing credentials");
+            return null;
+          }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-        });
+          console.log("[AUTH] querying database for user...");
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email as string },
+          });
+          console.log("[AUTH] user found:", !!user, user?.email);
 
-        if (!user) return null;
+          if (!user) {
+            console.log("[AUTH] no user found");
+            return null;
+          }
 
-        const passwordMatch = await bcrypt.compare(
-          credentials.password as string,
-          user.passwordHash
-        );
+          console.log("[AUTH] comparing password...");
+          const passwordMatch = await bcrypt.compare(
+            credentials.password as string,
+            user.passwordHash
+          );
+          console.log("[AUTH] password match:", passwordMatch);
 
-        if (!passwordMatch) return null;
+          if (!passwordMatch) return null;
 
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-        };
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+          };
+        } catch (error) {
+          console.error("[AUTH] authorize error:", error);
+          return null;
+        }
       },
     }),
   ],
