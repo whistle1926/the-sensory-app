@@ -10,6 +10,9 @@ import {
   UserPlus,
   Settings,
   BookOpen,
+  Home,
+  Video,
+  GraduationCap,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -21,6 +24,9 @@ const navItems = [
   { href: "/clients", label: "Clients", icon: Users, roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
   { href: "/reports", label: "Reports", icon: FileText, roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
   { href: "/activities", label: "Activities", icon: BookOpen, roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
+  { href: "/programmes", label: "Programmes", icon: Home, roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
+  { href: "/consultations", label: "Consultations", icon: Video, roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
+  { href: "/training", label: "Training", icon: GraduationCap, roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
   { href: "/team", label: "Team", icon: UserPlus, roles: ["SUPER_ADMIN"] },
   { href: "/settings", label: "Settings", icon: Settings, roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
 ];
