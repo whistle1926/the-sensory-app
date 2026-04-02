@@ -1,14 +1,26 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
 
-export default async function ReportsPage() {
-  const reports = await prisma.report.findMany({
-    orderBy: { createdAt: "desc" },
-    include: { client: true },
-  });
+interface Report {
+  id: string;
+  reportDate: string;
+  status: string;
+  client: { firstName: string; lastName: string };
+}
+
+export default function ReportsPage() {
+  const [reports, setReports] = useState<Report[]>([]);
+
+  useEffect(() => {
+    fetch("/api/reports").then(r => r.json()).then(data => {
+      setReports(Array.isArray(data) ? data : []);
+    });
+  }, []);
 
   return (
     <div className="space-y-6">

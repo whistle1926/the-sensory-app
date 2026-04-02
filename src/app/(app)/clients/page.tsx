@@ -1,14 +1,26 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Plus } from "lucide-react";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
 
-export default async function ClientsPage() {
-  const clients = await prisma.client.findMany({
-    orderBy: { createdAt: "desc" },
-  });
+interface Client {
+  id: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+  diagnosis: string | null;
+}
+
+export default function ClientsPage() {
+  const [clients, setClients] = useState<Client[]>([]);
+
+  useEffect(() => {
+    fetch("/api/clients").then(r => r.json()).then(setClients);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -35,9 +47,7 @@ export default async function ClientsPage() {
                 <CardContent className="pt-6">
                   <p className="font-medium">{c.firstName} {c.lastName}</p>
                   <p className="text-sm text-gray-500">{c.diagnosis || "No diagnosis listed"}</p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    DOB: {new Date(c.dateOfBirth).toLocaleDateString()}
-                  </p>
+                  <p className="text-xs text-gray-400 mt-1">DOB: {new Date(c.dateOfBirth).toLocaleDateString()}</p>
                 </CardContent>
               </Card>
             </Link>
