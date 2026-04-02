@@ -1,13 +1,12 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import { prisma } from "./prisma";
+import pg from "pg";
 import { authConfig } from "./auth.config";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
   trustHost: true,
-  debug: true,
   providers: [
     Credentials({
       name: "credentials",
@@ -16,30 +15,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) return null;
+
+        let client: pg.Client | null = null;
         try {
-          console.log("[AUTH] authorize called with email:", credentials?.email);
-          if (!credentials?.email || !credentials?.password) {
-            console.log("[AUTH] missing credentials");
-            return null;
-          }
-
-          console.log("[AUTH] querying database for user...");
-          const user = await prisma.user.findUnique({
-            where: { email: credentials.email as string },
+          client = new pg.Client({
+            connectionString: process.env.DATABASE_URL!,
+            ssl: { rejectUnauthorized: false },
           });
-          console.log("[AUTH] user found:", !!user, user?.email);
+          await client.connect();
 
-          if (!user) {
-            console.log("[AUTH] no user found");
-            return null;
-          }
+          const result = await client.query(
+            'SELECT id, email, name, "passwordHash", role FROM "User" WHERE email = $1 LIMIT 1',
+            [credentials.email]
+          );
 
-          console.log("[AUTH] comparing password...");
+          if (result.rows.length === 0) return null;
+
+          const user = result.rows[0];
           const passwordMatch = await bcrypt.compare(
             credentials.password as string,
             user.passwordHash
           );
-          console.log("[AUTH] password match:", passwordMatch);
 
           if (!passwordMatch) return null;
 
@@ -50,8 +47,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             role: user.role,
           };
         } catch (error) {
-          console.error("[AUTH] authorize error:", error);
+          console.error("[AUTH] DB error:", error);
           return null;
+        } finally {
+          if (client) await client.end().catch(() => {});
         }
       },
     }),
