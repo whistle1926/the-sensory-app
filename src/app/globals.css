@@ -128,3 +128,20 @@
     @apply font-sans;
   }
 }
+
+@media print {
+  .print\:hidden,
+  aside,
+  header,
+  nav {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+    background: white !important;
+  }
+  .report-content {
+    box-shadow: none !important;
+    max-width: 100% !important;
+  }
+}

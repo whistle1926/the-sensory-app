@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  SUPER_ADMIN
+  TEAM_MANAGER
+  CLIENT
+}
+
+enum Business {
+  SENSORY_SUBMARINE
+  LITTLE_SENSORY_EXPLORERS
+  SENSORY_EATERS
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(CLIENT)
+  business     Business?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  managedClients  Client[]       @relation("ManagerClients")
+  parentOfClients Client[]       @relation("ParentClients")
+  reports         Report[]       @relation("AuthoredReports")
+  sessions        TherapySession[] @relation("TherapistSessions")
+}
+
+model Client {
+  id                 String   @id @default(cuid())
+  firstName          String
+  lastName           String
+  dateOfBirth        DateTime
+  diagnosis          String?
+  presentingConcerns String?
+  referrer           String?
+  parentCarerName    String?
+  business           Business @default(SENSORY_SUBMARINE)
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  managerId String?
+  manager   User?   @relation("ManagerClients", fields: [managerId], references: [id])
+  parentId  String?
+  parent    User?   @relation("ParentClients", fields: [parentId], references: [id])
+
+  sessions TherapySession[]
+  reports  Report[]
+}
+
+model TherapySession {
+  id            String   @id @default(cuid())
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id])
+  therapistId   String
+  therapist     User     @relation("TherapistSessions", fields: [therapistId], references: [id])
+  sessionDate   DateTime
+  sessionNumber Int
+  rawNotes      String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  report Report?
+}
+
+model Report {
+  id         String   @id @default(cuid())
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id])
+  sessionId  String   @unique
+  session    TherapySession @relation(fields: [sessionId], references: [id])
+  authorId   String
+  author     User     @relation("AuthoredReports", fields: [authorId], references: [id])
+  reportDate DateTime @default(now())
+  reviewDate DateTime?
+  status     String   @default("draft")
+  content    Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Activity {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  category    String
+  targetArea  String[]
+  ageRange    String?
+  equipment   String[]
+  business    Business @default(SENSORY_SUBMARINE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
