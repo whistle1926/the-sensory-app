@@ -13,6 +13,24 @@ enum Role {
   CLIENT
 }
 
+enum CourseStatus {
+  AVAILABLE
+  COMING_SOON
+  ARCHIVED
+}
+
+enum EnrollmentStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum ModuleProgressStatus {
+  LOCKED
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
 enum Business {
   SENSORY_SUBMARINE
   LITTLE_SENSORY_EXPLORERS
@@ -33,6 +51,7 @@ model User {
   parentOfClients Client[]       @relation("ParentClients")
   reports         Report[]       @relation("AuthoredReports")
   sessions        TherapySession[] @relation("TherapistSessions")
+  enrollments     Enrollment[]   @relation("UserEnrollments")
 }
 
 model Client {
@@ -100,4 +119,65 @@ model Activity {
   business    Business @default(SENSORY_SUBMARINE)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model Course {
+  id          String       @id @default(cuid())
+  title       String
+  slug        String       @unique
+  audience    String
+  duration    String
+  description String
+  status      CourseStatus @default(AVAILABLE)
+  order       Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  modules     Module[]
+  enrollments Enrollment[]
+}
+
+model Module {
+  id        String   @id @default(cuid())
+  courseId   String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title     String
+  order     Int
+  content   Json
+  questions Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  progress  ModuleProgress[]
+}
+
+model Enrollment {
+  id           String           @id @default(cuid())
+  userId       String
+  user         User             @relation("UserEnrollments", fields: [userId], references: [id])
+  courseId     String
+  course       Course           @relation(fields: [courseId], references: [id])
+  status       EnrollmentStatus @default(IN_PROGRESS)
+  enrolledAt   DateTime         @default(now())
+  completedAt  DateTime?
+  updatedAt    DateTime         @updatedAt
+
+  moduleProgress ModuleProgress[]
+
+  @@unique([userId, courseId])
+}
+
+model ModuleProgress {
+  id           String               @id @default(cuid())
+  enrollmentId String
+  enrollment   Enrollment           @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  moduleId     String
+  module       Module               @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  status       ModuleProgressStatus @default(LOCKED)
+  score        Int?
+  attempts     Int                  @default(0)
+  completedAt  DateTime?
+  updatedAt    DateTime             @updatedAt
+
+  @@unique([enrollmentId, moduleId])
 }

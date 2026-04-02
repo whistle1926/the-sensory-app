@@ -1,74 +1,86 @@
 "use client";
 
-import { GraduationCap, Clock, Users, Award, BookOpen, Play } from "lucide-react";
+import { useEffect, useState } from "react";
+import { GraduationCap, Clock, Users, Award, BookOpen, Play, BarChart3 } from "lucide-react";
+import Link from "next/link";
 
-const courses = [
-  {
-    title: "Sensory Processing in the Classroom",
-    audience: "Teachers & SNAs",
-    duration: "3 hours (self-paced)",
-    modules: 6,
-    status: "available",
-    description: "Understand how sensory processing differences affect learning and behaviour. Practical classroom strategies for supporting children with sensory needs. Includes video demonstrations, downloadable resources, and a certificate of completion.",
-    topics: ["What is sensory processing?", "The 8 sensory systems explained", "Identifying sensory seeking and avoiding behaviours", "Classroom accommodations that work", "Creating a sensory-friendly classroom", "When to refer to OT"],
-  },
-  {
-    title: "Introduction to Sensory Play for Early Years",
-    audience: "Early Years Practitioners",
-    duration: "2 hours (self-paced)",
-    modules: 4,
-    status: "available",
-    description: "How to design and deliver sensory play activities that support child development. Covers messy play, proprioceptive activities, and sensory circuits. Aligned to the Early Years curriculum.",
-    topics: ["Why sensory play matters", "Setting up sensory play stations", "Adapting activities for different needs", "Sensory play and the EYFS framework"],
-  },
-  {
-    title: "Supporting Sensory Eaters — For Parents",
-    audience: "Parents & Carers",
-    duration: "4 hours (self-paced)",
-    modules: 8,
-    status: "available",
-    description: "A comprehensive course for parents of children with selective or restrictive eating. Learn the sensory basis of food refusal, food chaining techniques, and how to create positive mealtimes. Developed with the Sensory Eaters Programme.",
-    topics: ["Understanding selective eating", "Oral sensory processing explained", "The food hierarchy — from tolerance to tasting", "Food chaining — step-by-step guide", "Mealtime environment and routine", "Managing anxiety around food", "Working with your childs school", "When to seek professional help"],
-  },
-  {
-    title: "Sensory Regulation Strategies for Schools",
-    audience: "Whole School Staff",
-    duration: "5 hours (self-paced + live Q&A)",
-    modules: 10,
-    status: "coming_soon",
-    description: "A whole-school approach to sensory regulation. Includes the Zones of Regulation framework, sensory circuits, and how to create a sensory policy. Designed for delivery as a staff INSET day or self-paced online learning.",
-    topics: ["Arousal levels and learning readiness", "The Zones of Regulation framework", "Designing a sensory circuit", "Sensory breaks vs movement breaks", "Individual sensory diets", "Whole-class regulation strategies", "Working with parents", "Creating a school sensory policy", "Case studies", "Live Q&A with OT"],
-  },
-  {
-    title: "CPD: Sensory Integration for Allied Health Professionals",
-    audience: "OTs, SLTs, Physiotherapists",
-    duration: "6 hours (CPD-accredited)",
-    modules: 12,
-    status: "coming_soon",
-    description: "Advanced course on sensory integration theory and practice. Covers assessment, intervention planning, and outcome measurement. CPD-accredited through the Royal College of Occupational Therapists.",
-    topics: ["Ayres Sensory Integration theory", "Neurological basis of sensory processing", "Standardised assessment tools", "Clinical reasoning in SI", "Intervention planning", "Sensory diets and home programmes", "Working with schools", "Outcome measurement", "Case studies — ASD", "Case studies — ADHD", "Case studies — Sensory eating", "Ethical considerations"],
-  },
-];
-
-const statusBadge = (status: string) => {
-  if (status === "available") return "bg-green-50 text-green-700";
-  return "bg-amber-50 text-amber-700";
-};
+interface CourseData {
+  id: string;
+  title: string;
+  slug: string;
+  audience: string;
+  duration: string;
+  description: string;
+  status: "AVAILABLE" | "COMING_SOON" | "ARCHIVED";
+  totalModules: number;
+  enrollmentStatus: "IN_PROGRESS" | "COMPLETED" | null;
+  enrollmentId: string | null;
+  completedModules: number;
+  progressPercent: number;
+}
 
 export default function TrainingPage() {
+  const [courses, setCourses] = useState<CourseData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [enrolling, setEnrolling] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/courses").then((r) => r.json()).then((data) => {
+      setCourses(data);
+      setLoading(false);
+    });
+    fetch("/api/auth/session").then((r) => r.json()).then((s) => {
+      setUserRole(s?.user?.role ?? null);
+    });
+  }, []);
+
+  const handleEnroll = async (courseId: string) => {
+    setEnrolling(courseId);
+    const res = await fetch(`/api/courses/${courseId}/enroll`, { method: "POST" });
+    if (res.ok) {
+      const updated = await fetch("/api/courses").then((r) => r.json());
+      setCourses(updated);
+    }
+    setEnrolling(null);
+  };
+
+  const availableCourses = courses.filter((c) => c.status === "AVAILABLE");
+  const comingSoonCourses = courses.filter((c) => c.status === "COMING_SOON");
+  const isAdmin = userRole === "SUPER_ADMIN" || userRole === "TEAM_MANAGER";
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[oklch(0.637_0.237_25.331)] border-t-transparent" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Training Portal</h1>
-        <p className="mt-1 text-sm text-[oklch(0.5_0.01_260)]">
-          Online courses and CPD training for schools, parents, and professionals
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Training Portal</h1>
+          <p className="mt-1 text-sm text-[oklch(0.5_0.01_260)]">
+            Online courses and CPD training for schools, parents, and professionals
+          </p>
+        </div>
+        {isAdmin && (
+          <Link
+            href="/training/progress"
+            className="flex items-center gap-2 rounded-xl bg-[oklch(0.17_0.015_280)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[oklch(0.25_0.015_280)]"
+          >
+            <BarChart3 className="h-4 w-4" />
+            Learner Progress
+          </Link>
+        )}
       </div>
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-3">
         {[
-          { icon: BookOpen, label: "Courses", value: courses.length },
+          { icon: BookOpen, label: "Courses", value: availableCourses.length },
           { icon: Users, label: "Audiences", value: "3" },
           { icon: Award, label: "CPD Accredited", value: "2" },
         ].map((s, i) => {
@@ -87,52 +99,123 @@ export default function TrainingPage() {
         })}
       </div>
 
-      {/* Course List */}
+      {/* Available Courses */}
       <div className="space-y-4">
-        {courses.map((course, i) => (
-          <div key={i} className="rounded-2xl border border-[oklch(0.915_0.005_260)] bg-white shadow-sm overflow-hidden">
+        {availableCourses.map((course) => (
+          <div key={course.id} className="rounded-2xl border border-[oklch(0.915_0.005_260)] bg-white shadow-sm overflow-hidden">
             <div className="p-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-semibold text-[oklch(0.17_0.015_280)]">{course.title}</h3>
-                    <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${statusBadge(course.status)}`}>
-                      {course.status === "available" ? "Available" : "Coming Soon"}
-                    </span>
+                    {course.enrollmentStatus === "COMPLETED" && (
+                      <span className="rounded-full bg-green-50 px-2.5 py-0.5 text-[10px] font-semibold text-green-700">
+                        Completed
+                      </span>
+                    )}
+                    {course.enrollmentStatus === "IN_PROGRESS" && (
+                      <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[10px] font-semibold text-blue-700">
+                        In Progress
+                      </span>
+                    )}
+                    {!course.enrollmentStatus && (
+                      <span className="rounded-full bg-[oklch(0.955_0.015_25)] px-2.5 py-0.5 text-[10px] font-semibold text-[oklch(0.637_0.237_25.331)]">
+                        Available
+                      </span>
+                    )}
                   </div>
                   <div className="mt-1.5 flex flex-wrap gap-3 text-xs text-[oklch(0.5_0.01_260)]">
                     <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {course.audience}</span>
                     <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {course.duration}</span>
-                    <span className="flex items-center gap-1"><Play className="h-3 w-3" /> {course.modules} modules</span>
+                    <span className="flex items-center gap-1"><Play className="h-3 w-3" /> {course.totalModules} modules</span>
                   </div>
                   <p className="mt-3 text-sm leading-relaxed text-[oklch(0.4_0.01_260)]">{course.description}</p>
                 </div>
               </div>
 
-              <div className="mt-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-[oklch(0.5_0.01_260)]">Module Topics</p>
-                <div className="mt-2 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
-                  {course.topics.map((topic, j) => (
-                    <div key={j} className="flex items-start gap-2 text-sm text-[oklch(0.35_0.01_280)]">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[oklch(0.637_0.237_25.331)]" />
-                      {topic}
-                    </div>
-                  ))}
+              {/* Progress bar for enrolled courses */}
+              {course.enrollmentStatus && (
+                <div className="mt-4">
+                  <div className="flex items-center justify-between text-xs text-[oklch(0.5_0.01_260)]">
+                    <span>{course.completedModules} of {course.totalModules} modules completed</span>
+                    <span className="font-semibold">{course.progressPercent}%</span>
+                  </div>
+                  <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-[oklch(0.915_0.005_260)]">
+                    <div
+                      className="h-full rounded-full bg-[oklch(0.637_0.237_25.331)] transition-all duration-500"
+                      style={{ width: `${course.progressPercent}%` }}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
-            {course.status === "available" && (
-              <div className="border-t border-[oklch(0.955_0.005_260)] bg-[oklch(0.975_0.002_260)] px-5 py-3">
-                <button className="rounded-xl bg-[oklch(0.637_0.237_25.331)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[oklch(0.57_0.237_25.331)]">
+            <div className="border-t border-[oklch(0.955_0.005_260)] bg-[oklch(0.975_0.002_260)] px-5 py-3 flex items-center gap-3">
+              {!course.enrollmentStatus && (
+                <button
+                  onClick={() => handleEnroll(course.id)}
+                  disabled={enrolling === course.id}
+                  className="rounded-xl bg-[oklch(0.637_0.237_25.331)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[oklch(0.57_0.237_25.331)] disabled:opacity-50"
+                >
                   <GraduationCap className="mr-2 inline h-4 w-4" />
-                  Start Course
+                  {enrolling === course.id ? "Enrolling..." : "Start Course"}
                 </button>
-              </div>
-            )}
+              )}
+              {course.enrollmentStatus === "IN_PROGRESS" && (
+                <Link
+                  href={`/training/${course.id}`}
+                  className="rounded-xl bg-[oklch(0.637_0.237_25.331)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[oklch(0.57_0.237_25.331)]"
+                >
+                  <Play className="mr-2 inline h-4 w-4" />
+                  Continue
+                </Link>
+              )}
+              {course.enrollmentStatus === "COMPLETED" && (
+                <>
+                  <Link
+                    href={`/training/${course.id}`}
+                    className="rounded-xl border border-[oklch(0.915_0.005_260)] bg-white px-4 py-2 text-sm font-semibold text-[oklch(0.17_0.015_280)] transition-colors hover:bg-[oklch(0.955_0.005_260)]"
+                  >
+                    <BookOpen className="mr-2 inline h-4 w-4" />
+                    Review
+                  </Link>
+                  <a
+                    href={`/api/training/certificate/${course.enrollmentId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700"
+                  >
+                    <Award className="mr-2 inline h-4 w-4" />
+                    View Certificate
+                  </a>
+                </>
+              )}
+            </div>
           </div>
         ))}
       </div>
+
+      {/* Coming Soon */}
+      {comingSoonCourses.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-base font-semibold text-[oklch(0.5_0.01_260)]">Coming Soon</h2>
+          {comingSoonCourses.map((course) => (
+            <div key={course.id} className="rounded-2xl border border-[oklch(0.915_0.005_260)] bg-white p-5 shadow-sm opacity-70">
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-[oklch(0.17_0.015_280)]">{course.title}</h3>
+                <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                  Coming Soon
+                </span>
+              </div>
+              <div className="mt-1.5 flex flex-wrap gap-3 text-xs text-[oklch(0.5_0.01_260)]">
+                <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {course.audience}</span>
+                <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {course.duration}</span>
+              </div>
+              <p className="mt-3 text-sm leading-relaxed text-[oklch(0.4_0.01_260)]">{course.description}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

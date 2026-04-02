@@ -36,3 +36,7 @@ export const createUserSchema = z.object({
   role: z.enum(["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"]),
   business: z.enum(["SENSORY_SUBMARINE", "LITTLE_SENSORY_EXPLORERS", "SENSORY_EATERS"]).optional(),
 });
+
+export const submitQuizSchema = z.object({
+  answers: z.array(z.number().int().min(0).max(3)),
+});
