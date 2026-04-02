@@ -8,7 +8,7 @@ function createPrismaClient() {
   const pool = new pg.Pool({
     connectionString: process.env.DATABASE_URL!,
     ssl: { rejectUnauthorized: false },
-    max: 5,
+    max: 1,
   });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
