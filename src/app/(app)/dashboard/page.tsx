@@ -4,16 +4,28 @@ import { FileText, Users, Plus } from "lucide-react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
-  const [clientCount, reportCount, recentReports] = await Promise.all([
-    prisma.client.count({ where: { active: true } }),
-    prisma.report.count(),
-    prisma.report.findMany({
-      take: 5,
-      orderBy: { createdAt: "desc" },
-      include: { client: true },
-    }),
-  ]);
+  let clientCount = 0;
+  let reportCount = 0;
+  let recentReports: { id: string; reportDate: Date; client: { firstName: string; lastName: string } }[] = [];
+  let error = "";
+
+  try {
+    [clientCount, reportCount, recentReports] = await Promise.all([
+      prisma.client.count({ where: { active: true } }),
+      prisma.report.count(),
+      prisma.report.findMany({
+        take: 5,
+        orderBy: { createdAt: "desc" },
+        include: { client: true },
+      }),
+    ]);
+  } catch (e: unknown) {
+    error = (e as Error).message;
+    console.error("[DASHBOARD] DB error:", e);
+  }
 
   return (
     <div className="space-y-6">
@@ -24,6 +36,12 @@ export default async function DashboardPage() {
           New Report
         </Link>
       </div>
+
+      {error && (
+        <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">
+          Database error: {error}
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
