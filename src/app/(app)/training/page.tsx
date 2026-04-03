@@ -69,7 +69,7 @@ export default function TrainingPage() {
         {isAdmin && (
           <Link
             href="/training/progress"
-            className="flex items-center gap-2 rounded-xl bg-foreground px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-muted"
+            className="flex items-center gap-2 rounded-xl bg-foreground px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-foreground/80"
           >
             <BarChart3 className="h-4 w-4" />
             Learner Progress
