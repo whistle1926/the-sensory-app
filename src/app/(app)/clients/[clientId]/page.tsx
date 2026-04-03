@@ -38,7 +38,7 @@ export default async function ClientDetailPage({
           <h1 className="text-2xl font-bold">
             {client.firstName} {client.lastName}
           </h1>
-          <p className="text-gray-500">
+          <p className="text-muted-foreground">
             DOB: {new Date(client.dateOfBirth).toLocaleDateString("en-GB")}
           </p>
         </div>
@@ -86,22 +86,22 @@ export default async function ClientDetailPage({
         </CardHeader>
         <CardContent>
           {client.reports.length === 0 ? (
-            <p className="text-sm text-gray-500">No reports yet.</p>
+            <p className="text-sm text-muted-foreground">No reports yet.</p>
           ) : (
             <div className="space-y-3">
               {client.reports.map((report) => (
                 <Link
                   key={report.id}
                   href={`/reports/${report.id}`}
-                  className="flex items-center justify-between rounded-md border p-3 transition-colors hover:bg-gray-50"
+                  className="flex items-center justify-between rounded-md border p-3 transition-colors hover:bg-muted"
                 >
                   <div className="flex items-center gap-3">
-                    <FileText className="h-5 w-5 text-gray-400" />
+                    <FileText className="h-5 w-5 text-muted-foreground/60" />
                     <div>
                       <p className="font-medium">
                         Session {report.session.sessionNumber}
                       </p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-muted-foreground">
                         {new Date(report.reportDate).toLocaleDateString("en-GB")}
                       </p>
                     </div>

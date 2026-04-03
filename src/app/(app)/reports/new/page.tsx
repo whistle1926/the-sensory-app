@@ -17,7 +17,7 @@ interface Client {
 
 export default function NewReportPageWrapper() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-gray-500">Loading...</div>}>
+    <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading...</div>}>
       <NewReportPage />
     </Suspense>
   );
@@ -75,10 +75,10 @@ function NewReportPage() {
       {generating ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-4 py-16">
-            <Loader2 className="h-10 w-10 animate-spin text-gray-400" />
+            <Loader2 className="h-10 w-10 animate-spin text-muted-foreground/60" />
             <div className="text-center">
               <p className="text-lg font-medium">Generating your report...</p>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 This usually takes 10-15 seconds. Claude is analysing the session notes and writing a structured OT report.
               </p>
             </div>

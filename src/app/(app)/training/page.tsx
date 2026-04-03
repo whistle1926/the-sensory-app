@@ -52,7 +52,7 @@ export default function TrainingPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[oklch(0.637_0.237_25.331)] border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     );
   }
@@ -62,14 +62,14 @@ export default function TrainingPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Training Portal</h1>
-          <p className="mt-1 text-sm text-[oklch(0.5_0.01_260)]">
+          <p className="mt-1 text-sm text-muted-foreground">
             Online courses and CPD training for schools, parents, and professionals
           </p>
         </div>
         {isAdmin && (
           <Link
             href="/training/progress"
-            className="flex items-center gap-2 rounded-xl bg-[oklch(0.17_0.015_280)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[oklch(0.25_0.015_280)]"
+            className="flex items-center gap-2 rounded-xl bg-foreground px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-muted"
           >
             <BarChart3 className="h-4 w-4" />
             Learner Progress
@@ -86,11 +86,11 @@ export default function TrainingPage() {
         ].map((s, i) => {
           const Icon = s.icon;
           return (
-            <div key={i} className="rounded-2xl border border-[oklch(0.915_0.005_260)] bg-white p-5 shadow-sm">
+            <div key={i} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-[oklch(0.5_0.01_260)]">{s.label}</p>
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[oklch(0.955_0.015_25)]">
-                  <Icon className="h-4 w-4 text-[oklch(0.637_0.237_25.331)]" />
+                <p className="text-sm font-medium text-muted-foreground">{s.label}</p>
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary">
+                  <Icon className="h-4 w-4 text-primary" />
                 </div>
               </div>
               <p className="mt-2 text-3xl font-bold tracking-tight">{s.value}</p>
@@ -102,47 +102,47 @@ export default function TrainingPage() {
       {/* Available Courses */}
       <div className="space-y-4">
         {availableCourses.map((course) => (
-          <div key={course.id} className="rounded-2xl border border-[oklch(0.915_0.005_260)] bg-white shadow-sm overflow-hidden">
+          <div key={course.id} className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
             <div className="p-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-[oklch(0.17_0.015_280)]">{course.title}</h3>
+                    <h3 className="font-semibold text-foreground">{course.title}</h3>
                     {course.enrollmentStatus === "COMPLETED" && (
-                      <span className="rounded-full bg-green-50 px-2.5 py-0.5 text-[10px] font-semibold text-green-700">
+                      <span className="rounded-full bg-green-50 dark:bg-green-950/50 px-2.5 py-0.5 text-[10px] font-semibold text-green-700 dark:text-green-400">
                         Completed
                       </span>
                     )}
                     {course.enrollmentStatus === "IN_PROGRESS" && (
-                      <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[10px] font-semibold text-blue-700">
+                      <span className="rounded-full bg-blue-50 dark:bg-blue-950/50 px-2.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:text-blue-400">
                         In Progress
                       </span>
                     )}
                     {!course.enrollmentStatus && (
-                      <span className="rounded-full bg-[oklch(0.955_0.015_25)] px-2.5 py-0.5 text-[10px] font-semibold text-[oklch(0.637_0.237_25.331)]">
+                      <span className="rounded-full bg-secondary px-2.5 py-0.5 text-[10px] font-semibold text-primary">
                         Available
                       </span>
                     )}
                   </div>
-                  <div className="mt-1.5 flex flex-wrap gap-3 text-xs text-[oklch(0.5_0.01_260)]">
+                  <div className="mt-1.5 flex flex-wrap gap-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {course.audience}</span>
                     <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {course.duration}</span>
                     <span className="flex items-center gap-1"><Play className="h-3 w-3" /> {course.totalModules} modules</span>
                   </div>
-                  <p className="mt-3 text-sm leading-relaxed text-[oklch(0.4_0.01_260)]">{course.description}</p>
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{course.description}</p>
                 </div>
               </div>
 
               {/* Progress bar for enrolled courses */}
               {course.enrollmentStatus && (
                 <div className="mt-4">
-                  <div className="flex items-center justify-between text-xs text-[oklch(0.5_0.01_260)]">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>{course.completedModules} of {course.totalModules} modules completed</span>
                     <span className="font-semibold">{course.progressPercent}%</span>
                   </div>
-                  <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-[oklch(0.915_0.005_260)]">
+                  <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
                     <div
-                      className="h-full rounded-full bg-[oklch(0.637_0.237_25.331)] transition-all duration-500"
+                      className="h-full rounded-full bg-primary transition-all duration-500"
                       style={{ width: `${course.progressPercent}%` }}
                     />
                   </div>
@@ -150,12 +150,12 @@ export default function TrainingPage() {
               )}
             </div>
 
-            <div className="border-t border-[oklch(0.955_0.005_260)] bg-[oklch(0.975_0.002_260)] px-5 py-3 flex items-center gap-3">
+            <div className="border-t border-border bg-background px-5 py-3 flex items-center gap-3">
               {!course.enrollmentStatus && (
                 <button
                   onClick={() => handleEnroll(course.id)}
                   disabled={enrolling === course.id}
-                  className="rounded-xl bg-[oklch(0.637_0.237_25.331)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[oklch(0.57_0.237_25.331)] disabled:opacity-50"
+                  className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary/80 disabled:opacity-50"
                 >
                   <GraduationCap className="mr-2 inline h-4 w-4" />
                   {enrolling === course.id ? "Enrolling..." : "Start Course"}
@@ -164,7 +164,7 @@ export default function TrainingPage() {
               {course.enrollmentStatus === "IN_PROGRESS" && (
                 <Link
                   href={`/training/${course.id}`}
-                  className="rounded-xl bg-[oklch(0.637_0.237_25.331)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[oklch(0.57_0.237_25.331)]"
+                  className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary/80"
                 >
                   <Play className="mr-2 inline h-4 w-4" />
                   Continue
@@ -174,7 +174,7 @@ export default function TrainingPage() {
                 <>
                   <Link
                     href={`/training/${course.id}`}
-                    className="rounded-xl border border-[oklch(0.915_0.005_260)] bg-white px-4 py-2 text-sm font-semibold text-[oklch(0.17_0.015_280)] transition-colors hover:bg-[oklch(0.955_0.005_260)]"
+                    className="rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
                   >
                     <BookOpen className="mr-2 inline h-4 w-4" />
                     Review
@@ -198,20 +198,20 @@ export default function TrainingPage() {
       {/* Coming Soon */}
       {comingSoonCourses.length > 0 && (
         <div className="space-y-4">
-          <h2 className="text-base font-semibold text-[oklch(0.5_0.01_260)]">Coming Soon</h2>
+          <h2 className="text-base font-semibold text-muted-foreground">Coming Soon</h2>
           {comingSoonCourses.map((course) => (
-            <div key={course.id} className="rounded-2xl border border-[oklch(0.915_0.005_260)] bg-white p-5 shadow-sm opacity-70">
+            <div key={course.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm opacity-70">
               <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-[oklch(0.17_0.015_280)]">{course.title}</h3>
-                <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                <h3 className="font-semibold text-foreground">{course.title}</h3>
+                <span className="rounded-full bg-amber-50 dark:bg-amber-950/50 px-2.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400">
                   Coming Soon
                 </span>
               </div>
-              <div className="mt-1.5 flex flex-wrap gap-3 text-xs text-[oklch(0.5_0.01_260)]">
+              <div className="mt-1.5 flex flex-wrap gap-3 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {course.audience}</span>
                 <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {course.duration}</span>
               </div>
-              <p className="mt-3 text-sm leading-relaxed text-[oklch(0.4_0.01_260)]">{course.description}</p>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{course.description}</p>
             </div>
           ))}
         </div>

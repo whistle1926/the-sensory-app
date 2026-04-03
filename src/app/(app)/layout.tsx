@@ -32,13 +32,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex h-screen">
       <Sidebar role={role} />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex items-center gap-2 bg-white px-4 md:px-0">
+        <div className="flex items-center gap-2 bg-card px-4 md:px-0">
           <MobileNav role={role} />
           <div className="flex-1">
             <Header userName={session.user.name || "User"} userRole={role} />
           </div>
         </div>
-        <main className="flex-1 overflow-y-auto bg-[oklch(0.975_0.002_260)] p-6">
+        <main className="flex-1 overflow-y-auto bg-background p-6">
           {children}
         </main>
       </div>

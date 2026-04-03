@@ -48,9 +48,9 @@ export function MobileNav({ role }: MobileNavProps) {
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-64 bg-[oklch(0.17_0.015_280)] p-0 border-0">
+      <SheetContent side="left" className="w-64 bg-sidebar p-0 border-0">
         <div className="flex h-16 items-center gap-3 px-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[oklch(0.637_0.237_25.331)]">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sidebar-primary">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M4 4h7v7H4V4Z" fill="white" opacity="0.9" />
               <path d="M13 4h7v7h-7V4Z" fill="white" opacity="0.6" />
@@ -72,8 +72,8 @@ export function MobileNav({ role }: MobileNavProps) {
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
                   isActive
-                    ? "bg-[oklch(0.637_0.237_25.331)] text-white"
-                    : "text-[oklch(0.65_0.01_260)] hover:bg-white/8 hover:text-white"
+                    ? "bg-sidebar-primary text-white"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-white"
                 )}
               >
                 <Icon className="h-5 w-5 shrink-0" />

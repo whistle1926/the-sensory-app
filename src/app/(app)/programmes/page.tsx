@@ -66,7 +66,7 @@ export default function ProgrammesPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Home Programmes</h1>
-        <p className="mt-1 text-sm text-[oklch(0.5_0.01_260)]">
+        <p className="mt-1 text-sm text-muted-foreground">
           Structured home programmes and templates for parents and carers
         </p>
       </div>
@@ -74,33 +74,33 @@ export default function ProgrammesPage() {
       {/* Programme Templates */}
       <div>
         <div className="mb-3 flex items-center gap-2">
-          <ClipboardList className="h-4 w-4 text-[oklch(0.637_0.237_25.331)]" />
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-[oklch(0.5_0.01_260)]">Programme Templates</h2>
-          <span className="rounded-full bg-[oklch(0.955_0.015_25)] px-2 py-0.5 text-xs font-medium text-[oklch(0.637_0.237_25.331)]">{sampleProgrammes.length}</span>
+          <ClipboardList className="h-4 w-4 text-primary" />
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Programme Templates</h2>
+          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-primary">{sampleProgrammes.length}</span>
         </div>
         <div className="space-y-3">
           {sampleProgrammes.map((prog, i) => (
-            <div key={i} className="rounded-2xl border border-[oklch(0.915_0.005_260)] bg-white shadow-sm overflow-hidden">
+            <div key={i} className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
               <button
                 onClick={() => setExpandedTemplate(expandedTemplate === i ? null : i)}
                 className="flex w-full items-center justify-between p-5 text-left"
               >
                 <div>
-                  <h3 className="font-semibold text-[oklch(0.17_0.015_280)]">{prog.title}</h3>
-                  <p className="mt-1 text-sm text-[oklch(0.5_0.01_260)]">{prog.description}</p>
+                  <h3 className="font-semibold text-foreground">{prog.title}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{prog.description}</p>
                 </div>
-                {expandedTemplate === i ? <ChevronUp className="h-5 w-5 shrink-0 text-[oklch(0.5_0.01_260)]" /> : <ChevronDown className="h-5 w-5 shrink-0 text-[oklch(0.5_0.01_260)]" />}
+                {expandedTemplate === i ? <ChevronUp className="h-5 w-5 shrink-0 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground" />}
               </button>
               {expandedTemplate === i && (
-                <div className="border-t border-[oklch(0.955_0.005_260)] px-5 pb-5 pt-4">
+                <div className="border-t border-border px-5 pb-5 pt-4">
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {prog.activities.map((block, j) => (
-                      <div key={j} className="rounded-xl bg-[oklch(0.975_0.002_260)] p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-[oklch(0.637_0.237_25.331)]">{block.time}</p>
+                      <div key={j} className="rounded-xl bg-background p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-primary">{block.time}</p>
                         <ul className="mt-2 space-y-1.5">
                           {block.items.map((item, k) => (
-                            <li key={k} className="flex items-start gap-2 text-sm text-[oklch(0.35_0.01_280)]">
-                              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[oklch(0.637_0.237_25.331)]" />
+                            <li key={k} className="flex items-start gap-2 text-sm text-foreground/80">
+                              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
                               {item}
                             </li>
                           ))}
@@ -118,46 +118,46 @@ export default function ProgrammesPage() {
       {/* Client-Specific Programmes */}
       <div>
         <div className="mb-3 flex items-center gap-2">
-          <Home className="h-4 w-4 text-[oklch(0.637_0.237_25.331)]" />
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-[oklch(0.5_0.01_260)]">Client Programmes from Reports</h2>
-          <span className="rounded-full bg-[oklch(0.955_0.015_25)] px-2 py-0.5 text-xs font-medium text-[oklch(0.637_0.237_25.331)]">{reportsWithProgrammes.length}</span>
+          <Home className="h-4 w-4 text-primary" />
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Client Programmes from Reports</h2>
+          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-primary">{reportsWithProgrammes.length}</span>
         </div>
         {reportsWithProgrammes.length === 0 ? (
-          <div className="rounded-2xl border border-[oklch(0.915_0.005_260)] bg-white p-10 text-center shadow-sm">
-            <p className="text-[oklch(0.5_0.01_260)]">No client programmes yet. Generate a report to create a home programme.</p>
+          <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-sm">
+            <p className="text-muted-foreground">No client programmes yet. Generate a report to create a home programme.</p>
           </div>
         ) : (
           <div className="space-y-3">
             {reportsWithProgrammes.map(r => (
-              <div key={r.id} className="rounded-2xl border border-[oklch(0.915_0.005_260)] bg-white shadow-sm overflow-hidden">
+              <div key={r.id} className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
                 <button
                   onClick={() => setExpandedReport(expandedReport === r.id ? null : r.id)}
                   className="flex w-full items-center justify-between p-5 text-left"
                 >
                   <div>
-                    <h3 className="font-semibold text-[oklch(0.17_0.015_280)]">
+                    <h3 className="font-semibold text-foreground">
                       {r.client.firstName} {r.client.lastName}
                     </h3>
-                    <p className="mt-0.5 text-sm text-[oklch(0.5_0.01_260)]">
+                    <p className="mt-0.5 text-sm text-muted-foreground">
                       {new Date(r.reportDate).toLocaleDateString()} — {r.status}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Download className="h-4 w-4 text-[oklch(0.5_0.01_260)]" />
-                    {expandedReport === r.id ? <ChevronUp className="h-5 w-5 text-[oklch(0.5_0.01_260)]" /> : <ChevronDown className="h-5 w-5 text-[oklch(0.5_0.01_260)]" />}
+                    <Download className="h-4 w-4 text-muted-foreground" />
+                    {expandedReport === r.id ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
                   </div>
                 </button>
                 {expandedReport === r.id && (
-                  <div className="border-t border-[oklch(0.955_0.005_260)] px-5 pb-5 pt-4 space-y-4">
+                  <div className="border-t border-border px-5 pb-5 pt-4 space-y-4">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-[oklch(0.637_0.237_25.331)]">Home Programme</p>
-                      <div className="mt-2 whitespace-pre-line text-sm leading-relaxed text-[oklch(0.35_0.01_280)]">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-primary">Home Programme</p>
+                      <div className="mt-2 whitespace-pre-line text-sm leading-relaxed text-foreground/80">
                         {r.content.homeProgrammeSuggestions}
                       </div>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-[oklch(0.637_0.237_25.331)]">Goals</p>
-                      <div className="mt-2 space-y-2 text-sm text-[oklch(0.35_0.01_280)]">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-primary">Goals</p>
+                      <div className="mt-2 space-y-2 text-sm text-foreground/80">
                         <p><span className="font-medium">Short-term:</span> {r.content.goals?.shortTerm}</p>
                         <p><span className="font-medium">Long-term:</span> {r.content.goals?.longTerm}</p>
                       </div>

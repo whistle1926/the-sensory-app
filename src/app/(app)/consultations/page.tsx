@@ -45,7 +45,7 @@ export default function ConsultationsPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Online Consultations</h1>
-        <p className="mt-1 text-sm text-[oklch(0.5_0.01_260)]">
+        <p className="mt-1 text-sm text-muted-foreground">
           Video-based OT consultations for families across the UK and Ireland
         </p>
       </div>
@@ -53,25 +53,25 @@ export default function ConsultationsPage() {
       {/* Services */}
       <div>
         <div className="mb-3 flex items-center gap-2">
-          <CreditCard className="h-4 w-4 text-[oklch(0.637_0.237_25.331)]" />
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-[oklch(0.5_0.01_260)]">Services</h2>
+          <CreditCard className="h-4 w-4 text-primary" />
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Services</h2>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           {services.map((s, i) => {
             const Icon = s.icon;
             return (
-              <div key={i} className="rounded-2xl border border-[oklch(0.915_0.005_260)] bg-white p-5 shadow-sm">
+              <div key={i} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[oklch(0.955_0.015_25)]">
-                    <Icon className="h-5 w-5 text-[oklch(0.637_0.237_25.331)]" />
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary">
+                    <Icon className="h-5 w-5 text-primary" />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-[oklch(0.17_0.015_280)]">{s.title}</h3>
-                      <span className="text-lg font-bold text-[oklch(0.637_0.237_25.331)]">{s.price}</span>
+                      <h3 className="font-semibold text-foreground">{s.title}</h3>
+                      <span className="text-lg font-bold text-primary">{s.price}</span>
                     </div>
-                    <p className="mt-0.5 text-xs text-[oklch(0.5_0.01_260)]">{s.duration}</p>
-                    <p className="mt-2 text-sm leading-relaxed text-[oklch(0.4_0.01_260)]">{s.description}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{s.duration}</p>
+                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.description}</p>
                   </div>
                 </div>
               </div>
@@ -83,17 +83,17 @@ export default function ConsultationsPage() {
       {/* Availability */}
       <div>
         <div className="mb-3 flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-[oklch(0.637_0.237_25.331)]" />
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-[oklch(0.5_0.01_260)]">Upcoming Availability</h2>
+          <Calendar className="h-4 w-4 text-primary" />
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Upcoming Availability</h2>
         </div>
-        <div className="rounded-2xl border border-[oklch(0.915_0.005_260)] bg-white shadow-sm overflow-hidden">
-          <div className="divide-y divide-[oklch(0.955_0.005_260)]">
+        <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+          <div className="divide-y divide-border">
             {upcomingSlots.map((slot, i) => (
               <div key={i} className="flex items-center justify-between px-5 py-3">
-                <span className="text-sm font-medium text-[oklch(0.17_0.015_280)]">{slot.date}</span>
+                <span className="text-sm font-medium text-foreground">{slot.date}</span>
                 <div className="flex gap-2">
                   {slot.times.map(t => (
-                    <span key={t} className="rounded-lg bg-[oklch(0.975_0.002_260)] px-3 py-1 text-xs font-medium text-[oklch(0.4_0.01_260)]">
+                    <span key={t} className="rounded-lg bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
                       {t}
                     </span>
                   ))}
@@ -105,7 +105,7 @@ export default function ConsultationsPage() {
       </div>
 
       {/* How It Works */}
-      <div className="rounded-2xl border border-[oklch(0.915_0.005_260)] bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
         <h2 className="text-base font-semibold">How Online Consultations Work</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           {[
@@ -114,9 +114,9 @@ export default function ConsultationsPage() {
             { step: "3", title: "Connect", desc: "Join the video call at your appointment time. Written recommendations follow within 48 hours." },
           ].map(s => (
             <div key={s.step} className="text-center">
-              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-[oklch(0.637_0.237_25.331)] text-sm font-bold text-white">{s.step}</div>
-              <h3 className="mt-2 font-semibold text-[oklch(0.17_0.015_280)]">{s.title}</h3>
-              <p className="mt-1 text-sm text-[oklch(0.5_0.01_260)]">{s.desc}</p>
+              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">{s.step}</div>
+              <h3 className="mt-2 font-semibold text-foreground">{s.title}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{s.desc}</p>
             </div>
           ))}
         </div>

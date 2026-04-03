@@ -127,6 +127,7 @@
   html {
     @apply font-sans;
     font-size: 18px;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 }
 

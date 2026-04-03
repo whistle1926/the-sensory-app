@@ -11,6 +11,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { LogOut, User } from "lucide-react";
 import Link from "next/link";
+import { ThemeToggle } from "./theme-toggle";
 
 interface HeaderProps {
   userName: string;
@@ -27,19 +28,20 @@ export function Header({ userName, userRole }: HeaderProps) {
   const roleLabel = userRole.replace("_", " ").toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase());
 
   return (
-    <header className="flex h-16 items-center justify-between bg-white px-6">
-      <div className="md:hidden text-lg font-bold text-[oklch(0.17_0.015_280)]">
+    <header className="flex h-16 items-center justify-between bg-card px-6">
+      <div className="md:hidden text-lg font-bold text-foreground">
         The Sensory
       </div>
       <div className="ml-auto flex items-center gap-3">
-        <span className="hidden rounded-full bg-[oklch(0.955_0.015_25)] px-3 py-1 text-xs font-semibold text-[oklch(0.637_0.237_25.331)] sm:inline">
+        <span className="hidden rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-primary sm:inline">
           {roleLabel}
         </span>
+        <ThemeToggle />
         <DropdownMenu>
           <DropdownMenuTrigger>
             <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0">
-              <Avatar className="h-9 w-9 border-2 border-[oklch(0.637_0.237_25.331)]/20">
-                <AvatarFallback className="bg-[oklch(0.17_0.015_280)] text-xs font-semibold text-white">
+              <Avatar className="h-9 w-9 border-2 border-primary/20">
+                <AvatarFallback className="bg-foreground text-xs font-semibold text-background">
                   {initials}
                 </AvatarFallback>
               </Avatar>

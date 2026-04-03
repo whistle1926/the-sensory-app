@@ -142,7 +142,7 @@ export default function TeamPage() {
             <CardContent className="flex items-center justify-between py-4">
               <div>
                 <p className="font-medium">{user.name}</p>
-                <p className="text-sm text-gray-500">{user.email}</p>
+                <p className="text-sm text-muted-foreground">{user.email}</p>
               </div>
               <Badge className={roleColour[user.role] || ""}>
                 {user.role.replace("_", " ")}

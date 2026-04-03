@@ -48,10 +48,10 @@ export default function ReportDetailPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between print:hidden">
         <div className="flex items-center gap-3">
-          <Link href="/reports" className="text-sm text-gray-500 hover:text-gray-700">
+          <Link href="/reports" className="text-sm text-muted-foreground hover:text-muted-foreground">
             Reports
           </Link>
-          <span className="text-gray-300">/</span>
+          <span className="text-border">/</span>
           <h1 className="text-lg font-semibold">
             {report.client.firstName} {report.client.lastName}
           </h1>

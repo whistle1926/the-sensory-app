@@ -43,7 +43,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
   if (loading || !course) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[oklch(0.637_0.237_25.331)] border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     );
   }
@@ -53,11 +53,11 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
 
   const statusIcon = (status: string) => {
     switch (status) {
-      case "LOCKED": return <Lock className="h-5 w-5 text-[oklch(0.7_0.01_260)]" />;
-      case "IN_PROGRESS": return <Circle className="h-5 w-5 text-[oklch(0.637_0.237_25.331)]" />;
+      case "LOCKED": return <Lock className="h-5 w-5 text-muted-foreground" />;
+      case "IN_PROGRESS": return <Circle className="h-5 w-5 text-primary" />;
       case "COMPLETED": return <CheckCircle2 className="h-5 w-5 text-green-600" />;
       case "FAILED": return <XCircle className="h-5 w-5 text-red-500" />;
-      default: return <Lock className="h-5 w-5 text-gray-400" />;
+      default: return <Lock className="h-5 w-5 text-muted-foreground/60" />;
     }
   };
 
@@ -75,24 +75,24 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
     <div className="space-y-6">
       {/* Back + Header */}
       <div>
-        <Link href="/training" className="inline-flex items-center gap-1 text-sm text-[oklch(0.5_0.01_260)] hover:text-[oklch(0.637_0.237_25.331)] transition-colors mb-3">
+        <Link href="/training" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors mb-3">
           <ArrowLeft className="h-4 w-4" /> Back to Training
         </Link>
         <h1 className="text-2xl font-bold tracking-tight">{course.title}</h1>
-        <div className="mt-1.5 flex flex-wrap gap-3 text-xs text-[oklch(0.5_0.01_260)]">
+        <div className="mt-1.5 flex flex-wrap gap-3 text-xs text-muted-foreground">
           <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {course.audience}</span>
           <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {course.duration}</span>
           <span className="flex items-center gap-1"><Play className="h-3 w-3" /> {course.modules.length} modules</span>
         </div>
-        <p className="mt-3 text-sm leading-relaxed text-[oklch(0.4_0.01_260)] max-w-2xl">{course.description}</p>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground max-w-2xl">{course.description}</p>
       </div>
 
       {/* Overall Progress */}
       {course.enrollmentId && (
-        <div className="rounded-2xl border border-[oklch(0.915_0.005_260)] bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-[oklch(0.5_0.01_260)]">Overall Progress</p>
+              <p className="text-sm font-medium text-muted-foreground">Overall Progress</p>
               <p className="mt-1 text-2xl font-bold tracking-tight">{progressPercent}%</p>
             </div>
             {course.enrollmentStatus === "COMPLETED" && (
@@ -107,13 +107,13 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
               </a>
             )}
           </div>
-          <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-[oklch(0.915_0.005_260)]">
+          <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full rounded-full bg-[oklch(0.637_0.237_25.331)] transition-all duration-500"
+              className="h-full rounded-full bg-primary transition-all duration-500"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
-          <p className="mt-2 text-xs text-[oklch(0.5_0.01_260)]">
+          <p className="mt-2 text-xs text-muted-foreground">
             {completedCount} of {course.modules.length} modules completed
           </p>
         </div>
@@ -126,12 +126,12 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
           const isClickable = mod.status !== "LOCKED";
           const inner = (
             <>
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[oklch(0.955_0.005_260)]">
-                <span className="text-sm font-bold text-[oklch(0.5_0.01_260)]">{i + 1}</span>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted">
+                <span className="text-sm font-bold text-muted-foreground">{i + 1}</span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-[oklch(0.17_0.015_280)] truncate">{mod.title}</p>
-                <p className="text-xs text-[oklch(0.5_0.01_260)]">{statusLabel(mod)}</p>
+                <p className="font-semibold text-foreground truncate">{mod.title}</p>
+                <p className="text-xs text-muted-foreground">{statusLabel(mod)}</p>
               </div>
               {statusIcon(mod.status)}
             </>
@@ -141,14 +141,14 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
             <Link
               key={mod.id}
               href={`/training/${courseId}/modules/${mod.id}`}
-              className="flex items-center gap-4 rounded-2xl border border-[oklch(0.915_0.005_260)] bg-white p-4 shadow-sm transition-all hover:border-[oklch(0.637_0.237_25.331)]/30 hover:shadow-md cursor-pointer"
+              className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm transition-all hover:border-primary/30 hover:shadow-md cursor-pointer"
             >
               {inner}
             </Link>
           ) : (
             <div
               key={mod.id}
-              className="flex items-center gap-4 rounded-2xl border border-[oklch(0.915_0.005_260)] bg-white p-4 shadow-sm opacity-60 cursor-not-allowed"
+              className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm opacity-60 cursor-not-allowed"
             >
               {inner}
             </div>
