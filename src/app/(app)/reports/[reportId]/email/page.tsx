@@ -15,6 +15,7 @@ import {
   X,
   Plus,
   Mail,
+  FileText,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -45,6 +46,8 @@ export default function EmailComposePage() {
   const [ccInput, setCcInput] = useState("");
   const [ccList, setCcList] = useState<string[]>([]);
   const [message, setMessage] = useState("");
+
+  const [includeReport, setIncludeReport] = useState(true);
 
   const [sending, setSending] = useState(false);
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
@@ -121,6 +124,7 @@ export default function EmailComposePage() {
             subject,
             message,
             isHtml: true,
+            includeReport,
           }),
         });
 
@@ -279,6 +283,38 @@ export default function EmailComposePage() {
               placeholder="Write your message here..."
             />
           </div>
+        </div>
+
+        {/* Include Report Toggle */}
+        <div className="border-t border-border px-4 py-4 sm:px-6">
+          <label className="flex cursor-pointer items-center gap-3">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={includeReport}
+              onClick={() => setIncludeReport(!includeReport)}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                includeReport ? "bg-primary" : "bg-muted-foreground/30"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+                  includeReport ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <span className="text-sm font-medium">Include full report in email</span>
+                <p className="text-xs text-muted-foreground">
+                  {includeReport
+                    ? "The complete OT session report will be embedded below your message"
+                    : "Only your message above will be sent — no report content"}
+                </p>
+              </div>
+            </div>
+          </label>
         </div>
 
         {/* Footer Actions */}

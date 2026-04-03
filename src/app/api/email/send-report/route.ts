@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ReportContent } from "@/types/report";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -9,7 +10,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const { reportId, to, subject, message, isHtml } = body;
+  const { reportId, to, subject, message, isHtml, includeReport } = body;
 
   if (!reportId || !to || !subject)
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -54,6 +55,8 @@ export async function POST(req: NextRequest) {
     message: message || "",
     sessionNumber: report.session.sessionNumber,
     isHtml: !!isHtml,
+    includeReport: includeReport !== false,
+    reportContent: report.content as unknown as ReportContent,
   });
 
   // Send via Mailcub API
@@ -96,10 +99,98 @@ interface EmailParams {
   message: string;
   sessionNumber: number;
   isHtml: boolean;
+  includeReport: boolean;
+  reportContent: ReportContent;
+}
+
+function buildReportSection(content: ReportContent): string {
+  const c = content;
+  const nl = (text: string) =>
+    text ? escapeHtml(text).replace(/\n/g, "<br/>") : "";
+
+  // Helper — only render a sub-section if it has content
+  const sub = (title: string, text: string) => {
+    if (!text || text === "Not assessed this session") return "";
+    return `<h3 style="margin:12px 0 4px;font-size:13px;font-weight:700;color:#333;">${title}</h3>
+      <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#444;">${nl(text)}</p>`;
+  };
+
+  const heading = (title: string) =>
+    `<h2 style="margin:20px 0 8px;font-size:15px;font-weight:700;color:#1a1a2e;border-bottom:1px solid #e5e7eb;padding-bottom:6px;">${title}</h2>`;
+
+  return `
+    <!-- Report Content -->
+    <div style="margin:24px 0 0;">
+      <div style="background:#1a1a2e;color:#fff;padding:16px 24px;border-radius:8px 8px 0 0;text-align:center;">
+        <h2 style="margin:0;font-size:17px;font-weight:700;color:#fff;">Occupational Therapy Session Report</h2>
+      </div>
+      <div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;padding:24px;">
+
+        <!-- Client Info Table -->
+        <table style="width:100%;border-collapse:collapse;margin:0 0 16px;" cellpadding="0" cellspacing="0">
+          <tr><td style="border:1px solid #e5e7eb;padding:6px 12px;font-size:12px;font-weight:700;background:#f9fafb;width:35%;color:#555;">Client Name</td><td style="border:1px solid #e5e7eb;padding:6px 12px;font-size:12px;color:#333;">${escapeHtml(c.clientInfo.clientName)}</td></tr>
+          <tr><td style="border:1px solid #e5e7eb;padding:6px 12px;font-size:12px;font-weight:700;background:#f9fafb;color:#555;">Date of Birth</td><td style="border:1px solid #e5e7eb;padding:6px 12px;font-size:12px;color:#333;">${escapeHtml(c.clientInfo.dateOfBirth)}</td></tr>
+          <tr><td style="border:1px solid #e5e7eb;padding:6px 12px;font-size:12px;font-weight:700;background:#f9fafb;color:#555;">Age</td><td style="border:1px solid #e5e7eb;padding:6px 12px;font-size:12px;color:#333;">${escapeHtml(c.clientInfo.age)}</td></tr>
+          <tr><td style="border:1px solid #e5e7eb;padding:6px 12px;font-size:12px;font-weight:700;background:#f9fafb;color:#555;">Date of Session</td><td style="border:1px solid #e5e7eb;padding:6px 12px;font-size:12px;color:#333;">${escapeHtml(c.clientInfo.sessionDate)}</td></tr>
+          <tr><td style="border:1px solid #e5e7eb;padding:6px 12px;font-size:12px;font-weight:700;background:#f9fafb;color:#555;">Session Number</td><td style="border:1px solid #e5e7eb;padding:6px 12px;font-size:12px;color:#333;">${String(c.clientInfo.sessionNumber)}</td></tr>
+          <tr><td style="border:1px solid #e5e7eb;padding:6px 12px;font-size:12px;font-weight:700;background:#f9fafb;color:#555;">Referring Clinician</td><td style="border:1px solid #e5e7eb;padding:6px 12px;font-size:12px;color:#333;">${escapeHtml(c.clientInfo.referrer)}</td></tr>
+          <tr><td style="border:1px solid #e5e7eb;padding:6px 12px;font-size:12px;font-weight:700;background:#f9fafb;color:#555;">Diagnosis</td><td style="border:1px solid #e5e7eb;padding:6px 12px;font-size:12px;color:#333;">${escapeHtml(c.clientInfo.diagnosis)}</td></tr>
+          <tr><td style="border:1px solid #e5e7eb;padding:6px 12px;font-size:12px;font-weight:700;background:#f9fafb;color:#555;">Parent/Carer Present</td><td style="border:1px solid #e5e7eb;padding:6px 12px;font-size:12px;color:#333;">${escapeHtml(c.clientInfo.parentCarer)}</td></tr>
+        </table>
+
+        ${heading("Reason for Referral")}
+        <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#444;">${nl(c.reasonForReferral)}</p>
+
+        ${heading("Session Overview")}
+        <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#444;">${nl(c.sessionOverview)}</p>
+
+        ${heading("Observations and Behaviours")}
+        ${sub("Sensory Responses", c.observations.sensoryResponses)}
+        ${sub("Engagement and Participation", c.observations.engagementParticipation)}
+        ${sub("Communication and Social Interaction", c.observations.communicationSocial)}
+        ${sub("Emotional Regulation and Behaviour", c.observations.emotionalRegulation)}
+
+        ${heading("Assessment Findings")}
+        ${sub("Sensory Processing", c.assessmentFindings.sensoryProcessing)}
+        ${sub("Fine Motor Skills", c.assessmentFindings.fineMotor)}
+        ${sub("Gross Motor Skills", c.assessmentFindings.grossMotor)}
+        ${sub("Self-Regulation", c.assessmentFindings.selfRegulation)}
+        ${sub("Play and Functional Skills", c.assessmentFindings.playFunctional)}
+
+        ${heading("Interventions Used")}
+        <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#444;">${nl(c.interventionsUsed)}</p>
+
+        ${heading("Response to Intervention")}
+        <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#444;">${nl(c.responseToIntervention)}</p>
+
+        ${heading("Clinical Impressions and Summary")}
+        <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#444;">${nl(c.clinicalImpressions)}</p>
+
+        ${heading("Recommendations")}
+        <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#444;">${nl(c.recommendations)}</p>
+
+        ${heading("Goals and Next Steps")}
+        ${sub("Short-Term Goals", c.goals.shortTerm)}
+        ${sub("Long-Term Goals", c.goals.longTerm)}
+        ${sub("Next Session Plan", c.goals.nextSessionPlan)}
+
+        ${heading("Home Programme Suggestions")}
+        <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#444;">${nl(c.homeProgrammeSuggestions)}</p>
+
+        <!-- Therapist Footer -->
+        <div style="border-top:1px solid #e5e7eb;margin:24px 0 0;padding:16px 0 0;">
+          <p style="margin:0 0 4px;font-size:12px;color:#555;"><strong>Report prepared by:</strong> ${escapeHtml(c.therapistName)}</p>
+          <p style="margin:0 0 4px;font-size:12px;color:#555;"><strong>Qualifications:</strong> ${escapeHtml(c.therapistQualifications)}</p>
+          <p style="margin:0 0 4px;font-size:12px;color:#555;"><strong>Date of report:</strong> ${escapeHtml(c.reportDate)}</p>
+          <p style="margin:0 0 12px;font-size:12px;color:#555;"><strong>Review date:</strong> ${escapeHtml(c.reviewDate)}</p>
+          <p style="margin:0;font-size:11px;color:#999;font-style:italic;">This report is confidential and intended for the named recipient(s) only. If you have received this report in error, please contact The Sensory Submarine immediately.</p>
+        </div>
+      </div>
+    </div>`;
 }
 
 function buildEmailHtml(params: EmailParams): string {
-  const { senderName, clientName, sessionDate, message, sessionNumber, isHtml } = params;
+  const { senderName, clientName, sessionDate, message, sessionNumber, isHtml, includeReport, reportContent } = params;
 
   // If the message came from the rich text editor, use it directly
   // Otherwise escape and convert newlines
@@ -108,6 +199,10 @@ function buildEmailHtml(params: EmailParams): string {
     : message
       ? `<p style="margin:0 0 20px 0;line-height:1.6;color:#333;">${escapeHtml(message).replace(/\n/g, "<br/>")}</p>`
       : "";
+
+  const reportBlock = includeReport && reportContent
+    ? buildReportSection(reportContent)
+    : "";
 
   return `<!DOCTYPE html>
 <html>
@@ -126,9 +221,7 @@ function buildEmailHtml(params: EmailParams): string {
           <strong>Session ${sessionNumber}:</strong> ${escapeHtml(sessionDate)}
         </p>
       </div>
-      <p style="margin:0 0 8px 0;font-size:14px;color:#555;line-height:1.5;">
-        If you have any questions about this session or the recommendations, please don&rsquo;t hesitate to get in touch.
-      </p>
+      ${reportBlock}
       <hr style="border:none;border-top:1px solid #eee;margin:24px 0;"/>
       <p style="margin:0;font-size:12px;color:#999;text-align:center;">
         ${escapeHtml(senderName)} &middot; Occupational Therapy Services
