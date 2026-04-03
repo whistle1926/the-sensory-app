@@ -49,7 +49,7 @@ export function generateCertificateHTML(data: CertificateData): string {
       justify-content: center;
       width: 48px;
       height: 48px;
-      background: oklch(0.637 0.237 25.331);
+      background: oklch(0.50 0.24 264);
       border-radius: 12px;
       margin-bottom: 1rem;
     }
@@ -86,7 +86,7 @@ export function generateCertificateHTML(data: CertificateData): string {
     .body .course {
       font-size: 1.125rem;
       font-weight: 600;
-      color: oklch(0.637 0.237 25.331);
+      color: oklch(0.50 0.24 264);
       margin-bottom: 2rem;
     }
     .details {
