@@ -89,7 +89,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
 
       {/* Overall Progress */}
       {course.enrollmentId && (
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Overall Progress</p>
@@ -141,14 +141,14 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
             <Link
               key={mod.id}
               href={`/training/${courseId}/modules/${mod.id}`}
-              className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm transition-all hover:border-primary/30 hover:shadow-md cursor-pointer"
+              className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-sm)] card-lift cursor-pointer"
             >
               {inner}
             </Link>
           ) : (
             <div
               key={mod.id}
-              className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm opacity-60 cursor-not-allowed"
+              className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-sm)] opacity-60 cursor-not-allowed"
             >
               {inner}
             </div>

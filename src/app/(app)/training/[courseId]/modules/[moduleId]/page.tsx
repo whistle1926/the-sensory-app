@@ -163,7 +163,7 @@ export default function ModulePage({ params }: { params: Promise<{ courseId: str
       {view === "lesson" && (
         <div className="space-y-6">
           {mod.content.sections.map((section, i) => (
-            <div key={i} className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <div key={i} className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
               {section.heading && (
                 <h2 className="text-lg font-bold text-foreground mb-3">{section.heading}</h2>
               )}
@@ -190,7 +190,7 @@ export default function ModulePage({ params }: { params: Promise<{ courseId: str
       {view === "quiz" && (
         <div className="space-y-4">
           {mod.questions.map((q, qi) => (
-            <div key={q.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <div key={q.id} className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
               <p className="font-semibold text-foreground">
                 <span className="text-primary mr-2">Q{qi + 1}.</span>
                 {q.text}

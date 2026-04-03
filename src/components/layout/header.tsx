@@ -28,12 +28,12 @@ export function Header({ userName, userRole }: HeaderProps) {
   const roleLabel = userRole.replace("_", " ").toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase());
 
   return (
-    <header className="flex h-16 items-center justify-between bg-card px-6">
+    <header className="flex h-16 items-center justify-between glass border-b border-border/50 px-6">
       <div className="md:hidden text-lg font-bold text-foreground">
         The Sensory
       </div>
       <div className="ml-auto flex items-center gap-3">
-        <span className="hidden rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-primary sm:inline">
+        <span className="hidden rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-primary ring-1 ring-primary/15 sm:inline">
           {roleLabel}
         </span>
         <ThemeToggle />

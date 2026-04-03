@@ -132,7 +132,7 @@ export default function SettingsPage() {
       <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
 
       {/* Profile Section */}
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
         <h2 className="text-base font-semibold">Profile</h2>
         <div className="mt-4 space-y-4 text-sm">
           <div className="flex items-center justify-between border-b border-border pb-3">
@@ -154,7 +154,7 @@ export default function SettingsPage() {
 
       {/* Mailcub Email Integration — Admin Only */}
       {isAdmin && (
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
               <Mail className="h-5 w-5 text-primary" />
@@ -281,7 +281,7 @@ export default function SettingsPage() {
 
       {/* Claude AI Integration — Admin Only */}
       {isAdmin && (
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
               <Bot className="h-5 w-5 text-primary" />

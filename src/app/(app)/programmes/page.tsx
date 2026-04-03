@@ -80,7 +80,7 @@ export default function ProgrammesPage() {
         </div>
         <div className="space-y-3">
           {sampleProgrammes.map((prog, i) => (
-            <div key={i} className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+            <div key={i} className="rounded-2xl border border-border bg-card shadow-[var(--shadow-sm)] overflow-hidden">
               <button
                 onClick={() => setExpandedTemplate(expandedTemplate === i ? null : i)}
                 className="flex w-full items-center justify-between p-5 text-left"
@@ -123,13 +123,13 @@ export default function ProgrammesPage() {
           <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-primary">{reportsWithProgrammes.length}</span>
         </div>
         {reportsWithProgrammes.length === 0 ? (
-          <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-sm">
+          <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-[var(--shadow-sm)]">
             <p className="text-muted-foreground">No client programmes yet. Generate a report to create a home programme.</p>
           </div>
         ) : (
           <div className="space-y-3">
             {reportsWithProgrammes.map(r => (
-              <div key={r.id} className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+              <div key={r.id} className="rounded-2xl border border-border bg-card shadow-[var(--shadow-sm)] overflow-hidden">
                 <button
                   onClick={() => setExpandedReport(expandedReport === r.id ? null : r.id)}
                   className="flex w-full items-center justify-between p-5 text-left"

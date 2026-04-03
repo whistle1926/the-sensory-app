@@ -50,7 +50,7 @@ export function Sidebar({ role }: SidebarProps) {
   const filteredItems = navItems.filter((item) => item.roles.includes(role));
 
   return (
-    <aside className="hidden md:flex md:w-64 md:flex-col bg-sidebar text-white">
+    <aside className="hidden md:flex md:w-64 md:flex-col text-white" style={{ background: "var(--gradient-sidebar)" }}>
       <div className="flex h-16 items-center gap-3 px-5">
         <LogoMark />
         <Link href="/dashboard" className="text-lg font-bold tracking-tight text-white">
@@ -66,9 +66,9 @@ export function Sidebar({ role }: SidebarProps) {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                 isActive
-                  ? "bg-sidebar-primary text-white shadow-lg shadow-sidebar-primary/20"
+                  ? "bg-sidebar-primary text-white shadow-[var(--shadow-glow)]"
                   : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-white"
               )}
             >
@@ -79,7 +79,7 @@ export function Sidebar({ role }: SidebarProps) {
         })}
       </nav>
       <div className="border-t border-white/10 p-4">
-        <div className="rounded-xl bg-white/5 p-3">
+        <div className="rounded-xl bg-white/5 p-3 ring-1 ring-white/10">
           <p className="text-xs font-medium text-sidebar-foreground">The Sensory Submarine</p>
           <p className="mt-0.5 text-[11px] text-sidebar-foreground/60">OT Report Platform</p>
         </div>

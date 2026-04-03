@@ -86,17 +86,17 @@ export default function TrainingProgressPage() {
 
       {/* Stats summary */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
           <p className="text-sm font-medium text-muted-foreground">Total Enrollments</p>
           <p className="mt-2 text-3xl font-bold tracking-tight">{data.length}</p>
         </div>
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
           <p className="text-sm font-medium text-muted-foreground">Completed</p>
           <p className="mt-2 text-3xl font-bold tracking-tight text-green-600">
             {data.filter((e) => e.status === "COMPLETED").length}
           </p>
         </div>
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
           <p className="text-sm font-medium text-muted-foreground">In Progress</p>
           <p className="mt-2 text-3xl font-bold tracking-tight text-blue-600">
             {data.filter((e) => e.status === "IN_PROGRESS").length}
@@ -106,11 +106,11 @@ export default function TrainingProgressPage() {
 
       {/* Table */}
       {filtered.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-[var(--shadow-sm)]">
           <p className="text-sm text-muted-foreground">No enrollments found.</p>
         </div>
       ) : (
-        <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+        <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-sm)] overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

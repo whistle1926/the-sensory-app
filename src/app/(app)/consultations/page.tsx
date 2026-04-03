@@ -60,7 +60,7 @@ export default function ConsultationsPage() {
           {services.map((s, i) => {
             const Icon = s.icon;
             return (
-              <div key={i} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <div key={i} className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
                 <div className="flex items-start gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary">
                     <Icon className="h-5 w-5 text-primary" />
@@ -86,7 +86,7 @@ export default function ConsultationsPage() {
           <Calendar className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Upcoming Availability</h2>
         </div>
-        <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+        <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-sm)] overflow-hidden">
           <div className="divide-y divide-border">
             {upcomingSlots.map((slot, i) => (
               <div key={i} className="flex items-center justify-between px-5 py-3">
@@ -105,7 +105,7 @@ export default function ConsultationsPage() {
       </div>
 
       {/* How It Works */}
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
         <h2 className="text-base font-semibold">How Online Consultations Work</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           {[

@@ -98,7 +98,7 @@ export default function ActivitiesPage() {
               <div
                 key={a.id}
                 onClick={() => setExpandedId(expandedId === a.id ? null : a.id)}
-                className="cursor-pointer rounded-2xl border border-border bg-card p-4 shadow-sm transition-all hover:border-primary/30 hover:shadow-md"
+                className="cursor-pointer rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-sm)] card-lift"
               >
                 <div className="flex items-start justify-between gap-2">
                   <h3 className="font-semibold text-foreground">{a.name}</h3>
@@ -130,7 +130,7 @@ export default function ActivitiesPage() {
       ))}
 
       {filtered.length === 0 && (
-        <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-[var(--shadow-sm)]">
           <p className="text-muted-foreground">No activities match your search.</p>
         </div>
       )}

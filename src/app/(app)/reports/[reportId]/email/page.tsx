@@ -191,7 +191,7 @@ export default function EmailComposePage() {
       </div>
 
       {/* Compose Form */}
-      <div className="rounded-2xl border border-border bg-card shadow-sm">
+      <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-sm)]">
         <div className="space-y-4 p-4 sm:p-6">
           {/* To */}
           <div className="grid gap-4 sm:grid-cols-[80px_1fr] sm:items-center">

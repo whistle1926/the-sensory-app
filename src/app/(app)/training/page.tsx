@@ -86,7 +86,7 @@ export default function TrainingPage() {
         ].map((s, i) => {
           const Icon = s.icon;
           return (
-            <div key={i} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <div key={i} className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-muted-foreground">{s.label}</p>
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary">
@@ -102,7 +102,7 @@ export default function TrainingPage() {
       {/* Available Courses */}
       <div className="space-y-4">
         {availableCourses.map((course) => (
-          <div key={course.id} className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+          <div key={course.id} className="rounded-2xl border border-border bg-card shadow-[var(--shadow-sm)] overflow-hidden">
             <div className="p-5">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
@@ -200,7 +200,7 @@ export default function TrainingPage() {
         <div className="space-y-4">
           <h2 className="text-base font-semibold text-muted-foreground">Coming Soon</h2>
           {comingSoonCourses.map((course) => (
-            <div key={course.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm opacity-70">
+            <div key={course.id} className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)] opacity-70">
               <div className="flex items-center gap-2">
                 <h3 className="font-semibold text-foreground">{course.title}</h3>
                 <span className="rounded-full bg-amber-50 dark:bg-amber-950/50 px-2.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400">

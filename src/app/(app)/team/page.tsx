@@ -159,7 +159,7 @@ export default function TeamPage() {
           return (
             <div
               key={user.id}
-              className="rounded-2xl border border-border bg-card p-5 shadow-sm transition-all hover:border-primary/30 hover:shadow-md"
+              className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)] card-lift"
             >
               {/* Top row: avatar + menu */}
               <div className="flex items-start justify-between">
@@ -222,7 +222,7 @@ export default function TeamPage() {
       </div>
 
       {users.length === 0 && (
-        <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-[var(--shadow-sm)]">
           <p className="text-muted-foreground">No team members yet. Add your first user above.</p>
         </div>
       )}
