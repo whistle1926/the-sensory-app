@@ -176,6 +176,12 @@ export default function BookingPage() {
       });
 
       if (res.ok) {
+        const data = await res.json();
+        if (data.paymentUrl) {
+          // Redirect to FireBuddy payment page
+          window.location.href = data.paymentUrl;
+          return;
+        }
         setStep("confirmed");
       } else {
         const err = await res.json();

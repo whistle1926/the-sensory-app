@@ -37,7 +37,7 @@ export const authConfig: NextAuthConfig = {
       const isLoggedIn = !!auth?.user;
       const isLoginPage = nextUrl.pathname === "/login";
       const isApiAuth = nextUrl.pathname.startsWith("/api/auth");
-      const isPublic = nextUrl.pathname.startsWith("/book") || nextUrl.pathname.startsWith("/api/bookings");
+      const isPublic = nextUrl.pathname.startsWith("/book") || nextUrl.pathname.startsWith("/api/bookings") || nextUrl.pathname.startsWith("/api/webhooks");
 
       if (isApiAuth || isPublic) return true;
       if (!isLoggedIn && !isLoginPage) return false;

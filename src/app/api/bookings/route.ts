@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { FireBuddy } from "@/lib/firebuddy";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -46,9 +47,42 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // TODO: Send confirmation email via Mailcub if enabled
-  // TODO: Integrate payment provider (Firebuddy / Stripe / etc.)
+  // Attempt to create FireBuddy payment if enabled
+  const paymentSettings = await prisma.paymentSettings.findUnique({
+    where: { id: "default" },
+  });
 
+  if (paymentSettings?.enabled && paymentSettings.apiKey) {
+    try {
+      const fb = new FireBuddy(paymentSettings.apiKey);
+      const origin = req.nextUrl.origin;
+      const payment = await fb.createPayment({
+        amount: (price || 0) / 100, // price is in pence, FireBuddy expects pounds
+        currency: "GBP",
+        description: `${service} — ${clientName}`,
+        reference: booking.id,
+        email: clientEmail,
+        returnUrl: `${origin}/book/success?booking=${booking.id}`,
+      });
+
+      // Store payment reference on booking
+      await prisma.booking.update({
+        where: { id: booking.id },
+        data: { paymentRef: payment.code },
+      });
+
+      return NextResponse.json({
+        success: true,
+        bookingId: booking.id,
+        paymentUrl: payment.paymentUrl,
+      });
+    } catch (err) {
+      console.error("FireBuddy payment creation failed:", err);
+      // Booking is still created — fall through to non-payment response
+    }
+  }
+
+  // No payment integration or payment creation failed
   return NextResponse.json({ success: true, bookingId: booking.id });
 }
 

@@ -204,6 +204,16 @@ model AiSettings {
   updatedAt DateTime @updatedAt
 }
 
+model PaymentSettings {
+  id             String   @id @default("default")
+  provider       String   @default("firebuddy")
+  apiKey         String?
+  webhookSecret  String?
+  enabled        Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
 model Booking {
   id            String   @id @default(cuid())
   service       String

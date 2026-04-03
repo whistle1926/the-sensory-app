@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, Save, CheckCircle2, AlertCircle, Loader2, Bot } from "lucide-react";
+import { Mail, Save, CheckCircle2, AlertCircle, Loader2, Bot, CreditCard } from "lucide-react";
 
 interface EmailConfig {
   provider: string;
@@ -19,6 +19,13 @@ interface AiConfig {
   provider: string;
   apiKey: string;
   model: string;
+  enabled: boolean;
+}
+
+interface PaymentConfig {
+  provider: string;
+  apiKey: string;
+  webhookSecret: string;
   enabled: boolean;
 }
 
@@ -44,6 +51,12 @@ export default function SettingsPage() {
     model: "claude-sonnet-4-20250514",
     enabled: false,
   });
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>({
+    provider: "firebuddy",
+    apiKey: "",
+    webhookSecret: "",
+    enabled: false,
+  });
 
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle");
@@ -52,6 +65,10 @@ export default function SettingsPage() {
   const [savingAi, setSavingAi] = useState(false);
   const [aiSaveStatus, setAiSaveStatus] = useState<"idle" | "success" | "error">("idle");
   const [aiErrorMessage, setAiErrorMessage] = useState("");
+
+  const [savingPayment, setSavingPayment] = useState(false);
+  const [paymentSaveStatus, setPaymentSaveStatus] = useState<"idle" | "success" | "error">("idle");
+  const [paymentErrorMessage, setPaymentErrorMessage] = useState("");
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -64,6 +81,11 @@ export default function SettingsPage() {
       .then((r) => r.json())
       .then((data) => {
         if (!data.error) setAiConfig(data);
+      });
+    fetch("/api/settings/payment")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.error) setPaymentConfig(data);
       });
   }, [isAdmin]);
 
@@ -125,6 +147,36 @@ export default function SettingsPage() {
     }
 
     setSavingAi(false);
+  }
+
+  async function handleSavePayment() {
+    setSavingPayment(true);
+    setPaymentSaveStatus("idle");
+    setPaymentErrorMessage("");
+
+    try {
+      const res = await fetch("/api/settings/payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(paymentConfig),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setPaymentConfig(data);
+        setPaymentSaveStatus("success");
+        setTimeout(() => setPaymentSaveStatus("idle"), 3000);
+      } else {
+        const err = await res.json();
+        setPaymentErrorMessage(err.error || "Failed to save");
+        setPaymentSaveStatus("error");
+      }
+    } catch {
+      setPaymentErrorMessage("Network error");
+      setPaymentSaveStatus("error");
+    }
+
+    setSavingPayment(false);
   }
 
   return (
@@ -388,6 +440,114 @@ export default function SettingsPage() {
                 <span className="flex items-center gap-1 text-sm text-red-600 dark:text-red-400">
                   <AlertCircle className="h-4 w-4" />
                   {aiErrorMessage}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FireBuddy Payment Integration — Admin Only */}
+      {isAdmin && (
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+              <CreditCard className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold">Payment Integration</h2>
+              <p className="text-sm text-muted-foreground">
+                Accept payments via FireBuddy (open banking)
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 space-y-4">
+            {/* Enable Toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Enable Payments</p>
+                <p className="text-xs text-muted-foreground">
+                  Collect payment when clients book a session
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={paymentConfig.enabled}
+                onClick={() =>
+                  setPaymentConfig({ ...paymentConfig, enabled: !paymentConfig.enabled })
+                }
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                  paymentConfig.enabled ? "bg-primary" : "bg-muted"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                    paymentConfig.enabled ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* API Key */}
+            <div className="space-y-2">
+              <Label htmlFor="paymentApiKey">FireBuddy API Key</Label>
+              <Input
+                id="paymentApiKey"
+                type="password"
+                placeholder="fb_live_..."
+                value={paymentConfig.apiKey}
+                onChange={(e) =>
+                  setPaymentConfig({ ...paymentConfig, apiKey: e.target.value })
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Your API key from the FireBuddy dashboard
+              </p>
+            </div>
+
+            {/* Webhook Secret */}
+            <div className="space-y-2">
+              <Label htmlFor="webhookSecret">Webhook Secret</Label>
+              <Input
+                id="webhookSecret"
+                type="password"
+                placeholder="whsec_..."
+                value={paymentConfig.webhookSecret}
+                onChange={(e) =>
+                  setPaymentConfig({ ...paymentConfig, webhookSecret: e.target.value })
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Used to verify payment notifications. Configure your webhook URL as:{" "}
+                <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+                  https://yourdomain.com/api/webhooks/firebuddy
+                </code>
+              </p>
+            </div>
+
+            {/* Save + Status */}
+            <div className="flex items-center gap-3 pt-2">
+              <Button onClick={handleSavePayment} disabled={savingPayment}>
+                {savingPayment ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                {savingPayment ? "Saving..." : "Save Settings"}
+              </Button>
+
+              {paymentSaveStatus === "success" && (
+                <span className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Saved
+                </span>
+              )}
+              {paymentSaveStatus === "error" && (
+                <span className="flex items-center gap-1 text-sm text-red-600 dark:text-red-400">
+                  <AlertCircle className="h-4 w-4" />
+                  {paymentErrorMessage}
                 </span>
               )}
             </div>
