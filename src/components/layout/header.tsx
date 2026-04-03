@@ -38,14 +38,12 @@ export function Header({ userName, userRole }: HeaderProps) {
         </span>
         <ThemeToggle />
         <DropdownMenu>
-          <DropdownMenuTrigger>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0">
-              <Avatar className="h-9 w-9 border-2 border-primary/20">
-                <AvatarFallback className="bg-foreground text-xs font-semibold text-background">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-            </Button>
+          <DropdownMenuTrigger render={<Button variant="ghost" className="relative h-9 w-9 rounded-full p-0" />}>
+            <Avatar className="h-9 w-9 border-2 border-primary/20">
+              <AvatarFallback className="bg-foreground text-xs font-semibold text-background">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem>

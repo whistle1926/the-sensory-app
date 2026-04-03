@@ -4,7 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import { canAccessClient } from "@/lib/auth-guard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { FileText, Plus } from "lucide-react";
 import Link from "next/link";
 
@@ -43,7 +43,7 @@ export default async function ClientDetailPage({
           </p>
         </div>
         {session.user.role !== "CLIENT" && (
-          <Link href={`/reports/new?clientId=${client.id}`} className={buttonVariants()}>
+          <Link href={`/reports/new?clientId=${client.id}`} className="inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-medium h-8 gap-1.5 px-2.5 hover:bg-primary/80 transition-colors">
               <Plus className="mr-2 h-4 w-4" />
               New Report
           </Link>
