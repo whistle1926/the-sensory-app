@@ -214,15 +214,26 @@ model PaymentSettings {
   updatedAt      DateTime @updatedAt
 }
 
-model AvailabilitySlot {
+model WeeklyHours {
   id        String   @id @default(cuid())
-  dayOfWeek Int      // 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri
-  time      String   // e.g. "09:00", "09:30"
-  enabled   Boolean  @default(true)
+  dayOfWeek Int      // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+  enabled   Boolean  @default(false)
+  intervals Json     // [{"start":"09:00","end":"17:00"}]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([dayOfWeek, time])
+  @@unique([dayOfWeek])
+}
+
+model DateOverride {
+  id        String   @id @default(cuid())
+  date      DateTime @db.Date
+  available Boolean  @default(false)
+  intervals Json?    // null if unavailable, otherwise [{"start":"10:00","end":"14:00"}]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([date])
 }
 
 model Booking {

@@ -143,9 +143,9 @@ export default function BookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
-  // Availability & booked slots
-  const [availSlots, setAvailSlots] = useState<{ dayOfWeek: number; time: string }[]>([]);
-  const [bookedSlots, setBookedSlots] = useState<{ date: string; time: string }[]>([]);
+  // Computed available slots per date { "2026-04-07": ["09:00","09:30",...], ... }
+  const [computedSlots, setComputedSlots] = useState<Record<string, string[]>>({});
+  const [slotsLoaded, setSlotsLoaded] = useState(false);
 
   const service = services.find((s) => s.id === selectedService);
 
@@ -154,52 +154,35 @@ export default function BookingPage() {
     [weekStart]
   );
 
-  // Fetch availability and existing bookings
-  const fetchSlotData = useCallback(async () => {
+  // Fetch computed availability for the visible week
+  const fetchSlots = useCallback(async () => {
+    const from = weekDays[0].toISOString().split("T")[0];
+    const to = weekDays[6].toISOString().split("T")[0];
     try {
-      const [availRes, bookingsRes] = await Promise.all([
-        fetch("/api/availability"),
-        fetch("/api/bookings"),
-      ]);
-      if (availRes.ok) {
-        const data = await availRes.json();
-        setAvailSlots(data);
-      }
-      if (bookingsRes.ok) {
-        const data = await bookingsRes.json();
-        setBookedSlots(data.map((b: { date: string; time: string }) => ({ date: b.date, time: b.time })));
+      const res = await fetch(`/api/availability?from=${from}&to=${to}`);
+      if (res.ok) {
+        const data = await res.json();
+        setComputedSlots((prev) => ({ ...prev, ...data }));
+        setSlotsLoaded(true);
       }
     } catch {
       // silent
     }
-  }, []);
+  }, [weekDays]);
 
   useEffect(() => {
-    fetchSlotData();
-  }, [fetchSlotData]);
+    fetchSlots();
+  }, [fetchSlots]);
 
   // Get available times for a selected date
   function getAvailableTimes(date: Date) {
-    // JS getDay: 0=Sun, 1=Mon... Our DB: 1=Mon, 2=Tue...
-    const jsDay = date.getDay(); // 0-6
-    if (jsDay === 0 || jsDay === 6) return []; // weekend
-    const dayOfWeek = jsDay; // 1=Mon already matches
+    const dateKey = date.toISOString().split("T")[0];
+    const slots = computedSlots[dateKey];
 
-    const dayAvail = availSlots
-      .filter((s) => s.dayOfWeek === dayOfWeek)
-      .map((s) => s.time);
+    // Not yet loaded — return null to show all (backward compat)
+    if (!slotsLoaded) return null;
 
-    // If no availability is configured at all, show all slots (backward compat)
-    if (availSlots.length === 0) return null;
-    if (dayAvail.length === 0) return [];
-
-    // Remove already booked times for this date
-    const dateStr = date.toISOString().split("T")[0];
-    const booked = bookedSlots
-      .filter((b) => b.date.startsWith(dateStr))
-      .map((b) => b.time);
-
-    return dayAvail.filter((t) => !booked.includes(t));
+    return slots || [];
   }
 
   /* ------ Submit booking ------ */
