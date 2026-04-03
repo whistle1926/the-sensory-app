@@ -63,6 +63,7 @@ model Client {
   presentingConcerns String?
   referrer           String?
   parentCarerName    String?
+  parentCarerEmail   String?
   business           Business @default(SENSORY_SUBMARINE)
   active             Boolean  @default(true)
   createdAt          DateTime @default(now())
@@ -180,4 +181,15 @@ model ModuleProgress {
   updatedAt    DateTime             @updatedAt
 
   @@unique([enrollmentId, moduleId])
+}
+
+model EmailSettings {
+  id           String   @id @default("default")
+  provider     String   @default("mailcub")
+  apiKey       String?
+  senderEmail  String?
+  senderName   String   @default("The Sensory Submarine")
+  enabled      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }

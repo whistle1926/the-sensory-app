@@ -31,6 +31,7 @@ export default function NewClientPage() {
         presentingConcerns: form.get("presentingConcerns") || undefined,
         referrer: form.get("referrer") || undefined,
         parentCarerName: form.get("parentCarerName") || undefined,
+        parentCarerEmail: form.get("parentCarerEmail") || undefined,
       }),
     });
 
@@ -98,6 +99,11 @@ export default function NewClientPage() {
             <div className="space-y-2">
               <Label htmlFor="parentCarerName">Parent/Carer Name</Label>
               <Input id="parentCarerName" name="parentCarerName" placeholder="e.g. Claire O'Connor (mother)" />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="parentCarerEmail">Parent/Carer Email</Label>
+              <Input id="parentCarerEmail" name="parentCarerEmail" type="email" placeholder="e.g. claire@example.com" />
             </div>
 
             <div className="flex gap-3 pt-4">

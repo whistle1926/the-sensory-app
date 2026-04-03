@@ -76,6 +76,14 @@ export default async function ClientDetailPage({
                 <span className="font-medium">Parent/Carer:</span> {client.parentCarerName}
               </div>
             )}
+            {client.parentCarerEmail && (
+              <div>
+                <span className="font-medium">Email:</span>{" "}
+                <a href={`mailto:${client.parentCarerEmail}`} className="text-primary hover:underline">
+                  {client.parentCarerEmail}
+                </a>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

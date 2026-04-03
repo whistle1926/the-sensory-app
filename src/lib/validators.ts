@@ -13,6 +13,7 @@ export const clientSchema = z.object({
   presentingConcerns: z.string().optional(),
   referrer: z.string().optional(),
   parentCarerName: z.string().optional(),
+  parentCarerEmail: z.string().email().optional().or(z.literal("")),
   business: z.enum(["SENSORY_SUBMARINE", "LITTLE_SENSORY_EXPLORERS", "SENSORY_EATERS"]).default("SENSORY_SUBMARINE"),
 });
 
