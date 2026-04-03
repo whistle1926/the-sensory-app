@@ -214,6 +214,17 @@ model PaymentSettings {
   updatedAt      DateTime @updatedAt
 }
 
+model AvailabilitySlot {
+  id        String   @id @default(cuid())
+  dayOfWeek Int      // 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri
+  time      String   // e.g. "09:00", "09:30"
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dayOfWeek, time])
+}
+
 model Booking {
   id            String   @id @default(cuid())
   service       String

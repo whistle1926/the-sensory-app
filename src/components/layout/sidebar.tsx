@@ -11,7 +11,7 @@ import {
   Settings,
   BookOpen,
   Home,
-  Video,
+  CalendarDays,
   GraduationCap,
 } from "lucide-react";
 
@@ -25,7 +25,7 @@ const navItems = [
   { href: "/reports", label: "Reports", icon: FileText, roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
   { href: "/activities", label: "Activities", icon: BookOpen, roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
   { href: "/programmes", label: "Programmes", icon: Home, roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
-  { href: "/consultations", label: "Consultations", icon: Video, roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
+  { href: "/bookings", label: "Bookings", icon: CalendarDays, roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
   { href: "/training", label: "Training", icon: GraduationCap, roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
   { href: "/team", label: "Team", icon: UserPlus, roles: ["SUPER_ADMIN"] },
   { href: "/settings", label: "Settings", icon: Settings, roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },

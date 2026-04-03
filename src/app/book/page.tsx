@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -143,12 +143,64 @@ export default function BookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
+  // Availability & booked slots
+  const [availSlots, setAvailSlots] = useState<{ dayOfWeek: number; time: string }[]>([]);
+  const [bookedSlots, setBookedSlots] = useState<{ date: string; time: string }[]>([]);
+
   const service = services.find((s) => s.id === selectedService);
 
   const weekDays = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
     [weekStart]
   );
+
+  // Fetch availability and existing bookings
+  const fetchSlotData = useCallback(async () => {
+    try {
+      const [availRes, bookingsRes] = await Promise.all([
+        fetch("/api/availability"),
+        fetch("/api/bookings"),
+      ]);
+      if (availRes.ok) {
+        const data = await availRes.json();
+        setAvailSlots(data);
+      }
+      if (bookingsRes.ok) {
+        const data = await bookingsRes.json();
+        setBookedSlots(data.map((b: { date: string; time: string }) => ({ date: b.date, time: b.time })));
+      }
+    } catch {
+      // silent
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSlotData();
+  }, [fetchSlotData]);
+
+  // Get available times for a selected date
+  function getAvailableTimes(date: Date) {
+    // JS getDay: 0=Sun, 1=Mon... Our DB: 1=Mon, 2=Tue...
+    const jsDay = date.getDay(); // 0-6
+    if (jsDay === 0 || jsDay === 6) return []; // weekend
+    const dayOfWeek = jsDay; // 1=Mon already matches
+
+    const dayAvail = availSlots
+      .filter((s) => s.dayOfWeek === dayOfWeek)
+      .map((s) => s.time);
+
+    // If no availability is configured at all, show all slots (backward compat)
+    if (availSlots.length === 0) return null;
+    if (dayAvail.length === 0) return [];
+
+    // Remove already booked times for this date
+    const dateStr = date.toISOString().split("T")[0];
+    const booked = bookedSlots
+      .filter((b) => b.date.startsWith(dateStr))
+      .map((b) => b.time);
+
+    return dayAvail.filter((t) => !booked.includes(t));
+  }
 
   /* ------ Submit booking ------ */
   async function handleSubmit(e: React.FormEvent) {
@@ -402,39 +454,50 @@ export default function BookingPage() {
                   <p className="py-8 text-center text-sm text-muted-foreground">
                     Select a day above to see available times
                   </p>
-                ) : (
-                  <div>
-                    <p className="mb-3 text-sm font-medium text-muted-foreground">
-                      {DAY_FULL[selectedDate.getDay()]}{" "}
-                      {selectedDate.getDate()}{" "}
-                      {selectedDate.toLocaleDateString("en-GB", {
-                        month: "long",
-                      })}
-                    </p>
-                    <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6">
-                      {HOURS.map((h) => {
-                        const t = `${String(h).padStart(2, "0")}:00`;
-                        const tHalf = `${String(h).padStart(2, "0")}:30`;
-                        return [t, tHalf].map((time) => {
-                          const isChosen = selectedTime === time;
-                          return (
-                            <button
-                              key={time}
-                              onClick={() => setSelectedTime(time)}
-                              className={`rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                                isChosen
-                                  ? "bg-primary text-white shadow-[var(--shadow-glow)]"
-                                  : "bg-muted/50 text-foreground hover:bg-muted"
-                              }`}
-                            >
-                              {time}
-                            </button>
-                          );
-                        });
-                      }).flat()}
+                ) : (() => {
+                  const times = getAvailableTimes(selectedDate);
+                  // times === null means no availability configured, show all slots
+                  const showAll = times === null;
+                  const allTimes = showAll
+                    ? HOURS.map((h) => [`${String(h).padStart(2, "0")}:00`, `${String(h).padStart(2, "0")}:30`]).flat()
+                    : times;
+
+                  return (
+                    <div>
+                      <p className="mb-3 text-sm font-medium text-muted-foreground">
+                        {DAY_FULL[selectedDate.getDay()]}{" "}
+                        {selectedDate.getDate()}{" "}
+                        {selectedDate.toLocaleDateString("en-GB", {
+                          month: "long",
+                        })}
+                      </p>
+                      {allTimes.length === 0 ? (
+                        <p className="py-6 text-center text-sm text-muted-foreground">
+                          No available times on this day
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6">
+                          {allTimes.map((time) => {
+                            const isChosen = selectedTime === time;
+                            return (
+                              <button
+                                key={time}
+                                onClick={() => setSelectedTime(time)}
+                                className={`rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                                  isChosen
+                                    ? "bg-primary text-white shadow-[var(--shadow-glow)]"
+                                    : "bg-muted/50 text-foreground hover:bg-muted"
+                                }`}
+                              >
+                                {time}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             </div>
 
