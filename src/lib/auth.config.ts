@@ -37,8 +37,9 @@ export const authConfig: NextAuthConfig = {
       const isLoggedIn = !!auth?.user;
       const isLoginPage = nextUrl.pathname === "/login";
       const isApiAuth = nextUrl.pathname.startsWith("/api/auth");
+      const isPublic = nextUrl.pathname.startsWith("/book") || nextUrl.pathname.startsWith("/api/bookings");
 
-      if (isApiAuth) return true;
+      if (isApiAuth || isPublic) return true;
       if (!isLoggedIn && !isLoginPage) return false;
       if (isLoggedIn && isLoginPage) {
         return Response.redirect(new URL("/dashboard", nextUrl));

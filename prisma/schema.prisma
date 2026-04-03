@@ -203,3 +203,21 @@ model AiSettings {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model Booking {
+  id            String   @id @default(cuid())
+  service       String
+  date          DateTime
+  time          String
+  duration      String
+  price         Int
+  clientName    String
+  clientEmail   String
+  clientPhone   String?
+  notes         String?
+  status        String   @default("pending")
+  paymentStatus String   @default("unpaid")
+  paymentRef    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
