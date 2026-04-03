@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ReportViewer } from "@/components/reports/report-viewer";
 import { ReportActions } from "@/components/reports/report-actions";
-import { EmailComposeModal } from "@/components/reports/email-compose-modal";
 import { ReportContent } from "@/types/report";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,9 +20,6 @@ interface ReportData {
     parentCarerEmail?: string;
   };
   reportDate: string;
-  session: {
-    sessionNumber: number;
-  };
 }
 
 export default function ReportDetailPage() {
@@ -31,7 +27,6 @@ export default function ReportDetailPage() {
   const { data: session } = useSession();
   const [report, setReport] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [emailOpen, setEmailOpen] = useState(false);
 
   const isAdmin = session?.user?.role === "SUPER_ADMIN" || session?.user?.role === "TEAM_MANAGER";
 
@@ -57,9 +52,6 @@ export default function ReportDetailPage() {
     return <p>Report not found.</p>;
   }
 
-  const clientName = `${report.client.firstName} ${report.client.lastName}`;
-  const sessionDate = new Date(report.reportDate).toLocaleDateString("en-GB");
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between print:hidden">
@@ -69,7 +61,7 @@ export default function ReportDetailPage() {
           </Link>
           <span className="text-border">/</span>
           <h1 className="text-lg font-semibold">
-            {clientName}
+            {report.client.firstName} {report.client.lastName}
           </h1>
           <Badge variant={report.status === "final" ? "default" : "secondary"}>
             {report.status}
@@ -79,22 +71,11 @@ export default function ReportDetailPage() {
           reportId={report.id}
           status={report.status}
           onStatusChange={(s) => setReport({ ...report, status: s })}
-          onEmailClick={isAdmin ? () => setEmailOpen(true) : undefined}
+          showEmail={isAdmin}
         />
       </div>
 
       <ReportViewer content={report.content} />
-
-      {isAdmin && (
-        <EmailComposeModal
-          open={emailOpen}
-          onOpenChange={setEmailOpen}
-          reportId={report.id}
-          clientName={clientName}
-          clientEmail={report.client.parentCarerEmail}
-          sessionDate={sessionDate}
-        />
-      )}
     </div>
   );
 }

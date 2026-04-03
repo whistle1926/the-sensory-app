@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const { reportId, to, subject, message } = body;
+  const { reportId, to, subject, message, isHtml } = body;
 
   if (!reportId || !to || !subject)
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -46,13 +46,14 @@ export async function POST(req: NextRequest) {
     year: "numeric",
   });
 
-  // Build HTML email
+  // Build HTML email — use rich HTML from editor or plain text
   const htmlBody = buildEmailHtml({
     senderName: settings.senderName,
     clientName,
     sessionDate,
     message: message || "",
     sessionNumber: report.session.sessionNumber,
+    isHtml: !!isHtml,
   });
 
   // Send via Mailcub API
@@ -94,14 +95,19 @@ interface EmailParams {
   sessionDate: string;
   message: string;
   sessionNumber: number;
+  isHtml: boolean;
 }
 
 function buildEmailHtml(params: EmailParams): string {
-  const { senderName, clientName, sessionDate, message, sessionNumber } = params;
+  const { senderName, clientName, sessionDate, message, sessionNumber, isHtml } = params;
 
-  const messageHtml = message
-    ? `<p style="margin:0 0 20px 0;line-height:1.6;color:#333;">${escapeHtml(message).replace(/\n/g, "<br/>")}</p>`
-    : "";
+  // If the message came from the rich text editor, use it directly
+  // Otherwise escape and convert newlines
+  const messageBlock = isHtml
+    ? `<div style="margin:0 0 20px 0;line-height:1.6;color:#333;">${message}</div>`
+    : message
+      ? `<p style="margin:0 0 20px 0;line-height:1.6;color:#333;">${escapeHtml(message).replace(/\n/g, "<br/>")}</p>`
+      : "";
 
   return `<!DOCTYPE html>
 <html>
@@ -113,10 +119,7 @@ function buildEmailHtml(params: EmailParams): string {
       <p style="margin:4px 0 0;font-size:13px;opacity:0.7;">Occupational Therapy Report</p>
     </div>
     <div style="background:#fff;padding:32px;border-radius:0 0 12px 12px;">
-      <p style="margin:0 0 16px 0;font-size:15px;color:#333;">
-        Dear Parent/Carer,
-      </p>
-      ${messageHtml}
+      ${messageBlock}
       <div style="background:#f0f4ff;border-radius:8px;padding:16px 20px;margin:0 0 20px 0;">
         <p style="margin:0;font-size:14px;color:#555;">
           <strong>Client:</strong> ${escapeHtml(clientName)}<br/>
@@ -124,7 +127,7 @@ function buildEmailHtml(params: EmailParams): string {
         </p>
       </div>
       <p style="margin:0 0 8px 0;font-size:14px;color:#555;line-height:1.5;">
-        Please find the OT session report details above. If you have any questions or would like to discuss the session further, please don&rsquo;t hesitate to get in touch.
+        If you have any questions about this session or the recommendations, please don&rsquo;t hesitate to get in touch.
       </p>
       <hr style="border:none;border-top:1px solid #eee;margin:24px 0;"/>
       <p style="margin:0;font-size:12px;color:#999;text-align:center;">
@@ -149,8 +152,8 @@ function stripHtml(html: string): string {
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<[^>]+>/g, "")
     .replace(/&nbsp;/g, " ")
-    .replace(/&middot;/g, "·")
-    .replace(/&rsquo;/g, "'")
+    .replace(/&middot;/g, "\u00b7")
+    .replace(/&rsquo;/g, "\u2019")
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")

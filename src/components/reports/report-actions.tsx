@@ -3,15 +3,16 @@
 import { Button } from "@/components/ui/button";
 import { Download, Printer, Check, Mail } from "lucide-react";
 import { useState } from "react";
+import Link from "next/link";
 
 interface ReportActionsProps {
   reportId: string;
   status: string;
   onStatusChange?: (newStatus: string) => void;
-  onEmailClick?: () => void;
+  showEmail?: boolean;
 }
 
-export function ReportActions({ reportId, status, onStatusChange, onEmailClick }: ReportActionsProps) {
+export function ReportActions({ reportId, status, onStatusChange, showEmail }: ReportActionsProps) {
   const [finalising, setFinalising] = useState(false);
 
   async function handleDownload(format: "docx" | "pdf") {
@@ -40,11 +41,13 @@ export function ReportActions({ reportId, status, onStatusChange, onEmailClick }
 
   return (
     <div className="flex flex-wrap gap-2">
-      {onEmailClick && (
-        <Button variant="outline" size="sm" onClick={onEmailClick}>
-          <Mail className="mr-2 h-4 w-4" />
-          Email
-        </Button>
+      {showEmail && (
+        <Link href={`/reports/${reportId}/email`}>
+          <Button variant="outline" size="sm">
+            <Mail className="mr-2 h-4 w-4" />
+            Email
+          </Button>
+        </Link>
       )}
       <Button variant="outline" size="sm" onClick={() => handleDownload("docx")}>
         <Download className="mr-2 h-4 w-4" />
