@@ -193,3 +193,13 @@ model EmailSettings {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
+
+model AiSettings {
+  id        String   @id @default("default")
+  provider  String   @default("anthropic")
+  apiKey    String?
+  model     String   @default("claude-sonnet-4-20250514")
+  enabled   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

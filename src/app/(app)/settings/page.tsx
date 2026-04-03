@@ -5,13 +5,20 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, Save, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { Mail, Save, CheckCircle2, AlertCircle, Loader2, Bot } from "lucide-react";
 
 interface EmailConfig {
   provider: string;
   apiKey: string;
   senderEmail: string;
   senderName: string;
+  enabled: boolean;
+}
+
+interface AiConfig {
+  provider: string;
+  apiKey: string;
+  model: string;
   enabled: boolean;
 }
 
@@ -31,9 +38,20 @@ export default function SettingsPage() {
     senderName: "The Sensory Submarine",
     enabled: false,
   });
+  const [aiConfig, setAiConfig] = useState<AiConfig>({
+    provider: "anthropic",
+    apiKey: "",
+    model: "claude-sonnet-4-20250514",
+    enabled: false,
+  });
+
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
+
+  const [savingAi, setSavingAi] = useState(false);
+  const [aiSaveStatus, setAiSaveStatus] = useState<"idle" | "success" | "error">("idle");
+  const [aiErrorMessage, setAiErrorMessage] = useState("");
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -41,6 +59,11 @@ export default function SettingsPage() {
       .then((r) => r.json())
       .then((data) => {
         if (!data.error) setEmailConfig(data);
+      });
+    fetch("/api/settings/ai")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.error) setAiConfig(data);
       });
   }, [isAdmin]);
 
@@ -72,6 +95,36 @@ export default function SettingsPage() {
     }
 
     setSaving(false);
+  }
+
+  async function handleSaveAi() {
+    setSavingAi(true);
+    setAiSaveStatus("idle");
+    setAiErrorMessage("");
+
+    try {
+      const res = await fetch("/api/settings/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(aiConfig),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setAiConfig(data);
+        setAiSaveStatus("success");
+        setTimeout(() => setAiSaveStatus("idle"), 3000);
+      } else {
+        const err = await res.json();
+        setAiErrorMessage(err.error || "Failed to save");
+        setAiSaveStatus("error");
+      }
+    } catch {
+      setAiErrorMessage("Network error");
+      setAiSaveStatus("error");
+    }
+
+    setSavingAi(false);
   }
 
   return (
@@ -219,6 +272,122 @@ export default function SettingsPage() {
                 <span className="flex items-center gap-1 text-sm text-red-600 dark:text-red-400">
                   <AlertCircle className="h-4 w-4" />
                   {errorMessage}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Claude AI Integration — Admin Only */}
+      {isAdmin && (
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+              <Bot className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold">Claude AI</h2>
+              <p className="text-sm text-muted-foreground">
+                Power report generation and content creation with Claude
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 space-y-4">
+            {/* Enable Toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Enable AI Features</p>
+                <p className="text-xs text-muted-foreground">
+                  Use Claude to assist with OT reports, home programmes, and content
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={aiConfig.enabled}
+                onClick={() =>
+                  setAiConfig({ ...aiConfig, enabled: !aiConfig.enabled })
+                }
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                  aiConfig.enabled ? "bg-primary" : "bg-muted"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                    aiConfig.enabled ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* API Key */}
+            <div className="space-y-2">
+              <Label htmlFor="aiApiKey">Claude API Key</Label>
+              <Input
+                id="aiApiKey"
+                type="password"
+                placeholder="sk-ant-..."
+                value={aiConfig.apiKey}
+                onChange={(e) =>
+                  setAiConfig({ ...aiConfig, apiKey: e.target.value })
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Get your API key from the{" "}
+                <a
+                  href="https://console.anthropic.com/settings/keys"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline"
+                >
+                  Anthropic Console
+                </a>
+              </p>
+            </div>
+
+            {/* Model Selector */}
+            <div className="space-y-2">
+              <Label htmlFor="aiModel">Model</Label>
+              <select
+                id="aiModel"
+                value={aiConfig.model}
+                onChange={(e) =>
+                  setAiConfig({ ...aiConfig, model: e.target.value })
+                }
+                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="claude-sonnet-4-20250514">Claude Sonnet 4 — Fast, great for reports</option>
+                <option value="claude-opus-4-20250514">Claude Opus 4 — Most capable</option>
+                <option value="claude-haiku-4-20250506">Claude Haiku 4 — Fastest, lower cost</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Sonnet is recommended for most tasks — good balance of speed and quality
+              </p>
+            </div>
+
+            {/* Save + Status */}
+            <div className="flex items-center gap-3 pt-2">
+              <Button onClick={handleSaveAi} disabled={savingAi}>
+                {savingAi ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                {savingAi ? "Saving..." : "Save Settings"}
+              </Button>
+
+              {aiSaveStatus === "success" && (
+                <span className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Saved
+                </span>
+              )}
+              {aiSaveStatus === "error" && (
+                <span className="flex items-center gap-1 text-sm text-red-600 dark:text-red-400">
+                  <AlertCircle className="h-4 w-4" />
+                  {aiErrorMessage}
                 </span>
               )}
             </div>
