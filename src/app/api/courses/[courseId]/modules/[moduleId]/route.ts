@@ -45,6 +45,7 @@ export async function GET(
     order: mod.order,
     content: mod.content,
     questions: strippedQuestions,
+    videoUrl: mod.videoUrl ?? null,
     status: progress.status,
     score: progress.score,
     attempts: progress.attempts,

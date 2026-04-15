@@ -65,6 +65,12 @@ export default async function PortalLayout({ children }: { children: React.React
               My Bookings
             </Link>
             <Link
+              href="/portal/training"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-foreground"
+            >
+              Training
+            </Link>
+            <Link
               href="/book"
               className="rounded-lg px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-foreground"
             >

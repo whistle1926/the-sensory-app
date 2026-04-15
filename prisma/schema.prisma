@@ -53,6 +53,8 @@ model User {
   sessions        TherapySession[] @relation("TherapistSessions")
   enrollments     Enrollment[]   @relation("UserEnrollments")
   setupTokens     PasswordSetupToken[]
+  coursePurchases CoursePurchase[]
+  learnerNotes    LearnerNote[]
 }
 
 model PasswordSetupToken {
@@ -153,11 +155,13 @@ model Course {
   description String
   status      CourseStatus @default(AVAILABLE)
   order       Int          @default(0)
+  price       Int          @default(0) // pounds; 0 = free
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
   modules     Module[]
   enrollments Enrollment[]
+  purchases   CoursePurchase[]
 }
 
 model Module {
@@ -168,10 +172,12 @@ model Module {
   order     Int
   content   Json
   questions Json
+  videoUrl  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   progress  ModuleProgress[]
+  notes     LearnerNote[]
 }
 
 model Enrollment {
@@ -203,6 +209,33 @@ model ModuleProgress {
   updatedAt    DateTime             @updatedAt
 
   @@unique([enrollmentId, moduleId])
+}
+
+model CoursePurchase {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId      String
+  course        Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  amount        Int // snapshot of Course.price at purchase time (pounds)
+  paymentStatus String    @default("pending") // "pending" | "paid" | "failed"
+  paymentRef    String?   @unique // FireBuddy transaction id
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+
+  @@index([userId, courseId])
+}
+
+model LearnerNote {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  moduleId  String
+  module    Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  body      String
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, moduleId])
 }
 
 model EmailSettings {
