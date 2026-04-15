@@ -4,7 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import { canAccessClient } from "@/lib/auth-guard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Plus, CheckCircle2, AlertCircle } from "lucide-react";
+import { FileText, Plus, CheckCircle2, AlertCircle, GraduationCap } from "lucide-react";
 import Link from "next/link";
 import { ClientProfileEditor } from "@/components/clients/client-profile-editor";
 import { ViewAsButton } from "@/components/impersonate/view-as-button";
@@ -32,6 +32,13 @@ export default async function ClientDetailPage({
             where: { usedAt: null, expiresAt: { gt: new Date() } },
             orderBy: { createdAt: "desc" },
             take: 1,
+          },
+          enrollments: {
+            include: {
+              course: { select: { id: true, title: true } },
+              moduleProgress: { select: { status: true } },
+            },
+            orderBy: { enrolledAt: "desc" },
           },
         },
       },
@@ -111,7 +118,7 @@ export default async function ClientDetailPage({
         {adminCanEdit && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Parent Account</CardTitle>
+              <CardTitle className="text-base">Parent account</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
               {parent ? (
@@ -170,6 +177,71 @@ export default async function ClientDetailPage({
           </Card>
         )}
       </div>
+
+      {adminCanEdit && parent && parent.enrollments.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <GraduationCap className="h-4 w-4 text-primary" />
+              Training
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {parent.enrollments.map((enrol) => {
+              const total = enrol.moduleProgress.length;
+              const done = enrol.moduleProgress.filter(
+                (p) => p.status === "COMPLETED"
+              ).length;
+              const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+              const isComplete = enrol.status === "COMPLETED";
+              const enrolledOn = new Date(enrol.enrolledAt).toLocaleDateString("en-GB");
+              return (
+                <div
+                  key={enrol.id}
+                  className="rounded-xl border border-border p-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold">
+                        {enrol.course.title}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Enrolled {enrolledOn}
+                        {" · "}
+                        {done} of {total} modules complete
+                      </p>
+                    </div>
+                    <Badge variant={isComplete ? "default" : "secondary"}>
+                      {isComplete ? "Completed" : "In progress"}
+                    </Badge>
+                  </div>
+                  <div className="mt-3 flex items-center gap-3">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all duration-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <span className="text-[11px] font-medium text-muted-foreground">
+                      {pct}%
+                    </span>
+                  </div>
+                  {isSuperAdmin && (
+                    <div className="mt-3">
+                      <ViewAsButton
+                        targetUserId={parent.id}
+                        targetLabel={parent.name.split(" ")[0] || "parent"}
+                        returnPath={`/portal/training/${enrol.course.id}`}
+                        label="Open this course as parent"
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

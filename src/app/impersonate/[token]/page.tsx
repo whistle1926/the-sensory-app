@@ -2,7 +2,19 @@
 
 import { useEffect, useState, use } from "react";
 import { signIn } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { Loader2, AlertCircle } from "lucide-react";
+
+/**
+ * Whitelist check — only allow in-app paths as returnPath so the token link
+ * can't be weaponised into an open redirect.
+ */
+function safeReturnPath(value: string | null): string | null {
+  if (!value) return null;
+  if (!value.startsWith("/")) return null;
+  if (value.startsWith("//")) return null;
+  return value;
+}
 
 export default function ImpersonateConsumePage({
   params,
@@ -10,6 +22,7 @@ export default function ImpersonateConsumePage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = use(params);
+  const searchParams = useSearchParams();
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -27,6 +40,11 @@ export default function ImpersonateConsumePage({
       const sessionRes = await fetch("/api/auth/session");
       const session = await sessionRes.json();
       const role = session?.user?.role;
+      const returnPath = safeReturnPath(searchParams.get("returnPath"));
+      if (returnPath) {
+        window.location.href = returnPath;
+        return;
+      }
       if (role === "CLIENT") {
         window.location.href = "/portal";
       } else {
@@ -34,7 +52,7 @@ export default function ImpersonateConsumePage({
       }
     }
     run();
-  }, [token]);
+  }, [token, searchParams]);
 
   if (error) {
     return (

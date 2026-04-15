@@ -8,9 +8,19 @@ interface Props {
   targetUserId: string;
   targetLabel?: string;
   className?: string;
+  /** Where to land the admin after the switch. Defaults to /portal. */
+  returnPath?: string;
+  /** Custom button label; overrides the default "View as …" text. */
+  label?: string;
 }
 
-export function ViewAsButton({ targetUserId, targetLabel, className }: Props) {
+export function ViewAsButton({
+  targetUserId,
+  targetLabel,
+  className,
+  returnPath,
+  label,
+}: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -36,8 +46,9 @@ export function ViewAsButton({ targetUserId, targetLabel, className }: Props) {
         setLoading(false);
         return;
       }
-      // Landing the admin on the portal where the banner will show
-      window.location.href = "/portal";
+      // Landing the admin on the portal where the banner will show.
+      // A caller may deep-link into a specific portal page (e.g. a course).
+      window.location.href = returnPath || "/portal";
     } catch {
       setError("Network error");
       setLoading(false);
@@ -63,7 +74,7 @@ export function ViewAsButton({ targetUserId, targetLabel, className }: Props) {
         ) : (
           <>
             <Eye className="h-3.5 w-3.5" />
-            View as {targetLabel || "parent"}
+            {label || `View as ${targetLabel || "parent"}`}
           </>
         )}
       </button>
