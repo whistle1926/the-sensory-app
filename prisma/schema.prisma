@@ -65,6 +65,17 @@ model PasswordSetupToken {
   createdAt DateTime  @default(now())
 }
 
+model ImpersonationToken {
+  id             String    @id @default(cuid())
+  token          String    @unique
+  adminUserId    String    // the SUPER_ADMIN who issued the token
+  targetUserId   String    // the user to sign in as
+  originalAdminId String?  // if set, this token exits impersonation back to this admin
+  expiresAt      DateTime
+  usedAt         DateTime?
+  createdAt      DateTime  @default(now())
+}
+
 model Client {
   id                 String   @id @default(cuid())
   firstName          String

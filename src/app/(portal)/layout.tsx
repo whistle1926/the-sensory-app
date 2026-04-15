@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
+import { ImpersonationBanner } from "@/components/impersonate/impersonation-banner";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   let session;
@@ -34,8 +35,11 @@ export default async function PortalLayout({ children }: { children: React.React
     .join("")
     .toUpperCase();
 
+  const isImpersonating = !!session.user.impersonatedBy;
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
+      {isImpersonating && <ImpersonationBanner targetName={name} />}
       <header className="border-b border-border/50 glass sticky top-0 z-20">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4 sm:px-6">
           <Link href="/portal" className="flex items-center gap-3">

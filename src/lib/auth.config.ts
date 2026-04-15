@@ -9,6 +9,7 @@ const PUBLIC_PREFIXES = [
   "/api/availability",
   "/set-password",
   "/api/auth/set-password",
+  "/impersonate",
 ];
 
 // Admin-only app routes (prefix match). CLIENT users get bounced to /portal.
@@ -48,12 +49,15 @@ export const authConfig: NextAuthConfig = {
       if (user) {
         token.id = user.id!;
         token.role = (user as { role: string }).role;
+        const impersonatedBy = (user as { impersonatedBy?: string | null }).impersonatedBy;
+        token.impersonatedBy = impersonatedBy ?? null;
       }
       return token;
     },
     async session({ session, token }) {
       session.user.id = token.id as string;
       session.user.role = token.role as "SUPER_ADMIN" | "TEAM_MANAGER" | "CLIENT";
+      session.user.impersonatedBy = (token.impersonatedBy as string | null | undefined) ?? null;
       return session;
     },
     authorized({ auth, request: { nextUrl } }) {

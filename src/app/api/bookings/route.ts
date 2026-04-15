@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
-import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { FireBuddy } from "@/lib/firebuddy";
-import { sendMail, buildPasswordSetupEmail } from "@/lib/mailer";
+import { ensureParentAccount } from "@/lib/parent-account";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -55,45 +53,12 @@ export async function POST(req: NextRequest) {
   // Auto-create CLIENT user account (+ password setup token + email)
   let accountCreated = false;
   try {
-    const existingUser = await prisma.user.findUnique({
-      where: { email: normalisedEmail },
+    const result = await ensureParentAccount({
+      email: normalisedEmail,
+      name: clientName,
+      origin: req.nextUrl.origin,
     });
-
-    if (!existingUser) {
-      // Random unguessable password — user sets their real one via email link
-      const randomHash = await bcrypt.hash(crypto.randomUUID() + crypto.randomUUID(), 10);
-      const newUser = await prisma.user.create({
-        data: {
-          email: normalisedEmail,
-          name: clientName,
-          passwordHash: randomHash,
-          role: "CLIENT",
-        },
-      });
-
-      const token = crypto.randomBytes(32).toString("hex");
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
-
-      await prisma.passwordSetupToken.create({
-        data: {
-          userId: newUser.id,
-          token,
-          expiresAt,
-        },
-      });
-
-      accountCreated = true;
-
-      // Best-effort: send the setup email
-      const origin = req.nextUrl.origin;
-      const setupUrl = `${origin}/set-password?token=${token}`;
-      await sendMail({
-        to: normalisedEmail,
-        subject: "Set your password · The Sensory Submarine",
-        html: buildPasswordSetupEmail({ clientName, setupUrl }),
-      });
-    }
+    accountCreated = result.created;
   } catch (err) {
     // Don't block the booking on user-creation failure
     console.error("Auto-create account failed:", err);

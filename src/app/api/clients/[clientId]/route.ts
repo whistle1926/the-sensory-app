@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccessClient } from "@/lib/auth-guard";
 import { clientSchema } from "@/lib/validators";
+import { ensureParentAccount } from "@/lib/parent-account";
 
 export async function GET(
   _req: NextRequest,
@@ -43,10 +44,32 @@ export async function PATCH(
     updateData.dateOfBirth = new Date(parsed.data.dateOfBirth);
   }
 
+  // If parent email changed, relink the parent User account
+  let parentAccountCreated = false;
+  if (typeof parsed.data.parentCarerEmail === "string") {
+    const parentEmail = parsed.data.parentCarerEmail.trim();
+    if (parentEmail) {
+      try {
+        const result = await ensureParentAccount({
+          email: parentEmail,
+          name: parsed.data.parentCarerName || parentEmail,
+          origin: req.nextUrl.origin,
+        });
+        updateData.parentId = result.userId;
+        parentAccountCreated = result.created;
+      } catch (err) {
+        console.error("Parent account linking failed:", err);
+      }
+    } else {
+      // Empty email = unlink
+      updateData.parentId = null;
+    }
+  }
+
   const client = await prisma.client.update({
     where: { id: clientId },
     data: updateData,
   });
 
-  return NextResponse.json(client);
+  return NextResponse.json({ ...client, parentAccountCreated });
 }

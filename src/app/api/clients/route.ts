@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { clientSchema } from "@/lib/validators";
+import { ensureParentAccount } from "@/lib/parent-account";
 
 export async function GET() {
   const session = await auth();
@@ -33,13 +34,33 @@ export async function POST(req: NextRequest) {
   const parsed = clientSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
+  // If a parent email is supplied, auto-link or create the parent User account
+  let parentId: string | undefined;
+  let parentAccountCreated = false;
+  const parentEmail = parsed.data.parentCarerEmail?.trim();
+  if (parentEmail) {
+    try {
+      const result = await ensureParentAccount({
+        email: parentEmail,
+        name: parsed.data.parentCarerName || parentEmail,
+        origin: req.nextUrl.origin,
+      });
+      parentId = result.userId;
+      parentAccountCreated = result.created;
+    } catch (err) {
+      console.error("Parent account linking failed:", err);
+      // Continue without linking
+    }
+  }
+
   const client = await prisma.client.create({
     data: {
       ...parsed.data,
       dateOfBirth: new Date(parsed.data.dateOfBirth),
       managerId: session.user.role === "TEAM_MANAGER" ? session.user.id : undefined,
+      parentId,
     },
   });
 
-  return NextResponse.json(client, { status: 201 });
+  return NextResponse.json({ ...client, parentAccountCreated }, { status: 201 });
 }
