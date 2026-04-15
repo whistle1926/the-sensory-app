@@ -52,6 +52,17 @@ model User {
   reports         Report[]       @relation("AuthoredReports")
   sessions        TherapySession[] @relation("TherapistSessions")
   enrollments     Enrollment[]   @relation("UserEnrollments")
+  setupTokens     PasswordSetupToken[]
+}
+
+model PasswordSetupToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 }
 
 model Client {

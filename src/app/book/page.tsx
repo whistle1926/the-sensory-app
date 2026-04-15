@@ -142,6 +142,7 @@ export default function BookingPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [accountCreated, setAccountCreated] = useState(false);
 
   // Computed available slots per date { "2026-04-07": ["09:00","09:30",...], ... }
   const [computedSlots, setComputedSlots] = useState<Record<string, string[]>>({});
@@ -212,6 +213,7 @@ export default function BookingPage() {
 
       if (res.ok) {
         const data = await res.json();
+        if (data.accountCreated) setAccountCreated(true);
         if (data.paymentUrl) {
           // Redirect to FireBuddy payment page
           window.location.href = data.paymentUrl;
@@ -658,6 +660,15 @@ export default function BookingPage() {
                     <span className="font-medium">{selectedTime}</span>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {accountCreated && (
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-left text-sm">
+                <p className="font-medium text-foreground">Your account is ready</p>
+                <p className="mt-1 text-muted-foreground">
+                  We&rsquo;ve created an account so you can manage this booking. Check your email for a link to set your password.
+                </p>
               </div>
             )}
 

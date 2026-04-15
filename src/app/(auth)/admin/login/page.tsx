@@ -1,16 +1,12 @@
 "use client";
 
-import { Suspense, useState } from "react";
-import Link from "next/link";
-import { signIn, getSession } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { signIn, getSession, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-function LoginInner() {
-  const searchParams = useSearchParams();
-  const fromSetup = searchParams.get("fromSetup") === "1";
+export default function AdminLoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -38,7 +34,13 @@ function LoginInner() {
       if (result?.ok) {
         const session = await getSession();
         const role = session?.user?.role;
-        window.location.href = role === "CLIENT" ? "/portal" : "/dashboard";
+        if (role === "CLIENT") {
+          await signOut({ redirect: false });
+          setError("This account is a parent account. Please use the parent login.");
+          setLoading(false);
+          return;
+        }
+        window.location.href = "/dashboard";
       }
     } catch {
       setError("Something went wrong. Please try again.");
@@ -53,20 +55,15 @@ function LoginInner() {
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M4 4h7v7H4V4Z" fill="white" opacity="0.9" />
             <path d="M13 4h7v7h-7V4Z" fill="white" opacity="0.6" />
-            <path d="M4 13h7v7H4v-7Z" fill="white" opacity="0.6" />
+            <path d="M4 13h7v7h-7V4Z" fill="white" opacity="0.6" />
             <path d="M13 13h7v7h-7v-7Z" fill="white" opacity="0.9" />
           </svg>
         </div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Parent Login</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Access your bookings</p>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Admin Access</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Sign in to your admin account</p>
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-        {fromSetup && (
-          <div className="mb-4 rounded-xl bg-green-50 p-3 text-sm font-medium text-green-700 dark:bg-green-950/50 dark:text-green-400">
-            Password set. Sign in to continue.
-          </div>
-        )}
         <form onSubmit={handleSubmit} className="space-y-5">
           {error && (
             <div className="rounded-xl bg-red-50 p-3 text-sm font-medium text-red-600">
@@ -108,27 +105,6 @@ function LoginInner() {
           </Button>
         </form>
       </div>
-
-      <div className="mt-6 text-center text-sm text-muted-foreground">
-        New here?{" "}
-        <Link href="/book" className="font-medium text-primary hover:underline">
-          Book your first session
-        </Link>
-      </div>
-
-      <div className="mt-10 text-center">
-        <Link href="/admin/login" className="text-xs text-muted-foreground hover:text-foreground">
-          Staff login
-        </Link>
-      </div>
     </div>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense fallback={null}>
-      <LoginInner />
-    </Suspense>
   );
 }

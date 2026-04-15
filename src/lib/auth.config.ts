@@ -1,6 +1,29 @@
 import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
+// Routes that never require auth (prefix match)
+const PUBLIC_PREFIXES = [
+  "/book",
+  "/api/bookings",
+  "/api/webhooks",
+  "/api/availability",
+  "/set-password",
+  "/api/auth/set-password",
+];
+
+// Admin-only app routes (prefix match). CLIENT users get bounced to /portal.
+const ADMIN_PREFIXES = [
+  "/dashboard",
+  "/clients",
+  "/reports",
+  "/bookings",
+  "/activities",
+  "/team",
+  "/training",
+  "/programmes",
+  "/settings",
+];
+
 // This config is used by middleware (edge-compatible, no Prisma)
 export const authConfig: NextAuthConfig = {
   pages: {
@@ -34,16 +57,38 @@ export const authConfig: NextAuthConfig = {
       return session;
     },
     authorized({ auth, request: { nextUrl } }) {
+      const { pathname } = nextUrl;
       const isLoggedIn = !!auth?.user;
-      const isLoginPage = nextUrl.pathname === "/login";
-      const isApiAuth = nextUrl.pathname.startsWith("/api/auth");
-      const isPublic = nextUrl.pathname.startsWith("/book") || nextUrl.pathname.startsWith("/api/bookings") || nextUrl.pathname.startsWith("/api/webhooks") || nextUrl.pathname.startsWith("/api/availability");
+      const role = auth?.user?.role as "SUPER_ADMIN" | "TEAM_MANAGER" | "CLIENT" | undefined;
+
+      const isLoginPage = pathname === "/login" || pathname === "/admin/login";
+      const isApiAuth = pathname.startsWith("/api/auth");
+      const isPublic = PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
+      const isPortal = pathname === "/portal" || pathname.startsWith("/portal/") || pathname.startsWith("/api/portal");
+      const isAdminArea = ADMIN_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
       if (isApiAuth || isPublic) return true;
-      if (!isLoggedIn && !isLoginPage) return false;
-      if (isLoggedIn && isLoginPage) {
+
+      // Not logged in: allow login pages through; everything else bounces to /login
+      if (!isLoggedIn) {
+        if (isLoginPage) return true;
+        return false;
+      }
+
+      // Logged in, sitting on a login page → redirect by role
+      if (isLoginPage) {
+        const target = role === "CLIENT" ? "/portal" : "/dashboard";
+        return Response.redirect(new URL(target, nextUrl));
+      }
+
+      // Role-based area gating
+      if (role === "CLIENT" && isAdminArea) {
+        return Response.redirect(new URL("/portal", nextUrl));
+      }
+      if ((role === "SUPER_ADMIN" || role === "TEAM_MANAGER") && isPortal) {
         return Response.redirect(new URL("/dashboard", nextUrl));
       }
+
       return true;
     },
   },

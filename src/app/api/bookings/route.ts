@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
+import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { FireBuddy } from "@/lib/firebuddy";
+import { sendMail, buildPasswordSetupEmail } from "@/lib/mailer";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -15,6 +18,8 @@ export async function POST(req: NextRequest) {
   if (!emailRegex.test(clientEmail)) {
     return NextResponse.json({ error: "Invalid email address" }, { status: 400 });
   }
+
+  const normalisedEmail = clientEmail.toLowerCase().trim();
 
   // Check for duplicate booking at the same date/time
   const bookingDate = new Date(date);
@@ -41,11 +46,58 @@ export async function POST(req: NextRequest) {
       duration: duration || "",
       price: price || 0,
       clientName,
-      clientEmail,
+      clientEmail: normalisedEmail,
       clientPhone: clientPhone || null,
       notes: notes || null,
     },
   });
+
+  // Auto-create CLIENT user account (+ password setup token + email)
+  let accountCreated = false;
+  try {
+    const existingUser = await prisma.user.findUnique({
+      where: { email: normalisedEmail },
+    });
+
+    if (!existingUser) {
+      // Random unguessable password — user sets their real one via email link
+      const randomHash = await bcrypt.hash(crypto.randomUUID() + crypto.randomUUID(), 10);
+      const newUser = await prisma.user.create({
+        data: {
+          email: normalisedEmail,
+          name: clientName,
+          passwordHash: randomHash,
+          role: "CLIENT",
+        },
+      });
+
+      const token = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      await prisma.passwordSetupToken.create({
+        data: {
+          userId: newUser.id,
+          token,
+          expiresAt,
+        },
+      });
+
+      accountCreated = true;
+
+      // Best-effort: send the setup email
+      const origin = req.nextUrl.origin;
+      const setupUrl = `${origin}/set-password?token=${token}`;
+      await sendMail({
+        to: normalisedEmail,
+        subject: "Set your password · The Sensory Submarine",
+        html: buildPasswordSetupEmail({ clientName, setupUrl }),
+      });
+    }
+  } catch (err) {
+    // Don't block the booking on user-creation failure
+    console.error("Auto-create account failed:", err);
+  }
 
   // Attempt to create FireBuddy payment if enabled
   const paymentSettings = await prisma.paymentSettings.findUnique({
@@ -61,8 +113,8 @@ export async function POST(req: NextRequest) {
         currency: "GBP",
         description: `${service} — ${clientName}`,
         reference: booking.id,
-        email: clientEmail,
-        returnUrl: `${origin}/book/success?booking=${booking.id}`,
+        email: normalisedEmail,
+        returnUrl: `${origin}/book/success?booking=${booking.id}${accountCreated ? "&newAccount=1" : ""}`,
       });
 
       // Store payment reference on booking
@@ -75,6 +127,7 @@ export async function POST(req: NextRequest) {
         success: true,
         bookingId: booking.id,
         paymentUrl: payment.paymentUrl,
+        accountCreated,
       });
     } catch (err) {
       console.error("FireBuddy payment creation failed:", err);
@@ -83,7 +136,7 @@ export async function POST(req: NextRequest) {
   }
 
   // No payment integration or payment creation failed
-  return NextResponse.json({ success: true, bookingId: booking.id });
+  return NextResponse.json({ success: true, bookingId: booking.id, accountCreated });
 }
 
 export async function GET() {

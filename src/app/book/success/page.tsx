@@ -10,6 +10,7 @@ type PaymentStatus = "checking" | "completed" | "pending" | "failed";
 function SuccessContent() {
   const searchParams = useSearchParams();
   const bookingId = searchParams.get("booking");
+  const newAccount = searchParams.get("newAccount") === "1";
   const [status, setStatus] = useState<PaymentStatus>("checking");
   const [bookingDetails, setBookingDetails] = useState<{
     service: string;
@@ -114,6 +115,15 @@ function SuccessContent() {
                     <span className="font-medium">{bookingDetails.time}</span>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {newAccount && (
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-left text-sm">
+                <p className="font-medium text-foreground">Your account is ready</p>
+                <p className="mt-1 text-muted-foreground">
+                  We&rsquo;ve created an account so you can manage this booking. Check your email for a link to set your password.
+                </p>
               </div>
             )}
 
