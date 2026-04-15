@@ -13,6 +13,7 @@ import {
   Home,
   CalendarDays,
   GraduationCap,
+  Lock,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -78,6 +79,22 @@ export function Sidebar({ role }: SidebarProps) {
           );
         })}
       </nav>
+      {role === "SUPER_ADMIN" && (
+        <div className="px-3 pb-2 pt-4">
+          <Link
+            href="/private"
+            className={cn(
+              "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+              pathname.startsWith("/private")
+                ? "bg-sidebar-primary text-white shadow-[var(--shadow-glow)]"
+                : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-white"
+            )}
+          >
+            <Lock className="h-5 w-5 shrink-0" />
+            Private
+          </Link>
+        </div>
+      )}
       <div className="border-t border-white/10 p-4">
         <div className="rounded-xl bg-white/5 p-3 ring-1 ring-white/10">
           <p className="text-xs font-medium text-sidebar-foreground">The Sensory Submarine</p>

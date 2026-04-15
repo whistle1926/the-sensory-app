@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     // The reference is the booking ID
     const bookingId = event.reference;
     if (bookingId) {
-      await prisma.booking.update({
+      const booking = await prisma.booking.update({
         where: { id: bookingId },
         data: {
           paymentStatus: "paid",
@@ -38,6 +38,25 @@ export async function POST(req: NextRequest) {
           status: "confirmed",
         },
       });
+
+      // Credit the private income tracker. Idempotent via (source, reference) unique.
+      if (booking.price > 0) {
+        try {
+          await prisma.incomeEntry.upsert({
+            where: { source_reference: { source: "BOOKING", reference: booking.id } },
+            update: { amount: booking.price, description: `${booking.service} — ${booking.clientName}` },
+            create: {
+              amount: booking.price,
+              source: "BOOKING",
+              reference: booking.id,
+              description: `${booking.service} — ${booking.clientName}`,
+              occurredAt: new Date(),
+            },
+          });
+        } catch (err) {
+          console.error("[WEBHOOK] Failed to credit income tracker:", err);
+        }
+      }
     }
   }
 

@@ -23,7 +23,11 @@ const ADMIN_PREFIXES = [
   "/training",
   "/programmes",
   "/settings",
+  "/private",
 ];
+
+// SUPER_ADMIN-only prefixes. TEAM_MANAGER is also bounced out of these.
+const SUPER_ADMIN_PREFIXES = ["/private", "/api/private"];
 
 // This config is used by middleware (edge-compatible, no Prisma)
 export const authConfig: NextAuthConfig = {
@@ -90,6 +94,14 @@ export const authConfig: NextAuthConfig = {
         return Response.redirect(new URL("/portal", nextUrl));
       }
       if ((role === "SUPER_ADMIN" || role === "TEAM_MANAGER") && isPortal) {
+        return Response.redirect(new URL("/dashboard", nextUrl));
+      }
+
+      // SUPER_ADMIN-only gates (private area)
+      const isSuperAdminArea = SUPER_ADMIN_PREFIXES.some(
+        (p) => pathname === p || pathname.startsWith(`${p}/`)
+      );
+      if (isSuperAdminArea && role !== "SUPER_ADMIN") {
         return Response.redirect(new URL("/dashboard", nextUrl));
       }
 

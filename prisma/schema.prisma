@@ -275,3 +275,22 @@ model Booking {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
+
+model PrivateConfig {
+  id         String   @id @default("singleton")
+  incomeGoal Int      @default(250000)
+  updatedAt  DateTime @updatedAt
+}
+
+model IncomeEntry {
+  id          String   @id @default(cuid())
+  amount      Int // amount in GBP (pounds)
+  source      String // "BOOKING" | "MANUAL" | "FIREBUDDY"
+  reference   String? // e.g. booking id, external payment id
+  description String?
+  occurredAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@unique([source, reference])
+  @@index([occurredAt])
+}

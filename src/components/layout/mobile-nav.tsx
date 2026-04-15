@@ -17,6 +17,7 @@ import {
   Video,
   GraduationCap,
   Menu,
+  Lock,
 } from "lucide-react";
 
 interface MobileNavProps {
@@ -79,6 +80,21 @@ export function MobileNav({ role }: MobileNavProps) {
               </Link>
             );
           })}
+          {role === "SUPER_ADMIN" && (
+            <Link
+              href="/private"
+              onClick={() => setOpen(false)}
+              className={cn(
+                "mt-4 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
+                pathname.startsWith("/private")
+                  ? "bg-sidebar-primary text-white"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-white"
+              )}
+            >
+              <Lock className="h-5 w-5 shrink-0" />
+              Private
+            </Link>
+          )}
         </nav>
       </SheetContent>
     </Sheet>
