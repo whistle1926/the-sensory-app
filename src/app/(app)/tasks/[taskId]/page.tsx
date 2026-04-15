@@ -9,12 +9,16 @@ import {
   Loader2,
   MessageCircle,
   Plus,
-  Send,
   Trash2,
   UserCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PriorityBadge, StatusBadge } from "@/components/tasks/priority-badge";
+import {
+  CommentComposer,
+  CommentList,
+  type Comment,
+} from "@/components/tasks/comment-thread";
 import type { TaskPriority, TaskStatus } from "@/lib/tasks";
 
 interface Assignee {
@@ -24,12 +28,6 @@ interface Subtask {
   id: string;
   title: string;
   done: boolean;
-}
-interface Comment {
-  id: string;
-  body: string;
-  createdAt: string;
-  author: { id: string; name: string; role: string };
 }
 interface Task {
   id: string;
@@ -79,9 +77,6 @@ export default function TaskDetailPage({
   const [task, setTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
   const [newSubtask, setNewSubtask] = useState("");
-  const [comment, setComment] = useState("");
-  const [submittingComment, setSubmittingComment] = useState(false);
-
   async function load() {
     setLoading(true);
     const res = await fetch(`/api/tasks/${taskId}`);
@@ -133,22 +128,6 @@ export default function TaskDetailPage({
     if (!confirm("Delete this task? This cannot be undone.")) return;
     await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
     router.push("/tasks");
-  }
-
-  async function postComment() {
-    const body = comment.trim();
-    if (!body) return;
-    setSubmittingComment(true);
-    const res = await fetch(`/api/tasks/${taskId}/comments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body }),
-    });
-    setSubmittingComment(false);
-    if (res.ok) {
-      setComment("");
-      load();
-    }
   }
 
   if (loading) {
@@ -308,70 +287,13 @@ export default function TaskDetailPage({
                 this thread from their Feedback page.
               </p>
             )}
-            <div className="mt-4 space-y-3">
-              {task.comments.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  No comments yet.
-                </p>
-              ) : (
-                task.comments.map((c) => (
-                  <div key={c.id} className="flex items-start gap-2">
-                    <span
-                      className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
-                      style={{
-                        backgroundColor: `hsl(${avatarHue(c.author.id)} 70% 50%)`,
-                      }}
-                    >
-                      {initials(c.author.name)}
-                    </span>
-                    <div className="min-w-0 flex-1 rounded-xl bg-muted/50 px-3 py-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-semibold">
-                          {c.author.name}
-                        </span>
-                        {c.author.role === "CLIENT" && (
-                          <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-primary">
-                            Client
-                          </span>
-                        )}
-                        <span className="text-[10px] text-muted-foreground">
-                          {new Date(c.createdAt).toLocaleString("en-GB", {
-                            day: "numeric",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      </div>
-                      <p className="mt-1 whitespace-pre-wrap text-sm">
-                        {c.body}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              )}
-              <div className="flex items-start gap-2 pt-2">
-                <textarea
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder="Write a comment…"
-                  rows={2}
-                  className="flex-1 resize-y rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
-                />
-                <button
-                  type="button"
-                  onClick={postComment}
-                  disabled={!comment.trim() || submittingComment}
-                  className="inline-flex items-center gap-1 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary/80 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {submittingComment ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Send className="h-3.5 w-3.5" />
-                  )}
-                  Post
-                </button>
-              </div>
+            <div className="mt-4 space-y-4">
+              <CommentList
+                comments={task.comments}
+                otherRoleLabel="Client"
+                isOtherRole={(r) => r === "CLIENT"}
+              />
+              <CommentComposer taskId={task.id} onPosted={load} />
             </div>
           </div>
         </div>

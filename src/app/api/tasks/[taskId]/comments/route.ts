@@ -32,7 +32,33 @@ export async function POST(
 
   const body = await req.json().catch(() => null);
   const text = typeof body?.body === "string" ? body.body.trim() : "";
-  if (!text) return NextResponse.json({ error: "Comment cannot be empty" }, { status: 400 });
+
+  // Parse + validate attachments array — each item needs url, mime, filename, size.
+  type AttachmentInput = {
+    url: string;
+    mimeType: string;
+    filename: string;
+    sizeBytes: number;
+  };
+  const attachmentsRaw: unknown = body?.attachments;
+  const attachments: AttachmentInput[] = Array.isArray(attachmentsRaw)
+    ? attachmentsRaw
+        .filter((a): a is AttachmentInput =>
+          !!a &&
+          typeof (a as AttachmentInput).url === "string" &&
+          /^https:\/\/[\w.-]*\.public\.blob\.vercel-storage\.com\//.test(
+            (a as AttachmentInput).url
+          ) &&
+          typeof (a as AttachmentInput).mimeType === "string" &&
+          typeof (a as AttachmentInput).filename === "string" &&
+          typeof (a as AttachmentInput).sizeBytes === "number"
+        )
+        .slice(0, 10)
+    : [];
+
+  if (!text && attachments.length === 0) {
+    return NextResponse.json({ error: "Comment cannot be empty" }, { status: 400 });
+  }
   if (text.length > 5000) {
     return NextResponse.json({ error: "Comment is too long" }, { status: 400 });
   }
@@ -42,8 +68,19 @@ export async function POST(
       taskId,
       authorId: session.user.id,
       body: text,
+      attachments: {
+        create: attachments.map((a) => ({
+          url: a.url,
+          mimeType: a.mimeType,
+          filename: a.filename,
+          sizeBytes: a.sizeBytes,
+        })),
+      },
     },
-    include: { author: { select: { id: true, name: true, role: true } } },
+    include: {
+      author: { select: { id: true, name: true, role: true } },
+      attachments: true,
+    },
   });
   return NextResponse.json(comment, { status: 201 });
 }

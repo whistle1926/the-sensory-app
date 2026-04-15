@@ -18,7 +18,10 @@ export async function GET(
       createdBy: { select: { id: true, name: true } },
       comments: {
         orderBy: { createdAt: "asc" },
-        include: { author: { select: { id: true, name: true, role: true } } },
+        include: {
+          author: { select: { id: true, name: true, role: true } },
+          attachments: true,
+        },
       },
     },
   });

@@ -25,7 +25,10 @@ export async function GET(
       subtasks: { orderBy: { order: "asc" } },
       comments: {
         orderBy: { createdAt: "asc" },
-        include: { author: { select: { id: true, name: true, role: true } } },
+        include: {
+          author: { select: { id: true, name: true, role: true } },
+          attachments: true,
+        },
       },
     },
   });

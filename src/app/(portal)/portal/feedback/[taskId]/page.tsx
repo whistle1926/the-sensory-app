@@ -7,18 +7,16 @@ import {
   Calendar as CalendarIcon,
   Loader2,
   MessageCircle,
-  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PriorityBadge, StatusBadge } from "@/components/tasks/priority-badge";
+import {
+  CommentComposer,
+  CommentList,
+  type Comment,
+} from "@/components/tasks/comment-thread";
 import type { TaskPriority, TaskStatus } from "@/lib/tasks";
 
-interface Comment {
-  id: string;
-  body: string;
-  createdAt: string;
-  author: { id: string; name: string; role: string };
-}
 interface Task {
   id: string;
   title: string;
@@ -31,21 +29,6 @@ interface Task {
   createdAt: string;
 }
 
-function initials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((s) => s[0]!.toUpperCase())
-    .join("");
-}
-
-function avatarHue(id: string) {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 360;
-  return h;
-}
-
 export default function FeedbackDetailPage({
   params,
 }: {
@@ -54,8 +37,6 @@ export default function FeedbackDetailPage({
   const { taskId } = use(params);
   const [task, setTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
-  const [comment, setComment] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -68,22 +49,6 @@ export default function FeedbackDetailPage({
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId]);
-
-  async function postComment() {
-    const body = comment.trim();
-    if (!body) return;
-    setSubmitting(true);
-    const res = await fetch(`/api/tasks/${taskId}/comments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body }),
-    });
-    setSubmitting(false);
-    if (res.ok) {
-      setComment("");
-      load();
-    }
-  }
 
   if (loading) {
     return (
@@ -166,68 +131,17 @@ export default function FeedbackDetailPage({
           Use this space to share feedback or request changes.
         </p>
 
-        <div className="mt-4 space-y-3">
-          {task.comments.length === 0 ? (
-            <p className="text-xs text-muted-foreground">
-              No comments yet — say hi or share any thoughts.
-            </p>
-          ) : (
-            task.comments.map((c) => (
-              <div key={c.id} className="flex items-start gap-2">
-                <span
-                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
-                  style={{
-                    backgroundColor: `hsl(${avatarHue(c.author.id)} 70% 50%)`,
-                  }}
-                >
-                  {initials(c.author.name)}
-                </span>
-                <div className="min-w-0 flex-1 rounded-xl bg-muted/50 px-3 py-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-semibold">
-                      {c.author.name}
-                    </span>
-                    {c.author.role !== "CLIENT" && (
-                      <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-primary">
-                        Therapist
-                      </span>
-                    )}
-                    <span className="text-[10px] text-muted-foreground">
-                      {new Date(c.createdAt).toLocaleString("en-GB", {
-                        day: "numeric",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                  </div>
-                  <p className="mt-1 whitespace-pre-wrap text-sm">{c.body}</p>
-                </div>
-              </div>
-            ))
-          )}
-          <div className="flex items-start gap-2 pt-2">
-            <textarea
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              placeholder="Write a comment or request a change…"
-              rows={3}
-              className="flex-1 resize-y rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
-            />
-            <button
-              type="button"
-              onClick={postComment}
-              disabled={!comment.trim() || submitting}
-              className="inline-flex items-center gap-1 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary/80 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {submitting ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Send className="h-3.5 w-3.5" />
-              )}
-              Send
-            </button>
-          </div>
+        <div className="mt-4 space-y-4">
+          <CommentList
+            comments={task.comments}
+            otherRoleLabel="Therapist"
+            isOtherRole={(r) => r !== "CLIENT"}
+          />
+          <CommentComposer
+            taskId={task.id}
+            onPosted={load}
+            placeholder="Write a comment or request a change…"
+          />
         </div>
       </div>
     </div>
