@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import { Loader2, Paperclip, Send, X, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { RichTextView } from "@/components/ui/rich-text-view";
 
 export interface Attachment {
   id: string;
@@ -125,7 +127,7 @@ export function CommentList({
               </span>
             </div>
             {c.body && (
-              <p className="mt-1 whitespace-pre-wrap text-sm">{c.body}</p>
+              <RichTextView html={c.body} className="mt-1 text-sm" />
             )}
             {c.attachments.length > 0 && (
               <div className="mt-2 grid gap-2">
@@ -151,6 +153,11 @@ interface PendingAttachment {
   error?: string;
 }
 
+/** Strip tags to decide whether the editor is empty. */
+function htmlIsEmpty(html: string) {
+  return html.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, "").trim().length === 0;
+}
+
 export function CommentComposer({
   taskId,
   onPosted,
@@ -163,6 +170,7 @@ export function CommentComposer({
   const [body, setBody] = useState("");
   const [pending, setPending] = useState<PendingAttachment[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [editorKey, setEditorKey] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function uploadOne(file: File) {
@@ -225,15 +233,15 @@ export function CommentComposer({
   }
 
   async function post() {
-    const trimmed = body.trim();
     const ready = pending.filter((p) => !p.uploading && p.url && !p.error);
-    if (!trimmed && ready.length === 0) return;
+    const empty = htmlIsEmpty(body);
+    if (empty && ready.length === 0) return;
     setSubmitting(true);
     const res = await fetch(`/api/tasks/${taskId}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        body: trimmed,
+        body: empty ? "" : body,
         attachments: ready.map((p) => ({
           url: p.url,
           mimeType: p.mimeType,
@@ -245,12 +253,14 @@ export function CommentComposer({
     setSubmitting(false);
     if (res.ok) {
       setBody("");
+      setEditorKey((k) => k + 1); // force-remount so the editor clears
       setPending([]);
       onPosted();
     }
   }
 
   const anyUploading = pending.some((p) => p.uploading);
+  const composerEmpty = htmlIsEmpty(body);
 
   return (
     <div className="space-y-2">
@@ -300,13 +310,16 @@ export function CommentComposer({
           className="hidden"
           onChange={(e) => handleFiles(e.target.files)}
         />
-        <textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder={placeholder}
-          rows={2}
-          className="flex-1 resize-y rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
-        />
+        <div className="flex-1">
+          <RichTextEditor
+            key={editorKey}
+            value={body}
+            onChange={setBody}
+            placeholder={placeholder}
+            compact
+            minHeight={72}
+          />
+        </div>
         <div className="flex flex-col gap-1.5">
           <button
             type="button"
@@ -322,7 +335,7 @@ export function CommentComposer({
             disabled={
               submitting ||
               anyUploading ||
-              (!body.trim() && pending.filter((p) => p.url).length === 0)
+              (composerEmpty && pending.filter((p) => p.url).length === 0)
             }
             className="inline-flex items-center gap-1 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary/80 disabled:cursor-not-allowed disabled:opacity-50"
           >

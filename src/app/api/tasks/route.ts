@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { VALID_PRIORITIES } from "@/lib/tasks";
+import { sanitizeRichText } from "@/lib/rich-text";
 
 export async function GET(_req: NextRequest) {
   const session = await auth();
@@ -83,7 +84,10 @@ export async function POST(req: NextRequest) {
   const task = await prisma.task.create({
     data: {
       title: body.title.trim(),
-      description: typeof body.description === "string" ? body.description.trim() || null : null,
+      description:
+        typeof body.description === "string"
+          ? sanitizeRichText(body.description) || null
+          : null,
       priority,
       status: "todo",
       dueDate,

@@ -19,6 +19,7 @@ import {
   CommentList,
   type Comment,
 } from "@/components/tasks/comment-thread";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import type { TaskPriority, TaskStatus } from "@/lib/tasks";
 
 interface Assignee {
@@ -194,16 +195,15 @@ export default function TaskDetailPage({
                 Created by {task.createdBy.name}
               </span>
             </div>
-            <textarea
-              value={task.description ?? ""}
-              onChange={(e) => setTask({ ...task, description: e.target.value })}
-              onBlur={(e) =>
-                patchTask({ description: e.target.value })
-              }
-              placeholder="Add a description…"
-              rows={3}
-              className="mt-4 w-full resize-y rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
-            />
+            <div className="mt-4">
+              <RichTextEditor
+                value={task.description ?? ""}
+                onChange={(html) => setTask({ ...task, description: html })}
+                onBlur={(html) => patchTask({ description: html })}
+                placeholder="Add a description — paste a link, embed a video, or format your notes…"
+                minHeight={100}
+              />
+            </div>
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">

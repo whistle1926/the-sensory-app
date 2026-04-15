@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sanitizeRichText, richTextToPlain } from "@/lib/rich-text";
 
 /**
  * Comments are readable/writable by:
@@ -31,7 +32,9 @@ export async function POST(
   if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json().catch(() => null);
-  const text = typeof body?.body === "string" ? body.body.trim() : "";
+  const rawBody = typeof body?.body === "string" ? body.body : "";
+  const text = sanitizeRichText(rawBody);
+  const plain = richTextToPlain(text);
 
   // Parse + validate attachments array — each item needs url, mime, filename, size.
   type AttachmentInput = {
@@ -56,10 +59,10 @@ export async function POST(
         .slice(0, 10)
     : [];
 
-  if (!text && attachments.length === 0) {
+  if (!plain && attachments.length === 0) {
     return NextResponse.json({ error: "Comment cannot be empty" }, { status: 400 });
   }
-  if (text.length > 5000) {
+  if (text.length > 20000) {
     return NextResponse.json({ error: "Comment is too long" }, { status: 400 });
   }
 

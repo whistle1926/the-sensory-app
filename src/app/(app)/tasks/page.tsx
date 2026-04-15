@@ -210,7 +210,11 @@ export default function TasksPage() {
                         </div>
                         {task.description && (
                           <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
-                            {task.description}
+                            {task.description
+                              .replace(/<[^>]+>/g, " ")
+                              .replace(/&nbsp;/g, " ")
+                              .replace(/\s+/g, " ")
+                              .trim()}
                           </p>
                         )}
                         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">

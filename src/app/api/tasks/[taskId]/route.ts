@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { VALID_PRIORITIES, VALID_STATUSES } from "@/lib/tasks";
+import { sanitizeRichText } from "@/lib/rich-text";
 
 export async function GET(
   _req: NextRequest,
@@ -53,7 +54,7 @@ export async function PATCH(
   const data: Record<string, unknown> = {};
   if (typeof body.title === "string" && body.title.trim()) data.title = body.title.trim();
   if (typeof body.description === "string") {
-    data.description = body.description.trim() || null;
+    data.description = sanitizeRichText(body.description) || null;
   }
   if (typeof body.priority === "string") {
     if (!VALID_PRIORITIES.has(body.priority)) {

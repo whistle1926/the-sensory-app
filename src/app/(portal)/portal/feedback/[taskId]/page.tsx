@@ -15,6 +15,7 @@ import {
   CommentList,
   type Comment,
 } from "@/components/tasks/comment-thread";
+import { RichTextView } from "@/components/ui/rich-text-view";
 import type { TaskPriority, TaskStatus } from "@/lib/tasks";
 
 interface Task {
@@ -103,9 +104,10 @@ export default function FeedbackDetailPage({
           <StatusBadge status={task.status} />
         </div>
         {task.description && (
-          <p className="mt-3 whitespace-pre-wrap text-sm text-foreground/90">
-            {task.description}
-          </p>
+          <RichTextView
+            html={task.description}
+            className="mt-3 text-sm text-foreground/90"
+          />
         )}
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
           {due && (
