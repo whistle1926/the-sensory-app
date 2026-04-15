@@ -21,6 +21,7 @@ const ADMIN_PREFIXES = [
   "/activities",
   "/team",
   "/training",
+  "/tasks",
   "/programmes",
   "/settings",
   "/private",

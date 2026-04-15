@@ -55,6 +55,10 @@ model User {
   setupTokens     PasswordSetupToken[]
   coursePurchases CoursePurchase[]
   learnerNotes    LearnerNote[]
+  tasksCreated    Task[]         @relation("TasksCreated")
+  tasksForClient  Task[]         @relation("TasksForClient")
+  taskAssignments TaskAssignee[]
+  taskComments    TaskComment[]
 }
 
 model PasswordSetupToken {
@@ -326,4 +330,63 @@ model IncomeEntry {
 
   @@unique([source, reference])
   @@index([occurredAt])
+}
+
+model Task {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  priority      String   @default("medium") // "low" | "medium" | "high" | "urgent"
+  status        String   @default("todo")   // "todo" | "in_progress" | "done"
+  dueDate       DateTime?
+  createdById   String
+  createdBy     User     @relation("TasksCreated", fields: [createdById], references: [id])
+  // If set, this task is shared with this CLIENT user via /portal/feedback.
+  clientUserId  String?
+  clientUser    User?    @relation("TasksForClient", fields: [clientUserId], references: [id])
+  completedAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  assignees     TaskAssignee[]
+  subtasks      Subtask[]
+  comments      TaskComment[]
+
+  @@index([status])
+  @@index([dueDate])
+  @@index([clientUserId])
+}
+
+model TaskAssignee {
+  id     String @id @default(cuid())
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([userId])
+}
+
+model Subtask {
+  id      String  @id @default(cuid())
+  taskId  String
+  task    Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  title   String
+  done    Boolean @default(false)
+  order   Int     @default(0)
+
+  @@index([taskId])
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
 }

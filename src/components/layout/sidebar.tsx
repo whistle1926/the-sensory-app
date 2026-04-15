@@ -14,6 +14,7 @@ import {
   CalendarDays,
   GraduationCap,
   Lock,
+  ListChecks,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -28,6 +29,7 @@ const navItems = [
   { href: "/programmes", label: "Programmes", icon: Home, roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
   { href: "/bookings", label: "Bookings", icon: CalendarDays, roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
   { href: "/training", label: "Training", icon: GraduationCap, roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
+  { href: "/tasks", label: "Tasks", icon: ListChecks, roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
   { href: "/team", label: "Team", icon: UserPlus, roles: ["SUPER_ADMIN"] },
   { href: "/settings", label: "Settings", icon: Settings, roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
 ];
