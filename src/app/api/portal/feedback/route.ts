@@ -20,6 +20,7 @@ export async function GET() {
       status: true,
       dueDate: true,
       createdAt: true,
+      createdBy: { select: { id: true, name: true } },
       _count: { select: { comments: true } },
     },
   });
