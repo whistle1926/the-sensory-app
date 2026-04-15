@@ -1,8 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { FireBuddy } from "@/lib/firebuddy";
+import { ensureEnrollment } from "@/lib/course-enrollment";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user || session.user.role !== "CLIENT") {
     return NextResponse.json({ error: "Not allowed" }, { status: 403 });
@@ -44,24 +46,57 @@ export async function POST(req: Request) {
 
   // Free course → enrol immediately
   if (course.price === 0) {
-    await prisma.enrollment.create({
-      data: {
-        userId: session.user.id,
-        courseId,
-        moduleProgress: {
-          create: course.modules.map((mod, index) => ({
-            moduleId: mod.id,
-            status: index === 0 ? "IN_PROGRESS" : "LOCKED",
-          })),
-        },
-      },
-    });
+    await ensureEnrollment(session.user.id, courseId);
     return NextResponse.json({ redirect: `/portal/training/${courseId}` });
   }
 
-  // Paid path wired up in Phase 3 (FireBuddy checkout).
-  return NextResponse.json(
-    { error: "Paid courses are not yet available. Please check back soon." },
-    { status: 501 }
-  );
+  // Paid course → FireBuddy hosted checkout
+  const paymentSettings = await prisma.paymentSettings.findUnique({
+    where: { id: "default" },
+  });
+  if (!paymentSettings?.enabled || !paymentSettings.apiKey) {
+    return NextResponse.json(
+      { error: "Payments are not configured yet. Please contact support." },
+      { status: 503 }
+    );
+  }
+
+  const purchase = await prisma.coursePurchase.create({
+    data: {
+      userId: session.user.id,
+      courseId,
+      amount: course.price,
+      paymentStatus: "pending",
+    },
+  });
+
+  try {
+    const fb = new FireBuddy(paymentSettings.apiKey);
+    const origin = req.nextUrl.origin;
+    const payment = await fb.createPayment({
+      amount: course.price, // Course.price is already pounds
+      currency: "GBP",
+      description: `${course.title} — CPD course`,
+      reference: `course:${purchase.id}`,
+      email: session.user.email ?? undefined,
+      returnUrl: `${origin}/portal/training/${courseId}/purchased?purchase=${purchase.id}`,
+    });
+
+    await prisma.coursePurchase.update({
+      where: { id: purchase.id },
+      data: { paymentRef: payment.code },
+    });
+
+    return NextResponse.json({ paymentUrl: payment.paymentUrl, purchaseId: purchase.id });
+  } catch (err) {
+    console.error("FireBuddy course payment failed:", err);
+    await prisma.coursePurchase.update({
+      where: { id: purchase.id },
+      data: { paymentStatus: "failed" },
+    });
+    return NextResponse.json(
+      { error: "Could not start checkout. Please try again." },
+      { status: 502 }
+    );
+  }
 }
