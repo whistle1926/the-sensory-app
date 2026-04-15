@@ -4,7 +4,7 @@ import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Youtube from "@tiptap/extension-youtube";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Bold,
   Italic,
@@ -19,6 +19,12 @@ import {
   Code,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 /**
  * Normalise stored content. Older tasks/comments were plain text — wrap
@@ -59,27 +65,136 @@ function ToolbarButton({
   );
 }
 
-function Toolbar({ editor }: { editor: Editor | null }) {
-  if (!editor) return null;
+function UrlDialog({
+  open,
+  onOpenChange,
+  title,
+  label,
+  initialValue,
+  submitLabel,
+  onSubmit,
+  onRemove,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  title: string;
+  label: string;
+  initialValue: string;
+  submitLabel: string;
+  onSubmit: (url: string) => void;
+  onRemove?: () => void;
+}) {
+  const [value, setValue] = useState(initialValue);
 
-  function promptLink() {
-    if (!editor) return;
-    const existing = editor.getAttributes("link").href ?? "";
-    const url = window.prompt("Link URL", existing || "https://");
-    if (url === null) return;
-    if (url === "") {
-      editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
-    }
-    const safe = /^https?:\/\//i.test(url) ? url : `https://${url}`;
-    editor.chain().focus().extendMarkRange("link").setLink({ href: safe }).run();
+  useEffect(() => {
+    if (open) setValue(initialValue);
+  }, [open, initialValue]);
+
+  function handleSubmit() {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    onSubmit(trimmed);
+    onOpenChange(false);
   }
 
-  function promptYoutube() {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
+        <div>
+          <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {label}
+          </label>
+          <input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleSubmit();
+              }
+            }}
+            placeholder="https://"
+            autoFocus
+            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+        <div className="-mx-4 -mb-4 flex items-center justify-between gap-2 rounded-b-xl border-t border-border bg-muted/40 px-4 py-3">
+          <div>
+            {onRemove && initialValue && (
+              <button
+                type="button"
+                onClick={() => {
+                  onRemove();
+                  onOpenChange(false);
+                }}
+                className="rounded-xl px-3 py-2 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 dark:hover:bg-red-950/30"
+              >
+                Remove link
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={!value.trim()}
+              className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary/80 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {submitLabel}
+            </button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Toolbar({ editor }: { editor: Editor | null }) {
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [youtubeOpen, setYoutubeOpen] = useState(false);
+  const [linkInitial, setLinkInitial] = useState("");
+
+  if (!editor) return null;
+
+  function openLinkDialog() {
     if (!editor) return;
-    const url = window.prompt("YouTube URL", "https://www.youtube.com/watch?v=");
-    if (!url) return;
-    editor.chain().focus().setYoutubeVideo({ src: url, width: 640, height: 360 }).run();
+    setLinkInitial(editor.getAttributes("link").href ?? "");
+    setLinkOpen(true);
+  }
+
+  function applyLink(url: string) {
+    if (!editor) return;
+    const safe = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+    editor
+      .chain()
+      .focus()
+      .extendMarkRange("link")
+      .setLink({ href: safe })
+      .run();
+  }
+
+  function removeLink() {
+    if (!editor) return;
+    editor.chain().focus().extendMarkRange("link").unsetLink().run();
+  }
+
+  function applyYoutube(url: string) {
+    if (!editor) return;
+    editor
+      .chain()
+      .focus()
+      .setYoutubeVideo({ src: url, width: 640, height: 360 })
+      .run();
   }
 
   return (
@@ -128,18 +243,22 @@ function Toolbar({ editor }: { editor: Editor | null }) {
         <Code className="h-3.5 w-3.5" />
       </ToolbarButton>
       <span className="mx-0.5 h-4 w-px bg-border" />
-      <ToolbarButton onClick={promptLink} active={editor.isActive("link")} title="Link">
+      <ToolbarButton
+        onClick={openLinkDialog}
+        active={editor.isActive("link")}
+        title="Link"
+      >
         <Link2 className="h-3.5 w-3.5" />
       </ToolbarButton>
       {editor.isActive("link") && (
-        <ToolbarButton
-          onClick={() => editor.chain().focus().unsetLink().run()}
-          title="Remove link"
-        >
+        <ToolbarButton onClick={removeLink} title="Remove link">
           <Link2Off className="h-3.5 w-3.5" />
         </ToolbarButton>
       )}
-      <ToolbarButton onClick={promptYoutube} title="Embed YouTube video">
+      <ToolbarButton
+        onClick={() => setYoutubeOpen(true)}
+        title="Embed YouTube video"
+      >
         <Video className="h-3.5 w-3.5" />
       </ToolbarButton>
       <span className="mx-0.5 h-4 w-px bg-border" />
@@ -155,6 +274,26 @@ function Toolbar({ editor }: { editor: Editor | null }) {
       >
         <Redo2 className="h-3.5 w-3.5" />
       </ToolbarButton>
+
+      <UrlDialog
+        open={linkOpen}
+        onOpenChange={setLinkOpen}
+        title={linkInitial ? "Edit link" : "Add link"}
+        label="Link URL"
+        initialValue={linkInitial}
+        submitLabel={linkInitial ? "Update" : "Add link"}
+        onSubmit={applyLink}
+        onRemove={removeLink}
+      />
+      <UrlDialog
+        open={youtubeOpen}
+        onOpenChange={setYoutubeOpen}
+        title="Embed YouTube video"
+        label="YouTube URL"
+        initialValue=""
+        submitLabel="Embed"
+        onSubmit={applyYoutube}
+      />
     </div>
   );
 }
