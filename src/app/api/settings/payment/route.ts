@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ensureCore, KNOWN_CURRENCIES } from "@/lib/currencies";
 
 export async function GET() {
   const session = await auth();
@@ -18,6 +19,7 @@ export async function GET() {
       apiKey: "",
       webhookSecret: "",
       enabled: false,
+      currencies: ensureCore([]),
     });
   }
 
@@ -26,6 +28,7 @@ export async function GET() {
     apiKey: settings.apiKey ? maskKey(settings.apiKey) : "",
     webhookSecret: settings.webhookSecret ? maskKey(settings.webhookSecret) : "",
     enabled: settings.enabled,
+    currencies: ensureCore(settings.currencies ?? []),
   });
 }
 
@@ -36,7 +39,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const { apiKey, webhookSecret, enabled } = body;
+  const { apiKey, webhookSecret, enabled, currencies } = body;
 
   const existing = await prisma.paymentSettings.findUnique({
     where: { id: "default" },
@@ -46,6 +49,14 @@ export async function POST(req: NextRequest) {
   if (apiKey !== undefined && !apiKey.includes("\u2022")) data.apiKey = apiKey;
   if (webhookSecret !== undefined && !webhookSecret.includes("\u2022")) data.webhookSecret = webhookSecret;
   if (enabled !== undefined) data.enabled = enabled;
+
+  if (Array.isArray(currencies)) {
+    // Keep only known codes, enforce that GBP & EUR are present.
+    const filtered = currencies.filter(
+      (c): c is string => typeof c === "string" && KNOWN_CURRENCIES.includes(c),
+    );
+    data.currencies = ensureCore(filtered);
+  }
 
   let settings;
   if (existing) {
@@ -60,6 +71,9 @@ export async function POST(req: NextRequest) {
         apiKey: apiKey || null,
         webhookSecret: webhookSecret || null,
         enabled: enabled ?? false,
+        currencies: ensureCore(
+          Array.isArray(currencies) ? currencies.filter((c: unknown): c is string => typeof c === "string") : [],
+        ),
         ...data,
       },
     });
@@ -70,6 +84,7 @@ export async function POST(req: NextRequest) {
     apiKey: settings.apiKey ? maskKey(settings.apiKey) : "",
     webhookSecret: settings.webhookSecret ? maskKey(settings.webhookSecret) : "",
     enabled: settings.enabled,
+    currencies: ensureCore(settings.currencies ?? []),
   });
 }
 

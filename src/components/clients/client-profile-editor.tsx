@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle2 } from "lucide-react";
+import { CURRENCY_LABELS, CURRENCY_SYMBOLS } from "@/lib/currencies";
 
 interface ClientValues {
   id: string;
@@ -28,6 +29,16 @@ export function ClientProfileEditor({ client }: { client: ClientValues }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [currencies, setCurrencies] = useState<string[]>(["GBP", "EUR"]);
+
+  useEffect(() => {
+    fetch("/api/settings/currencies")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data?.currencies)) setCurrencies(data.currencies);
+      })
+      .catch(() => {});
+  }, []);
 
   function update<K extends keyof ClientValues>(key: K, val: ClientValues[K]) {
     setValues((v) => ({ ...v, [key]: val }));
@@ -174,9 +185,12 @@ export function ClientProfileEditor({ client }: { client: ClientValues }) {
               onChange={(e) => update("currency", e.target.value)}
               className="flex h-8 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
-              <option value="GBP">GBP (&pound;) &mdash; British Pound</option>
-              <option value="EUR">EUR (&euro;) &mdash; Euro</option>
-              <option value="USD">USD ($) &mdash; US Dollar</option>
+              {currencies.map((code) => (
+                <option key={code} value={code}>
+                  {code} ({CURRENCY_SYMBOLS[code] || code}) &mdash;{" "}
+                  {(CURRENCY_LABELS[code] || code).replace(/^[^—]+—\s*/, "")}
+                </option>
+              ))}
             </select>
             <p className="text-xs text-muted-foreground">
               Currency used when creating invoices for this client.

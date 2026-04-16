@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Plus, Trash2, Loader2, Send, Receipt } from "lucide-react";
+import { CURRENCY_LABELS, CURRENCY_SYMBOLS } from "@/lib/currencies";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -85,6 +86,12 @@ export default function NewInvoicePage() {
   const [availableTaxRates, setAvailableTaxRates] = useState<AvailableTaxRate[]>([]);
   const [selectedTaxId, setSelectedTaxId] = useState<string>(""); // "" = no tax
 
+  /* ---- enabled currencies (from payment settings) ---- */
+  const [enabledCurrencies, setEnabledCurrencies] = useState<string[]>([
+    "GBP",
+    "EUR",
+  ]);
+
   /* ---- ui state ---- */
   const [saving, setSaving] = useState(false);
   const [sendAfterSave, setSendAfterSave] = useState(false);
@@ -98,12 +105,18 @@ export default function NewInvoicePage() {
       .catch(() => {});
   }, []);
 
-  /* ---- fetch all tax rates once ---- */
+  /* ---- fetch all tax rates + enabled currencies once ---- */
   useEffect(() => {
     fetch("/api/settings/tax-rates")
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setAvailableTaxRates(data);
+      })
+      .catch(() => {});
+    fetch("/api/settings/currencies")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data?.currencies)) setEnabledCurrencies(data.currencies);
       })
       .catch(() => {});
   }, []);
@@ -508,9 +521,12 @@ export default function NewInvoicePage() {
                   onChange={(e) => setCurrency(e.target.value)}
                   className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
-                  <option value="GBP">GBP (&pound;) &mdash; British Pound</option>
-                  <option value="EUR">EUR (&euro;) &mdash; Euro</option>
-                  <option value="USD">USD ($) &mdash; US Dollar</option>
+                  {enabledCurrencies.map((code) => (
+                    <option key={code} value={code}>
+                      {code} ({CURRENCY_SYMBOLS[code] || code}) &mdash;{" "}
+                      {(CURRENCY_LABELS[code] || code).replace(/^[^—]+—\s*/, "")}
+                    </option>
+                  ))}
                 </select>
                 <p className="text-xs text-muted-foreground">
                   Auto-filled from client profile. Change if needed for this invoice.

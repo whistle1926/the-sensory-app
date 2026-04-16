@@ -14,7 +14,9 @@ export const clientSchema = z.object({
   referrer: z.string().optional(),
   parentCarerName: z.string().optional(),
   parentCarerEmail: z.string().email().optional().or(z.literal("")),
-  currency: z.enum(["GBP", "EUR", "USD"]).optional(),
+  // Accept any ISO-3 alpha code. Runtime validation against the enabled list
+  // lives in the API handlers / payment settings.
+  currency: z.string().length(3).optional(),
   business: z.enum(["SENSORY_SUBMARINE", "LITTLE_SENSORY_EXPLORERS", "SENSORY_EATERS"]).default("SENSORY_SUBMARINE"),
 });
 

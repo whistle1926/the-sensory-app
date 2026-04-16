@@ -304,6 +304,8 @@ model PaymentSettings {
   apiKey         String?
   webhookSecret  String?
   enabled        Boolean  @default(false)
+  // Accepted currencies — always contains GBP and EUR (enforced in API).
+  currencies     String[] @default(["GBP", "EUR"])
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }

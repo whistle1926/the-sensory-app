@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-
-const CURRENCIES = ["GBP", "EUR", "USD"] as const;
+import { ensureCore } from "@/lib/currencies";
 
 // GET — returns every tax rate row (multiple per currency allowed).
 // Public to authenticated users so invoice creation can read enabled options.
@@ -44,7 +43,14 @@ export async function PUT(req: NextRequest) {
     );
   }
 
-  const validCurrencies = new Set<string>(CURRENCIES);
+  // Accept any currency that's currently enabled in payment settings.
+  const paymentSettings = await prisma.paymentSettings.findUnique({
+    where: { id: "default" },
+    select: { currencies: true },
+  });
+  const validCurrencies = new Set<string>(
+    ensureCore(paymentSettings?.currencies ?? []),
+  );
   for (const entry of body) {
     if (!validCurrencies.has(entry.currency)) {
       return NextResponse.json(

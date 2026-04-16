@@ -22,19 +22,7 @@ interface TaxRateEntry {
   enabled: boolean;
 }
 
-const CURRENCIES = ["GBP", "EUR", "USD"] as const;
-
-const CURRENCY_LABELS: Record<string, string> = {
-  GBP: "GBP — United Kingdom",
-  EUR: "EUR — Ireland / EU",
-  USD: "USD — United States",
-};
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  GBP: "\u00a3",
-  EUR: "\u20ac",
-  USD: "$",
-};
+import { CURRENCY_LABELS, CURRENCY_SYMBOLS } from "@/lib/currencies";
 
 let tempIdCounter = 0;
 function makeTempId() {
@@ -44,6 +32,7 @@ function makeTempId() {
 
 export function TaxSettingsSection() {
   const [rates, setRates] = useState<TaxRateEntry[]>([]);
+  const [currencies, setCurrencies] = useState<string[]>(["GBP", "EUR"]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">(
@@ -52,10 +41,14 @@ export function TaxSettingsSection() {
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    fetch("/api/settings/tax-rates")
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) setRates(data);
+    Promise.all([
+      fetch("/api/settings/tax-rates").then((r) => r.json()),
+      fetch("/api/settings/currencies").then((r) => r.json()),
+    ])
+      .then(([ratesData, currenciesData]) => {
+        if (Array.isArray(ratesData)) setRates(ratesData);
+        if (Array.isArray(currenciesData?.currencies))
+          setCurrencies(currenciesData.currencies);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -63,13 +56,13 @@ export function TaxSettingsSection() {
 
   const byCurrency = useMemo(() => {
     const map: Record<string, TaxRateEntry[]> = {};
-    for (const cur of CURRENCIES) map[cur] = [];
+    for (const cur of currencies) map[cur] = [];
     for (const r of rates) {
       if (!map[r.currency]) map[r.currency] = [];
       map[r.currency].push(r);
     }
     return map;
-  }, [rates]);
+  }, [rates, currencies]);
 
   function addRate(currency: string) {
     setRates((prev) => [
@@ -77,7 +70,8 @@ export function TaxSettingsSection() {
       {
         id: makeTempId(),
         currency,
-        label: currency === "USD" ? "Sales Tax" : "VAT",
+        // Non-EU currencies tend to use a different label; keep it editable anyway.
+        label: ["GBP", "EUR"].includes(currency) ? "VAT" : "Sales Tax",
         rate: 0,
         enabled: true,
       },
@@ -160,7 +154,7 @@ export function TaxSettingsSection() {
       </div>
 
       <div className="mt-6 space-y-5">
-        {CURRENCIES.map((currency) => {
+        {currencies.map((currency) => {
           const list = byCurrency[currency] || [];
           return (
             <div

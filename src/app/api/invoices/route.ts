@@ -79,8 +79,15 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const { clientId, clientName, clientEmail, currency, dueDate, notes, items, taxLabel: taxLabelRaw, taxRate: taxRateRaw } = body;
-  const validCurrencies = ["GBP", "EUR", "USD"];
-  const invoiceCurrency = validCurrencies.includes(currency) ? currency : "GBP";
+  // Validate currency against the enabled list in payment settings.
+  const paymentSettings = await prisma.paymentSettings.findUnique({
+    where: { id: "default" },
+    select: { currencies: true },
+  });
+  const enabled = new Set<string>(paymentSettings?.currencies ?? []);
+  enabled.add("GBP");
+  enabled.add("EUR");
+  const invoiceCurrency = enabled.has(currency) ? currency : "GBP";
 
   // Validate required fields
   if (!clientName || typeof clientName !== "string") {

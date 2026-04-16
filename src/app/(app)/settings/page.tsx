@@ -22,6 +22,14 @@ import {
 import { ClientStagesSection } from "@/components/settings/client-stages-section";
 import { DashTemplatesSection } from "@/components/settings/dash-templates-section";
 import { TaxSettingsSection } from "@/components/settings/tax-settings-section";
+import {
+  CORE_CURRENCIES,
+  KNOWN_CURRENCIES,
+  CURRENCY_LABELS,
+  CURRENCY_SYMBOLS,
+  isCoreCurrency,
+} from "@/lib/currencies";
+import { X as XIcon, Plus } from "lucide-react";
 
 interface EmailConfig {
   provider: string;
@@ -43,6 +51,7 @@ interface PaymentConfig {
   apiKey: string;
   webhookSecret: string;
   enabled: boolean;
+  currencies: string[];
 }
 
 const tabs = [
@@ -84,6 +93,7 @@ export default function SettingsPage() {
     apiKey: "",
     webhookSecret: "",
     enabled: false,
+    currencies: ["GBP", "EUR"],
   });
 
   const [saving, setSaving] = useState(false);
@@ -609,6 +619,103 @@ export default function SettingsPage() {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* ---- Accepted Currencies ---- */}
+          <div className="mt-6 rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                <CreditCard className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold">Accepted Currencies</h2>
+                <p className="text-sm text-muted-foreground">
+                  Currencies available for invoices and client profiles. GBP and
+                  EUR are always enabled.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-2">
+              {paymentConfig.currencies.map((code) => (
+                <div
+                  key={code}
+                  className="flex items-center justify-between rounded-xl border border-border bg-muted/30 p-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-sm font-bold shadow-sm">
+                      {CURRENCY_SYMBOLS[code] || code}
+                    </span>
+                    <div>
+                      <p className="font-medium">
+                        {CURRENCY_LABELS[code] || code}
+                      </p>
+                      {isCoreCurrency(code) && (
+                        <p className="text-xs text-muted-foreground">
+                          Core currency — cannot be removed
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {!isCoreCurrency(code) && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPaymentConfig((prev) => ({
+                          ...prev,
+                          currencies: prev.currencies.filter((c) => c !== code),
+                        }))
+                      }
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                      aria-label={`Remove ${code}`}
+                    >
+                      <XIcon className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Add currency picker — lists any known code not already enabled */}
+            {(() => {
+              const addable = KNOWN_CURRENCIES.filter(
+                (c) =>
+                  !paymentConfig.currencies.includes(c) &&
+                  !(CORE_CURRENCIES as readonly string[]).includes(c),
+              );
+              if (addable.length === 0) return null;
+              return (
+                <div className="mt-4 flex items-center gap-2">
+                  <select
+                    id="addCurrency"
+                    className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+                    defaultValue=""
+                    onChange={(e) => {
+                      const code = e.target.value;
+                      if (!code) return;
+                      setPaymentConfig((prev) => ({
+                        ...prev,
+                        currencies: [...prev.currencies, code],
+                      }));
+                      e.target.value = "";
+                    }}
+                  >
+                    <option value="">Add a currency…</option>
+                    {addable.map((c) => (
+                      <option key={c} value={c}>
+                        {CURRENCY_LABELS[c] || c}
+                      </option>
+                    ))}
+                  </select>
+                  <Plus className="h-4 w-4 text-muted-foreground" />
+                </div>
+              );
+            })()}
+
+            <p className="mt-4 text-xs text-muted-foreground">
+              Save the Payment Integration settings above to apply currency
+              changes.
+            </p>
           </div>
         </div>
       )}
