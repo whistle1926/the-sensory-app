@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -73,7 +74,7 @@ interface NewClient {
 
 interface NewClientsSectionProps {
   clients: NewClient[];
-  onRefresh: () => void;
+  onRefresh?: () => void;
 }
 
 /* ------------------------------------------------------------------ */
@@ -488,6 +489,8 @@ function ClientCard({
 /* ------------------------------------------------------------------ */
 
 export function NewClientsSection({ clients, onRefresh }: NewClientsSectionProps) {
+  const router = useRouter();
+  const refresh = onRefresh || (() => router.refresh());
   return (
     <div>
       <div className="mb-3 flex items-center gap-2">
@@ -514,7 +517,7 @@ export function NewClientsSection({ clients, onRefresh }: NewClientsSectionProps
             <ClientCard
               key={client.id}
               client={client}
-              onRefresh={onRefresh}
+              onRefresh={refresh}
             />
           ))}
         </div>
