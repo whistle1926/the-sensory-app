@@ -123,6 +123,8 @@ interface InvoiceWithItems {
   currency: string;
   dueDate: Date;
   createdAt: Date;
+  subtotal: number;
+  tax: number;
   total: number;
   items: Array<{
     description: string;
@@ -227,6 +229,22 @@ function buildInvoiceEmail(params: {
           ${itemRows}
         </tbody>
         <tfoot>
+          <tr>
+            <td colspan="3" style="border:1px solid #e5e7eb;padding:8px 14px;font-size:13px;color:#555;text-align:right;">
+              Subtotal
+            </td>
+            <td style="border:1px solid #e5e7eb;padding:8px 14px;font-size:13px;color:#333;text-align:right;">
+              ${formatPence(invoice.subtotal)}
+            </td>
+          </tr>
+          ${invoice.tax > 0 ? `<tr>
+            <td colspan="3" style="border:1px solid #e5e7eb;padding:8px 14px;font-size:13px;color:#555;text-align:right;">
+              Tax
+            </td>
+            <td style="border:1px solid #e5e7eb;padding:8px 14px;font-size:13px;color:#333;text-align:right;">
+              ${formatPence(invoice.tax)}
+            </td>
+          </tr>` : ""}
           <tr style="background:#f9fafb;">
             <td colspan="3" style="border:1px solid #e5e7eb;padding:12px 14px;font-size:15px;font-weight:700;color:#1a1a2e;text-align:right;">
               Total

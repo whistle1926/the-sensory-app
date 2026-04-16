@@ -119,7 +119,13 @@ export async function POST(req: NextRequest) {
   }));
 
   const subtotal = calculatedItems.reduce((sum: number, item: { amount: number }) => sum + item.amount, 0);
-  const tax = 0; // OT services are likely VAT exempt
+
+  // Look up tax rate for this currency
+  let tax = 0;
+  const taxRate = await prisma.taxRate.findUnique({ where: { currency: invoiceCurrency } });
+  if (taxRate?.enabled && taxRate.rate > 0) {
+    tax = Math.round(subtotal * taxRate.rate / 100);
+  }
   const total = subtotal + tax;
 
   // Create invoice + items in a transaction

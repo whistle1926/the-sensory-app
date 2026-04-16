@@ -88,7 +88,13 @@ export async function PATCH(
     }));
 
     const subtotal = calculatedItems.reduce((sum: number, item: { amount: number }) => sum + item.amount, 0);
-    const tax = 0;
+
+    // Look up tax rate for the invoice currency
+    let tax = 0;
+    const taxRate = await prisma.taxRate.findUnique({ where: { currency: existing.currency } });
+    if (taxRate?.enabled && taxRate.rate > 0) {
+      tax = Math.round(subtotal * taxRate.rate / 100);
+    }
     const total = subtotal + tax;
 
     const invoice = await prisma.$transaction(async (tx) => {

@@ -17,9 +17,11 @@ import {
   User,
   Milestone,
   LayoutDashboard,
+  Percent,
 } from "lucide-react";
 import { ClientStagesSection } from "@/components/settings/client-stages-section";
 import { DashTemplatesSection } from "@/components/settings/dash-templates-section";
+import { TaxSettingsSection } from "@/components/settings/tax-settings-section";
 
 interface EmailConfig {
   provider: string;
@@ -50,6 +52,7 @@ const tabs = [
   { key: "email", label: "Email", icon: Mail, adminOnly: true },
   { key: "ai", label: "AI", icon: Bot, adminOnly: true },
   { key: "payments", label: "Payments", icon: CreditCard, adminOnly: true },
+  { key: "tax", label: "Tax", icon: Percent, adminOnly: true },
 ] as const;
 
 export default function SettingsPage() {
@@ -607,6 +610,12 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {isAdmin && (
+        <div style={{ display: activeTab === "tax" ? "block" : "none" }}>
+          <TaxSettingsSection />
         </div>
       )}
     </div>

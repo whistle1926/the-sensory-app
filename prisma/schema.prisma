@@ -308,6 +308,16 @@ model PaymentSettings {
   updatedAt      DateTime @updatedAt
 }
 
+model TaxRate {
+  id        String   @id @default(cuid())
+  currency  String   @unique        // "GBP" | "EUR" | "USD"
+  label     String   @default("VAT") // e.g. "VAT", "Sales Tax"
+  rate      Float    @default(0)    // percentage, e.g. 23.0 for 23%
+  enabled   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model WeeklyHours {
   id        String   @id @default(cuid())
   dayOfWeek Int      // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat

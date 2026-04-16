@@ -74,6 +74,11 @@ export default function NewInvoicePage() {
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<LineItem[]>([makeItem()]);
 
+  /* ---- tax ---- */
+  const [taxLabel, setTaxLabel] = useState("VAT");
+  const [taxRate, setTaxRate] = useState(0);
+  const [taxEnabled, setTaxEnabled] = useState(false);
+
   /* ---- ui state ---- */
   const [saving, setSaving] = useState(false);
   const [sendAfterSave, setSendAfterSave] = useState(false);
@@ -86,6 +91,26 @@ export default function NewInvoicePage() {
       .then((data) => setClients(Array.isArray(data) ? data : []))
       .catch(() => {});
   }, []);
+
+  /* ---- fetch tax rate when currency changes ---- */
+  useEffect(() => {
+    fetch("/api/settings/tax-rates")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!Array.isArray(data)) return;
+        const match = data.find((r: { currency: string }) => r.currency === currency);
+        if (match) {
+          setTaxLabel(match.label || "VAT");
+          setTaxRate(match.rate || 0);
+          setTaxEnabled(match.enabled ?? false);
+        } else {
+          setTaxLabel("VAT");
+          setTaxRate(0);
+          setTaxEnabled(false);
+        }
+      })
+      .catch(() => {});
+  }, [currency]);
 
   /* ---- filtered client list ---- */
   const filteredClients = clientSearch.trim()
@@ -138,6 +163,8 @@ export default function NewInvoicePage() {
   }
 
   const subtotalPence = items.reduce((sum, item) => sum + itemAmountPence(item), 0);
+  const taxPence = taxEnabled && taxRate > 0 ? Math.round(subtotalPence * taxRate / 100) : 0;
+  const totalPence = subtotalPence + taxPence;
 
   /* ---- submit ---- */
   async function handleSubmit(shouldSend: boolean) {
@@ -492,13 +519,28 @@ export default function NewInvoicePage() {
 
           {/* ---- Totals ---- */}
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
+            <CardContent className="pt-6 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Subtotal</span>
+                <span className="font-medium">{formatCurrency(subtotalPence, currency)}</span>
+              </div>
+              {taxEnabled && taxRate > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">{taxLabel} ({taxRate}%)</span>
+                  <span className="font-medium">{formatCurrency(taxPence, currency)}</span>
+                </div>
+              )}
+              <div className="border-t border-border pt-2 flex items-center justify-between">
                 <span className="text-sm font-semibold">Total</span>
                 <span className="text-lg font-bold tracking-tight">
-                  {formatCurrency(subtotalPence, currency)}
+                  {formatCurrency(totalPence, currency)}
                 </span>
               </div>
+              {!taxEnabled && (
+                <p className="text-[11px] text-muted-foreground">
+                  No tax applied. Configure tax rates in Settings &rarr; Tax.
+                </p>
+              )}
             </CardContent>
           </Card>
 

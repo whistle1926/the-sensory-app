@@ -604,8 +604,19 @@ export default function InvoiceDetailPage() {
               Add Item
             </Button>
 
-            <div className="rounded-xl border border-border bg-muted/30 p-4">
-              <div className="flex items-center justify-between">
+            <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Subtotal</span>
+                <span className="font-medium">
+                  {formatCurrency(editSubtotalPence, invoice.currency)}
+                </span>
+              </div>
+              {invoice.tax > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Tax will be recalculated based on current rates when you save.
+                </p>
+              )}
+              <div className="border-t border-border pt-2 flex items-center justify-between">
                 <span className="text-sm font-semibold">Total</span>
                 <span className="text-lg font-bold tracking-tight">
                   {formatCurrency(editSubtotalPence, invoice.currency)}
@@ -815,9 +826,21 @@ export default function InvoiceDetailPage() {
                         <span className="font-medium">{sym}{(item.amount / 100).toFixed(2)}</span>
                       </div>
                     ))}
-                    <div className="border-t border-border pt-2 flex justify-between">
-                      <span className="text-sm font-bold">Total</span>
-                      <span className="text-sm font-bold">{sym}{(invoice.total / 100).toFixed(2)}</span>
+                    <div className="border-t border-border pt-2 space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span className="font-medium">{sym}{(invoice.subtotal / 100).toFixed(2)}</span>
+                      </div>
+                      {invoice.tax > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Tax</span>
+                          <span className="font-medium">{sym}{(invoice.tax / 100).toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div className="border-t border-border pt-1 flex justify-between">
+                        <span className="text-sm font-bold">Total</span>
+                        <span className="text-sm font-bold">{sym}{(invoice.total / 100).toFixed(2)}</span>
+                      </div>
                     </div>
                   </div>
 
@@ -986,6 +1009,30 @@ export default function InvoiceDetailPage() {
               ))}
             </tbody>
             <tfoot>
+              <tr className="border-t border-border">
+                <td
+                  colSpan={3}
+                  className="px-6 py-2 text-right text-sm text-muted-foreground"
+                >
+                  Subtotal
+                </td>
+                <td className="px-6 py-2 text-right text-sm font-medium">
+                  {formatCurrency(invoice.subtotal, invoice.currency)}
+                </td>
+              </tr>
+              {invoice.tax > 0 && (
+                <tr>
+                  <td
+                    colSpan={3}
+                    className="px-6 py-2 text-right text-sm text-muted-foreground"
+                  >
+                    Tax
+                  </td>
+                  <td className="px-6 py-2 text-right text-sm font-medium">
+                    {formatCurrency(invoice.tax, invoice.currency)}
+                  </td>
+                </tr>
+              )}
               <tr className="border-t-2 border-border bg-muted/30">
                 <td
                   colSpan={3}
