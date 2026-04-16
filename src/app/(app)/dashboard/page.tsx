@@ -1,22 +1,50 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { FileText, Users, Plus } from "lucide-react";
 import Link from "next/link";
+import { NewClientsSection } from "@/components/dashboard/new-clients-section";
+
+interface NewClient {
+  id: string;
+  firstName: string;
+  lastName: string;
+  createdAt: string;
+  parentCarerName: string | null;
+  parentCarerEmail: string | null;
+  stage: { id: string; label: string; colour: string } | null;
+  intakeItems: {
+    id: string;
+    type: string;
+    label: string;
+    url: string | null;
+    status: string;
+    sentAt: string | null;
+    completedAt: string | null;
+    notes: string | null;
+    fileUrl: string | null;
+    createdAt: string;
+  }[];
+}
 
 interface DashboardData {
   clientCount: number;
   reportCount: number;
   recentReports: { id: string; reportDate: string; client: { firstName: string; lastName: string } }[];
+  newClients: NewClient[];
 }
 
 export default function DashboardPage() {
-  const [data, setData] = useState<DashboardData>({ clientCount: 0, reportCount: 0, recentReports: [] });
+  const [data, setData] = useState<DashboardData>({ clientCount: 0, reportCount: 0, recentReports: [], newClients: [] });
 
-  useEffect(() => {
+  const fetchData = useCallback(() => {
     fetch("/api/dashboard").then(r => r.json()).then(setData);
   }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   return (
     <div className="space-y-6">
@@ -52,6 +80,8 @@ export default function DashboardPage() {
           <p className="mt-2 text-3xl font-bold tracking-tight">{data.reportCount}</p>
         </div>
       </div>
+
+      <NewClientsSection clients={data.newClients} onRefresh={fetchData} />
 
       <div>
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Recent Reports</h2>

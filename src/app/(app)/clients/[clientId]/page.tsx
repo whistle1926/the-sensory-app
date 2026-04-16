@@ -8,6 +8,8 @@ import { FileText, Plus, CheckCircle2, AlertCircle, GraduationCap } from "lucide
 import Link from "next/link";
 import { ClientProfileEditor } from "@/components/clients/client-profile-editor";
 import { ViewAsButton } from "@/components/impersonate/view-as-button";
+import { ProgressNotesSection } from "@/components/clients/progress-notes-section";
+import { GoalsSection } from "@/components/clients/goals-section";
 
 export default async function ClientDetailPage({
   params,
@@ -276,6 +278,10 @@ export default async function ClientDetailPage({
           )}
         </CardContent>
       </Card>
+
+      <ProgressNotesSection clientId={client.id} />
+
+      <GoalsSection clientId={client.id} isAdmin={adminCanEdit} />
     </div>
   );
 }

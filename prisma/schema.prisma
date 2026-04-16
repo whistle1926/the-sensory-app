@@ -59,6 +59,7 @@ model User {
   tasksForClient  Task[]         @relation("TasksForClient")
   taskAssignments TaskAssignee[]
   taskComments    TaskComment[]
+  progressNotes   ProgressNote[]
 }
 
 model PasswordSetupToken {
@@ -115,8 +116,11 @@ model Client {
   parentId  String?
   parent    User?   @relation("ParentClients", fields: [parentId], references: [id])
 
-  sessions TherapySession[]
-  reports  Report[]
+  sessions      TherapySession[]
+  reports       Report[]
+  progressNotes ProgressNote[]
+  goals         ClientGoal[]
+  intakeItems   ClientIntakeItem[]
 
   @@index([stageId])
 }
@@ -418,4 +422,58 @@ model CommentAttachment {
   createdAt DateTime    @default(now())
 
   @@index([commentId])
+}
+
+// ─── Progress Notes (SOAP format) ───────────────────────────────────
+
+model ProgressNote {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+  sessionDate DateTime
+  body        String   @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([clientId])
+}
+
+// ─── Client Goals + Reviews ─────────────────────────────────────────
+
+model ClientGoal {
+  id          String    @id @default(cuid())
+  clientId    String
+  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  title       String
+  description String?   @db.Text
+  achieved    Boolean   @default(false)
+  reviewNote  String?   @db.Text
+  parentNote  String?   @db.Text
+  reviewedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([clientId])
+}
+
+// ─── Client Intake Items (questionnaires, SPM, etc.) ────────────────
+
+model ClientIntakeItem {
+  id          String    @id @default(cuid())
+  clientId    String
+  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  type        String    // "parent_questionnaire" | "spm" | custom
+  label       String
+  url         String?
+  status      String    @default("pending") // "pending" | "sent" | "completed"
+  sentAt      DateTime?
+  completedAt DateTime?
+  notes       String?   @db.Text
+  fileUrl     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([clientId])
 }
