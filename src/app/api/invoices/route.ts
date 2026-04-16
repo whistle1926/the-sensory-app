@@ -10,7 +10,25 @@ export async function GET() {
   const [invoices, aggregates] = await Promise.all([
     prisma.invoice.findMany({
       orderBy: { createdAt: "desc" },
-      include: { items: true },
+      select: {
+        id: true,
+        invoiceNumber: true,
+        clientId: true,
+        clientName: true,
+        clientEmail: true,
+        currency: true,
+        status: true,
+        dueDate: true,
+        subtotal: true,
+        tax: true,
+        total: true,
+        paymentRef: true,
+        paymentUrl: true,
+        paidAt: true,
+        sentAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     }),
     prisma.invoice.groupBy({
       by: ["status"],

@@ -33,22 +33,21 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   let allowedNavKeys: string[] | null = null; // null = show everything (no template restriction)
 
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { dashTemplate: { select: { widgets: true } } },
-    });
-
-    if (user?.dashTemplate) {
-      allowedNavKeys = user.dashTemplate.widgets.filter((w: string) => w.startsWith("nav_"));
-    } else {
-      // Fall back to default template
-      const defaultTemplate = await prisma.dashTemplate.findFirst({
+    // Fetch user template and default template in parallel to avoid sequential queries
+    const [user, defaultTemplate] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { dashTemplate: { select: { widgets: true } } },
+      }),
+      prisma.dashTemplate.findFirst({
         where: { isDefault: true },
         select: { widgets: true },
-      });
-      if (defaultTemplate) {
-        allowedNavKeys = defaultTemplate.widgets.filter((w: string) => w.startsWith("nav_"));
-      }
+      }),
+    ]);
+
+    const template = user?.dashTemplate || defaultTemplate;
+    if (template) {
+      allowedNavKeys = template.widgets.filter((w: string) => w.startsWith("nav_"));
     }
   } catch {
     // If DB fails, show all nav — don't lock the user out
