@@ -75,9 +75,15 @@ export default function NewInvoicePage() {
   const [items, setItems] = useState<LineItem[]>([makeItem()]);
 
   /* ---- tax ---- */
-  const [taxLabel, setTaxLabel] = useState("VAT");
-  const [taxRate, setTaxRate] = useState(0);
-  const [taxEnabled, setTaxEnabled] = useState(false);
+  interface AvailableTaxRate {
+    id: string;
+    currency: string;
+    label: string;
+    rate: number;
+    enabled: boolean;
+  }
+  const [availableTaxRates, setAvailableTaxRates] = useState<AvailableTaxRate[]>([]);
+  const [selectedTaxId, setSelectedTaxId] = useState<string>(""); // "" = no tax
 
   /* ---- ui state ---- */
   const [saving, setSaving] = useState(false);
@@ -92,25 +98,39 @@ export default function NewInvoicePage() {
       .catch(() => {});
   }, []);
 
-  /* ---- fetch tax rate when currency changes ---- */
+  /* ---- fetch all tax rates once ---- */
   useEffect(() => {
     fetch("/api/settings/tax-rates")
       .then((r) => r.json())
       .then((data) => {
-        if (!Array.isArray(data)) return;
-        const match = data.find((r: { currency: string }) => r.currency === currency);
-        if (match) {
-          setTaxLabel(match.label || "VAT");
-          setTaxRate(match.rate || 0);
-          setTaxEnabled(match.enabled ?? false);
-        } else {
-          setTaxLabel("VAT");
-          setTaxRate(0);
-          setTaxEnabled(false);
-        }
+        if (Array.isArray(data)) setAvailableTaxRates(data);
       })
       .catch(() => {});
-  }, [currency]);
+  }, []);
+
+  /* ---- options shown in picker for the current currency ---- */
+  const taxOptions = availableTaxRates.filter(
+    (r) => r.currency === currency && r.enabled,
+  );
+
+  /* ---- reset selection when currency changes (pick default: highest rate) */
+  useEffect(() => {
+    if (taxOptions.length === 0) {
+      setSelectedTaxId("");
+      return;
+    }
+    // Keep current if still valid
+    if (taxOptions.some((o) => o.id === selectedTaxId)) return;
+    // Default to the highest rate (typically the standard rate)
+    const best = [...taxOptions].sort((a, b) => b.rate - a.rate)[0];
+    setSelectedTaxId(best.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currency, availableTaxRates]);
+
+  const selectedTax = taxOptions.find((o) => o.id === selectedTaxId) || null;
+  const taxLabel = selectedTax?.label ?? "";
+  const taxRate = selectedTax?.rate ?? 0;
+  const taxEnabled = !!selectedTax && taxRate > 0;
 
   /* ---- filtered client list ---- */
   const filteredClients = clientSearch.trim()
@@ -203,6 +223,10 @@ export default function NewInvoicePage() {
         currency,
         dueDate: new Date(dueDate + "T00:00:00.000Z").toISOString(),
         notes: notes.trim() || undefined,
+        // Explicitly selected tax — send the picked label/rate, API will use it.
+        // Omit (or 0) for "No tax".
+        taxLabel: taxEnabled ? taxLabel : undefined,
+        taxRate: taxEnabled ? taxRate : 0,
         items: items.map((item) => ({
           description: item.description.trim(),
           quantity: item.quantity,
@@ -519,7 +543,28 @@ export default function NewInvoicePage() {
 
           {/* ---- Totals ---- */}
           <Card>
-            <CardContent className="pt-6 space-y-2">
+            <CardContent className="pt-6 space-y-3">
+              {taxOptions.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="taxSelect" className="text-xs">
+                    Tax
+                  </Label>
+                  <select
+                    id="taxSelect"
+                    value={selectedTaxId}
+                    onChange={(e) => setSelectedTaxId(e.target.value)}
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">No Tax</option>
+                    {taxOptions.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.label} ({o.rate}%)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Subtotal</span>
                 <span className="font-medium">{formatCurrency(subtotalPence, currency)}</span>
@@ -536,9 +581,9 @@ export default function NewInvoicePage() {
                   {formatCurrency(totalPence, currency)}
                 </span>
               </div>
-              {!taxEnabled && (
-                <p className="text-[11px] text-muted-foreground">
-                  No tax applied. Configure tax rates in Settings &rarr; Tax.
+              {taxOptions.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No tax rates configured for {currency}. Add one in Settings &rarr; Tax.
                 </p>
               )}
             </CardContent>

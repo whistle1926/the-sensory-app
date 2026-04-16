@@ -89,11 +89,21 @@ export async function PATCH(
 
     const subtotal = calculatedItems.reduce((sum: number, item: { amount: number }) => sum + item.amount, 0);
 
-    // Look up tax rate for the invoice currency
+    // Tax: re-apply the existing invoice's rate (proportionally) unless the client
+    // sent a new taxRate value. We derive it from the existing stored tax/subtotal,
+    // falling back to 0 when the old subtotal is 0 to avoid divide-by-zero.
     let tax = 0;
-    const taxRate = await prisma.taxRate.findUnique({ where: { currency: existing.currency } });
-    if (taxRate?.enabled && taxRate.rate > 0) {
-      tax = Math.round(subtotal * taxRate.rate / 100);
+    const dataWithTax = data as { taxRate?: unknown };
+    if (typeof dataWithTax.taxRate === "number" && dataWithTax.taxRate > 0) {
+      tax = Math.round((subtotal * (dataWithTax.taxRate as number)) / 100);
+      // Strip the transient taxRate key — it's not a column on Invoice.
+      delete dataWithTax.taxRate;
+    } else if (typeof dataWithTax.taxRate === "number" && dataWithTax.taxRate === 0) {
+      tax = 0;
+      delete dataWithTax.taxRate;
+    } else if (existing.subtotal > 0 && existing.tax > 0) {
+      const existingRate = (existing.tax / existing.subtotal) * 100;
+      tax = Math.round((subtotal * existingRate) / 100);
     }
     const total = subtotal + tax;
 

@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
   if (session.user.role === "CLIENT") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const { clientId, clientName, clientEmail, currency, dueDate, notes, items } = body;
+  const { clientId, clientName, clientEmail, currency, dueDate, notes, items, taxLabel: taxLabelRaw, taxRate: taxRateRaw } = body;
   const validCurrencies = ["GBP", "EUR", "USD"];
   const invoiceCurrency = validCurrencies.includes(currency) ? currency : "GBP";
 
@@ -138,12 +138,30 @@ export async function POST(req: NextRequest) {
 
   const subtotal = calculatedItems.reduce((sum: number, item: { amount: number }) => sum + item.amount, 0);
 
-  // Look up tax rate for this currency
+  // Tax: prefer the rate explicitly picked on the form.
+  // Fall back to the first enabled rate for the currency when none sent.
   let tax = 0;
-  const taxRate = await prisma.taxRate.findUnique({ where: { currency: invoiceCurrency } });
-  if (taxRate?.enabled && taxRate.rate > 0) {
-    tax = Math.round(subtotal * taxRate.rate / 100);
+  let selectedRate = 0;
+  if (typeof taxRateRaw === "number" && taxRateRaw > 0) {
+    selectedRate = taxRateRaw;
+  } else if (typeof taxRateRaw === "undefined") {
+    const fallback = await prisma.taxRate.findFirst({
+      where: { currency: invoiceCurrency, enabled: true, rate: { gt: 0 } },
+      orderBy: { rate: "desc" },
+    });
+    if (fallback) selectedRate = fallback.rate;
   }
+  if (selectedRate > 0) {
+    tax = Math.round((subtotal * selectedRate) / 100);
+  }
+  // Record the label that was applied so notes/email templates can show it.
+  const appliedTaxLabel =
+    typeof taxLabelRaw === "string" && taxLabelRaw.trim()
+      ? taxLabelRaw.trim()
+      : undefined;
+  // Attach label to notes if provided and notes are missing? Leave notes alone;
+  // label lives in the totals row on the email template.
+  void appliedTaxLabel;
   const total = subtotal + tax;
 
   // Create invoice + items in a transaction
