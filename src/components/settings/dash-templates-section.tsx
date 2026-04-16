@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Check,
+  ChevronDown,
+  ChevronRight,
   LayoutDashboard,
   Loader2,
+  Pencil,
   Plus,
   Star,
   Trash2,
@@ -134,6 +137,57 @@ function WidgetCheckbox({
 }
 
 /* ------------------------------------------------------------------ */
+/*  Inline editable name component                                     */
+/* ------------------------------------------------------------------ */
+
+function InlineEditName({
+  value,
+  onSave,
+  onCancel,
+}: {
+  value: string;
+  onSave: (name: string) => void;
+  onCancel: () => void;
+}) {
+  const [text, setText] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  function commit() {
+    const trimmed = text.trim();
+    if (trimmed && trimmed !== value) {
+      onSave(trimmed);
+    } else {
+      onCancel();
+    }
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit();
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          onCancel();
+        }
+      }}
+      className="min-w-0 flex-1 rounded-md border border-primary/40 bg-background px-2 py-0.5 text-sm font-medium outline-none ring-2 ring-primary/20"
+    />
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -145,6 +199,12 @@ export function DashTemplatesSection() {
   const [newWidgets, setNewWidgets] = useState<string[]>([...ALL_KEYS]);
   const [saving, setSaving] = useState(false);
   const [patchingId, setPatchingId] = useState<string | null>(null);
+
+  /* accordion state */
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  /* inline name editing state */
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
 
   /* ---- data fetching ---- */
 
@@ -209,6 +269,28 @@ export function DashTemplatesSection() {
     }
   }
 
+  /* ---- rename (inline patch) ---- */
+
+  async function handleRename(template: DashTemplate, newNameValue: string) {
+    // Optimistic update
+    setTemplates((prev) =>
+      prev.map((t) =>
+        t.id === template.id ? { ...t, name: newNameValue } : t
+      )
+    );
+    setEditingNameId(null);
+    setPatchingId(template.id);
+    try {
+      await fetch(`/api/settings/dash-templates/${template.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newNameValue }),
+      });
+    } finally {
+      setPatchingId(null);
+    }
+  }
+
   /* ---- set default ---- */
 
   async function handleSetDefault(id: string) {
@@ -256,6 +338,16 @@ export function DashTemplatesSection() {
     setNewWidgets((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
     );
+  }
+
+  /* ---- accordion toggle ---- */
+
+  function toggleExpanded(id: string) {
+    setExpandedId((prev) => (prev === id ? null : id));
+    // Close any inline name editor when collapsing
+    if (expandedId === id) {
+      setEditingNameId(null);
+    }
   }
 
   /* ---- render helpers ---- */
@@ -316,7 +408,7 @@ export function DashTemplatesSection() {
       </div>
 
       {/* Template list */}
-      <div className="mt-5 space-y-4">
+      <div className="mt-5 space-y-2">
         {loading ? (
           <div className="py-8 text-center text-sm text-muted-foreground">
             <Loader2 className="mx-auto h-5 w-5 animate-spin" />
@@ -346,35 +438,85 @@ export function DashTemplatesSection() {
             const isOnlyDefault =
               tmpl.isDefault &&
               templates.filter((t) => t.isDefault).length <= 1;
+            const isExpanded = expandedId === tmpl.id;
+            const isEditingName = editingNameId === tmpl.id;
 
             return (
               <div
                 key={tmpl.id}
-                className="rounded-xl border border-border bg-background p-4"
+                className="rounded-xl border border-border bg-background overflow-hidden"
               >
-                {/* Template header row */}
-                <div className="flex items-center gap-3">
-                  <span className="flex-1 text-sm font-medium">
-                    {tmpl.name}
-                  </span>
+                {/* Accordion header row */}
+                <div className="flex items-center gap-2 px-4 py-3">
+                  {/* Chevron toggle button */}
+                  <button
+                    type="button"
+                    onClick={() => toggleExpanded(tmpl.id)}
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    aria-label={isExpanded ? "Collapse template" : "Expand template"}
+                  >
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </button>
 
+                  {/* Template name (inline editable) */}
+                  {isEditingName ? (
+                    <InlineEditName
+                      value={tmpl.name}
+                      onSave={(name) => handleRename(tmpl, name)}
+                      onCancel={() => setEditingNameId(null)}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => toggleExpanded(tmpl.id)}
+                      className="min-w-0 flex-1 text-left text-sm font-medium truncate"
+                    >
+                      {tmpl.name}
+                    </button>
+                  )}
+
+                  {/* Edit name pencil icon */}
+                  {!isEditingName && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingNameId(tmpl.id);
+                      }}
+                      className="shrink-0 rounded-md p-1 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+                      title="Rename template"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                  )}
+
+                  {/* Default badge */}
                   {tmpl.isDefault && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                       <Star className="h-2.5 w-2.5" /> Default
                     </span>
                   )}
 
+                  {/* User count */}
                   {tmpl._userCount > 0 && (
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="shrink-0 text-[11px] text-muted-foreground">
                       {tmpl._userCount} user{tmpl._userCount !== 1 ? "s" : ""}
                     </span>
                   )}
 
-                  <div className="flex items-center gap-0.5">
+                  {/* Action buttons */}
+                  <div className="flex shrink-0 items-center gap-0.5">
                     {!tmpl.isDefault && (
                       <button
                         type="button"
-                        onClick={() => handleSetDefault(tmpl.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSetDefault(tmpl.id);
+                        }}
                         disabled={patchingId === tmpl.id}
                         className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
                         title="Set as default template"
@@ -384,7 +526,10 @@ export function DashTemplatesSection() {
                     )}
                     <button
                       type="button"
-                      onClick={() => handleDelete(tmpl)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(tmpl);
+                      }}
                       disabled={isOnlyDefault}
                       className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30"
                       title={
@@ -398,23 +543,25 @@ export function DashTemplatesSection() {
                   </div>
                 </div>
 
-                {/* Two groups of checkboxes */}
-                <div className="mt-4 space-y-4">
-                  {renderWidgetGroup(
-                    "Navigation — sidebar pages",
-                    NAV_ITEMS,
-                    tmpl.widgets,
-                    (key) => toggleWidget(tmpl, key),
-                    patchingId === tmpl.id
-                  )}
-                  {renderWidgetGroup(
-                    "Dashboard — visible widgets",
-                    DASHBOARD_WIDGETS,
-                    tmpl.widgets,
-                    (key) => toggleWidget(tmpl, key),
-                    patchingId === tmpl.id
-                  )}
-                </div>
+                {/* Expanded content: widget checkboxes */}
+                {isExpanded && (
+                  <div className="border-t border-border px-4 pb-4 pt-3 space-y-4">
+                    {renderWidgetGroup(
+                      "Navigation \u2014 sidebar pages",
+                      NAV_ITEMS,
+                      tmpl.widgets,
+                      (key) => toggleWidget(tmpl, key),
+                      patchingId === tmpl.id
+                    )}
+                    {renderWidgetGroup(
+                      "Dashboard \u2014 visible widgets",
+                      DASHBOARD_WIDGETS,
+                      tmpl.widgets,
+                      (key) => toggleWidget(tmpl, key),
+                      patchingId === tmpl.id
+                    )}
+                  </div>
+                )}
               </div>
             );
           })
@@ -456,7 +603,7 @@ export function DashTemplatesSection() {
 
             {/* Navigation selection */}
             {renderWidgetGroup(
-              "Navigation — sidebar pages",
+              "Navigation \u2014 sidebar pages",
               NAV_ITEMS,
               newWidgets,
               toggleNewWidget
@@ -464,7 +611,7 @@ export function DashTemplatesSection() {
 
             {/* Dashboard widget selection */}
             {renderWidgetGroup(
-              "Dashboard — visible widgets",
+              "Dashboard \u2014 visible widgets",
               DASHBOARD_WIDGETS,
               newWidgets,
               toggleNewWidget
