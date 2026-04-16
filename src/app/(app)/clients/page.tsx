@@ -35,7 +35,7 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
   const [loading, setLoading] = useState(true);
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     Promise.all([
@@ -74,7 +74,7 @@ export default function ClientsPage() {
   }, [clients, stages]);
 
   function toggleSection(key: string) {
-    setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
+    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
   async function moveClient(clientId: string, stageId: string | null) {
@@ -140,7 +140,7 @@ export default function ClientsPage() {
       ) : (
         <div className="space-y-4">
           {sections.map((section) => {
-            const isOpen = !collapsed[section.key];
+            const isOpen = !!expanded[section.key];
             return (
               <div
                 key={section.key}
