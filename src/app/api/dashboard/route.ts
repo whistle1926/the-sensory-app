@@ -11,38 +11,27 @@ export async function GET() {
     let visibleWidgets: string[] | null = null; // null = show everything (no template)
 
     if (userId) {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { dashTemplate: { select: { widgets: true } } },
-      });
-
-      if (user?.dashTemplate) {
-        visibleWidgets = user.dashTemplate.widgets;
-      } else {
-        // Fall back to the default template if the user has no explicit assignment
-        const defaultTemplate = await prisma.dashTemplate.findFirst({
+      const [user, defaultTemplate] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: userId },
+          select: { dashTemplate: { select: { widgets: true } } },
+        }),
+        prisma.dashTemplate.findFirst({
           where: { isDefault: true },
           select: { widgets: true },
-        });
-        if (defaultTemplate) {
-          visibleWidgets = defaultTemplate.widgets;
-        }
-      }
+        }),
+      ]);
+
+      const template = user?.dashTemplate || defaultTemplate;
+      if (template) visibleWidgets = template.widgets;
     }
 
     // Helper: only fetch data for a widget if it's visible (or if there's no template at all)
     const show = (key: string) => visibleWidgets === null || visibleWidgets.includes(key);
 
-    // ── Awaiting stage (needed for new_clients widget) ──────────
-    const awaitingStage = show("new_clients")
-      ? await prisma.clientStage.findFirst({
-          where: { isDefault: true },
-          select: { id: true },
-        })
-      : null;
-
     // ── Parallel data fetches — skip queries for hidden widgets ─
-    const [clientCount, reportCount, recentReports, newClients] =
+    // Fetch awaiting stage alongside counts for maximum parallelism
+    const [clientCount, reportCount, recentReports, awaitingStage] =
       await Promise.all([
         show("stat_active_clients")
           ? prisma.client.count({ where: { active: true } })
@@ -54,20 +43,52 @@ export async function GET() {
           ? prisma.report.findMany({
               take: 5,
               orderBy: { createdAt: "desc" },
-              include: { client: { select: { firstName: true, lastName: true } } },
-            })
-          : Promise.resolve([]),
-        show("new_clients") && awaitingStage
-          ? prisma.client.findMany({
-              where: { stageId: awaitingStage.id, active: true },
-              orderBy: { createdAt: "desc" },
-              include: {
-                intakeItems: { orderBy: { createdAt: "asc" } },
-                stage: { select: { id: true, label: true, colour: true } },
+              select: {
+                id: true,
+                reportDate: true,
+                client: { select: { firstName: true, lastName: true } },
               },
             })
           : Promise.resolve([]),
+        show("new_clients")
+          ? prisma.clientStage.findFirst({
+              where: { isDefault: true },
+              select: { id: true },
+            })
+          : Promise.resolve(null),
       ]);
+
+    // ── New clients query (depends on awaitingStage result) ─────
+    const newClients = show("new_clients") && awaitingStage
+      ? await prisma.client.findMany({
+          where: { stageId: awaitingStage.id, active: true },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            createdAt: true,
+            parentCarerName: true,
+            parentCarerEmail: true,
+            stage: { select: { id: true, label: true, colour: true } },
+            intakeItems: {
+              orderBy: { createdAt: "asc" },
+              select: {
+                id: true,
+                type: true,
+                label: true,
+                url: true,
+                status: true,
+                sentAt: true,
+                completedAt: true,
+                notes: true,
+                fileUrl: true,
+                createdAt: true,
+              },
+            },
+          },
+        })
+      : [];
 
     return NextResponse.json({
       visibleWidgets, // null means "show all"

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
-import { FileText, Users, Plus } from "lucide-react";
+import { FileText, Users, Plus, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { NewClientsSection } from "@/components/dashboard/new-clients-section";
 
@@ -37,6 +37,7 @@ interface DashboardData {
 }
 
 export default function DashboardPage() {
+  const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DashboardData>({
     visibleWidgets: null,
     clientCount: 0,
@@ -46,7 +47,12 @@ export default function DashboardPage() {
   });
 
   const fetchData = useCallback(() => {
-    fetch("/api/dashboard").then(r => r.json()).then(setData);
+    setLoading(true);
+    fetch("/api/dashboard")
+      .then(r => r.json())
+      .then(setData)
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -57,6 +63,42 @@ export default function DashboardPage() {
     data.visibleWidgets === null || data.visibleWidgets.includes(key);
 
   const hasStatCards = show("stat_active_clients") || show("stat_total_reports");
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Overview of your clients and reports</p>
+          </div>
+          <div className="h-9 w-28 animate-pulse rounded-xl bg-muted" />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2].map((i) => (
+            <div key={i} className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
+              <div className="flex items-center justify-between">
+                <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+                <div className="h-10 w-10 animate-pulse rounded-xl bg-muted" />
+              </div>
+              <div className="mt-3 h-8 w-16 animate-pulse rounded bg-muted" />
+            </div>
+          ))}
+        </div>
+        <div>
+          <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+          <div className="mt-3 space-y-3">
+            {[1, 2].map((i) => (
+              <div key={i} className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-sm)]">
+                <div className="h-5 w-40 animate-pulse rounded bg-muted" />
+                <div className="mt-2 h-3 w-24 animate-pulse rounded bg-muted" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
