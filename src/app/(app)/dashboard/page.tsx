@@ -68,20 +68,8 @@ export default async function DashboardPage() {
 
   const hasStatCards = show("stat_active_clients") || show("stat_total_reports");
 
-  // Serialize dates for client components
-  const serializedNewClients = newClients.map((c) => ({
-    ...c,
-    dateOfBirth: c.dateOfBirth.toISOString(),
-    createdAt: c.createdAt.toISOString(),
-    updatedAt: c.updatedAt.toISOString(),
-    intakeItems: c.intakeItems.map((item) => ({
-      ...item,
-      sentAt: item.sentAt?.toISOString() ?? null,
-      completedAt: item.completedAt?.toISOString() ?? null,
-      createdAt: item.createdAt.toISOString(),
-      updatedAt: item.updatedAt.toISOString(),
-    })),
-  }));
+  // JSON round-trip to strip Prisma prototypes and convert Dates to strings
+  const serializedNewClients = JSON.parse(JSON.stringify(newClients));
 
   return (
     <div className="space-y-6">
