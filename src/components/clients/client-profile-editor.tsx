@@ -19,6 +19,7 @@ interface ClientValues {
   referrer: string;
   parentCarerName: string;
   parentCarerEmail: string;
+  currency: string;
 }
 
 export function ClientProfileEditor({ client }: { client: ClientValues }) {
@@ -48,6 +49,7 @@ export function ClientProfileEditor({ client }: { client: ClientValues }) {
       referrer: values.referrer,
       parentCarerName: values.parentCarerName,
       parentCarerEmail: values.parentCarerEmail,
+      currency: values.currency,
     };
 
     try {
@@ -163,6 +165,24 @@ export function ClientProfileEditor({ client }: { client: ClientValues }) {
               />
             </div>
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="currency">Invoice Currency</Label>
+            <select
+              id="currency"
+              value={values.currency}
+              onChange={(e) => update("currency", e.target.value)}
+              className="flex h-8 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <option value="GBP">GBP (&pound;) &mdash; British Pound</option>
+              <option value="EUR">EUR (&euro;) &mdash; Euro</option>
+              <option value="USD">USD ($) &mdash; US Dollar</option>
+            </select>
+            <p className="text-xs text-muted-foreground">
+              Currency used when creating invoices for this client.
+            </p>
+          </div>
+
           <p className="text-xs text-muted-foreground">
             Adding or changing the parent email will create or re-link a portal account and send a set-password email.
           </p>

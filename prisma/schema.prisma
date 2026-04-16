@@ -117,6 +117,7 @@ model Client {
   referrer           String?
   parentCarerName    String?
   parentCarerEmail   String?
+  currency           String   @default("GBP") // GBP | EUR | USD
   business           Business @default(SENSORY_SUBMARINE)
   active             Boolean  @default(true)
   createdAt          DateTime @default(now())
@@ -482,6 +483,7 @@ model Invoice {
   client        Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
   clientName    String                       // snapshot — always filled even if no clientId
   clientEmail   String
+  currency      String    @default("GBP")    // GBP | EUR | USD
   status        String    @default("draft")  // "draft" | "sent" | "paid" | "overdue" | "cancelled"
   dueDate       DateTime
   notes         String?   @db.Text

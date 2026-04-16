@@ -60,7 +60,9 @@ export async function POST(req: NextRequest) {
   if (session.user.role === "CLIENT") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const { clientId, clientName, clientEmail, dueDate, notes, items } = body;
+  const { clientId, clientName, clientEmail, currency, dueDate, notes, items } = body;
+  const validCurrencies = ["GBP", "EUR", "USD"];
+  const invoiceCurrency = validCurrencies.includes(currency) ? currency : "GBP";
 
   // Validate required fields
   if (!clientName || typeof clientName !== "string") {
@@ -128,6 +130,7 @@ export async function POST(req: NextRequest) {
         clientId: clientId || null,
         clientName: clientName.trim(),
         clientEmail: clientEmail.toLowerCase().trim(),
+        currency: invoiceCurrency,
         dueDate: new Date(dueDate),
         notes: notes || null,
         subtotal,

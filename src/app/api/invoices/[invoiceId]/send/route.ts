@@ -48,7 +48,7 @@ export async function POST(
     const fb = new FireBuddy(settings.apiKey);
     result = await fb.createPayment({
       amount: invoice.total / 100, // convert pence to pounds
-      currency: "GBP",
+      currency: (invoice.currency || "GBP") as "GBP" | "EUR" | "USD",
       description: `Invoice ${invoice.invoiceNumber}`,
       reference: `invoice:${invoice.id}`,
       email: invoice.clientEmail,
@@ -105,6 +105,7 @@ export async function POST(
 interface InvoiceWithItems {
   invoiceNumber: string;
   clientName: string;
+  currency: string;
   dueDate: Date;
   createdAt: Date;
   total: number;
@@ -129,8 +130,11 @@ function buildInvoiceEmail(params: {
       year: "numeric",
     });
 
+  const cur = invoice.currency || "GBP";
+  const symbols: Record<string, string> = { GBP: "\u00a3", EUR: "\u20ac", USD: "$" };
+  const sym = symbols[cur] || "\u00a3";
   const formatPence = (pence: number) =>
-    `\u00a3${(pence / 100).toFixed(2)}`;
+    `${sym}${(pence / 100).toFixed(2)}`;
 
   const itemRows = invoice.items
     .map(

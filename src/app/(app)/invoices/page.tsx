@@ -32,6 +32,7 @@ interface Invoice {
   clientId: string | null;
   clientName: string;
   clientEmail: string;
+  currency: string;
   status: "draft" | "sent" | "paid" | "overdue" | "cancelled";
   dueDate: string;
   total: number;
@@ -60,10 +61,11 @@ type StatusFilter = "all" | "draft" | "sent" | "paid" | "overdue" | "cancelled";
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-function formatCurrency(pence: number): string {
-  return (pence / 100).toLocaleString("en-GB", {
+function formatCurrency(pence: number, cur: string = "GBP"): string {
+  const locales: Record<string, string> = { GBP: "en-GB", EUR: "en-IE", USD: "en-US" };
+  return (pence / 100).toLocaleString(locales[cur] || "en-GB", {
     style: "currency",
-    currency: "GBP",
+    currency: cur,
   });
 }
 
@@ -409,7 +411,7 @@ export default function InvoicesPage() {
                           {formatDate(inv.dueDate)}
                         </p>
                         <p className="text-right text-sm font-semibold text-foreground">
-                          {formatCurrency(inv.total)}
+                          {formatCurrency(inv.total, inv.currency)}
                         </p>
                         <div className="flex justify-end">
                           <span
@@ -445,7 +447,7 @@ export default function InvoicesPage() {
                             </p>
                           </div>
                           <p className="ml-4 text-sm font-semibold text-foreground">
-                            {formatCurrency(inv.total)}
+                            {formatCurrency(inv.total, inv.currency)}
                           </p>
                         </div>
                         <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">

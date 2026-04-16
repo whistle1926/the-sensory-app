@@ -39,6 +39,7 @@ interface Invoice {
   clientId: string | null;
   clientName: string;
   clientEmail: string;
+  currency: string;
   status: "draft" | "sent" | "paid" | "overdue" | "cancelled";
   dueDate: string;
   notes: string | null;
@@ -66,10 +67,11 @@ interface EditableItem {
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-function formatCurrency(pence: number): string {
-  return (pence / 100).toLocaleString("en-GB", {
+function formatCurrency(pence: number, cur: string = "GBP"): string {
+  const locales: Record<string, string> = { GBP: "en-GB", EUR: "en-IE", USD: "en-US" };
+  return (pence / 100).toLocaleString(locales[cur] || "en-GB", {
     style: "currency",
-    currency: "GBP",
+    currency: cur,
   });
 }
 
@@ -547,7 +549,7 @@ export default function InvoiceDetailPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Unit Price (&pound;)</Label>
+                      <Label>Unit Price ({invoice.currency === "EUR" ? "\u20ac" : invoice.currency === "USD" ? "$" : "\u00a3"})</Label>
                       <Input
                         type="number"
                         min={0}
@@ -561,7 +563,7 @@ export default function InvoiceDetailPage() {
                     <div className="space-y-2">
                       <Label>Amount</Label>
                       <div className="flex h-8 items-center rounded-lg border border-input bg-muted/50 px-2.5 text-sm font-medium">
-                        {formatCurrency(editItemAmountPence(item))}
+                        {formatCurrency(editItemAmountPence(item), invoice.currency)}
                       </div>
                     </div>
                   </div>
@@ -583,7 +585,7 @@ export default function InvoiceDetailPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold">Total</span>
                 <span className="text-lg font-bold tracking-tight">
-                  {formatCurrency(editSubtotalPence)}
+                  {formatCurrency(editSubtotalPence, invoice.currency)}
                 </span>
               </div>
             </div>
@@ -745,10 +747,10 @@ export default function InvoiceDetailPage() {
                     {item.quantity}
                   </td>
                   <td className="px-4 py-3 text-right text-muted-foreground">
-                    {formatCurrency(item.unitPrice)}
+                    {formatCurrency(item.unitPrice, invoice.currency)}
                   </td>
                   <td className="px-6 py-3 text-right font-medium">
-                    {formatCurrency(item.amount)}
+                    {formatCurrency(item.amount, invoice.currency)}
                   </td>
                 </tr>
               ))}
@@ -762,7 +764,7 @@ export default function InvoiceDetailPage() {
                   Total
                 </td>
                 <td className="px-6 py-3 text-right text-base font-bold">
-                  {formatCurrency(invoice.total)}
+                  {formatCurrency(invoice.total, invoice.currency)}
                 </td>
               </tr>
             </tfoot>

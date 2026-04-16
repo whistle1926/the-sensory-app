@@ -90,6 +90,7 @@ export default async function ClientDetailPage({
               referrer: client.referrer || "",
               parentCarerName: client.parentCarerName || "",
               parentCarerEmail: client.parentCarerEmail || "",
+              currency: client.currency || "GBP",
             }}
           />
         ) : (

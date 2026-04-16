@@ -20,6 +20,7 @@ interface Client {
   lastName: string;
   parentCarerEmail: string | null;
   parentCarerName: string | null;
+  currency: string;
 }
 
 interface LineItem {
@@ -33,10 +34,11 @@ interface LineItem {
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-function formatCurrency(pence: number): string {
-  return (pence / 100).toLocaleString("en-GB", {
+function formatCurrency(pence: number, cur: string = "GBP"): string {
+  const locales: Record<string, string> = { GBP: "en-GB", EUR: "en-IE", USD: "en-US" };
+  return (pence / 100).toLocaleString(locales[cur] || "en-GB", {
     style: "currency",
-    currency: "GBP",
+    currency: cur,
   });
 }
 
@@ -67,6 +69,7 @@ export default function NewInvoicePage() {
   /* ---- form fields ---- */
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
+  const [currency, setCurrency] = useState("GBP");
   const [dueDate, setDueDate] = useState(defaultDueDate);
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<LineItem[]>([makeItem()]);
@@ -99,6 +102,7 @@ export default function NewInvoicePage() {
     setSelectedClientId(c.id);
     setClientName(`${c.firstName} ${c.lastName}`);
     setClientEmail(c.parentCarerEmail || "");
+    setCurrency(c.currency || "GBP");
     setClientSearch(`${c.firstName} ${c.lastName}`);
     setShowDropdown(false);
   }
@@ -109,6 +113,7 @@ export default function NewInvoicePage() {
     setClientName("");
     setClientEmail("");
     setClientSearch("");
+    setCurrency("GBP");
   }
 
   /* ---- line item helpers ---- */
@@ -168,6 +173,7 @@ export default function NewInvoicePage() {
         clientId: selectedClientId || undefined,
         clientName: clientName.trim(),
         clientEmail: clientEmail.trim().toLowerCase(),
+        currency,
         dueDate: new Date(dueDate + "T00:00:00.000Z").toISOString(),
         notes: notes.trim() || undefined,
         items: items.map((item) => ({
@@ -345,6 +351,23 @@ export default function NewInvoicePage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
+            <Label htmlFor="currency">Currency</Label>
+            <select
+              id="currency"
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <option value="GBP">GBP (&pound;) &mdash; British Pound</option>
+              <option value="EUR">EUR (&euro;) &mdash; Euro</option>
+              <option value="USD">USD ($) &mdash; US Dollar</option>
+            </select>
+            <p className="text-xs text-muted-foreground">
+              Auto-filled from client profile. Change if needed for this invoice.
+            </p>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="dueDate">Due Date *</Label>
             <Input
               id="dueDate"
@@ -424,7 +447,7 @@ export default function NewInvoicePage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Unit Price (&pound;)</Label>
+                    <Label>Unit Price ({currency === "EUR" ? "€" : currency === "USD" ? "$" : "£"})</Label>
                     <Input
                       type="number"
                       min={0}
@@ -439,7 +462,7 @@ export default function NewInvoicePage() {
                   <div className="space-y-2">
                     <Label>Amount</Label>
                     <div className="flex h-8 items-center rounded-lg border border-input bg-muted/50 px-2.5 text-sm font-medium">
-                      {formatCurrency(itemAmountPence(item))}
+                      {formatCurrency(itemAmountPence(item), currency)}
                     </div>
                   </div>
                 </div>
@@ -463,7 +486,7 @@ export default function NewInvoicePage() {
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold">Total</span>
               <span className="text-lg font-bold tracking-tight">
-                {formatCurrency(subtotalPence)}
+                {formatCurrency(subtotalPence, currency)}
               </span>
             </div>
           </div>

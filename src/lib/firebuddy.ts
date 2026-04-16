@@ -3,7 +3,7 @@ const FIREBUDDY_API =
 
 export interface CreatePaymentOptions {
   amount: number;
-  currency?: "EUR" | "GBP";
+  currency?: "EUR" | "GBP" | "USD";
   description: string;
   reference?: string;
   email?: string;
