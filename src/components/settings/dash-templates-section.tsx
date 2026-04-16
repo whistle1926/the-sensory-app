@@ -20,10 +20,16 @@ import {
 } from "@/components/ui/dialog";
 
 /* ------------------------------------------------------------------ */
-/*  Widget definitions                                                 */
+/*  Widget / nav definitions                                           */
 /* ------------------------------------------------------------------ */
 
-const AVAILABLE_WIDGETS = [
+interface WidgetDef {
+  key: string;
+  label: string;
+  description: string;
+}
+
+const DASHBOARD_WIDGETS: WidgetDef[] = [
   {
     key: "stat_active_clients",
     label: "Active Clients Count",
@@ -44,11 +50,25 @@ const AVAILABLE_WIDGETS = [
     label: "Recent Reports",
     description: "Shows the 5 most recent reports",
   },
-] as const;
+];
 
-type WidgetKey = (typeof AVAILABLE_WIDGETS)[number]["key"];
+const NAV_ITEMS: WidgetDef[] = [
+  { key: "nav_dashboard", label: "Dashboard", description: "Main dashboard page" },
+  { key: "nav_clients", label: "Clients", description: "Client list and profiles" },
+  { key: "nav_reports", label: "Reports", description: "OT reports" },
+  { key: "nav_activities", label: "Activities", description: "Activity bank" },
+  { key: "nav_programmes", label: "Programmes", description: "Home programmes" },
+  { key: "nav_bookings", label: "Bookings", description: "Session bookings" },
+  { key: "nav_training", label: "Training", description: "CPD courses and training" },
+  { key: "nav_tasks", label: "Tasks", description: "Tasks and feedback" },
+  { key: "nav_team", label: "Team", description: "Team management" },
+  { key: "nav_settings", label: "Settings", description: "App settings" },
+];
 
-const ALL_WIDGET_KEYS: string[] = AVAILABLE_WIDGETS.map((w) => w.key);
+const ALL_KEYS: string[] = [
+  ...DASHBOARD_WIDGETS.map((w) => w.key),
+  ...NAV_ITEMS.map((w) => w.key),
+];
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -64,6 +84,55 @@ interface DashTemplate {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Checkbox component                                                 */
+/* ------------------------------------------------------------------ */
+
+function WidgetCheckbox({
+  item,
+  active,
+  disabled,
+  onToggle,
+}: {
+  item: WidgetDef;
+  active: boolean;
+  disabled?: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      disabled={disabled}
+      className={cn(
+        "group flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-all",
+        active
+          ? "border-primary/30 bg-primary/5"
+          : "border-border bg-background hover:border-border hover:bg-muted/50"
+      )}
+    >
+      <span
+        className={cn(
+          "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
+          active
+            ? "border-primary bg-primary text-white"
+            : "border-muted-foreground/40 bg-background"
+        )}
+      >
+        {active && <Check className="h-3 w-3" />}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-xs font-medium leading-tight">
+          {item.label}
+        </span>
+        <span className="block text-[11px] leading-snug text-muted-foreground">
+          {item.description}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -72,7 +141,7 @@ export function DashTemplatesSection() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newName, setNewName] = useState("");
-  const [newWidgets, setNewWidgets] = useState<string[]>([...ALL_WIDGET_KEYS]);
+  const [newWidgets, setNewWidgets] = useState<string[]>([...ALL_KEYS]);
   const [saving, setSaving] = useState(false);
   const [patchingId, setPatchingId] = useState<string | null>(null);
 
@@ -96,7 +165,7 @@ export function DashTemplatesSection() {
 
   function openCreate() {
     setNewName("");
-    setNewWidgets([...ALL_WIDGET_KEYS]);
+    setNewWidgets([...ALL_KEYS]);
     setDialogOpen(true);
   }
 
@@ -188,6 +257,35 @@ export function DashTemplatesSection() {
     );
   }
 
+  /* ---- render helpers ---- */
+
+  function renderWidgetGroup(
+    title: string,
+    items: WidgetDef[],
+    activeKeys: string[],
+    onToggle: (key: string) => void,
+    disabled?: boolean
+  ) {
+    return (
+      <div>
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {title}
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {items.map((w) => (
+            <WidgetCheckbox
+              key={w.key}
+              item={w}
+              active={activeKeys.includes(w.key)}
+              disabled={disabled}
+              onToggle={() => onToggle(w.key)}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   /* ---------------------------------------------------------------- */
   /*  Render                                                           */
   /* ---------------------------------------------------------------- */
@@ -203,7 +301,7 @@ export function DashTemplatesSection() {
           <div>
             <h2 className="text-base font-semibold">Dashboard Templates</h2>
             <p className="text-sm text-muted-foreground">
-              Control which sections each team member sees on their dashboard
+              Control which pages and dashboard sections each team member can access
             </p>
           </div>
         </div>
@@ -217,7 +315,7 @@ export function DashTemplatesSection() {
       </div>
 
       {/* Template list */}
-      <div className="mt-5 space-y-3">
+      <div className="mt-5 space-y-4">
         {loading ? (
           <div className="py-8 text-center text-sm text-muted-foreground">
             <Loader2 className="mx-auto h-5 w-5 animate-spin" />
@@ -231,8 +329,7 @@ export function DashTemplatesSection() {
             <div>
               <p className="text-sm font-medium">No templates yet</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Create your first template to control what team members see on
-                their dashboard.
+                Create your first template to control what team members see.
               </p>
             </div>
             <button
@@ -300,44 +397,22 @@ export function DashTemplatesSection() {
                   </div>
                 </div>
 
-                {/* Widget checkboxes */}
-                <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  {AVAILABLE_WIDGETS.map((w) => {
-                    const active = tmpl.widgets.includes(w.key);
-                    return (
-                      <button
-                        key={w.key}
-                        type="button"
-                        onClick={() => toggleWidget(tmpl, w.key)}
-                        disabled={patchingId === tmpl.id}
-                        className={cn(
-                          "group flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-all",
-                          active
-                            ? "border-primary/30 bg-primary/5"
-                            : "border-border bg-background hover:border-border hover:bg-muted/50"
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
-                            active
-                              ? "border-primary bg-primary text-white"
-                              : "border-muted-foreground/40 bg-background"
-                          )}
-                        >
-                          {active && <Check className="h-3 w-3" />}
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block text-xs font-medium leading-tight">
-                            {w.label}
-                          </span>
-                          <span className="block text-[11px] leading-snug text-muted-foreground">
-                            {w.description}
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })}
+                {/* Two groups of checkboxes */}
+                <div className="mt-4 space-y-4">
+                  {renderWidgetGroup(
+                    "Navigation — sidebar pages",
+                    NAV_ITEMS,
+                    tmpl.widgets,
+                    (key) => toggleWidget(tmpl, key),
+                    patchingId === tmpl.id
+                  )}
+                  {renderWidgetGroup(
+                    "Dashboard — visible widgets",
+                    DASHBOARD_WIDGETS,
+                    tmpl.widgets,
+                    (key) => toggleWidget(tmpl, key),
+                    patchingId === tmpl.id
+                  )}
                 </div>
               </div>
             );
@@ -347,17 +422,17 @@ export function DashTemplatesSection() {
 
       <p className="mt-3 text-[11px] text-muted-foreground">
         The default template (star) is automatically applied to new team
-        members. Toggle widgets to control what each template shows.
+        members. Assign specific templates per user on the Team page.
       </p>
 
       {/* Create dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Template</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-5">
             {/* Name */}
             <div>
               <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -378,49 +453,21 @@ export function DashTemplatesSection() {
               />
             </div>
 
-            {/* Widget selection */}
-            <div>
-              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Visible Widgets
-              </label>
-              <div className="space-y-2">
-                {AVAILABLE_WIDGETS.map((w) => {
-                  const active = newWidgets.includes(w.key);
-                  return (
-                    <button
-                      key={w.key}
-                      type="button"
-                      onClick={() => toggleNewWidget(w.key)}
-                      className={cn(
-                        "flex w-full items-start gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-all",
-                        active
-                          ? "border-primary/30 bg-primary/5"
-                          : "border-border bg-background hover:border-border hover:bg-muted/50"
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
-                          active
-                            ? "border-primary bg-primary text-white"
-                            : "border-muted-foreground/40 bg-background"
-                        )}
-                      >
-                        {active && <Check className="h-3 w-3" />}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-xs font-medium leading-tight">
-                          {w.label}
-                        </span>
-                        <span className="block text-[11px] leading-snug text-muted-foreground">
-                          {w.description}
-                        </span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            {/* Navigation selection */}
+            {renderWidgetGroup(
+              "Navigation — sidebar pages",
+              NAV_ITEMS,
+              newWidgets,
+              toggleNewWidget
+            )}
+
+            {/* Dashboard widget selection */}
+            {renderWidgetGroup(
+              "Dashboard — visible widgets",
+              DASHBOARD_WIDGETS,
+              newWidgets,
+              toggleNewWidget
+            )}
           </div>
 
           <DialogFooter>

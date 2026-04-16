@@ -19,19 +19,21 @@ import {
 
 interface SidebarProps {
   role: string;
+  /** nav_ keys the user's template allows. null = show all (no template). */
+  allowedNavKeys: string[] | null;
 }
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
-  { href: "/clients", label: "Clients", icon: Users, roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
-  { href: "/reports", label: "Reports", icon: FileText, roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
-  { href: "/activities", label: "Activities", icon: BookOpen, roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
-  { href: "/programmes", label: "Programmes", icon: Home, roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
-  { href: "/bookings", label: "Bookings", icon: CalendarDays, roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
-  { href: "/training", label: "Training", icon: GraduationCap, roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
-  { href: "/tasks", label: "Tasks", icon: ListChecks, roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
-  { href: "/team", label: "Team", icon: UserPlus, roles: ["SUPER_ADMIN"] },
-  { href: "/settings", label: "Settings", icon: Settings, roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, navKey: "nav_dashboard", roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
+  { href: "/clients", label: "Clients", icon: Users, navKey: "nav_clients", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
+  { href: "/reports", label: "Reports", icon: FileText, navKey: "nav_reports", roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
+  { href: "/activities", label: "Activities", icon: BookOpen, navKey: "nav_activities", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
+  { href: "/programmes", label: "Programmes", icon: Home, navKey: "nav_programmes", roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
+  { href: "/bookings", label: "Bookings", icon: CalendarDays, navKey: "nav_bookings", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
+  { href: "/training", label: "Training", icon: GraduationCap, navKey: "nav_training", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
+  { href: "/tasks", label: "Tasks", icon: ListChecks, navKey: "nav_tasks", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
+  { href: "/team", label: "Team", icon: UserPlus, navKey: "nav_team", roles: ["SUPER_ADMIN"] },
+  { href: "/settings", label: "Settings", icon: Settings, navKey: "nav_settings", roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
 ];
 
 function LogoMark() {
@@ -47,10 +49,16 @@ function LogoMark() {
   );
 }
 
-export function Sidebar({ role }: SidebarProps) {
+export function Sidebar({ role, allowedNavKeys }: SidebarProps) {
   const pathname = usePathname();
 
-  const filteredItems = navItems.filter((item) => item.roles.includes(role));
+  const filteredItems = navItems.filter((item) => {
+    // Must have the correct role
+    if (!item.roles.includes(role)) return false;
+    // If a template is active, must be in the allowed keys
+    if (allowedNavKeys !== null && !allowedNavKeys.includes(item.navKey)) return false;
+    return true;
+  });
 
   return (
     <aside className="hidden md:flex md:w-64 md:flex-col text-white" style={{ background: "var(--gradient-sidebar)" }}>

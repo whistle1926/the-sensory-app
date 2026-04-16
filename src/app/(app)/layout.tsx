@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { MobileNav } from "@/components/layout/mobile-nav";
@@ -28,12 +29,37 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const role = (session.user.role || "SUPER_ADMIN") as "SUPER_ADMIN" | "TEAM_MANAGER" | "CLIENT";
 
+  // ── Resolve nav visibility from the user's dash template ──────
+  let allowedNavKeys: string[] | null = null; // null = show everything (no template restriction)
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { dashTemplate: { select: { widgets: true } } },
+    });
+
+    if (user?.dashTemplate) {
+      allowedNavKeys = user.dashTemplate.widgets.filter((w: string) => w.startsWith("nav_"));
+    } else {
+      // Fall back to default template
+      const defaultTemplate = await prisma.dashTemplate.findFirst({
+        where: { isDefault: true },
+        select: { widgets: true },
+      });
+      if (defaultTemplate) {
+        allowedNavKeys = defaultTemplate.widgets.filter((w: string) => w.startsWith("nav_"));
+      }
+    }
+  } catch {
+    // If DB fails, show all nav — don't lock the user out
+  }
+
   return (
     <div className="flex h-screen">
-      <Sidebar role={role} />
+      <Sidebar role={role} allowedNavKeys={allowedNavKeys} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <div className="flex items-center gap-2 px-4 md:px-0">
-          <MobileNav role={role} />
+          <MobileNav role={role} allowedNavKeys={allowedNavKeys} />
           <div className="flex-1">
             <Header userName={session.user.name || "User"} userRole={role} />
           </div>

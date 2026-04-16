@@ -7,6 +7,16 @@ const VALID_WIDGETS = [
   "stat_total_reports",
   "new_clients",
   "recent_reports",
+  "nav_dashboard",
+  "nav_clients",
+  "nav_reports",
+  "nav_activities",
+  "nav_programmes",
+  "nav_bookings",
+  "nav_training",
+  "nav_tasks",
+  "nav_team",
+  "nav_settings",
 ] as const;
 
 type WidgetKey = (typeof VALID_WIDGETS)[number];

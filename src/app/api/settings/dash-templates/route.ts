@@ -3,10 +3,22 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 const VALID_WIDGETS = [
+  // Dashboard widgets
   "stat_active_clients",
   "stat_total_reports",
   "new_clients",
   "recent_reports",
+  // Navigation items
+  "nav_dashboard",
+  "nav_clients",
+  "nav_reports",
+  "nav_activities",
+  "nav_programmes",
+  "nav_bookings",
+  "nav_training",
+  "nav_tasks",
+  "nav_team",
+  "nav_settings",
 ] as const;
 
 type WidgetKey = (typeof VALID_WIDGETS)[number];

@@ -14,33 +14,41 @@ import {
   Settings,
   BookOpen,
   Home,
-  Video,
+  CalendarDays,
   GraduationCap,
   Menu,
   Lock,
+  ListChecks,
 } from "lucide-react";
 
 interface MobileNavProps {
   role: string;
+  /** nav_ keys the user's template allows. null = show all (no template). */
+  allowedNavKeys: string[] | null;
 }
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
-  { href: "/clients", label: "Clients", icon: Users, roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
-  { href: "/reports", label: "Reports", icon: FileText, roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
-  { href: "/activities", label: "Activities", icon: BookOpen, roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
-  { href: "/programmes", label: "Programmes", icon: Home, roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
-  { href: "/consultations", label: "Consultations", icon: Video, roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
-  { href: "/training", label: "Training", icon: GraduationCap, roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
-  { href: "/team", label: "Team", icon: UserPlus, roles: ["SUPER_ADMIN"] },
-  { href: "/settings", label: "Settings", icon: Settings, roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, navKey: "nav_dashboard", roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
+  { href: "/clients", label: "Clients", icon: Users, navKey: "nav_clients", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
+  { href: "/reports", label: "Reports", icon: FileText, navKey: "nav_reports", roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
+  { href: "/activities", label: "Activities", icon: BookOpen, navKey: "nav_activities", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
+  { href: "/programmes", label: "Programmes", icon: Home, navKey: "nav_programmes", roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
+  { href: "/bookings", label: "Bookings", icon: CalendarDays, navKey: "nav_bookings", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
+  { href: "/training", label: "Training", icon: GraduationCap, navKey: "nav_training", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
+  { href: "/tasks", label: "Tasks", icon: ListChecks, navKey: "nav_tasks", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
+  { href: "/team", label: "Team", icon: UserPlus, navKey: "nav_team", roles: ["SUPER_ADMIN"] },
+  { href: "/settings", label: "Settings", icon: Settings, navKey: "nav_settings", roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
 ];
 
-export function MobileNav({ role }: MobileNavProps) {
+export function MobileNav({ role, allowedNavKeys }: MobileNavProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  const filteredItems = navItems.filter((item) => item.roles.includes(role));
+  const filteredItems = navItems.filter((item) => {
+    if (!item.roles.includes(role)) return false;
+    if (allowedNavKeys !== null && !allowedNavKeys.includes(item.navKey)) return false;
+    return true;
+  });
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
