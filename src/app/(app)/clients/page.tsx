@@ -172,16 +172,16 @@ export default function ClientsPage() {
                 type="button"
                 onClick={() => setStageFilter("all")}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-colors",
+                  "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all",
                   stageFilter === "all"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    ? "bg-primary text-primary-foreground shadow-[var(--shadow-sm)]"
+                    : "border border-border bg-card text-foreground hover:border-primary/40 hover:bg-muted"
                 )}
               >
                 All
                 <span className={cn(
-                  "rounded-full px-1.5 py-0.5 text-[10px]",
-                  stageFilter === "all" ? "bg-white/20" : "bg-background"
+                  "rounded-full px-2 py-0.5 text-xs font-bold tabular-nums",
+                  stageFilter === "all" ? "bg-white/25" : "bg-muted"
                 )}>
                   {stageCounts.all}
                 </span>
@@ -192,20 +192,20 @@ export default function ClientsPage() {
                   type="button"
                   onClick={() => setStageFilter(s.id)}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-colors",
+                    "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all",
                     stageFilter === s.id
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      ? "bg-primary text-primary-foreground shadow-[var(--shadow-sm)]"
+                      : "border border-border bg-card text-foreground hover:border-primary/40 hover:bg-muted"
                   )}
                 >
                   <span
-                    className="h-2 w-2 rounded-full"
+                    className="h-2.5 w-2.5 rounded-full ring-2 ring-background"
                     style={{ backgroundColor: s.colour }}
                   />
                   {s.label}
                   <span className={cn(
-                    "rounded-full px-1.5 py-0.5 text-[10px]",
-                    stageFilter === s.id ? "bg-white/20" : "bg-background"
+                    "rounded-full px-2 py-0.5 text-xs font-bold tabular-nums",
+                    stageFilter === s.id ? "bg-white/25" : "bg-muted"
                   )}>
                     {stageCounts[s.id] || 0}
                   </span>
@@ -216,16 +216,16 @@ export default function ClientsPage() {
                   type="button"
                   onClick={() => setStageFilter("_uncategorised")}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-colors",
+                    "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all",
                     stageFilter === "_uncategorised"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      ? "bg-primary text-primary-foreground shadow-[var(--shadow-sm)]"
+                      : "border border-border bg-card text-foreground hover:border-primary/40 hover:bg-muted"
                   )}
                 >
                   Uncategorised
                   <span className={cn(
-                    "rounded-full px-1.5 py-0.5 text-[10px]",
-                    stageFilter === "_uncategorised" ? "bg-white/20" : "bg-background"
+                    "rounded-full px-2 py-0.5 text-xs font-bold tabular-nums",
+                    stageFilter === "_uncategorised" ? "bg-white/25" : "bg-muted"
                   )}>
                     {stageCounts._uncategorised}
                   </span>
