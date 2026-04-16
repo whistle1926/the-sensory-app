@@ -119,7 +119,7 @@ export default function TasksPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-muted-foreground">
             Track internal work and collect feedback from clients
           </p>
         </div>
@@ -134,7 +134,7 @@ export default function TasksPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-4">
-          <div className="inline-flex rounded-xl border border-border bg-muted/50 p-1 text-sm">
+          <div className="inline-flex rounded-xl border border-border bg-muted/50 p-1">
             {TABS.map((t) => (
               <button
                 key={t.key}
@@ -150,7 +150,7 @@ export default function TasksPage() {
                 {t.label}
                 <span
                   className={cn(
-                    "ml-1.5 rounded-full px-1.5 text-[10px]",
+                    "ml-1.5 rounded-full px-1.5 text-xs",
                     tab === t.key ? "bg-muted text-foreground" : "bg-transparent"
                   )}
                 >
@@ -161,14 +161,14 @@ export default function TasksPage() {
           </div>
 
           {loading ? (
-            <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground shadow-[var(--shadow-sm)]">
+            <div className="rounded-2xl border border-border bg-card p-10 text-center text-muted-foreground shadow-[var(--shadow-sm)]">
               Loading tasks…
             </div>
           ) : filtered.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-10 text-center shadow-[var(--shadow-sm)]">
               <CheckSquare className="mx-auto h-8 w-8 text-muted-foreground/50" />
-              <p className="mt-3 text-sm font-semibold">No tasks yet</p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-3 font-semibold">No tasks yet</p>
+              <p className="mt-1 text-sm text-muted-foreground">
                 {tab === "all"
                   ? "Create your first task to get started."
                   : `No tasks in "${TABS.find((t) => t.key === tab)?.label}".`}
@@ -199,7 +199,7 @@ export default function TasksPage() {
                         <div className="flex items-center gap-2">
                           <h3
                             className={cn(
-                              "truncate text-sm font-semibold",
+                              "truncate font-semibold",
                               task.status === "done" && "line-through text-muted-foreground"
                             )}
                           >
@@ -209,7 +209,7 @@ export default function TasksPage() {
                           <StatusBadge status={task.status} />
                         </div>
                         {task.description && (
-                          <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+                          <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
                             {task.description
                               .replace(/<[^>]+>/g, " ")
                               .replace(/&nbsp;/g, " ")
@@ -217,7 +217,7 @@ export default function TasksPage() {
                               .trim()}
                           </p>
                         )}
-                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                           {due && (
                             <span
                               className={cn(
@@ -255,7 +255,7 @@ export default function TasksPage() {
                           <span
                             key={a.user.id}
                             title={a.user.name}
-                            className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card text-[10px] font-bold text-white"
+                            className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-card text-xs font-bold text-white"
                             style={{
                               backgroundColor: `hsl(${avatarHue(a.user.id)} 70% 50%)`,
                             }}
@@ -264,7 +264,7 @@ export default function TasksPage() {
                           </span>
                         ))}
                         {task.assignees.length > 3 && (
-                          <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-muted text-[10px] font-bold">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-card bg-muted text-xs font-bold">
                             +{task.assignees.length - 3}
                           </span>
                         )}
@@ -280,10 +280,10 @@ export default function TasksPage() {
         <div className="space-y-4">
           <DueCalendar dueDates={dueDates} />
           <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-sm)]">
-            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Quick stats
             </h2>
-            <dl className="mt-3 space-y-2 text-sm">
+            <dl className="mt-3 space-y-2">
               <div className="flex items-center justify-between">
                 <dt className="text-muted-foreground">Active</dt>
                 <dd className="font-semibold">{counts.todo + counts.in_progress}</dd>
