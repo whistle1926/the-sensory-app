@@ -238,7 +238,7 @@ export default function SettingsPage() {
         </TabsList>
 
         {/* Profile Tab */}
-        <TabsContent value="profile">
+        <TabsContent value="profile" keepMounted>
           <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
             <h2 className="text-base font-semibold">Profile</h2>
             <div className="mt-4 space-y-4 text-sm">
@@ -262,21 +262,21 @@ export default function SettingsPage() {
 
         {/* Client Journey Stages Tab — Admin Only */}
         {isAdmin && (
-          <TabsContent value="stages">
+          <TabsContent value="stages" keepMounted>
             <ClientStagesSection />
           </TabsContent>
         )}
 
         {/* Dashboard Templates Tab — Admin Only */}
         {isAdmin && (
-          <TabsContent value="templates">
+          <TabsContent value="templates" keepMounted>
             <DashTemplatesSection />
           </TabsContent>
         )}
 
         {/* Mailcub Email Integration Tab — Admin Only */}
         {isAdmin && (
-          <TabsContent value="email">
+          <TabsContent value="email" keepMounted>
             <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
@@ -405,7 +405,7 @@ export default function SettingsPage() {
 
         {/* Claude AI Integration Tab — Admin Only */}
         {isAdmin && (
-          <TabsContent value="ai">
+          <TabsContent value="ai" keepMounted>
             <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
@@ -523,7 +523,7 @@ export default function SettingsPage() {
 
         {/* FireBuddy Payment Integration Tab — Admin Only */}
         {isAdmin && (
-          <TabsContent value="payments">
+          <TabsContent value="payments" keepMounted>
             <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
