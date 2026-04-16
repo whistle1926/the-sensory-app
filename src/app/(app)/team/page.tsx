@@ -11,7 +11,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Mail, Building2, MoreHorizontal } from "lucide-react";
+import { Plus, Mail, Building2, MoreHorizontal, LayoutDashboard } from "lucide-react";
+
+interface DashTemplate {
+  id: string;
+  name: string;
+}
 
 interface User {
   id: string;
@@ -19,6 +24,7 @@ interface User {
   name: string;
   role: string;
   business: string | null;
+  dashTemplateId: string | null;
   createdAt: string;
 }
 
@@ -36,12 +42,19 @@ const businessLabel: Record<string, string> = {
 
 export default function TeamPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [templates, setTemplates] = useState<DashTemplate[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     fetch("/api/users").then((r) => r.json()).then(setUsers);
+    fetch("/api/settings/dash-templates")
+      .then((r) => r.json())
+      .then((data: DashTemplate[]) => {
+        if (Array.isArray(data)) setTemplates(data);
+      })
+      .catch(() => {});
   }, []);
 
   async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
@@ -71,8 +84,25 @@ export default function TeamPage() {
     }
 
     const newUser = await res.json();
-    setUsers([...users, { ...newUser, createdAt: new Date().toISOString(), business: null }]);
+    setUsers([...users, { ...newUser, createdAt: new Date().toISOString(), business: null, dashTemplateId: null }]);
     setOpen(false);
+  }
+
+  async function handleTemplateChange(userId: string, templateId: string | null) {
+    // Optimistic update
+    setUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, dashTemplateId: templateId } : u))
+    );
+    try {
+      await fetch(`/api/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dashTemplateId: templateId }),
+      });
+    } catch {
+      // Revert on failure — refetch
+      fetch("/api/users").then((r) => r.json()).then(setUsers);
+    }
   }
 
   return (
@@ -155,6 +185,8 @@ export default function TeamPage() {
             .replace(/_/g, " ")
             .toLowerCase()
             .replace(/\b\w/g, (l) => l.toUpperCase());
+          const isStaff = user.role === "SUPER_ADMIN" || user.role === "TEAM_MANAGER";
+          const templateName = templates.find((t) => t.id === user.dashTemplateId)?.name;
 
           return (
             <div
@@ -203,6 +235,35 @@ export default function TeamPage() {
                   </div>
                 )}
               </div>
+
+              {/* Dashboard Template Assignment — only for staff users */}
+              {isStaff && templates.length > 0 && (
+                <div className="mt-3 border-t border-border pt-3">
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <LayoutDashboard className="h-3 w-3" />
+                    Dashboard
+                  </div>
+                  <select
+                    value={user.dashTemplateId || ""}
+                    onChange={(e) =>
+                      handleTemplateChange(user.id, e.target.value || null)
+                    }
+                    className="mt-1.5 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="">Default template</option>
+                    {templates.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                  {templateName && (
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      Using: {templateName}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Action Buttons */}
               <div className="mt-4 flex gap-2">

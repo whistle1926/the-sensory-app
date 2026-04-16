@@ -47,6 +47,9 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  dashTemplateId String?
+  dashTemplate   DashTemplate? @relation(fields: [dashTemplateId], references: [id], onDelete: SetNull)
+
   managedClients  Client[]       @relation("ManagerClients")
   parentOfClients Client[]       @relation("ParentClients")
   reports         Report[]       @relation("AuthoredReports")
@@ -91,6 +94,17 @@ model ClientStage {
   isDefault Boolean  @default(false)
   createdAt DateTime @default(now())
   clients   Client[]
+}
+
+// ─── Dashboard Templates ────────────────────────────────────────────
+model DashTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  widgets   String[] // array of widget keys visible in this template
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
 }
 
 model Client {
