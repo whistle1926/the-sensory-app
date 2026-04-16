@@ -50,6 +50,10 @@ model User {
   dashTemplateId String?
   dashTemplate   DashTemplate? @relation(fields: [dashTemplateId], references: [id], onDelete: SetNull)
 
+  // Preferred sidebar order — array of navKey strings (e.g. "nav_dashboard").
+  // Empty array = use the default order.
+  navOrder       String[]      @default([])
+
   managedClients  Client[]       @relation("ManagerClients")
   parentOfClients Client[]       @relation("ParentClients")
   reports         Report[]       @relation("AuthoredReports")

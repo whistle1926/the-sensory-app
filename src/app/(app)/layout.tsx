@@ -31,13 +31,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // ── Resolve nav visibility from the user's dash template ──────
   let allowedNavKeys: string[] | null = null; // null = show everything (no template restriction)
+  let navOrder: string[] = [];
 
   try {
-    // Fetch user template and default template in parallel to avoid sequential queries
+    // Fetch user template, default template, and the user's nav order in parallel.
     const [user, defaultTemplate] = await Promise.all([
       prisma.user.findUnique({
         where: { id: session.user.id },
-        select: { dashTemplate: { select: { widgets: true } } },
+        select: {
+          dashTemplate: { select: { widgets: true } },
+          navOrder: true,
+        },
       }),
       prisma.dashTemplate.findFirst({
         where: { isDefault: true },
@@ -49,13 +53,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     if (template) {
       allowedNavKeys = template.widgets.filter((w: string) => w.startsWith("nav_"));
     }
+    if (user?.navOrder) navOrder = user.navOrder;
   } catch {
     // If DB fails, show all nav — don't lock the user out
   }
 
   return (
     <div className="flex h-screen">
-      <Sidebar role={role} allowedNavKeys={allowedNavKeys} />
+      <Sidebar role={role} allowedNavKeys={allowedNavKeys} navOrder={navOrder} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <div className="flex items-center gap-2 px-4 md:px-0">
           <MobileNav role={role} allowedNavKeys={allowedNavKeys} />
