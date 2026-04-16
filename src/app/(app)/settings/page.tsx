@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import {
   Mail,
   Save,
@@ -42,6 +42,15 @@ interface PaymentConfig {
   webhookSecret: string;
   enabled: boolean;
 }
+
+const tabs = [
+  { key: "profile", label: "Profile", icon: User, adminOnly: false },
+  { key: "stages", label: "Client Stages", icon: Milestone, adminOnly: true },
+  { key: "templates", label: "Templates", icon: LayoutDashboard, adminOnly: true },
+  { key: "email", label: "Email", icon: Mail, adminOnly: true },
+  { key: "ai", label: "AI", icon: Bot, adminOnly: true },
+  { key: "payments", label: "Payments", icon: CreditCard, adminOnly: true },
+] as const;
 
 export default function SettingsPage() {
   const { data: session } = useSession();
@@ -195,442 +204,411 @@ export default function SettingsPage() {
     setSavingPayment(false);
   }
 
+  const visibleTabs = tabs.filter((t) => !t.adminOnly || isAdmin);
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="profile">
-        <TabsList variant="line" className="w-full overflow-x-auto">
-          <TabsTrigger value="profile">
-            <User className="size-4" />
-            Profile
-          </TabsTrigger>
-          {isAdmin && (
-            <TabsTrigger value="stages">
-              <Milestone className="size-4" />
-              Client Stages
-            </TabsTrigger>
-          )}
-          {isAdmin && (
-            <TabsTrigger value="templates">
-              <LayoutDashboard className="size-4" />
-              Templates
-            </TabsTrigger>
-          )}
-          {isAdmin && (
-            <TabsTrigger value="email">
-              <Mail className="size-4" />
-              Email
-            </TabsTrigger>
-          )}
-          {isAdmin && (
-            <TabsTrigger value="ai">
-              <Bot className="size-4" />
-              AI
-            </TabsTrigger>
-          )}
-          {isAdmin && (
-            <TabsTrigger value="payments">
-              <CreditCard className="size-4" />
-              Payments
-            </TabsTrigger>
-          )}
-        </TabsList>
+      {/* Tab buttons — plain buttons, no framework overhead */}
+      <div className="flex gap-1 overflow-x-auto border-b border-border">
+        {visibleTabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={cn(
+                "relative flex items-center gap-1.5 whitespace-nowrap px-3 py-2 text-sm font-medium transition-colors",
+                isActive
+                  ? "text-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Icon className="size-4" />
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
 
-        {/* Profile Tab */}
-        <TabsContent value="profile" keepMounted>
+      {/* All panels always mounted, toggled via display:none */}
+      <div style={{ display: activeTab === "profile" ? "block" : "none" }}>
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
+          <h2 className="text-base font-semibold">Profile</h2>
+          <div className="mt-4 space-y-4 text-sm">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <span className="font-medium text-muted-foreground">Name</span>
+              <span className="font-medium">{session?.user?.name || "\u2014"}</span>
+            </div>
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <span className="font-medium text-muted-foreground">Email</span>
+              <span className="font-medium">{session?.user?.email || "\u2014"}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-muted-foreground">Role</span>
+              <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-primary">
+                {roleLabel || "\u2014"}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {isAdmin && (
+        <div style={{ display: activeTab === "stages" ? "block" : "none" }}>
+          <ClientStagesSection />
+        </div>
+      )}
+
+      {isAdmin && (
+        <div style={{ display: activeTab === "templates" ? "block" : "none" }}>
+          <DashTemplatesSection />
+        </div>
+      )}
+
+      {isAdmin && (
+        <div style={{ display: activeTab === "email" ? "block" : "none" }}>
           <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
-            <h2 className="text-base font-semibold">Profile</h2>
-            <div className="mt-4 space-y-4 text-sm">
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <span className="font-medium text-muted-foreground">Name</span>
-                <span className="font-medium">{session?.user?.name || "\u2014"}</span>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                <Mail className="h-5 w-5 text-primary" />
               </div>
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <span className="font-medium text-muted-foreground">Email</span>
-                <span className="font-medium">{session?.user?.email || "\u2014"}</span>
+              <div>
+                <h2 className="text-base font-semibold">Email Integration</h2>
+                <p className="text-sm text-muted-foreground">
+                  Connect Mailcub to send reports directly to clients
+                </p>
               </div>
+            </div>
+
+            <div className="mt-6 space-y-4">
               <div className="flex items-center justify-between">
-                <span className="font-medium text-muted-foreground">Role</span>
-                <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-primary">
-                  {roleLabel || "\u2014"}
-                </span>
+                <div>
+                  <p className="text-sm font-medium">Enable Email Sending</p>
+                  <p className="text-xs text-muted-foreground">
+                    Allow sending OT reports via email from the Reports page
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={emailConfig.enabled}
+                  onClick={() =>
+                    setEmailConfig({ ...emailConfig, enabled: !emailConfig.enabled })
+                  }
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                    emailConfig.enabled ? "bg-primary" : "bg-muted"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                      emailConfig.enabled ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="apiKey">Mailcub API Key</Label>
+                <Input
+                  id="apiKey"
+                  type="password"
+                  placeholder="Enter your Mailcub API key"
+                  value={emailConfig.apiKey}
+                  onChange={(e) =>
+                    setEmailConfig({ ...emailConfig, apiKey: e.target.value })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Find this in your{" "}
+                  <a
+                    href="https://mailcub.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline"
+                  >
+                    Mailcub dashboard
+                  </a>{" "}
+                  under API Keys
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="senderEmail">Sender Email Address</Label>
+                <Input
+                  id="senderEmail"
+                  type="email"
+                  placeholder="reports@yourdomain.com"
+                  value={emailConfig.senderEmail}
+                  onChange={(e) =>
+                    setEmailConfig({ ...emailConfig, senderEmail: e.target.value })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Domain must be verified in your Mailcub account
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="senderName">Sender Display Name</Label>
+                <Input
+                  id="senderName"
+                  placeholder="The Sensory Submarine"
+                  value={emailConfig.senderName}
+                  onChange={(e) =>
+                    setEmailConfig({ ...emailConfig, senderName: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <Button onClick={handleSaveEmail} disabled={saving}>
+                  {saving ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
+                  {saving ? "Saving..." : "Save Settings"}
+                </Button>
+
+                {saveStatus === "success" && (
+                  <span className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Saved
+                  </span>
+                )}
+                {saveStatus === "error" && (
+                  <span className="flex items-center gap-1 text-sm text-red-600 dark:text-red-400">
+                    <AlertCircle className="h-4 w-4" />
+                    {errorMessage}
+                  </span>
+                )}
               </div>
             </div>
           </div>
-        </TabsContent>
+        </div>
+      )}
 
-        {/* Client Journey Stages Tab — Admin Only */}
-        {isAdmin && (
-          <TabsContent value="stages" keepMounted>
-            <ClientStagesSection />
-          </TabsContent>
-        )}
-
-        {/* Dashboard Templates Tab — Admin Only */}
-        {isAdmin && (
-          <TabsContent value="templates" keepMounted>
-            <DashTemplatesSection />
-          </TabsContent>
-        )}
-
-        {/* Mailcub Email Integration Tab — Admin Only */}
-        {isAdmin && (
-          <TabsContent value="email" keepMounted>
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-                  <Mail className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-base font-semibold">Email Integration</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Connect Mailcub to send reports directly to clients
-                  </p>
-                </div>
+      {isAdmin && (
+        <div style={{ display: activeTab === "ai" ? "block" : "none" }}>
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                <Bot className="h-5 w-5 text-primary" />
               </div>
-
-              <div className="mt-6 space-y-4">
-                {/* Enable Toggle */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">Enable Email Sending</p>
-                    <p className="text-xs text-muted-foreground">
-                      Allow sending OT reports via email from the Reports page
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={emailConfig.enabled}
-                    onClick={() =>
-                      setEmailConfig({ ...emailConfig, enabled: !emailConfig.enabled })
-                    }
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                      emailConfig.enabled ? "bg-primary" : "bg-muted"
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-                        emailConfig.enabled ? "translate-x-5" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {/* API Key */}
-                <div className="space-y-2">
-                  <Label htmlFor="apiKey">Mailcub API Key</Label>
-                  <Input
-                    id="apiKey"
-                    type="password"
-                    placeholder="Enter your Mailcub API key"
-                    value={emailConfig.apiKey}
-                    onChange={(e) =>
-                      setEmailConfig({ ...emailConfig, apiKey: e.target.value })
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Find this in your{" "}
-                    <a
-                      href="https://mailcub.com"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary underline"
-                    >
-                      Mailcub dashboard
-                    </a>{" "}
-                    under API Keys
-                  </p>
-                </div>
-
-                {/* Sender Email */}
-                <div className="space-y-2">
-                  <Label htmlFor="senderEmail">Sender Email Address</Label>
-                  <Input
-                    id="senderEmail"
-                    type="email"
-                    placeholder="reports@yourdomain.com"
-                    value={emailConfig.senderEmail}
-                    onChange={(e) =>
-                      setEmailConfig({ ...emailConfig, senderEmail: e.target.value })
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Domain must be verified in your Mailcub account
-                  </p>
-                </div>
-
-                {/* Sender Name */}
-                <div className="space-y-2">
-                  <Label htmlFor="senderName">Sender Display Name</Label>
-                  <Input
-                    id="senderName"
-                    placeholder="The Sensory Submarine"
-                    value={emailConfig.senderName}
-                    onChange={(e) =>
-                      setEmailConfig({ ...emailConfig, senderName: e.target.value })
-                    }
-                  />
-                </div>
-
-                {/* Save + Status */}
-                <div className="flex items-center gap-3 pt-2">
-                  <Button onClick={handleSaveEmail} disabled={saving}>
-                    {saving ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="mr-2 h-4 w-4" />
-                    )}
-                    {saving ? "Saving..." : "Save Settings"}
-                  </Button>
-
-                  {saveStatus === "success" && (
-                    <span className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Saved
-                    </span>
-                  )}
-                  {saveStatus === "error" && (
-                    <span className="flex items-center gap-1 text-sm text-red-600 dark:text-red-400">
-                      <AlertCircle className="h-4 w-4" />
-                      {errorMessage}
-                    </span>
-                  )}
-                </div>
+              <div>
+                <h2 className="text-base font-semibold">Claude AI</h2>
+                <p className="text-sm text-muted-foreground">
+                  Power report generation and content creation with Claude
+                </p>
               </div>
             </div>
-          </TabsContent>
-        )}
 
-        {/* Claude AI Integration Tab — Admin Only */}
-        {isAdmin && (
-          <TabsContent value="ai" keepMounted>
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-                  <Bot className="h-5 w-5 text-primary" />
-                </div>
+            <div className="mt-6 space-y-4">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-base font-semibold">Claude AI</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Power report generation and content creation with Claude
+                  <p className="text-sm font-medium">Enable AI Features</p>
+                  <p className="text-xs text-muted-foreground">
+                    Use Claude to assist with OT reports, home programmes, and content
                   </p>
                 </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={aiConfig.enabled}
+                  onClick={() =>
+                    setAiConfig({ ...aiConfig, enabled: !aiConfig.enabled })
+                  }
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                    aiConfig.enabled ? "bg-primary" : "bg-muted"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                      aiConfig.enabled ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
               </div>
 
-              <div className="mt-6 space-y-4">
-                {/* Enable Toggle */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">Enable AI Features</p>
-                    <p className="text-xs text-muted-foreground">
-                      Use Claude to assist with OT reports, home programmes, and content
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={aiConfig.enabled}
-                    onClick={() =>
-                      setAiConfig({ ...aiConfig, enabled: !aiConfig.enabled })
-                    }
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                      aiConfig.enabled ? "bg-primary" : "bg-muted"
-                    }`}
+              <div className="space-y-2">
+                <Label htmlFor="aiApiKey">Claude API Key</Label>
+                <Input
+                  id="aiApiKey"
+                  type="password"
+                  placeholder="sk-ant-..."
+                  value={aiConfig.apiKey}
+                  onChange={(e) =>
+                    setAiConfig({ ...aiConfig, apiKey: e.target.value })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Get your API key from the{" "}
+                  <a
+                    href="https://console.anthropic.com/settings/keys"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline"
                   >
-                    <span
-                      className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-                        aiConfig.enabled ? "translate-x-5" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
-                </div>
+                    Anthropic Console
+                  </a>
+                </p>
+              </div>
 
-                {/* API Key */}
-                <div className="space-y-2">
-                  <Label htmlFor="aiApiKey">Claude API Key</Label>
-                  <Input
-                    id="aiApiKey"
-                    type="password"
-                    placeholder="sk-ant-..."
-                    value={aiConfig.apiKey}
-                    onChange={(e) =>
-                      setAiConfig({ ...aiConfig, apiKey: e.target.value })
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Get your API key from the{" "}
-                    <a
-                      href="https://console.anthropic.com/settings/keys"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary underline"
-                    >
-                      Anthropic Console
-                    </a>
-                  </p>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="aiModel">Model</Label>
+                <select
+                  id="aiModel"
+                  value={aiConfig.model}
+                  onChange={(e) =>
+                    setAiConfig({ ...aiConfig, model: e.target.value })
+                  }
+                  className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="claude-sonnet-4-20250514">Claude Sonnet 4 — Fast, great for reports</option>
+                  <option value="claude-opus-4-20250514">Claude Opus 4 — Most capable</option>
+                  <option value="claude-haiku-4-20250506">Claude Haiku 4 — Fastest, lower cost</option>
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  Sonnet is recommended for most tasks — good balance of speed and quality
+                </p>
+              </div>
 
-                {/* Model Selector */}
-                <div className="space-y-2">
-                  <Label htmlFor="aiModel">Model</Label>
-                  <select
-                    id="aiModel"
-                    value={aiConfig.model}
-                    onChange={(e) =>
-                      setAiConfig({ ...aiConfig, model: e.target.value })
-                    }
-                    className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  >
-                    <option value="claude-sonnet-4-20250514">Claude Sonnet 4 — Fast, great for reports</option>
-                    <option value="claude-opus-4-20250514">Claude Opus 4 — Most capable</option>
-                    <option value="claude-haiku-4-20250506">Claude Haiku 4 — Fastest, lower cost</option>
-                  </select>
-                  <p className="text-xs text-muted-foreground">
-                    Sonnet is recommended for most tasks — good balance of speed and quality
-                  </p>
-                </div>
-
-                {/* Save + Status */}
-                <div className="flex items-center gap-3 pt-2">
-                  <Button onClick={handleSaveAi} disabled={savingAi}>
-                    {savingAi ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="mr-2 h-4 w-4" />
-                    )}
-                    {savingAi ? "Saving..." : "Save Settings"}
-                  </Button>
-
-                  {aiSaveStatus === "success" && (
-                    <span className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Saved
-                    </span>
+              <div className="flex items-center gap-3 pt-2">
+                <Button onClick={handleSaveAi} disabled={savingAi}>
+                  {savingAi ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
                   )}
-                  {aiSaveStatus === "error" && (
-                    <span className="flex items-center gap-1 text-sm text-red-600 dark:text-red-400">
-                      <AlertCircle className="h-4 w-4" />
-                      {aiErrorMessage}
-                    </span>
-                  )}
-                </div>
+                  {savingAi ? "Saving..." : "Save Settings"}
+                </Button>
+
+                {aiSaveStatus === "success" && (
+                  <span className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Saved
+                  </span>
+                )}
+                {aiSaveStatus === "error" && (
+                  <span className="flex items-center gap-1 text-sm text-red-600 dark:text-red-400">
+                    <AlertCircle className="h-4 w-4" />
+                    {aiErrorMessage}
+                  </span>
+                )}
               </div>
             </div>
-          </TabsContent>
-        )}
+          </div>
+        </div>
+      )}
 
-        {/* FireBuddy Payment Integration Tab — Admin Only */}
-        {isAdmin && (
-          <TabsContent value="payments" keepMounted>
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-                  <CreditCard className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-base font-semibold">Payment Integration</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Accept payments via FireBuddy (open banking)
-                  </p>
-                </div>
+      {isAdmin && (
+        <div style={{ display: activeTab === "payments" ? "block" : "none" }}>
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                <CreditCard className="h-5 w-5 text-primary" />
               </div>
-
-              <div className="mt-6 space-y-4">
-                {/* Enable Toggle */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">Enable Payments</p>
-                    <p className="text-xs text-muted-foreground">
-                      Collect payment when clients book a session
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={paymentConfig.enabled}
-                    onClick={() =>
-                      setPaymentConfig({ ...paymentConfig, enabled: !paymentConfig.enabled })
-                    }
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                      paymentConfig.enabled ? "bg-primary" : "bg-muted"
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-                        paymentConfig.enabled ? "translate-x-5" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {/* API Key */}
-                <div className="space-y-2">
-                  <Label htmlFor="paymentApiKey">FireBuddy API Key</Label>
-                  <Input
-                    id="paymentApiKey"
-                    type="password"
-                    placeholder="fb_live_..."
-                    value={paymentConfig.apiKey}
-                    onChange={(e) =>
-                      setPaymentConfig({ ...paymentConfig, apiKey: e.target.value })
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Your API key from the FireBuddy dashboard
-                  </p>
-                </div>
-
-                {/* Webhook Secret */}
-                <div className="space-y-2">
-                  <Label htmlFor="webhookSecret">Webhook Secret</Label>
-                  <Input
-                    id="webhookSecret"
-                    type="password"
-                    placeholder="whsec_..."
-                    value={paymentConfig.webhookSecret}
-                    onChange={(e) =>
-                      setPaymentConfig({ ...paymentConfig, webhookSecret: e.target.value })
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Used to verify payment notifications. Configure your webhook URL as:{" "}
-                    <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
-                      https://yourdomain.com/api/webhooks/firebuddy
-                    </code>
-                  </p>
-                </div>
-
-                {/* Save + Status */}
-                <div className="flex items-center gap-3 pt-2">
-                  <Button onClick={handleSavePayment} disabled={savingPayment}>
-                    {savingPayment ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="mr-2 h-4 w-4" />
-                    )}
-                    {savingPayment ? "Saving..." : "Save Settings"}
-                  </Button>
-
-                  {paymentSaveStatus === "success" && (
-                    <span className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Saved
-                    </span>
-                  )}
-                  {paymentSaveStatus === "error" && (
-                    <span className="flex items-center gap-1 text-sm text-red-600 dark:text-red-400">
-                      <AlertCircle className="h-4 w-4" />
-                      {paymentErrorMessage}
-                    </span>
-                  )}
-                </div>
+              <div>
+                <h2 className="text-base font-semibold">Payment Integration</h2>
+                <p className="text-sm text-muted-foreground">
+                  Accept payments via FireBuddy (open banking)
+                </p>
               </div>
             </div>
-          </TabsContent>
-        )}
-      </Tabs>
+
+            <div className="mt-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Enable Payments</p>
+                  <p className="text-xs text-muted-foreground">
+                    Collect payment when clients book a session
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={paymentConfig.enabled}
+                  onClick={() =>
+                    setPaymentConfig({ ...paymentConfig, enabled: !paymentConfig.enabled })
+                  }
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                    paymentConfig.enabled ? "bg-primary" : "bg-muted"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                      paymentConfig.enabled ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="paymentApiKey">FireBuddy API Key</Label>
+                <Input
+                  id="paymentApiKey"
+                  type="password"
+                  placeholder="fb_live_..."
+                  value={paymentConfig.apiKey}
+                  onChange={(e) =>
+                    setPaymentConfig({ ...paymentConfig, apiKey: e.target.value })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Your API key from the FireBuddy dashboard
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="webhookSecret">Webhook Secret</Label>
+                <Input
+                  id="webhookSecret"
+                  type="password"
+                  placeholder="whsec_..."
+                  value={paymentConfig.webhookSecret}
+                  onChange={(e) =>
+                    setPaymentConfig({ ...paymentConfig, webhookSecret: e.target.value })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Used to verify payment notifications. Configure your webhook URL as:{" "}
+                  <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+                    https://yourdomain.com/api/webhooks/firebuddy
+                  </code>
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <Button onClick={handleSavePayment} disabled={savingPayment}>
+                  {savingPayment ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
+                  {savingPayment ? "Saving..." : "Save Settings"}
+                </Button>
+
+                {paymentSaveStatus === "success" && (
+                  <span className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Saved
+                  </span>
+                )}
+                {paymentSaveStatus === "error" && (
+                  <span className="flex items-center gap-1 text-sm text-red-600 dark:text-red-400">
+                    <AlertCircle className="h-4 w-4" />
+                    {paymentErrorMessage}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
