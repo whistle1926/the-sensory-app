@@ -1,75 +1,62 @@
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { buttonVariants } from "@/components/ui/button";
 import { FileText, Users, Plus } from "lucide-react";
 import Link from "next/link";
 import { NewClientsSection } from "@/components/dashboard/new-clients-section";
 
-export default async function DashboardPage() {
-  const session = await auth();
-  const userId = session?.user?.id;
+interface NewClient {
+  id: string;
+  firstName: string;
+  lastName: string;
+  createdAt: string;
+  parentCarerName: string | null;
+  parentCarerEmail: string | null;
+  stage: { id: string; label: string; colour: string } | null;
+  intakeItems: {
+    id: string;
+    type: string;
+    label: string;
+    url: string | null;
+    status: string;
+    sentAt: string | null;
+    completedAt: string | null;
+    notes: string | null;
+    fileUrl: string | null;
+    createdAt: string;
+  }[];
+}
 
-  // ── Resolve which widgets this user should see ──────
-  let visibleWidgets: string[] | null = null;
+interface DashboardData {
+  visibleWidgets: string[] | null;
+  clientCount: number;
+  reportCount: number;
+  recentReports: { id: string; reportDate: string; client: { firstName: string; lastName: string } }[];
+  newClients: NewClient[];
+}
 
-  if (userId) {
-    const [user, defaultTemplate] = await Promise.all([
-      prisma.user.findUnique({
-        where: { id: userId },
-        select: { dashTemplate: { select: { widgets: true } } },
-      }),
-      prisma.dashTemplate.findFirst({
-        where: { isDefault: true },
-        select: { widgets: true },
-      }),
-    ]);
+export default function DashboardPage() {
+  const [data, setData] = useState<DashboardData>({
+    visibleWidgets: null,
+    clientCount: 0,
+    reportCount: 0,
+    recentReports: [],
+    newClients: [],
+  });
 
-    const template = user?.dashTemplate || defaultTemplate;
-    if (template) visibleWidgets = template.widgets;
-  }
+  const fetchData = useCallback(() => {
+    fetch("/api/dashboard").then(r => r.json()).then(setData);
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const show = (key: string) =>
-    visibleWidgets === null || visibleWidgets.includes(key);
-
-  // ── Awaiting stage (for new_clients widget) ──────
-  const awaitingStage = show("new_clients")
-    ? await prisma.clientStage.findFirst({
-        where: { isDefault: true },
-        select: { id: true },
-      })
-    : null;
-
-  // ── Parallel data fetches — skip queries for hidden widgets ─
-  const [clientCount, reportCount, recentReports, newClients] =
-    await Promise.all([
-      show("stat_active_clients")
-        ? prisma.client.count({ where: { active: true } })
-        : 0,
-      show("stat_total_reports")
-        ? prisma.report.count()
-        : 0,
-      show("recent_reports")
-        ? prisma.report.findMany({
-            take: 5,
-            orderBy: { createdAt: "desc" },
-            include: { client: { select: { firstName: true, lastName: true } } },
-          })
-        : [],
-      show("new_clients") && awaitingStage
-        ? prisma.client.findMany({
-            where: { stageId: awaitingStage.id, active: true },
-            orderBy: { createdAt: "desc" },
-            include: {
-              intakeItems: { orderBy: { createdAt: "asc" } },
-              stage: { select: { id: true, label: true, colour: true } },
-            },
-          })
-        : [],
-    ]);
+    data.visibleWidgets === null || data.visibleWidgets.includes(key);
 
   const hasStatCards = show("stat_active_clients") || show("stat_total_reports");
-
-  // JSON round-trip to strip Prisma prototypes and convert Dates to strings
-  const serializedNewClients = JSON.parse(JSON.stringify(newClients));
 
   return (
     <div className="space-y-6">
@@ -78,10 +65,7 @@ export default async function DashboardPage() {
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
           <p className="mt-1 text-sm text-muted-foreground">Overview of your clients and reports</p>
         </div>
-        <Link
-          href="/reports/new"
-          className="inline-flex shrink-0 items-center justify-center rounded-xl bg-primary px-2.5 h-8 text-sm font-medium text-primary-foreground shadow-[var(--shadow-xs)] hover:brightness-110 transition-all"
-        >
+        <Link href="/reports/new" className={buttonVariants({ className: "rounded-xl" })}>
           <Plus className="mr-2 h-4 w-4" />
           New Report
         </Link>
@@ -97,7 +81,7 @@ export default async function DashboardPage() {
                   <Users className="h-4 w-4 text-white" />
                 </div>
               </div>
-              <p className="mt-2 text-3xl font-bold tracking-tight">{clientCount}</p>
+              <p className="mt-2 text-3xl font-bold tracking-tight">{data.clientCount}</p>
             </div>
           )}
 
@@ -109,26 +93,26 @@ export default async function DashboardPage() {
                   <FileText className="h-4 w-4 text-white" />
                 </div>
               </div>
-              <p className="mt-2 text-3xl font-bold tracking-tight">{reportCount}</p>
+              <p className="mt-2 text-3xl font-bold tracking-tight">{data.reportCount}</p>
             </div>
           )}
         </div>
       )}
 
       {show("new_clients") && (
-        <NewClientsSection clients={serializedNewClients} />
+        <NewClientsSection clients={data.newClients} onRefresh={fetchData} />
       )}
 
       {show("recent_reports") && (
         <div>
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Recent Reports</h2>
           <div className="mt-3 space-y-3">
-            {recentReports.length === 0 ? (
+            {data.recentReports.length === 0 ? (
               <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-[var(--shadow-sm)]">
                 <p className="text-sm text-muted-foreground">No reports yet. Add a client and generate your first report.</p>
               </div>
             ) : (
-              recentReports.map((r) => (
+              data.recentReports.map((r) => (
                 <Link key={r.id} href={`/reports/${r.id}`}>
                   <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-sm)] card-lift">
                     <div className="flex items-center justify-between">
@@ -138,7 +122,7 @@ export default async function DashboardPage() {
                           {new Date(r.reportDate).toLocaleDateString()}
                         </p>
                       </div>
-                      <FileText className="h-5 w-5 text-primary opacity-50" />
+                      <FileText className="h-5 w-5 text-primary opacity-50 group-hover:opacity-100 transition-opacity" />
                     </div>
                   </div>
                 </Link>
