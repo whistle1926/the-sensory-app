@@ -872,7 +872,7 @@ export default function InvoiceDetailPage() {
   /*  READ MODE                                                         */
   /* ------------------------------------------------------------------ */
   return (
-    <div className="mx-auto max-w-3xl">
+    <div>
       {/* ---- Header ---- */}
       <div className="mb-6 flex items-center gap-3">
         <Link
