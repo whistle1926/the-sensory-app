@@ -2,6 +2,7 @@ import { prisma } from "./prisma";
 
 interface SendMailOptions {
   to: string;
+  cc?: string;
   subject: string;
   html: string;
   text?: string;
@@ -30,6 +31,7 @@ export async function sendMail(opts: SendMailOptions): Promise<boolean> {
       },
       body: JSON.stringify({
         to: opts.to,
+        ...(opts.cc ? { cc: opts.cc } : {}),
         from: settings.senderEmail,
         subject: opts.subject,
         html: opts.html,

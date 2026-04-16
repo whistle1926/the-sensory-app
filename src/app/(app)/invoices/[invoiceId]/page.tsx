@@ -19,6 +19,7 @@ import {
   Pencil,
   Receipt,
   ExternalLink,
+  Mail,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -126,6 +127,13 @@ export default function InvoiceDetailPage() {
   const [editNotes, setEditNotes] = useState("");
   const [editItems, setEditItems] = useState<EditableItem[]>([]);
   const [editError, setEditError] = useState("");
+
+  /* ---- compose email ---- */
+  const [composing, setComposing] = useState(false);
+  const [emailTo, setEmailTo] = useState("");
+  const [emailCc, setEmailCc] = useState("");
+  const [emailNote, setEmailNote] = useState("");
+  const [emailSending, setEmailSending] = useState(false);
 
   /* ---- delete confirmation ---- */
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -266,30 +274,45 @@ export default function InvoiceDetailPage() {
     setActionLoading(null);
   }
 
+  /* ---- start compose ---- */
+  function startCompose() {
+    if (!invoice) return;
+    setEmailTo(invoice.clientEmail);
+    setEmailCc("");
+    setEmailNote("");
+    setComposing(true);
+  }
+
   /* ---- send invoice ---- */
-  async function sendInvoice() {
+  async function sendInvoice(opts?: { personalNote?: string; cc?: string }) {
     setError("");
-    setActionLoading("send");
+    setEmailSending(true);
 
     try {
       const res = await fetch(`/api/invoices/${invoiceId}/send`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          personalNote: opts?.personalNote || undefined,
+          cc: opts?.cc || undefined,
+        }),
       });
 
       if (!res.ok) {
         const data = await res.json();
         setError(data.error || "Failed to send invoice.");
-        setActionLoading(null);
+        setEmailSending(false);
         return;
       }
 
       const data = await res.json();
       setInvoice(data.invoice);
+      setComposing(false);
     } catch {
       setError("Something went wrong. Please try again.");
     }
 
-    setActionLoading(null);
+    setEmailSending(false);
   }
 
   /* ---- mark as paid ---- */
@@ -616,6 +639,213 @@ export default function InvoiceDetailPage() {
   }
 
   /* ------------------------------------------------------------------ */
+  /*  COMPOSE EMAIL MODE                                                 */
+  /* ------------------------------------------------------------------ */
+  if (composing && invoice) {
+    const curSymbols: Record<string, string> = { GBP: "\u00a3", EUR: "\u20ac", USD: "$" };
+    const sym = curSymbols[invoice.currency] || "\u00a3";
+
+    return (
+      <div className="mx-auto max-w-4xl">
+        <div className="mb-6 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setComposing(false)}
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to invoice
+          </button>
+        </div>
+
+        <div className="mb-6 flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <Mail className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Compose Email</h1>
+            <p className="text-sm text-muted-foreground">
+              {invoice.invoiceNumber} &middot; {formatCurrency(invoice.total, invoice.currency)}
+            </p>
+          </div>
+        </div>
+
+        {error && (
+          <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950/30 dark:text-red-400">
+            {error}
+          </div>
+        )}
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Left -- compose fields */}
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
+              <h2 className="mb-4 text-sm font-semibold">Email Details</h2>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="emailTo">To</Label>
+                  <Input
+                    id="emailTo"
+                    type="email"
+                    value={emailTo}
+                    onChange={(e) => setEmailTo(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="emailCc">CC <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                  <Input
+                    id="emailCc"
+                    type="email"
+                    value={emailCc}
+                    onChange={(e) => setEmailCc(e.target.value)}
+                    placeholder="e.g. accounts@example.com"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="emailSubject">Subject</Label>
+                  <Input
+                    id="emailSubject"
+                    value={`Invoice ${invoice.invoiceNumber} from The Sensory Submarine`}
+                    disabled
+                    className="bg-muted/50"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="emailNote">Personal Note <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                  <Textarea
+                    id="emailNote"
+                    value={emailNote}
+                    onChange={(e) => setEmailNote(e.target.value)}
+                    placeholder="Add a personal message that will appear at the top of the email..."
+                    rows={4}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Payment link info */}
+            <div className="rounded-2xl border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950/30">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900/50">
+                  <ExternalLink className="h-4 w-4 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-green-700 dark:text-green-400">
+                    Pay Now button included
+                  </p>
+                  <p className="text-xs text-green-600 dark:text-green-500">
+                    A payment link via FireBuddy will be created and included in the email.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Send button */}
+            <Button
+              onClick={() => sendInvoice({ personalNote: emailNote, cc: emailCc })}
+              disabled={emailSending || !emailTo.trim()}
+              className="w-full"
+              size="lg"
+            >
+              {emailSending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="mr-2 h-4 w-4" />
+                  Send Invoice Email
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Right -- email preview */}
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-sm)] overflow-hidden">
+              <div className="bg-muted/30 px-6 py-3 border-b border-border">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Email Preview
+                </p>
+              </div>
+              <div className="p-6">
+                {/* Preview header */}
+                <div className="rounded-xl bg-[#1a1a2e] p-5 text-center text-white">
+                  <p className="text-lg font-bold">The Sensory Submarine</p>
+                  <p className="mt-1 text-xs opacity-70">Occupational Therapy Services</p>
+                </div>
+
+                <div className="mt-6 space-y-4">
+                  <p className="text-sm text-foreground">
+                    Hi {invoice.clientName},
+                  </p>
+
+                  {emailNote && (
+                    <p className="text-sm text-muted-foreground italic whitespace-pre-wrap">
+                      {emailNote}
+                    </p>
+                  )}
+
+                  <p className="text-sm text-muted-foreground">
+                    Please find your invoice below.
+                  </p>
+
+                  {/* Invoice summary */}
+                  <div className="rounded-xl bg-muted/30 p-4">
+                    <div className="flex justify-between text-sm">
+                      <span>Invoice Number</span>
+                      <span className="font-medium">{invoice.invoiceNumber}</span>
+                    </div>
+                    <div className="mt-2 flex justify-between text-sm">
+                      <span>Due Date</span>
+                      <span className="font-medium">{formatDate(invoice.dueDate)}</span>
+                    </div>
+                  </div>
+
+                  {/* Items preview */}
+                  <div className="space-y-2">
+                    {invoice.items.map((item) => (
+                      <div key={item.id} className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">{item.description}</span>
+                        <span className="font-medium">{sym}{(item.amount / 100).toFixed(2)}</span>
+                      </div>
+                    ))}
+                    <div className="border-t border-border pt-2 flex justify-between">
+                      <span className="text-sm font-bold">Total</span>
+                      <span className="text-sm font-bold">{sym}{(invoice.total / 100).toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  {/* Pay Now button preview */}
+                  <div className="rounded-xl bg-orange-50 p-5 text-center dark:bg-orange-950/30">
+                    <p className="text-sm font-bold text-foreground">Pay This Invoice Online</p>
+                    <div className="mt-3 inline-block rounded-full bg-orange-500 px-8 py-2.5 text-sm font-bold text-white">
+                      Pay Now &rarr;
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    If you have any questions, please don&apos;t hesitate to get in touch.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Kind regards,<br />
+                    <span className="font-semibold">The Sensory Submarine</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ------------------------------------------------------------------ */
   /*  READ MODE                                                         */
   /* ------------------------------------------------------------------ */
   return (
@@ -818,21 +1048,9 @@ export default function InvoiceDetailPage() {
               <Pencil className="mr-2 h-4 w-4" />
               Edit
             </Button>
-            <Button
-              onClick={sendInvoice}
-              disabled={actionLoading === "send"}
-            >
-              {actionLoading === "send" ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <Send className="mr-2 h-4 w-4" />
-                  Send Invoice
-                </>
-              )}
+            <Button onClick={startCompose}>
+              <Mail className="mr-2 h-4 w-4" />
+              Compose Email
             </Button>
             {!confirmDelete ? (
               <Button
@@ -874,22 +1092,9 @@ export default function InvoiceDetailPage() {
         {/* Sent actions */}
         {invoice.status === "sent" && (
           <>
-            <Button
-              onClick={sendInvoice}
-              disabled={actionLoading === "send"}
-              variant="outline"
-            >
-              {actionLoading === "send" ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Resending...
-                </>
-              ) : (
-                <>
-                  <Send className="mr-2 h-4 w-4" />
-                  Resend
-                </>
-              )}
+            <Button onClick={startCompose} variant="outline">
+              <Mail className="mr-2 h-4 w-4" />
+              Compose Email
             </Button>
             <Button
               onClick={markAsPaid}
@@ -944,22 +1149,9 @@ export default function InvoiceDetailPage() {
         {/* Overdue actions */}
         {invoice.status === "overdue" && (
           <>
-            <Button
-              onClick={sendInvoice}
-              disabled={actionLoading === "send"}
-              variant="outline"
-            >
-              {actionLoading === "send" ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Resending...
-                </>
-              ) : (
-                <>
-                  <Send className="mr-2 h-4 w-4" />
-                  Resend
-                </>
-              )}
+            <Button onClick={startCompose} variant="outline">
+              <Mail className="mr-2 h-4 w-4" />
+              Compose Email
             </Button>
             <Button
               onClick={markAsPaid}

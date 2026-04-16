@@ -14,6 +14,17 @@ export async function POST(
 
   const { invoiceId } = await params;
 
+  // Parse optional compose fields from body
+  let personalNote = "";
+  let cc = "";
+  try {
+    const body = await req.json();
+    personalNote = typeof body.personalNote === "string" ? body.personalNote.trim() : "";
+    cc = typeof body.cc === "string" ? body.cc.trim() : "";
+  } catch {
+    // No body or invalid JSON — that's fine, fields are optional
+  }
+
   // 1. Load invoice
   const invoice = await prisma.invoice.findUnique({
     where: { id: invoiceId },
@@ -78,13 +89,17 @@ export async function POST(
   const emailHtml = buildInvoiceEmail({
     invoice: updatedInvoice,
     paymentUrl: result.paymentUrl,
+    personalNote,
   });
 
-  const emailSent = await sendMail({
+  const mailOptions: { to: string; subject: string; html: string; cc?: string } = {
     to: invoice.clientEmail,
     subject: `Invoice ${invoice.invoiceNumber} from The Sensory Submarine`,
     html: emailHtml,
-  });
+  };
+  if (cc) mailOptions.cc = cc;
+
+  const emailSent = await sendMail(mailOptions);
 
   if (!emailSent) {
     console.error(`Invoice ${invoice.invoiceNumber}: payment link created but email failed to send`);
@@ -120,8 +135,9 @@ interface InvoiceWithItems {
 function buildInvoiceEmail(params: {
   invoice: InvoiceWithItems;
   paymentUrl: string;
+  personalNote?: string;
 }): string {
-  const { invoice, paymentUrl } = params;
+  const { invoice, paymentUrl, personalNote } = params;
 
   const formatDate = (d: Date) =>
     new Date(d).toLocaleDateString("en-GB", {
@@ -174,6 +190,7 @@ function buildInvoiceEmail(params: {
       <p style="margin:0 0 16px;font-size:15px;color:#222;">
         Hi ${escapeHtml(invoice.clientName)},
       </p>
+      ${personalNote ? `<p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#444;font-style:italic;">${escapeHtml(personalNote).replace(/\n/g, "<br/>")}</p>` : ""}
       <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#444;">
         Please find your invoice below.
       </p>
