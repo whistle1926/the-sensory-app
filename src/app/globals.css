@@ -50,23 +50,23 @@
 }
 
 :root {
-  --background: oklch(0.975 0.002 260);
-  --foreground: oklch(0.17 0.01 280);
+  --background: oklch(0.97 0 0);
+  --foreground: oklch(0.17 0.005 260);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.17 0.01 280);
+  --card-foreground: oklch(0.17 0.005 260);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.17 0.01 280);
+  --popover-foreground: oklch(0.17 0.005 260);
   --primary: oklch(0.50 0.24 264);
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.955 0.02 264);
   --secondary-foreground: oklch(0.50 0.24 264);
-  --muted: oklch(0.955 0.005 260);
-  --muted-foreground: oklch(0.5 0.01 260);
+  --muted: oklch(0.955 0 0);
+  --muted-foreground: oklch(0.5 0.005 260);
   --accent: oklch(0.955 0.02 264);
   --accent-foreground: oklch(0.50 0.24 264);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.915 0.005 260);
-  --input: oklch(0.915 0.005 260);
+  --border: oklch(0.915 0 0);
+  --input: oklch(0.915 0 0);
   --ring: oklch(0.50 0.24 264);
   --chart-1: oklch(0.50 0.24 264);
   --chart-2: oklch(0.7 0.15 200);
@@ -84,13 +84,13 @@
   --sidebar-ring: oklch(0.50 0.24 264);
 
   /* Layered shadows */
-  --shadow-xs: 0 1px 2px oklch(0.17 0.01 280 / 4%);
-  --shadow-sm: 0 1px 3px oklch(0.17 0.01 280 / 6%), 0 1px 2px oklch(0.17 0.01 280 / 4%);
-  --shadow-md: 0 4px 6px -1px oklch(0.17 0.01 280 / 6%), 0 2px 4px -2px oklch(0.17 0.01 280 / 4%);
-  --shadow-lg: 0 10px 15px -3px oklch(0.17 0.01 280 / 6%), 0 4px 6px -4px oklch(0.17 0.01 280 / 4%);
-  --shadow-xl: 0 20px 25px -5px oklch(0.17 0.01 280 / 8%), 0 8px 10px -6px oklch(0.17 0.01 280 / 4%);
+  --shadow-xs: 0 1px 2px oklch(0 0 0 / 4%);
+  --shadow-sm: 0 1px 3px oklch(0 0 0 / 6%), 0 1px 2px oklch(0 0 0 / 4%);
+  --shadow-md: 0 4px 6px -1px oklch(0 0 0 / 6%), 0 2px 4px -2px oklch(0 0 0 / 4%);
+  --shadow-lg: 0 10px 15px -3px oklch(0 0 0 / 6%), 0 4px 6px -4px oklch(0 0 0 / 4%);
+  --shadow-xl: 0 20px 25px -5px oklch(0 0 0 / 8%), 0 8px 10px -6px oklch(0 0 0 / 4%);
   --shadow-glow: 0 0 16px oklch(0.50 0.24 264 / 25%), 0 0 4px oklch(0.50 0.24 264 / 15%);
-  --shadow-hover: 0 8px 20px -4px oklch(0.17 0.01 280 / 10%), 0 4px 8px -4px oklch(0.17 0.01 280 / 6%);
+  --shadow-hover: 0 8px 20px -4px oklch(0 0 0 / 10%), 0 4px 8px -4px oklch(0 0 0 / 6%);
 
   /* Gradients */
   --gradient-primary: linear-gradient(135deg, oklch(0.50 0.24 264), oklch(0.45 0.20 280));
@@ -163,7 +163,7 @@
   }
   html {
     @apply font-sans;
-    font-size: 18px;
+    font-size: 16px;
     transition: background-color 0.2s ease, color 0.2s ease;
   }
 }
