@@ -17,6 +17,7 @@ const VALID_WIDGETS = [
   "nav_tasks",
   "nav_team",
   "nav_settings",
+  "nav_invoices",
 ] as const;
 
 type WidgetKey = (typeof VALID_WIDGETS)[number];

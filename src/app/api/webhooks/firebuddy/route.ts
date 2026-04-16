@@ -46,6 +46,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true });
   }
 
+  // Invoice branch: reference format is "invoice:<invoiceId>".
+  if (reference.startsWith("invoice:")) {
+    const invoiceId = reference.slice("invoice:".length);
+    try {
+      await handleInvoicePayment(invoiceId, event.paymentId, event.amount);
+    } catch (err) {
+      console.error("[WEBHOOK] Invoice payment handling failed:", err);
+      return NextResponse.json({ error: "Internal error" }, { status: 500 });
+    }
+    return NextResponse.json({ received: true });
+  }
+
   // Booking branch (legacy path — reference is the booking id directly).
   if (reference) {
     const booking = await prisma.booking.update({
@@ -130,6 +142,49 @@ async function handleCoursePayment(purchaseId: string, paymentId: string) {
       });
     } catch (err) {
       console.error("[WEBHOOK] Failed to credit income tracker:", err);
+    }
+  }
+}
+
+async function handleInvoicePayment(invoiceId: string, paymentId: string, amountPounds: number) {
+  const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+  if (!invoice) {
+    console.warn("[WEBHOOK] invoice not found:", invoiceId);
+    return;
+  }
+
+  // Idempotent — skip if already paid
+  if (invoice.status === "paid") return;
+
+  await prisma.invoice.update({
+    where: { id: invoiceId },
+    data: {
+      status: "paid",
+      paymentRef: paymentId,
+      paidAt: new Date(),
+    },
+  });
+
+  // Credit the private income tracker
+  const amountPence = Math.round(amountPounds * 100);
+  if (amountPence > 0) {
+    try {
+      await prisma.incomeEntry.upsert({
+        where: { source_reference: { source: "INVOICE", reference: invoice.id } },
+        update: {
+          amount: amountPence,
+          description: `${invoice.invoiceNumber} — ${invoice.clientName}`,
+        },
+        create: {
+          amount: amountPence,
+          source: "INVOICE",
+          reference: invoice.id,
+          description: `${invoice.invoiceNumber} — ${invoice.clientName}`,
+          occurredAt: new Date(),
+        },
+      });
+    } catch (err) {
+      console.error("[WEBHOOK] Failed to credit income tracker for invoice:", err);
     }
   }
 }

@@ -1,0 +1,147 @@
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ invoiceId: string }> }
+) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  if (session.user.role === "CLIENT") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const { invoiceId } = await params;
+
+  const invoice = await prisma.invoice.findUnique({
+    where: { id: invoiceId },
+    include: { items: true, client: true },
+  });
+
+  if (!invoice) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  return NextResponse.json(invoice);
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ invoiceId: string }> }
+) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  if (session.user.role === "CLIENT") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const { invoiceId } = await params;
+
+  const existing = await prisma.invoice.findUnique({
+    where: { id: invoiceId },
+    include: { items: true },
+  });
+
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (existing.status === "paid") {
+    return NextResponse.json({ error: "Cannot edit a paid invoice" }, { status: 400 });
+  }
+
+  const body = await req.json();
+  const { clientName, clientEmail, clientId, dueDate, notes, status, items } = body;
+
+  // Build the update payload
+  const data: Record<string, unknown> = {};
+
+  if (clientName !== undefined) data.clientName = clientName.trim();
+  if (clientEmail !== undefined) data.clientEmail = clientEmail.toLowerCase().trim();
+  if (clientId !== undefined) data.clientId = clientId || null;
+  if (dueDate !== undefined) data.dueDate = new Date(dueDate);
+  if (notes !== undefined) data.notes = notes || null;
+  if (status !== undefined) {
+    const validStatuses = ["draft", "sent", "paid", "overdue", "cancelled"];
+    if (!validStatuses.includes(status)) {
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    }
+    data.status = status;
+    if (status === "paid") data.paidAt = new Date();
+  }
+
+  // If items are provided, full-replace and recalculate totals
+  if (Array.isArray(items)) {
+    if (items.length === 0) {
+      return NextResponse.json({ error: "At least one item is required" }, { status: 400 });
+    }
+
+    for (const item of items) {
+      if (!item.description || typeof item.description !== "string") {
+        return NextResponse.json({ error: "Each item must have a description" }, { status: 400 });
+      }
+      if (typeof item.quantity !== "number" || item.quantity < 1) {
+        return NextResponse.json({ error: "Each item must have a valid quantity" }, { status: 400 });
+      }
+      if (typeof item.unitPrice !== "number" || item.unitPrice < 0) {
+        return NextResponse.json({ error: "Each item must have a valid unitPrice" }, { status: 400 });
+      }
+    }
+
+    const calculatedItems = items.map((item: { description: string; quantity: number; unitPrice: number }) => ({
+      description: item.description,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      amount: item.quantity * item.unitPrice,
+    }));
+
+    const subtotal = calculatedItems.reduce((sum: number, item: { amount: number }) => sum + item.amount, 0);
+    const tax = 0;
+    const total = subtotal + tax;
+
+    const invoice = await prisma.$transaction(async (tx) => {
+      // Delete all existing items
+      await tx.invoiceItem.deleteMany({ where: { invoiceId } });
+
+      // Update invoice with new totals and create new items
+      return tx.invoice.update({
+        where: { id: invoiceId },
+        data: {
+          ...data,
+          subtotal,
+          tax,
+          total,
+          items: { create: calculatedItems },
+        },
+        include: { items: true, client: true },
+      });
+    });
+
+    return NextResponse.json(invoice);
+  }
+
+  // No items change — just update fields
+  const invoice = await prisma.invoice.update({
+    where: { id: invoiceId },
+    data,
+    include: { items: true, client: true },
+  });
+
+  return NextResponse.json(invoice);
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ invoiceId: string }> }
+) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  if (session.user.role === "CLIENT") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const { invoiceId } = await params;
+
+  const existing = await prisma.invoice.findUnique({
+    where: { id: invoiceId },
+  });
+
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (existing.status === "paid") {
+    return NextResponse.json({ error: "Cannot delete a paid invoice" }, { status: 400 });
+  }
+
+  await prisma.invoice.delete({ where: { id: invoiceId } });
+
+  return NextResponse.json({ success: true });
+}

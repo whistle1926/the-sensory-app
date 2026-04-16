@@ -63,6 +63,7 @@ const NAV_ITEMS: WidgetDef[] = [
   { key: "nav_tasks", label: "Tasks", description: "Tasks and feedback" },
   { key: "nav_team", label: "Team", description: "Team management" },
   { key: "nav_settings", label: "Settings", description: "App settings" },
+  { key: "nav_invoices", label: "Invoices", description: "Create and send invoices" },
 ];
 
 const ALL_KEYS: string[] = [

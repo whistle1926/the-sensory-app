@@ -135,6 +135,7 @@ model Client {
   progressNotes ProgressNote[]
   goals         ClientGoal[]
   intakeItems   ClientIntakeItem[]
+  invoices      Invoice[]
 
   @@index([stageId])
 }
@@ -470,6 +471,45 @@ model ClientGoal {
   updatedAt   DateTime  @updatedAt
 
   @@index([clientId])
+}
+
+// ─── Invoices ───────────────────────────────────────────────────────
+
+model Invoice {
+  id            String    @id @default(cuid())
+  invoiceNumber String    @unique            // e.g. "INV-0001"
+  clientId      String?
+  client        Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientName    String                       // snapshot — always filled even if no clientId
+  clientEmail   String
+  status        String    @default("draft")  // "draft" | "sent" | "paid" | "overdue" | "cancelled"
+  dueDate       DateTime
+  notes         String?   @db.Text
+  subtotal      Int       @default(0)        // pence
+  tax           Int       @default(0)        // pence
+  total         Int       @default(0)        // pence
+  paymentRef    String?                      // FireBuddy payment code
+  paymentUrl    String?                      // FireBuddy payment URL
+  paidAt        DateTime?
+  sentAt        DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  items         InvoiceItem[]
+
+  @@index([clientId])
+  @@index([status])
+}
+
+model InvoiceItem {
+  id          String @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Int    @default(1)
+  unitPrice   Int                            // pence
+  amount      Int                            // quantity * unitPrice, in pence
+
+  @@index([invoiceId])
 }
 
 // ─── Client Intake Items (questionnaires, SPM, etc.) ────────────────

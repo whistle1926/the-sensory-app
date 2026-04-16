@@ -24,6 +24,7 @@ const ADMIN_PREFIXES = [
   "/tasks",
   "/programmes",
   "/settings",
+  "/invoices",
   "/private",
 ];
 
