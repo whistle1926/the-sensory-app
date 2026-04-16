@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Mail, Save, CheckCircle2, AlertCircle, Loader2, Bot, CreditCard } from "lucide-react";
+import { ClientStagesSection } from "@/components/settings/client-stages-section";
 
 interface EmailConfig {
   provider: string;
@@ -203,6 +204,9 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Client Journey Stages — Admin Only */}
+      {isAdmin && <ClientStagesSection />}
 
       {/* Mailcub Email Integration — Admin Only */}
       {isAdmin && (

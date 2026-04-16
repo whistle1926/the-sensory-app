@@ -20,6 +20,7 @@ export async function GET() {
   const clients = await prisma.client.findMany({
     where: { ...where, active: true },
     orderBy: { lastName: "asc" },
+    include: { stage: { select: { id: true, label: true, colour: true, order: true } } },
   });
 
   return NextResponse.json(clients);
@@ -53,12 +54,19 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Assign the default stage (if one exists) to new clients.
+  const defaultStage = await prisma.clientStage.findFirst({
+    where: { isDefault: true },
+    select: { id: true },
+  });
+
   const client = await prisma.client.create({
     data: {
       ...parsed.data,
       dateOfBirth: new Date(parsed.data.dateOfBirth),
       managerId: session.user.role === "TEAM_MANAGER" ? session.user.id : undefined,
       parentId,
+      stageId: defaultStage?.id ?? undefined,
     },
   });
 

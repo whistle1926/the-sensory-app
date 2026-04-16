@@ -44,6 +44,11 @@ export async function PATCH(
     updateData.dateOfBirth = new Date(parsed.data.dateOfBirth);
   }
 
+  // Accept stageId directly (not in clientSchema).
+  if ("stageId" in body) {
+    updateData.stageId = body.stageId === null ? null : body.stageId;
+  }
+
   // If parent email changed, relink the parent User account
   let parentAccountCreated = false;
   if (typeof parsed.data.parentCarerEmail === "string") {

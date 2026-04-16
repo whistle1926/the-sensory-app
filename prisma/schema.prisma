@@ -82,6 +82,16 @@ model ImpersonationToken {
   createdAt      DateTime  @default(now())
 }
 
+model ClientStage {
+  id        String   @id @default(cuid())
+  label     String
+  colour    String   @default("#6B7280")
+  order     Int      @default(0)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  clients   Client[]
+}
+
 model Client {
   id                 String   @id @default(cuid())
   firstName          String
@@ -97,6 +107,9 @@ model Client {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
+  stageId String?
+  stage   ClientStage? @relation(fields: [stageId], references: [id])
+
   managerId String?
   manager   User?   @relation("ManagerClients", fields: [managerId], references: [id])
   parentId  String?
@@ -104,6 +117,8 @@ model Client {
 
   sessions TherapySession[]
   reports  Report[]
+
+  @@index([stageId])
 }
 
 model TherapySession {
