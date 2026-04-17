@@ -1,30 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-
-interface Section {
-  title: string;
-  items: string[];
-}
-
-function sanitiseSections(input: unknown): Section[] {
-  if (!Array.isArray(input)) return [];
-  const result: Section[] = [];
-  for (const entry of input) {
-    if (!entry || typeof entry !== "object") continue;
-    const e = entry as { title?: unknown; items?: unknown };
-    const title = typeof e.title === "string" ? e.title.trim() : "";
-    const items = Array.isArray(e.items)
-      ? e.items
-          .filter((x): x is string => typeof x === "string")
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0)
-      : [];
-    if (!title && items.length === 0) continue;
-    result.push({ title, items });
-  }
-  return result;
-}
+import { sanitiseProgrammeSections } from "@/lib/programme-sections";
 
 export async function GET(
   _req: NextRequest,
@@ -67,7 +44,7 @@ export async function PATCH(
   if (typeof body.description === "string")
     data.description = body.description.trim();
   if (body.sections !== undefined)
-    data.sections = sanitiseSections(body.sections) as unknown as object;
+    data.sections = sanitiseProgrammeSections(body.sections) as unknown as object;
   if (typeof body.orderIndex === "number") data.orderIndex = body.orderIndex;
 
   const updated = await prisma.programmeTemplate.update({

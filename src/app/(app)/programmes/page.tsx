@@ -10,13 +10,15 @@ import {
   ChevronUp,
   Plus,
   Pencil,
+  Play,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-interface Section {
-  title: string;
-  items: string[];
-}
+import {
+  sanitiseProgrammeSections,
+  type ProgrammeSection,
+  type ProgrammeItem,
+} from "@/lib/programme-sections";
+import { DemoViewer } from "@/components/programmes/demo-viewer";
 
 interface ProgrammeTemplate {
   id: string;
@@ -38,19 +40,6 @@ interface Report {
   client: { firstName: string; lastName: string };
 }
 
-function coerceSections(raw: unknown): Section[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.map((s) => {
-    const e = (s || {}) as { title?: unknown; items?: unknown };
-    return {
-      title: typeof e.title === "string" ? e.title : "",
-      items: Array.isArray(e.items)
-        ? e.items.filter((x): x is string => typeof x === "string")
-        : [],
-    };
-  });
-}
-
 export default function ProgrammesPage() {
   const { data: session } = useSession();
   const canEdit = session?.user?.role !== "CLIENT";
@@ -60,6 +49,8 @@ export default function ProgrammesPage() {
   const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // The item whose demo is currently on-screen. null = viewer closed.
+  const [activeDemo, setActiveDemo] = useState<ProgrammeItem | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -135,7 +126,9 @@ export default function ProgrammesPage() {
         ) : (
           <div className="space-y-3">
             {programmes.map((prog) => {
-              const sections = coerceSections(prog.sections);
+              const sections: ProgrammeSection[] = sanitiseProgrammeSections(
+                prog.sections,
+              );
               const isExpanded = expandedTemplate === prog.id;
               return (
                 <div
@@ -197,8 +190,19 @@ export default function ProgrammesPage() {
                                     key={k}
                                     className="flex items-start gap-2 text-sm text-foreground/80"
                                   >
-                                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                                    {item}
+                                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                                    <span className="flex-1">{item.text}</span>
+                                    {item.demoSteps && item.demoSteps.length > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setActiveDemo(item)}
+                                        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary transition-colors hover:bg-primary/20"
+                                        title="Watch demo"
+                                      >
+                                        <Play className="h-3 w-3" />
+                                        Demo
+                                      </button>
+                                    )}
                                   </li>
                                 ))}
                               </ul>
@@ -292,6 +296,13 @@ export default function ProgrammesPage() {
           </div>
         )}
       </div>
+
+      <DemoViewer
+        open={activeDemo !== null}
+        onClose={() => setActiveDemo(null)}
+        exerciseTitle={activeDemo?.text ?? ""}
+        steps={activeDemo?.demoSteps ?? []}
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { ProgrammeForm, type Section } from "@/components/programmes/programme-form";
+import { ProgrammeForm } from "@/components/programmes/programme-form";
+import { sanitiseProgrammeSections } from "@/lib/programme-sections";
 
 export default async function EditProgrammePage({
   params,
@@ -14,19 +15,9 @@ export default async function EditProgrammePage({
   });
   if (!programme) notFound();
 
-  // sections is stored as Json; coerce into the expected shape.
-  const raw = (programme.sections as unknown) ?? [];
-  const sections: Section[] = Array.isArray(raw)
-    ? raw.map((s) => {
-        const e = (s || {}) as { title?: unknown; items?: unknown };
-        return {
-          title: typeof e.title === "string" ? e.title : "",
-          items: Array.isArray(e.items)
-            ? e.items.filter((x): x is string => typeof x === "string")
-            : [],
-        };
-      })
-    : [];
+  // sections is stored as Json; sanitise handles both legacy strings and the
+  // newer item-object shape, so the form always gets a canonical payload.
+  const sections = sanitiseProgrammeSections(programme.sections);
 
   return (
     <ProgrammeForm

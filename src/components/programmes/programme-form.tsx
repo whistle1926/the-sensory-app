@@ -16,17 +16,25 @@ import {
   Save,
   GripVertical,
   X,
+  Sparkles,
+  Check,
+  RefreshCw,
+  Image as ImageIcon,
 } from "lucide-react";
+import type {
+  ProgrammeItem,
+  ProgrammeSection,
+  DemoStep,
+} from "@/lib/programme-sections";
 
-export interface Section {
-  title: string;
-  items: string[];
-}
+// Keep the old exported names to avoid changing callers.
+export type Section = ProgrammeSection;
+export type { ProgrammeItem, DemoStep };
 
 export interface ProgrammeFormValues {
   title: string;
   description: string;
-  sections: Section[];
+  sections: ProgrammeSection[];
 }
 
 interface Props {
@@ -42,9 +50,16 @@ export function ProgrammeForm({ programmeId, initial }: Props) {
   const router = useRouter();
   const [title, setTitle] = useState(initial.title);
   const [description, setDescription] = useState(initial.description);
-  const [sections, setSections] = useState<Section[]>(
-    initial.sections.length > 0 ? initial.sections : [{ title: "", items: [""] }],
+  const [sections, setSections] = useState<ProgrammeSection[]>(
+    initial.sections.length > 0
+      ? initial.sections
+      : [{ title: "", items: [{ text: "" }] }],
   );
+  // Tracks which item is currently generating a demo: `${sectionIndex}-${itemIndex}`.
+  const [generatingKey, setGeneratingKey] = useState<string | null>(null);
+  // Which item's demo popover is open.
+  const [openDemoKey, setOpenDemoKey] = useState<string | null>(null);
+  const [demoError, setDemoError] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
@@ -75,19 +90,15 @@ export function ProgrammeForm({ programmeId, initial }: Props) {
     setPendingFocus(null);
   }, [pendingFocus]);
 
-  function updateSection(
-    index: number,
-    field: keyof Section,
-    value: string | string[],
-  ) {
+  function updateSectionTitle(index: number, value: string) {
     setSections((prev) =>
-      prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)),
+      prev.map((s, i) => (i === index ? { ...s, title: value } : s)),
     );
   }
 
   function addSection() {
     setSections((prev) => {
-      const next = [...prev, { title: "", items: [""] }];
+      const next = [...prev, { title: "", items: [{ text: "" }] }];
       setPendingFocus({ kind: "section", section: next.length - 1 });
       return next;
     });
@@ -97,12 +108,47 @@ export function ProgrammeForm({ programmeId, initial }: Props) {
     setSections((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function updateItem(sectionIndex: number, itemIndex: number, value: string) {
+  function updateItem(
+    sectionIndex: number,
+    itemIndex: number,
+    patch: Partial<ProgrammeItem>,
+  ) {
     setSections((prev) =>
       prev.map((s, i) => {
         if (i !== sectionIndex) return s;
-        const items = [...s.items];
-        items[itemIndex] = value;
+        const items = s.items.map((it, k) =>
+          k === itemIndex ? { ...it, ...patch } : it,
+        );
+        return { ...s, items };
+      }),
+    );
+  }
+
+  function updateItemText(
+    sectionIndex: number,
+    itemIndex: number,
+    value: string,
+  ) {
+    updateItem(sectionIndex, itemIndex, { text: value });
+  }
+
+  function updateDemoCaption(
+    sectionIndex: number,
+    itemIndex: number,
+    stepIndex: number,
+    caption: string,
+  ) {
+    setSections((prev) =>
+      prev.map((s, i) => {
+        if (i !== sectionIndex) return s;
+        const items = s.items.map((it, k) => {
+          if (k !== itemIndex) return it;
+          if (!it.demoSteps) return it;
+          const nextSteps = it.demoSteps.map((step, j) =>
+            j === stepIndex ? { ...step, caption } : step,
+          );
+          return { ...it, demoSteps: nextSteps };
+        });
         return { ...s, items };
       }),
     );
@@ -111,7 +157,7 @@ export function ProgrammeForm({ programmeId, initial }: Props) {
   function addItem(sectionIndex: number) {
     setSections((prev) => {
       const next = prev.map((s, i) =>
-        i === sectionIndex ? { ...s, items: [...s.items, ""] } : s,
+        i === sectionIndex ? { ...s, items: [...s.items, { text: "" }] } : s,
       );
       const newItemIndex = next[sectionIndex].items.length - 1;
       setPendingFocus({
@@ -130,6 +176,44 @@ export function ProgrammeForm({ programmeId, initial }: Props) {
         return { ...s, items: s.items.filter((_, k) => k !== itemIndex) };
       }),
     );
+  }
+
+  async function generateDemo(
+    sectionIndex: number,
+    itemIndex: number,
+    exerciseText: string,
+  ) {
+    const key = `${sectionIndex}-${itemIndex}`;
+    setGeneratingKey(key);
+    setDemoError("");
+    try {
+      const res = await fetch("/api/programmes/generate-demo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ exerciseText }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setDemoError(data.error || "Could not generate demo");
+        return;
+      }
+      const steps: DemoStep[] = Array.isArray(data.steps) ? data.steps : [];
+      if (steps.length === 0) {
+        setDemoError("No steps returned");
+        return;
+      }
+      updateItem(sectionIndex, itemIndex, { demoSteps: steps });
+      setOpenDemoKey(key);
+    } catch {
+      setDemoError("Network error generating demo");
+    } finally {
+      setGeneratingKey(null);
+    }
+  }
+
+  function removeDemo(sectionIndex: number, itemIndex: number) {
+    updateItem(sectionIndex, itemIndex, { demoSteps: undefined });
+    setOpenDemoKey(null);
   }
 
   function handleDragOver(e: React.DragEvent<HTMLDivElement>, overIndex: number) {
@@ -158,7 +242,21 @@ export function ProgrammeForm({ programmeId, initial }: Props) {
         sections: sections
           .map((s) => ({
             title: s.title.trim(),
-            items: s.items.map((i) => i.trim()).filter((i) => i.length > 0),
+            items: s.items
+              .map((it) => ({
+                text: it.text.trim(),
+                // Only send optional fields when present — keeps the payload clean.
+                ...(it.demoSteps && it.demoSteps.length > 0
+                  ? {
+                      demoSteps: it.demoSteps.map((step) => ({
+                        caption: step.caption.trim(),
+                        imageUrl: step.imageUrl,
+                      })),
+                    }
+                  : {}),
+                ...(it.videoUrl ? { videoUrl: it.videoUrl } : {}),
+              }))
+              .filter((it) => it.text.length > 0),
           }))
           .filter((s) => s.title || s.items.length > 0),
       };
@@ -250,6 +348,12 @@ export function ProgrammeForm({ programmeId, initial }: Props) {
         </div>
       )}
 
+      {demoError && (
+        <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+          Demo generation: {demoError}
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Programme Details</CardTitle>
@@ -317,9 +421,7 @@ export function ProgrammeForm({ programmeId, initial }: Props) {
                       else sectionTitleRefs.current.delete(sIndex);
                     }}
                     value={section.title}
-                    onChange={(e) =>
-                      updateSection(sIndex, "title", e.target.value)
-                    }
+                    onChange={(e) => updateSectionTitle(sIndex, e.target.value)}
                     placeholder="Section title (e.g. Morning, School day)"
                     className="font-semibold"
                   />
@@ -336,38 +438,152 @@ export function ProgrammeForm({ programmeId, initial }: Props) {
                 <div className="space-y-2 pl-1">
                   {section.items.map((item, iIndex) => {
                     const refKey = `${sIndex}-${iIndex}`;
+                    const isGenerating = generatingKey === refKey;
+                    const hasDemo =
+                      !!item.demoSteps && item.demoSteps.length > 0;
+                    const isOpen = openDemoKey === refKey;
                     return (
-                      <div key={iIndex} className="flex items-center gap-2">
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                        <Input
-                          ref={(el) => {
-                            if (el) itemRefs.current.set(refKey, el);
-                            else itemRefs.current.delete(refKey);
-                          }}
-                          value={item}
-                          onChange={(e) =>
-                            updateItem(sIndex, iIndex, e.target.value)
-                          }
-                          onKeyDown={(e) => {
-                            // Enter adds a new item and focuses it — common pattern
-                            // for fast data entry so you can keep typing.
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              addItem(sIndex);
+                      <div key={iIndex} className="space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                          <Input
+                            ref={(el) => {
+                              if (el) itemRefs.current.set(refKey, el);
+                              else itemRefs.current.delete(refKey);
+                            }}
+                            value={item.text}
+                            onChange={(e) =>
+                              updateItemText(sIndex, iIndex, e.target.value)
                             }
-                          }}
-                          placeholder="Activity or item"
-                          className="h-9"
-                        />
-                        {section.items.length > 1 && (
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                addItem(sIndex);
+                              }
+                            }}
+                            placeholder="Activity or item"
+                            className="h-9"
+                          />
+
+                          {/* Demo button: Generate / Demo ✓ */}
                           <button
                             type="button"
-                            onClick={() => removeItem(sIndex, iIndex)}
-                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                            aria-label="Remove item"
+                            onClick={() => {
+                              if (hasDemo) {
+                                setOpenDemoKey(isOpen ? null : refKey);
+                                return;
+                              }
+                              if (!item.text.trim()) return;
+                              generateDemo(sIndex, iIndex, item.text);
+                            }}
+                            disabled={isGenerating || (!hasDemo && !item.text.trim())}
+                            className={`inline-flex h-8 shrink-0 items-center gap-1 rounded-md border px-2.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
+                              hasDemo
+                                ? "border-primary/40 bg-primary/10 text-primary"
+                                : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                            }`}
+                            title={
+                              hasDemo
+                                ? "View / edit demo"
+                                : "Generate AI demo illustration"
+                            }
                           >
-                            <X className="h-4 w-4" />
+                            {isGenerating ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : hasDemo ? (
+                              <Check className="h-3.5 w-3.5" />
+                            ) : (
+                              <Sparkles className="h-3.5 w-3.5" />
+                            )}
+                            {isGenerating
+                              ? "Generating…"
+                              : hasDemo
+                                ? "Demo"
+                                : "Demo"}
                           </button>
+
+                          {section.items.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeItem(sIndex, iIndex)}
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                              aria-label="Remove item"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Inline demo editor — shows when the user clicks the Demo button on an item with existing demoSteps */}
+                        {isOpen && hasDemo && item.demoSteps && (
+                          <div className="ml-3.5 rounded-xl border border-border bg-muted/30 p-3">
+                            <div className="mb-2 flex items-center justify-between">
+                              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                Demo cards
+                              </p>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    generateDemo(sIndex, iIndex, item.text)
+                                  }
+                                  disabled={isGenerating}
+                                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground disabled:opacity-50"
+                                  title="Regenerate with the same text"
+                                >
+                                  <RefreshCw className="h-3 w-3" />
+                                  Regenerate
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeDemo(sIndex, iIndex)}
+                                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                              {item.demoSteps.map((step, stepIndex) => (
+                                <div
+                                  key={stepIndex}
+                                  className="overflow-hidden rounded-lg border border-border bg-card"
+                                >
+                                  {step.imageUrl ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={step.imageUrl}
+                                      alt={step.caption}
+                                      className="aspect-square w-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="flex aspect-square w-full items-center justify-center bg-muted">
+                                      <ImageIcon className="h-6 w-6 text-muted-foreground/40" />
+                                    </div>
+                                  )}
+                                  <div className="p-2">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                      Step {stepIndex + 1}
+                                    </p>
+                                    <Input
+                                      value={step.caption}
+                                      onChange={(e) =>
+                                        updateDemoCaption(
+                                          sIndex,
+                                          iIndex,
+                                          stepIndex,
+                                          e.target.value,
+                                        )
+                                      }
+                                      className="mt-1 h-8 text-xs"
+                                      placeholder="Caption"
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         )}
                       </div>
                     );

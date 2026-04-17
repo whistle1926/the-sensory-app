@@ -6,7 +6,7 @@ export default function NewProgrammePage() {
       initial={{
         title: "",
         description: "",
-        sections: [{ title: "", items: [""] }],
+        sections: [{ title: "", items: [{ text: "" }] }],
       }}
     />
   );
