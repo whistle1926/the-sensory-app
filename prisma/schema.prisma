@@ -641,6 +641,7 @@ model Leaflet {
   mimeType     String?
   sizeBytes    Int?
   thumbnailUrl String?                  // optional preview image URL
+  coverImageUrl String?                 // hero image shown on the card + top of the leaflet
   tags         String[] @default([])
   external     Boolean  @default(false) // convenience flag: true when fileUrl points off-app
   createdById  String

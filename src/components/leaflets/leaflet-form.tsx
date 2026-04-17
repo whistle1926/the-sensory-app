@@ -18,6 +18,9 @@ import {
   PenLine,
   Save,
   Trash2,
+  Sparkles,
+  Image as ImageIcon,
+  X,
 } from "lucide-react";
 
 export type LeafletKind = "content" | "file" | "link";
@@ -29,6 +32,7 @@ export interface LeafletFormValues {
   category: string;
   kind: LeafletKind;
   content?: string | null;
+  coverImageUrl?: string | null;
   fileUrl?: string | null;
   fileName?: string | null;
   mimeType?: string | null;
@@ -62,11 +66,76 @@ export function LeafletForm({ leafletId, initial, suggestedCategories }: Props) 
   const [sizeBytes, setSizeBytes] = useState<number | null>(
     initial.sizeBytes ?? null,
   );
+  const [coverImageUrl, setCoverImageUrl] = useState(initial.coverImageUrl ?? "");
   const [uploading, setUploading] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+
+  async function onCoverPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingCover(true);
+    setError("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/uploads/leaflet", {
+        method: "POST",
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Cover upload failed");
+        return;
+      }
+      setCoverImageUrl(data.url);
+    } catch {
+      setError("Network error during cover upload");
+    } finally {
+      setUploadingCover(false);
+    }
+  }
+
+  async function generateWithAi() {
+    setError("");
+    if (!title.trim()) {
+      setError("Add a title first — the AI uses it to write the leaflet.");
+      return;
+    }
+    setGenerating(true);
+    try {
+      const res = await fetch("/api/leaflets/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          category: category.trim() || undefined,
+          hint: description.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "AI generation failed");
+        return;
+      }
+      if (typeof data.content === "string" && data.content.trim()) {
+        setContent(data.content);
+      }
+      if (typeof data.coverImageUrl === "string" && data.coverImageUrl) {
+        setCoverImageUrl(data.coverImageUrl);
+      }
+      setMode("content");
+    } catch {
+      setError("Network error while generating");
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   async function onFilePick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -135,6 +204,7 @@ export function LeafletForm({ leafletId, initial, suggestedCategories }: Props) 
         fileName: mode === "content" ? null : fileName,
         mimeType: mode === "content" ? null : mimeType,
         sizeBytes: mode === "content" ? null : sizeBytes,
+        coverImageUrl: coverImageUrl || null,
         external: mode === "link",
       };
       const res = isEdit
@@ -229,7 +299,28 @@ export function LeafletForm({ leafletId, initial, suggestedCategories }: Props) 
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Details</CardTitle>
+          <CardTitle className="flex items-center justify-between text-base">
+            <span>Details</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={generateWithAi}
+              disabled={generating || !title.trim()}
+              title={
+                title.trim()
+                  ? "Generate content and cover image from the title"
+                  : "Enter a title first"
+              }
+            >
+              {generating ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              {generating ? "Generating…" : "Generate with AI"}
+            </Button>
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
@@ -265,6 +356,111 @@ export function LeafletForm({ leafletId, initial, suggestedCategories }: Props) 
               />
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Cover image ─────────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Cover image</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {coverImageUrl ? (
+            <div className="grid gap-3 sm:grid-cols-[240px_1fr]">
+              <div className="overflow-hidden rounded-xl border border-border bg-muted">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={coverImageUrl}
+                  alt="Leaflet cover"
+                  className="aspect-[4/3] w-full object-cover"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <p className="text-sm text-muted-foreground">
+                  Shown as the card on the gallery and at the top of the
+                  leaflet. Replace or remove below.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => coverInputRef.current?.click()}
+                    disabled={uploadingCover}
+                  >
+                    {uploadingCover ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    Replace
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={generateWithAi}
+                    disabled={generating || !title.trim()}
+                  >
+                    {generating ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    Regenerate with AI
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCoverImageUrl("")}
+                  >
+                    <X className="mr-1.5 h-3.5 w-3.5" />
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={generateWithAi}
+                disabled={generating || !title.trim()}
+                className="flex flex-col items-start gap-2 rounded-xl border border-dashed border-border bg-muted/30 p-4 text-left text-sm transition-colors hover:bg-muted disabled:opacity-50"
+              >
+                <Sparkles className="h-5 w-5 text-primary" />
+                <span className="font-semibold">Generate with AI</span>
+                <span className="text-xs text-muted-foreground">
+                  Uses the title to create a friendly cartoon cover plus the
+                  body content in one click. Needs a title first.
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => coverInputRef.current?.click()}
+                disabled={uploadingCover}
+                className="flex flex-col items-start gap-2 rounded-xl border border-dashed border-border bg-muted/30 p-4 text-left text-sm transition-colors hover:bg-muted disabled:opacity-50"
+              >
+                {uploadingCover ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                )}
+                <span className="font-semibold">Upload your own</span>
+                <span className="text-xs text-muted-foreground">
+                  JPG, PNG or WebP. Recommended 4:3 aspect ratio.
+                </span>
+              </button>
+            </div>
+          )}
+          <input
+            ref={coverInputRef}
+            type="file"
+            accept="image/*"
+            onChange={onCoverPick}
+            className="hidden"
+          />
         </CardContent>
       </Card>
 

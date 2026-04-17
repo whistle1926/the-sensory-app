@@ -86,6 +86,8 @@ export async function POST(req: NextRequest) {
         : null,
     thumbnailUrl:
       typeof body?.thumbnailUrl === "string" ? body.thumbnailUrl : null,
+    coverImageUrl:
+      typeof body?.coverImageUrl === "string" ? body.coverImageUrl : null,
     tags: Array.isArray(body?.tags)
       ? body.tags.filter((t: unknown): t is string => typeof t === "string")
       : [],

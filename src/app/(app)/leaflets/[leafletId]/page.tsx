@@ -68,7 +68,16 @@ export default async function LeafletViewPage({
         </div>
       </div>
 
-      <article className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)] md:p-10 print:border-0 print:shadow-none">
+      <article className="overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-sm)] print:border-0 print:shadow-none">
+        {leaflet.coverImageUrl && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={leaflet.coverImageUrl}
+            alt=""
+            className="aspect-[16/6] w-full object-cover print:aspect-[16/5]"
+          />
+        )}
+        <div className="p-6 md:p-10">
         {leaflet.category && (
           <p className="text-xs font-semibold uppercase tracking-wider text-primary">
             {leaflet.category}
@@ -86,6 +95,7 @@ export default async function LeafletViewPage({
           className="prose prose-sm mt-6 max-w-none dark:prose-invert prose-headings:font-semibold prose-p:leading-relaxed prose-a:text-primary"
           dangerouslySetInnerHTML={{ __html: leaflet.content ?? "" }}
         />
+        </div>
       </article>
     </div>
   );

@@ -38,6 +38,7 @@ export default async function EditLeafletPage({
         category: leaflet.category ?? "",
         kind: (leaflet.kind as LeafletKind) ?? "file",
         content: leaflet.content,
+        coverImageUrl: leaflet.coverImageUrl,
         fileUrl: leaflet.fileUrl,
         fileName: leaflet.fileName,
         mimeType: leaflet.mimeType,

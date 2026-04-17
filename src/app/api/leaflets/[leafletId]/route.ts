@@ -72,6 +72,8 @@ export async function PATCH(
     data.sizeBytes = Math.floor(body.sizeBytes);
   if (typeof body?.thumbnailUrl === "string")
     data.thumbnailUrl = body.thumbnailUrl;
+  if (typeof body?.coverImageUrl === "string" || body?.coverImageUrl === null)
+    data.coverImageUrl = body.coverImageUrl;
   if (Array.isArray(body?.tags))
     data.tags = body.tags.filter(
       (t: unknown): t is string => typeof t === "string",

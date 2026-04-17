@@ -32,6 +32,7 @@ interface Leaflet {
   mimeType: string | null;
   sizeBytes: number | null;
   thumbnailUrl: string | null;
+  coverImageUrl: string | null;
   tags: string[];
   external: boolean;
   createdAt: string;
@@ -261,7 +262,14 @@ export default function LeafletsPage() {
                     rel="noopener noreferrer"
                     className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-muted/40"
                   >
-                    {isImage && leaflet.fileUrl ? (
+                    {leaflet.coverImageUrl ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={leaflet.coverImageUrl}
+                        alt={leaflet.title}
+                        className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
+                      />
+                    ) : isImage && leaflet.fileUrl ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
                         src={leaflet.fileUrl}
@@ -293,14 +301,23 @@ export default function LeafletsPage() {
                 ) : (
                   <Link
                     href={openHref}
-                    className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-gradient-to-br from-primary/5 to-primary/15 p-4"
+                    className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-gradient-to-br from-primary/5 to-primary/15"
                   >
-                    <div className="text-center">
-                      <PenLine className="mx-auto h-8 w-8 text-primary/50" />
-                      <p className="mt-2 line-clamp-4 text-xs italic text-muted-foreground">
-                        {preview || "Written leaflet"}
-                      </p>
-                    </div>
+                    {leaflet.coverImageUrl ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={leaflet.coverImageUrl}
+                        alt={leaflet.title}
+                        className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
+                      />
+                    ) : (
+                      <div className="p-4 text-center">
+                        <PenLine className="mx-auto h-8 w-8 text-primary/50" />
+                        <p className="mt-2 line-clamp-4 text-xs italic text-muted-foreground">
+                          {preview || "Written leaflet"}
+                        </p>
+                      </div>
+                    )}
                     <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-semibold text-primary shadow-sm">
                       <PenLine className="h-2.5 w-2.5" />
                       Written
