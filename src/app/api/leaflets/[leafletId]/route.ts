@@ -45,6 +45,23 @@ export async function PATCH(
     data.description = body.description.trim().slice(0, 2000);
   if (typeof body?.category === "string")
     data.category = body.category.trim().slice(0, 80) || null;
+  if (
+    typeof body?.kind === "string" &&
+    ["content", "file", "link"].includes(body.kind)
+  ) {
+    data.kind = body.kind;
+    // If the caller is converting to/from content, they should also send the
+    // correct content/fileUrl. We wipe the other field so the model stays
+    // consistent with the new kind.
+    if (body.kind === "content") {
+      data.fileUrl = null;
+      data.external = false;
+    } else {
+      data.content = null;
+      data.external = body.kind === "link";
+    }
+  }
+  if (typeof body?.content === "string") data.content = body.content;
   if (typeof body?.fileUrl === "string" && /^https?:\/\//i.test(body.fileUrl))
     data.fileUrl = body.fileUrl.trim();
   if (typeof body?.fileName === "string")

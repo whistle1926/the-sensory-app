@@ -630,13 +630,19 @@ model Leaflet {
   title        String
   description  String?  @db.Text
   category     String?  // free-text label, e.g. "Fine Motor", "Feeding"
-  fileUrl      String   // Blob URL or external (Drive, etc.)
-  fileName     String?  // display filename (original upload name)
+  // kind is the source of the leaflet body:
+  //   "content" — authored natively in the admin (HTML in `content`)
+  //   "file"    — uploaded to Vercel Blob (url in `fileUrl`)
+  //   "link"    — external URL (Google Drive, website, etc.)
+  kind         String   @default("file")
+  content      String?  @db.Text        // HTML body when kind = "content"
+  fileUrl      String?                  // Blob URL or external URL — null when kind = "content"
+  fileName     String?                  // display filename (original upload name)
   mimeType     String?
   sizeBytes    Int?
-  thumbnailUrl String?  // optional preview image URL
+  thumbnailUrl String?                  // optional preview image URL
   tags         String[] @default([])
-  external     Boolean  @default(false) // true when fileUrl points off-app
+  external     Boolean  @default(false) // convenience flag: true when fileUrl points off-app
   createdById  String
   createdBy    User     @relation("LeafletsCreated", fields: [createdById], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())

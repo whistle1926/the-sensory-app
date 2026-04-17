@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   FileStack,
   Plus,
@@ -13,6 +14,7 @@ import {
   Loader2,
   FileText,
   Image as ImageIcon,
+  PenLine,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +26,9 @@ interface Leaflet {
   title: string;
   description: string | null;
   category: string | null;
-  fileUrl: string;
+  kind: "content" | "file" | "link";
+  content: string | null;
+  fileUrl: string | null;
   fileName: string | null;
   mimeType: string | null;
   sizeBytes: number | null;
@@ -33,6 +37,16 @@ interface Leaflet {
   external: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+function plainTextFromHtml(html: string | null, chars = 120): string {
+  if (!html) return "";
+  return html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, chars);
 }
 
 function iconFor(mimeType: string | null | undefined) {
@@ -95,12 +109,18 @@ export default function LeafletsPage() {
   }, [leaflets, search, activeCategory]);
 
   async function copyLink(leaflet: Leaflet) {
+    // For content-kind leaflets copy the in-app view page URL; for file/link
+    // copy the blob / external URL directly.
+    const url =
+      leaflet.kind === "content"
+        ? `${window.location.origin}/leaflets/${leaflet.id}`
+        : (leaflet.fileUrl ?? "");
     try {
-      await navigator.clipboard.writeText(leaflet.fileUrl);
+      await navigator.clipboard.writeText(url);
       setCopiedId(leaflet.id);
       setTimeout(() => setCopiedId((id) => (id === leaflet.id ? null : id)), 1500);
     } catch {
-      window.prompt("Copy this link:", leaflet.fileUrl);
+      window.prompt("Copy this link:", url);
     }
   }
 
@@ -228,48 +248,80 @@ export default function LeafletsPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((leaflet) => {
             const Icon = iconFor(leaflet.mimeType);
-            const isImage = leaflet.mimeType?.startsWith("image/");
+            const isImage =
+              leaflet.kind === "file" &&
+              leaflet.mimeType?.startsWith("image/");
+            // Open target depends on kind: content → in-app view; file/link → new tab
+            const openHref =
+              leaflet.kind === "content"
+                ? `/leaflets/${leaflet.id}`
+                : (leaflet.fileUrl ?? "#");
+            const openExternal = leaflet.kind !== "content";
+            const preview = plainTextFromHtml(leaflet.content);
             return (
               <div
                 key={leaflet.id}
                 className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-sm)] transition-shadow hover:shadow-[var(--shadow-md)]"
               >
                 {/* Preview area */}
-                <a
-                  href={leaflet.fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-muted/40"
-                >
-                  {isImage ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
-                      src={leaflet.fileUrl}
-                      alt={leaflet.title}
-                      className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
-                    />
-                  ) : leaflet.thumbnailUrl ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
-                      src={leaflet.thumbnailUrl}
-                      alt={leaflet.title}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <Icon className="h-12 w-12 text-muted-foreground/30" />
-                  )}
-                  {leaflet.external && (
-                    <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground shadow-sm">
-                      <ExternalLink className="h-2.5 w-2.5" />
-                      External
+                {openExternal ? (
+                  <a
+                    href={openHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-muted/40"
+                  >
+                    {isImage && leaflet.fileUrl ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={leaflet.fileUrl}
+                        alt={leaflet.title}
+                        className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
+                      />
+                    ) : leaflet.thumbnailUrl ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={leaflet.thumbnailUrl}
+                        alt={leaflet.title}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <Icon className="h-12 w-12 text-muted-foreground/30" />
+                    )}
+                    {leaflet.external && (
+                      <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground shadow-sm">
+                        <ExternalLink className="h-2.5 w-2.5" />
+                        External
+                      </span>
+                    )}
+                    {leaflet.category && (
+                      <span className="absolute left-2 top-2 inline-flex items-center rounded-full bg-primary/90 px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-sm">
+                        {leaflet.category}
+                      </span>
+                    )}
+                  </a>
+                ) : (
+                  <Link
+                    href={openHref}
+                    className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-gradient-to-br from-primary/5 to-primary/15 p-4"
+                  >
+                    <div className="text-center">
+                      <PenLine className="mx-auto h-8 w-8 text-primary/50" />
+                      <p className="mt-2 line-clamp-4 text-xs italic text-muted-foreground">
+                        {preview || "Written leaflet"}
+                      </p>
+                    </div>
+                    <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-semibold text-primary shadow-sm">
+                      <PenLine className="h-2.5 w-2.5" />
+                      Written
                     </span>
-                  )}
-                  {leaflet.category && (
-                    <span className="absolute left-2 top-2 inline-flex items-center rounded-full bg-primary/90 px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-sm">
-                      {leaflet.category}
-                    </span>
-                  )}
-                </a>
+                    {leaflet.category && (
+                      <span className="absolute left-2 top-2 inline-flex items-center rounded-full bg-primary/90 px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-sm">
+                        {leaflet.category}
+                      </span>
+                    )}
+                  </Link>
+                )}
 
                 {/* Body */}
                 <div className="flex flex-1 flex-col p-3">
@@ -291,15 +343,25 @@ export default function LeafletsPage() {
                   </div>
 
                   <div className="mt-3 flex flex-wrap items-center gap-1 border-t border-border pt-2.5">
-                    <a
-                      href={leaflet.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      Open
-                    </a>
+                    {openExternal ? (
+                      <a
+                        href={openHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Open
+                      </a>
+                    ) : (
+                      <Link
+                        href={openHref}
+                        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10"
+                      >
+                        <PenLine className="h-3 w-3" />
+                        Read
+                      </Link>
+                    )}
                     <button
                       type="button"
                       onClick={() => copyLink(leaflet)}
@@ -356,11 +418,12 @@ export default function LeafletsPage() {
                 title: editing.title,
                 description: editing.description ?? "",
                 category: editing.category ?? "",
+                kind: editing.kind,
+                content: editing.content,
                 fileUrl: editing.fileUrl,
                 fileName: editing.fileName,
                 mimeType: editing.mimeType,
                 sizeBytes: editing.sizeBytes,
-                external: editing.external,
               } satisfies LeafletValues)
             : undefined
         }

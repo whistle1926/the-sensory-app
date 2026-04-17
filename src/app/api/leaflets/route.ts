@@ -36,12 +36,32 @@ export async function POST(req: NextRequest) {
   if (!title)
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
 
+  // `kind` drives what body we expect. Default to "file" for backward compat
+  // with the original upload-only flow.
+  const rawKind = typeof body?.kind === "string" ? body.kind : "file";
+  const kind = ["content", "file", "link"].includes(rawKind) ? rawKind : "file";
+
   const fileUrl = typeof body?.fileUrl === "string" ? body.fileUrl.trim() : "";
-  if (!fileUrl || !/^https?:\/\//i.test(fileUrl))
-    return NextResponse.json(
-      { error: "A valid file URL is required" },
-      { status: 400 },
-    );
+  const content = typeof body?.content === "string" ? body.content : "";
+
+  if (kind === "content") {
+    // Written-in-admin leaflet — needs a non-empty body.
+    const stripped = content.replace(/<[^>]+>/g, "").trim();
+    if (!stripped) {
+      return NextResponse.json(
+        { error: "The leaflet body is empty. Write something before saving." },
+        { status: 400 },
+      );
+    }
+  } else {
+    // file or link — must have a URL.
+    if (!fileUrl || !/^https?:\/\//i.test(fileUrl)) {
+      return NextResponse.json(
+        { error: "A valid file URL is required" },
+        { status: 400 },
+      );
+    }
+  }
 
   const data = {
     title,
@@ -53,7 +73,9 @@ export async function POST(req: NextRequest) {
       typeof body?.category === "string" && body.category.trim()
         ? body.category.trim().slice(0, 80)
         : null,
-    fileUrl,
+    kind,
+    content: kind === "content" ? content : null,
+    fileUrl: kind === "content" ? null : fileUrl,
     fileName:
       typeof body?.fileName === "string" ? body.fileName.slice(0, 200) : null,
     mimeType:
@@ -67,7 +89,7 @@ export async function POST(req: NextRequest) {
     tags: Array.isArray(body?.tags)
       ? body.tags.filter((t: unknown): t is string => typeof t === "string")
       : [],
-    external: body?.external === true,
+    external: kind === "link",
     createdById: session.user.id,
   };
 
