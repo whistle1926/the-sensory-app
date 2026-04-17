@@ -191,7 +191,7 @@ export function LeafletDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-h-[92vh] w-[96vw] max-w-[1400px] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit leaflet" : "New leaflet"}</DialogTitle>
         </DialogHeader>
@@ -266,7 +266,7 @@ export function LeafletDialog({
                 value={content}
                 onChange={setContent}
                 placeholder="Write your leaflet. Use headings, lists, bold, links — and paste a YouTube / Vimeo URL with the video button to embed."
-                minHeight={280}
+                minHeight={480}
               />
               <p className="text-[11px] text-muted-foreground">
                 Stored inside the app — no external file needed.
