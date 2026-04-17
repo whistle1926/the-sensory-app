@@ -191,7 +191,7 @@ export function LeafletDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] w-[96vw] max-w-[1400px] overflow-y-auto">
+      <DialogContent className="max-h-[92vh] w-[96vw] overflow-y-auto sm:!max-w-[1400px]">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit leaflet" : "New leaflet"}</DialogTitle>
         </DialogHeader>
