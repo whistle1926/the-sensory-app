@@ -56,6 +56,10 @@ export interface FormSettings {
   notifyEmails?: string[];
   replyToEmail?: string;
   autoReply?: FormAutoReply;
+  // When true the public URL requires a signed-in session; unauthenticated
+  // visitors are bounced to /login with a callback. Default false = anyone
+  // with the link can submit.
+  requireLogin?: boolean;
 }
 
 // ── Uploaded file shape (value of a `file` field) ───────────────────
@@ -223,6 +227,8 @@ export function sanitiseFormSettings(input: unknown): FormSettings {
     out.successMessage = raw.successMessage.trim().slice(0, 500);
   if (typeof raw.replyToEmail === "string" && isEmail(raw.replyToEmail))
     out.replyToEmail = raw.replyToEmail.trim();
+
+  if (raw.requireLogin === true) out.requireLogin = true;
 
   if (Array.isArray(raw.notifyEmails)) {
     const emails = raw.notifyEmails

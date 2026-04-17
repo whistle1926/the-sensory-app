@@ -8,7 +8,8 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
-import { Loader2, CheckCircle2, AlertCircle, Upload, X } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { Loader2, CheckCircle2, AlertCircle, Upload, X, Lock } from "lucide-react";
 import {
   type FormField,
   type SubmissionData,
@@ -22,7 +23,11 @@ interface PublicForm {
   slug: string;
   description: string | null;
   fields: FormField[];
-  settings: { submitButtonText: string; successMessage: string };
+  settings: {
+    submitButtonText: string;
+    successMessage: string;
+    requireLogin?: boolean;
+  };
 }
 
 export default function PublicFormPage({
@@ -35,6 +40,7 @@ export default function PublicFormPage({
   const { slug } = use(params);
   const sp = use(searchParams);
   const token = typeof sp.t === "string" ? sp.t : undefined;
+  const { data: session, status: sessionStatus } = useSession();
 
   const [form, setForm] = useState<PublicForm | null>(null);
   const [loadError, setLoadError] = useState<string>("");
@@ -139,6 +145,42 @@ export default function PublicFormPage({
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
+  }
+
+  // If the form requires sign-in and the session is still loading, wait.
+  // If it's confirmed unauthenticated, show a gate with a sign-in button.
+  if (form.settings.requireLogin) {
+    if (sessionStatus === "loading") {
+      return (
+        <div className="flex min-h-screen items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
+    if (!session?.user) {
+      const callback = encodeURIComponent(
+        typeof window !== "undefined"
+          ? window.location.pathname + window.location.search
+          : `/f/${slug}`,
+      );
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-muted/40 p-6">
+          <div className="max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-[var(--shadow-sm)]">
+            <Lock className="mx-auto h-10 w-10 text-muted-foreground/50" />
+            <h1 className="mt-4 text-xl font-bold">{form.title}</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Please sign in to complete this form.
+            </p>
+            <Link
+              href={`/login?callbackUrl=${callback}`}
+              className="mt-6 inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110"
+            >
+              Sign in to continue
+            </Link>
+          </div>
+        </div>
+      );
+    }
   }
 
   if (submitted) {

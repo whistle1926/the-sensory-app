@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   sanitiseFormFields,
@@ -112,6 +113,19 @@ export async function POST(
     );
   }
 
+  // If the form requires login, reject any unauthenticated POST. The client
+  // should have been gated before getting here, but this is the hard guarantee.
+  const settings = sanitiseFormSettings(form.settings);
+  if (settings.requireLogin) {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: "This form requires you to be signed in." },
+        { status: 401 },
+      );
+    }
+  }
+
   const ip = ipFromRequest(req);
   const rl = rateLimit(`${form.id}:${ip}`);
   if (!rl.ok) {
@@ -165,7 +179,7 @@ export async function POST(
   });
 
   // Email notifications — best-effort. Never roll back the DB write.
-  const settings = sanitiseFormSettings(form.settings);
+  // (`settings` is already sanitised earlier in the function.)
   const tplVars: Record<string, string> = {
     formTitle: form.title,
     submitterName: submitterName ?? "",

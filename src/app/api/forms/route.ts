@@ -25,6 +25,7 @@ export async function GET() {
       slug: true,
       description: true,
       isPublished: true,
+      settings: true,
       createdAt: true,
       updatedAt: true,
       createdBy: { select: { id: true, name: true } },

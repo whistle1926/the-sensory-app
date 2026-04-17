@@ -844,6 +844,46 @@ function SettingsTab({
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle className="text-base">Who can fill this in?</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => update({ requireLogin: false })}
+              className={`rounded-xl border p-4 text-left transition-colors ${
+                !settings.requireLogin
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:bg-muted"
+              }`}
+            >
+              <p className="font-semibold">Public</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Anyone with the link can fill it in — no login needed. Best for
+                new parents, referrals and consent forms.
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => update({ requireLogin: true })}
+              className={`rounded-xl border p-4 text-left transition-colors ${
+                settings.requireLogin
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:bg-muted"
+              }`}
+            >
+              <p className="font-semibold">Signed-in only</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Visitors are redirected to sign in before filling. Use for
+                existing clients where you want tighter access control.
+              </p>
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">After submission</CardTitle>

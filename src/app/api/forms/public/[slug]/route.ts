@@ -32,11 +32,13 @@ export async function GET(
   }
 
   const settings = sanitiseFormSettings(form.settings);
-  // Public response only exposes the button text + success message.
+  // Public response only exposes the button text + success message +
+  // requireLogin flag (the fill page needs it to gate the UI).
   const publicSettings = {
     submitButtonText: settings.submitButtonText ?? "Submit",
     successMessage:
       settings.successMessage ?? "Thanks — we've got your response.",
+    requireLogin: settings.requireLogin === true,
   };
 
   return NextResponse.json({

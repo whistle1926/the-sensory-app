@@ -12,6 +12,8 @@ import {
   Loader2,
   Copy,
   Check,
+  Globe,
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SendFormDialog } from "@/components/forms/send-form-dialog";
@@ -22,6 +24,7 @@ interface FormRow {
   slug: string;
   description: string | null;
   isPublished: boolean;
+  settings: { requireLogin?: boolean } | null;
   createdAt: string;
   updatedAt: string;
   createdBy: { id: string; name: string };
@@ -122,6 +125,17 @@ export default function FormsListPage() {
                       ) : (
                         <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
                           Draft
+                        </span>
+                      )}
+                      {form.settings?.requireLogin ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+                          <Lock className="h-2.5 w-2.5" />
+                          Sign-in required
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-950/30 dark:text-blue-400">
+                          <Globe className="h-2.5 w-2.5" />
+                          Public
                         </span>
                       )}
                     </div>
