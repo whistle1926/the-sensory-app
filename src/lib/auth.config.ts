@@ -10,6 +10,11 @@ const PUBLIC_PREFIXES = [
   "/set-password",
   "/api/auth/set-password",
   "/impersonate",
+  // Public form fill + submit. The per-form `requireLogin` setting is
+  // enforced inside the route itself — the middleware just needs to let
+  // the request through.
+  "/f/",
+  "/api/forms/public/",
 ];
 
 // Admin-only app routes (prefix match). CLIENT users get bounced to /portal.
