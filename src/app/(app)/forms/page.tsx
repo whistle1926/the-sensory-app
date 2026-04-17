@@ -10,6 +10,8 @@ import {
   Send,
   Pencil,
   Loader2,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SendFormDialog } from "@/components/forms/send-form-dialog";
@@ -30,6 +32,20 @@ export default function FormsListPage() {
   const [forms, setForms] = useState<FormRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [sendFor, setSendFor] = useState<FormRow | null>(null);
+  // Which form id most recently had its URL copied — used to flash the icon.
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  async function copyLink(formId: string, url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedId(formId);
+      setTimeout(() => setCopiedId((id) => (id === formId ? null : id)), 1500);
+    } catch {
+      // Rare — clipboard API can fail over http or in older browsers.
+      // Fall back to prompting so the user can still grab the URL.
+      window.prompt("Copy this link:", url);
+    }
+  }
 
   useEffect(() => {
     fetch("/api/forms")
@@ -140,6 +156,26 @@ export default function FormsListPage() {
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                    {form.isPublished && (
+                      <button
+                        type="button"
+                        onClick={() => copyLink(form.id, url)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-semibold hover:bg-muted"
+                        title="Copy public link"
+                      >
+                        {copiedId === form.id ? (
+                          <>
+                            <Check className="h-3.5 w-3.5 text-green-600" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3.5 w-3.5" />
+                            Copy link
+                          </>
+                        )}
+                      </button>
+                    )}
                     {form.isPublished && (
                       <button
                         type="button"
