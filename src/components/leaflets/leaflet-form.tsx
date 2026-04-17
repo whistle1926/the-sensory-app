@@ -1,28 +1,28 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
+  ArrowLeft,
   Loader2,
   Upload,
   Link as LinkIcon,
   FileText,
   PenLine,
+  Save,
+  Trash2,
 } from "lucide-react";
 
 export type LeafletKind = "content" | "file" | "link";
 
-export interface LeafletValues {
+export interface LeafletFormValues {
   id?: string;
   title: string;
   description: string;
@@ -36,59 +36,37 @@ export interface LeafletValues {
 }
 
 interface Props {
-  open: boolean;
-  onOpenChange: (o: boolean) => void;
-  initial?: LeafletValues;
+  leafletId?: string;
+  initial: LeafletFormValues;
   suggestedCategories: string[];
-  onSaved: () => void;
 }
 
 /**
- * Add/edit dialog for a Leaflet. Three modes:
- *   - Write: rich-text body stored in the database (kind = "content")
- *   - Upload: file saved to Vercel Blob (kind = "file")
- *   - Link: external URL (kind = "link")
- *
- * When editing, the current kind is pre-selected. Switching mode inside the
- * dialog wipes the other side's data on save (API clears the unused column).
+ * Full-page editor for a Leaflet. Used by /leaflets/new and
+ * /leaflets/[id]/edit. Three source modes sharing the same page chrome:
+ *   - Write   — rich-text body stored in the database (kind = "content")
+ *   - Upload  — file saved to Vercel Blob                (kind = "file")
+ *   - Link    — external URL                             (kind = "link")
  */
-export function LeafletDialog({
-  open,
-  onOpenChange,
-  initial,
-  suggestedCategories,
-  onSaved,
-}: Props) {
-  const isEdit = !!initial?.id;
-  const [mode, setMode] = useState<LeafletKind>(initial?.kind ?? "content");
-  const [title, setTitle] = useState(initial?.title ?? "");
-  const [description, setDescription] = useState(initial?.description ?? "");
-  const [category, setCategory] = useState(initial?.category ?? "");
-  const [content, setContent] = useState(initial?.content ?? "");
-  const [fileUrl, setFileUrl] = useState(initial?.fileUrl ?? "");
-  const [fileName, setFileName] = useState(initial?.fileName ?? "");
-  const [mimeType, setMimeType] = useState(initial?.mimeType ?? "");
+export function LeafletForm({ leafletId, initial, suggestedCategories }: Props) {
+  const router = useRouter();
+  const isEdit = !!leafletId;
+  const [mode, setMode] = useState<LeafletKind>(initial.kind);
+  const [title, setTitle] = useState(initial.title);
+  const [description, setDescription] = useState(initial.description);
+  const [category, setCategory] = useState(initial.category);
+  const [content, setContent] = useState(initial.content ?? "");
+  const [fileUrl, setFileUrl] = useState(initial.fileUrl ?? "");
+  const [fileName, setFileName] = useState(initial.fileName ?? "");
+  const [mimeType, setMimeType] = useState(initial.mimeType ?? "");
   const [sizeBytes, setSizeBytes] = useState<number | null>(
-    initial?.sizeBytes ?? null,
+    initial.sizeBytes ?? null,
   );
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    setMode(initial?.kind ?? "content");
-    setTitle(initial?.title ?? "");
-    setDescription(initial?.description ?? "");
-    setCategory(initial?.category ?? "");
-    setContent(initial?.content ?? "");
-    setFileUrl(initial?.fileUrl ?? "");
-    setFileName(initial?.fileName ?? "");
-    setMimeType(initial?.mimeType ?? "");
-    setSizeBytes(initial?.sizeBytes ?? null);
-    setError("");
-  }, [open, initial]);
 
   async function onFilePick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -160,7 +138,7 @@ export function LeafletDialog({
         external: mode === "link",
       };
       const res = isEdit
-        ? await fetch(`/api/leaflets/${initial!.id}`, {
+        ? await fetch(`/api/leaflets/${leafletId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -175,10 +153,23 @@ export function LeafletDialog({
         setError(data.error || "Failed to save");
         return;
       }
-      onSaved();
-      onOpenChange(false);
+      router.push("/leaflets");
+      router.refresh();
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!leafletId) return;
+    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
+    setDeleting(true);
+    const res = await fetch(`/api/leaflets/${leafletId}`, { method: "DELETE" });
+    if (res.ok) {
+      router.push("/leaflets");
+      router.refresh();
+    } else {
+      setDeleting(false);
     }
   }
 
@@ -190,40 +181,57 @@ export function LeafletDialog({
     }`;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] w-[96vw] overflow-y-auto sm:!max-w-[1400px]">
-        <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit leaflet" : "New leaflet"}</DialogTitle>
-        </DialogHeader>
+    <div className="space-y-5">
+      <div className="flex items-center justify-between gap-4">
+        <Link
+          href="/leaflets"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to leaflets
+        </Link>
+        <div className="flex items-center gap-2">
+          {isEdit && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Delete
+            </Button>
+          )}
+          <Button onClick={save} disabled={saving || uploading}>
+            {saving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            {isEdit ? "Save changes" : "Save leaflet"}
+          </Button>
+        </div>
+      </div>
 
-        <div className="space-y-4">
-          <div className="inline-flex rounded-xl border border-border bg-muted/50 p-1 text-xs">
-            <button
-              type="button"
-              onClick={() => setMode("content")}
-              className={tabClass(mode === "content")}
-            >
-              <PenLine className="h-3.5 w-3.5" />
-              Write
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("file")}
-              className={tabClass(mode === "file")}
-            >
-              <Upload className="h-3.5 w-3.5" />
-              Upload file
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("link")}
-              className={tabClass(mode === "link")}
-            >
-              <LinkIcon className="h-3.5 w-3.5" />
-              External link
-            </button>
-          </div>
+      <h1 className="text-2xl font-bold tracking-tight">
+        {isEdit ? "Edit leaflet" : "New leaflet"}
+      </h1>
 
+      {error && (
+        <div className="rounded-md bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950/30 dark:text-red-400">
+          {error}
+        </div>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Details</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
           <div className="space-y-1.5">
             <Label className="text-xs">Title *</Label>
             <Input
@@ -257,25 +265,54 @@ export function LeafletDialog({
               />
             </div>
           </div>
+        </CardContent>
+      </Card>
 
-          {/* Body — mode-specific input */}
-          {mode === "content" && (
-            <div className="space-y-1.5">
-              <Label className="text-xs">Leaflet body *</Label>
-              <RichTextEditor
-                value={content}
-                onChange={setContent}
-                placeholder="Write your leaflet. Use headings, lists, bold, links — and paste a YouTube / Vimeo URL with the video button to embed."
-                minHeight={480}
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Stored inside the app — no external file needed.
-              </p>
-            </div>
-          )}
+      <div className="space-y-3">
+        <div className="inline-flex rounded-xl border border-border bg-muted/50 p-1 text-sm">
+          <button
+            type="button"
+            onClick={() => setMode("content")}
+            className={tabClass(mode === "content")}
+          >
+            <PenLine className="h-3.5 w-3.5" />
+            Write
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("file")}
+            className={tabClass(mode === "file")}
+          >
+            <Upload className="h-3.5 w-3.5" />
+            Upload file
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("link")}
+            className={tabClass(mode === "link")}
+          >
+            <LinkIcon className="h-3.5 w-3.5" />
+            External link
+          </button>
+        </div>
 
-          {mode === "file" && (
-            <div>
+        {mode === "content" && (
+          <div>
+            <RichTextEditor
+              value={content}
+              onChange={setContent}
+              placeholder="Write your leaflet. Use headings, lists, bold, links — and paste a YouTube / Vimeo URL with the video button to embed."
+              minHeight={520}
+            />
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              Stored inside the app — no external file needed.
+            </p>
+          </div>
+        )}
+
+        {mode === "file" && (
+          <Card>
+            <CardContent className="pt-6">
               <label
                 onClick={() => fileInputRef.current?.click()}
                 className={`flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 p-4 text-sm transition-colors hover:bg-muted ${
@@ -316,11 +353,13 @@ export function LeafletDialog({
                 onChange={onFilePick}
                 className="hidden"
               />
-            </div>
-          )}
+            </CardContent>
+          </Card>
+        )}
 
-          {mode === "link" && (
-            <div className="space-y-1.5">
+        {mode === "link" && (
+          <Card>
+            <CardContent className="space-y-1.5 pt-6">
               <Label className="text-xs">Link URL *</Label>
               <Input
                 value={fileUrl}
@@ -331,40 +370,41 @@ export function LeafletDialog({
                 Opens in a new tab when clicked. Make sure the link is viewable
                 by anyone you'll share it with.
               </p>
-            </div>
-          )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
-          {error && (
-            <p className="rounded-md bg-red-50 p-2 text-xs text-red-600 dark:bg-red-950/30 dark:text-red-400">
-              {error}
-            </p>
-          )}
-
-          <div className="-mx-4 -mb-4 flex items-center justify-end gap-2 rounded-b-xl border-t border-border bg-muted/40 px-4 py-3">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button onClick={save} disabled={saving || uploading}>
-              {saving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              {isEdit ? "Save changes" : "Save leaflet"}
-            </Button>
-          </div>
-        </div>
-
-        {/* Optional textarea for longer description — kept out of the grid so
-            it doesn't fight with the body field. */}
-        <div className="mt-2 space-y-1.5">
-          <Label className="text-xs">Internal notes (optional)</Label>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Internal notes (optional)</CardTitle>
+        </CardHeader>
+        <CardContent>
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
             placeholder="For your own reference — shows on the gallery card preview."
           />
-        </div>
-      </DialogContent>
-    </Dialog>
+        </CardContent>
+      </Card>
+
+      <div className="flex items-center gap-3">
+        <Button onClick={save} disabled={saving || uploading}>
+          {saving ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="mr-2 h-4 w-4" />
+          )}
+          {isEdit ? "Save changes" : "Save leaflet"}
+        </Button>
+        <Link
+          href="/leaflets"
+          className="text-sm text-muted-foreground hover:text-foreground"
+        >
+          Cancel
+        </Link>
+      </div>
+    </div>
   );
 }

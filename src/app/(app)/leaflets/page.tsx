@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { LeafletDialog, type LeafletValues } from "@/components/leaflets/leaflet-dialog";
 import { cn } from "@/lib/utils";
 
 interface Leaflet {
@@ -67,8 +66,6 @@ export default function LeafletsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<Leaflet | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   async function load() {
@@ -140,15 +137,12 @@ export default function LeafletsPage() {
             link from Drive, or browse the library.
           </p>
         </div>
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setDialogOpen(true);
-          }}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          New Leaflet
-        </Button>
+        <Link href="/leaflets/new">
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            New Leaflet
+          </Button>
+        </Link>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -231,17 +225,13 @@ export default function LeafletsPage() {
               : "Try a different search term or clear the category filter."}
           </p>
           {leaflets.length === 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                setEditing(null);
-                setDialogOpen(true);
-              }}
+            <Link
+              href="/leaflets/new"
               className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:brightness-110"
             >
               <Plus className="h-4 w-4" />
               New Leaflet
-            </button>
+            </Link>
           )}
         </div>
       ) : (
@@ -380,17 +370,13 @@ export default function LeafletsPage() {
                       )}
                     </button>
                     <div className="ml-auto flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditing(leaflet);
-                          setDialogOpen(true);
-                        }}
+                      <Link
+                        href={`/leaflets/${leaflet.id}/edit`}
                         className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                         aria-label="Edit leaflet"
                       >
                         <Pencil className="h-3 w-3" />
-                      </button>
+                      </Link>
                       <button
                         type="button"
                         onClick={() => remove(leaflet)}
@@ -407,29 +393,6 @@ export default function LeafletsPage() {
           })}
         </div>
       )}
-
-      <LeafletDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        initial={
-          editing
-            ? ({
-                id: editing.id,
-                title: editing.title,
-                description: editing.description ?? "",
-                category: editing.category ?? "",
-                kind: editing.kind,
-                content: editing.content,
-                fileUrl: editing.fileUrl,
-                fileName: editing.fileName,
-                mimeType: editing.mimeType,
-                sizeBytes: editing.sizeBytes,
-              } satisfies LeafletValues)
-            : undefined
-        }
-        suggestedCategories={categories}
-        onSaved={load}
-      />
     </div>
   );
 }
