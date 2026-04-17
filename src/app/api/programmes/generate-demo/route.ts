@@ -114,18 +114,23 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── Step 2: Generate + rehost one image per step (parallel) ──────────
+  // ── Step 2: Generate + rehost one image per step (sequential) ────────
+  // Replicate's free-tier accounts (<$5 credit) throttle to a burst of 1 —
+  // parallel calls get 429'd. Sequential with a small sleep avoids this and
+  // is barely slower in practice (images are only a few seconds each).
+  const hosted: Array<{ caption: string; imageUrl: string }> = [];
   try {
-    const hosted = await Promise.all(
-      steps.map(async (step, i) => {
-        const replicateUrl = await runFluxSchnell(step.prompt);
-        const { url } = await rehostToBlob(replicateUrl, {
-          pathPrefix: "programme-demos",
-          filenameHint: `step-${i + 1}.webp`,
-        });
-        return { caption: step.caption.trim(), imageUrl: url };
-      }),
-    );
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+      const replicateUrl = await runWithRetry(() => runFluxSchnell(step.prompt));
+      const { url } = await rehostToBlob(replicateUrl, {
+        pathPrefix: "programme-demos",
+        filenameHint: `step-${i + 1}.webp`,
+      });
+      hosted.push({ caption: step.caption.trim(), imageUrl: url });
+      // Small breather between requests so the burst limit resets.
+      if (i < steps.length - 1) await sleep(1200);
+    }
     return NextResponse.json({ steps: hosted });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown image error";
@@ -133,5 +138,26 @@ export async function POST(req: NextRequest) {
       { error: `Image generation failed: ${msg}` },
       { status: 502 },
     );
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Run a Replicate-calling function once; if it rejects with a 429, honour the
+ * `retry_after` hint (default 10s) and retry once. Any other failure bubbles.
+ */
+async function runWithRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!/429|Too Many Requests|throttled/i.test(msg)) throw err;
+    const retryMatch = msg.match(/retry_after["':\s]+(\d+)/i);
+    const retryAfter = retryMatch ? Number(retryMatch[1]) : 10;
+    await sleep(Math.min(retryAfter, 20) * 1000);
+    return await fn();
   }
 }
