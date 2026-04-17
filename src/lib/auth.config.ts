@@ -15,6 +15,12 @@ const PUBLIC_PREFIXES = [
   // the request through.
   "/f/",
   "/api/forms/public/",
+  // Public course storefront — `/courses` gallery, `/courses/[slug]` detail,
+  // `/courses/thanks` post-checkout. The checkout endpoint supports both
+  // signed-in and guest buyers, so it also needs to be public.
+  "/courses",
+  "/api/courses/public",
+  "/api/courses/checkout",
 ];
 
 // Admin-only app routes (prefix match). CLIENT users get bounced to /portal.

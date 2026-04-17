@@ -205,6 +205,22 @@ model Course {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
+  // ── Storefront cosmetics (public /courses pages) ────────────
+  heroImageUrl        String?                 // large banner on detail page (16:9)
+  thumbnailUrl        String?                 // storefront card (4:3); falls back to heroImageUrl when null
+  tagline             String?                 // optional one-line catchphrase under title
+  shortDescription    String?                 // card blurb, ~120 chars
+  level               String?                 // "Beginner" | "Intermediate" | "Advanced" or free text
+  features            String[] @default([])   // "What you'll learn" bullet list
+  accreditationBadges String[] @default([])   // image URLs for approval logos (AOTA-style)
+  instructorName      String?
+  instructorRole      String?
+  instructorBio       String?  @db.Text
+  instructorImageUrl  String?
+  testimonials        Json     @default("[]") // Array<{ quote, author, role?, avatarUrl? }>
+  isFeatured          Boolean  @default(false) // appears in the featured row on storefront
+  isBestseller        Boolean  @default(false) // shows a "Bestseller" badge on card
+
   modules     Module[]
   enrollments Enrollment[]
   purchases   CoursePurchase[]
