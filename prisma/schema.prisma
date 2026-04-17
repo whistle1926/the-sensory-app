@@ -67,6 +67,7 @@ model User {
   taskAssignments TaskAssignee[]
   taskComments    TaskComment[]
   progressNotes   ProgressNote[]
+  formsCreated    Form[]         @relation("FormsCreated")
 }
 
 model PasswordSetupToken {
@@ -141,6 +142,7 @@ model Client {
   goals         ClientGoal[]
   intakeItems   ClientIntakeItem[]
   invoices      Invoice[]
+  formInvites   FormInvite[]
 
   @@index([stageId])
 }
@@ -564,4 +566,57 @@ model ClientIntakeItem {
   updatedAt   DateTime  @updatedAt
 
   @@index([clientId])
+}
+
+// ─── Forms — JotForm-style builder + public submissions ────────────
+// Fields and settings are stored as JSON; canonical types live in
+// src/lib/forms.ts. Sanitisation happens on every read/write boundary.
+model Form {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique               // public path: /f/{slug}
+  description String?  @db.Text
+  fields      Json     @default("[]")        // Array<FormField>
+  settings    Json     @default("{}")        // { submitButtonText, successMessage, notifyEmails, replyToEmail, autoReply? }
+  isPublished Boolean  @default(false)
+  createdById String
+  createdBy   User     @relation("FormsCreated", fields: [createdById], references: [id], onDelete: Cascade)
+  submissions FormSubmission[]
+  invites     FormInvite[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([createdById])
+}
+
+model FormSubmission {
+  id             String      @id @default(cuid())
+  formId         String
+  form           Form        @relation(fields: [formId], references: [id], onDelete: Cascade)
+  inviteId       String?
+  invite         FormInvite? @relation(fields: [inviteId], references: [id], onDelete: SetNull)
+  data           Json                              // { [fieldId]: value }
+  fieldsSnapshot Json                              // frozen copy of Form.fields at submit time
+  submitterEmail String?                           // denormalised from the first email field
+  submitterName  String?                           // denormalised from the first name-ish text field
+  submittedAt    DateTime    @default(now())
+  ipHash         String?                           // SHA256 of IP — lightweight abuse signal
+
+  @@index([formId, submittedAt])
+}
+
+model FormInvite {
+  id          String           @id @default(cuid())
+  formId      String
+  form        Form             @relation(fields: [formId], references: [id], onDelete: Cascade)
+  clientId    String?
+  client      Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  email       String
+  token       String           @unique           // embedded as ?t= on the public URL
+  sentAt      DateTime         @default(now())
+  openedAt    DateTime?
+  submissions FormSubmission[]
+
+  @@index([formId])
+  @@index([token])
 }
