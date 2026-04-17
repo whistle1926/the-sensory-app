@@ -6,9 +6,11 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Calendar as CalendarIcon,
+  Check,
   Loader2,
   MessageCircle,
   Plus,
+  Save,
   Trash2,
   UserCircle2,
 } from "lucide-react";
@@ -78,10 +80,23 @@ export default function TaskDetailPage({
   const [task, setTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
   const [newSubtask, setNewSubtask] = useState("");
+
+  // Track the last-saved description so we can show a dirty indicator and
+  // a Save button next to the editor. The editor itself still auto-saves on
+  // blur, but the explicit button makes the flow obvious for users.
+  const [savedDescription, setSavedDescription] = useState<string>("");
+  const [descSaveState, setDescSaveState] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
+
   async function load() {
     setLoading(true);
     const res = await fetch(`/api/tasks/${taskId}`);
-    if (res.ok) setTask(await res.json());
+    if (res.ok) {
+      const data = await res.json();
+      setTask(data);
+      setSavedDescription(data.description ?? "");
+    }
     setLoading(false);
   }
 
@@ -97,6 +112,31 @@ export default function TaskDetailPage({
       body: JSON.stringify(patch),
     });
     load();
+  }
+
+  /**
+   * Dedicated description save — kept separate from patchTask so we can
+   * surface a loading/saved state without reloading the whole task (which
+   * would reset the editor cursor position mid-typing).
+   */
+  async function saveDescription(html: string) {
+    setDescSaveState("saving");
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: html }),
+      });
+      if (!res.ok) throw new Error("save failed");
+      setSavedDescription(html);
+      setDescSaveState("saved");
+      // Auto-reset the "Saved" badge after a moment so it doesn't linger.
+      setTimeout(() => {
+        setDescSaveState((s) => (s === "saved" ? "idle" : s));
+      }, 2000);
+    } catch {
+      setDescSaveState("error");
+    }
   }
 
   async function addSubtask() {
@@ -198,11 +238,66 @@ export default function TaskDetailPage({
             <div className="mt-4">
               <RichTextEditor
                 value={task.description ?? ""}
-                onChange={(html) => setTask({ ...task, description: html })}
-                onBlur={(html) => patchTask({ description: html })}
+                onChange={(html) => {
+                  setTask({ ...task, description: html });
+                  // Any keystroke that changes the value resets a "Saved" flash.
+                  if (descSaveState === "saved") setDescSaveState("idle");
+                }}
+                onBlur={(html) => {
+                  if (html !== savedDescription) saveDescription(html);
+                }}
                 placeholder="Add a description — paste a link, embed a video, or format your notes…"
                 minHeight={100}
               />
+              {/* Save controls — always visible, reacts to dirty state */}
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <div className="text-xs text-muted-foreground">
+                  {descSaveState === "saving" && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Saving…
+                    </span>
+                  )}
+                  {descSaveState === "saved" && (
+                    <span className="inline-flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                      <Check className="h-3 w-3" />
+                      Saved
+                    </span>
+                  )}
+                  {descSaveState === "error" && (
+                    <span className="text-red-600 dark:text-red-400">
+                      Save failed — click Save to retry
+                    </span>
+                  )}
+                  {descSaveState === "idle" &&
+                    (task.description ?? "") !== savedDescription && (
+                      <span>Unsaved changes</span>
+                    )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => saveDescription(task.description ?? "")}
+                  disabled={
+                    descSaveState === "saving" ||
+                    (task.description ?? "") === savedDescription
+                  }
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                    (task.description ?? "") !== savedDescription ||
+                      descSaveState === "error"
+                      ? "bg-primary text-primary-foreground hover:brightness-110"
+                      : "border border-border bg-background text-muted-foreground",
+                    "disabled:cursor-not-allowed disabled:opacity-50",
+                  )}
+                >
+                  {descSaveState === "saving" ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Save className="h-3 w-3" />
+                  )}
+                  Save
+                </button>
+              </div>
             </div>
           </div>
 

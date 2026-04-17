@@ -72,6 +72,7 @@ function UrlDialog({
   label,
   initialValue,
   submitLabel,
+  helpText,
   onSubmit,
   onRemove,
 }: {
@@ -81,19 +82,32 @@ function UrlDialog({
   label: string;
   initialValue: string;
   submitLabel: string;
-  onSubmit: (url: string) => void;
+  helpText?: string;
+  // Return a string to show an error without closing; return null on success.
+  onSubmit: (url: string) => string | null | void;
   onRemove?: () => void;
 }) {
   const [value, setValue] = useState(initialValue);
+  const [error, setError] = useState<string>("");
 
   useEffect(() => {
-    if (open) setValue(initialValue);
+    if (open) {
+      setValue(initialValue);
+      setError("");
+    }
   }, [open, initialValue]);
 
   function handleSubmit() {
     const trimmed = value.trim();
-    if (!trimmed) return;
-    onSubmit(trimmed);
+    if (!trimmed) {
+      setError("Please enter a URL.");
+      return;
+    }
+    const result = onSubmit(trimmed);
+    if (typeof result === "string" && result.length > 0) {
+      setError(result);
+      return;
+    }
     onOpenChange(false);
   }
 
@@ -109,7 +123,10 @@ function UrlDialog({
           </label>
           <input
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(e) => {
+              setValue(e.target.value);
+              if (error) setError("");
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
@@ -120,6 +137,14 @@ function UrlDialog({
             autoFocus
             className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
           />
+          {helpText && !error && (
+            <p className="mt-2 text-[11px] text-muted-foreground">{helpText}</p>
+          )}
+          {error && (
+            <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+              {error}
+            </p>
+          )}
         </div>
         <div className="-mx-4 -mb-4 flex items-center justify-between gap-2 rounded-b-xl border-t border-border bg-muted/40 px-4 py-3">
           <div>
@@ -161,7 +186,7 @@ function UrlDialog({
 
 function Toolbar({ editor }: { editor: Editor | null }) {
   const [linkOpen, setLinkOpen] = useState(false);
-  const [youtubeOpen, setYoutubeOpen] = useState(false);
+  const [videoOpen, setVideoOpen] = useState(false);
   const [linkInitial, setLinkInitial] = useState("");
 
   if (!editor) return null;
@@ -188,13 +213,48 @@ function Toolbar({ editor }: { editor: Editor | null }) {
     editor.chain().focus().extendMarkRange("link").unsetLink().run();
   }
 
-  function applyYoutube(url: string) {
-    if (!editor) return;
-    editor
-      .chain()
-      .focus()
-      .setYoutubeVideo({ src: url, width: 640, height: 360 })
-      .run();
+  /**
+   * Insert a video embed. Handles YouTube + Vimeo; shows a clear error for
+   * anything else. Tiptap's YouTube extension accepts several URL shapes
+   * (youtu.be, youtube.com/watch, shorts) and throws if it can't parse them —
+   * we catch that and surface it rather than silently doing nothing.
+   */
+  function applyVideo(rawUrl: string): string | null {
+    if (!editor) return null;
+    const url = rawUrl.trim();
+    if (!url) return "Please enter a URL.";
+
+    const withProto = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+
+    const isYouTube = /(?:youtube\.com|youtu\.be)/i.test(withProto);
+    const vimeoMatch = withProto.match(
+      /vimeo\.com\/(?:video\/)?(\d+)/i,
+    );
+
+    if (isYouTube) {
+      try {
+        const ok = editor
+          .chain()
+          .focus()
+          .setYoutubeVideo({ src: withProto, width: 640, height: 360 })
+          .run();
+        if (!ok) {
+          return "Couldn't read that YouTube link. Try the full https://www.youtube.com/watch?v=… or https://youtu.be/… URL.";
+        }
+        return null;
+      } catch {
+        return "Couldn't embed that YouTube link. Try copying the URL straight from the browser address bar.";
+      }
+    }
+
+    if (vimeoMatch) {
+      const id = vimeoMatch[1];
+      const embed = `<div data-video-embed="vimeo"><iframe src="https://player.vimeo.com/video/${id}" width="640" height="360" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen class="w-full aspect-video rounded-lg"></iframe></div><p></p>`;
+      editor.chain().focus().insertContent(embed).run();
+      return null;
+    }
+
+    return "Only YouTube and Vimeo URLs can be embedded. For other videos, use the Link button instead.";
   }
 
   return (
@@ -256,8 +316,8 @@ function Toolbar({ editor }: { editor: Editor | null }) {
         </ToolbarButton>
       )}
       <ToolbarButton
-        onClick={() => setYoutubeOpen(true)}
-        title="Embed YouTube video"
+        onClick={() => setVideoOpen(true)}
+        title="Embed video (YouTube or Vimeo)"
       >
         <Video className="h-3.5 w-3.5" />
       </ToolbarButton>
@@ -286,13 +346,14 @@ function Toolbar({ editor }: { editor: Editor | null }) {
         onRemove={removeLink}
       />
       <UrlDialog
-        open={youtubeOpen}
-        onOpenChange={setYoutubeOpen}
-        title="Embed YouTube video"
-        label="YouTube URL"
+        open={videoOpen}
+        onOpenChange={setVideoOpen}
+        title="Embed video"
+        label="YouTube or Vimeo URL"
+        helpText="Paste a link from YouTube (youtube.com / youtu.be) or Vimeo (vimeo.com). For other videos, use the Link button instead."
         initialValue=""
         submitLabel="Embed"
-        onSubmit={applyYoutube}
+        onSubmit={(url) => applyVideo(url)}
       />
     </div>
   );
