@@ -1,0 +1,433 @@
+/* =========================================================================
+ * Dashboard V1 Polished — styles
+ *
+ * Visual system lifted from the "Dashboard Redesign" design handoff
+ * (V1 Polished). Uses the existing design tokens declared in globals.css
+ * — nothing new is introduced, just composition.
+ *
+ * Scoped under .dash-v1 so nothing here leaks onto other pages.
+ * ========================================================================= */
+
+.dash-v1 .tabular { font-variant-numeric: tabular-nums; }
+
+/* ---------- Toolbar ---------- */
+.dash-v1 .dash-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.dash-v1 .dash-toolbar .right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.dash-v1 .page-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.dash-v1 .page-subtitle {
+  font-size: 13.5px;
+  color: var(--muted-foreground);
+  margin: 3px 0 0;
+}
+.dash-v1 .date-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  font-size: 13px;
+  color: var(--foreground);
+  cursor: pointer;
+  font-family: inherit;
+}
+.dash-v1 .date-range:hover { background: var(--muted); }
+.dash-v1 .seg {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--muted);
+  border: 1px solid var(--border);
+}
+.dash-v1 .seg button {
+  height: 26px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.dash-v1 .seg button.is-active {
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: var(--shadow-xs);
+}
+
+/* ---------- KPI card ---------- */
+.dash-v1 .kpi {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2xl);
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
+  cursor: default;
+  transition:
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 200ms,
+    border-color 200ms;
+}
+.dash-v1 .kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+  border-color: oklch(0.5 0.24 264 / 25%);
+}
+.dash-v1 .kpi-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.dash-v1 .kpi-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.dash-v1 .kpi-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--secondary);
+  color: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.dash-v1 .kpi-value {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.dash-v1 .kpi-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.dash-v1 .kpi-delta.up { color: #15803d; }
+.dash-v1 .kpi-delta.down { color: #b91c1c; }
+.dash-v1 .kpi-delta.flat { color: var(--muted-foreground); }
+.dash-v1 .kpi-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.dash-v1 .kpi .spark {
+  display: block;
+  width: 100%;
+  height: 36px;
+}
+.dash-v1 .kpi.accent {
+  background:
+    radial-gradient(120% 80% at 100% 0%, oklch(0.5 0.24 264 / 10%), transparent 60%),
+    var(--card);
+}
+
+/* ---------- Panels ---------- */
+.dash-v1 .panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.dash-v1 .panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.dash-v1 .panel-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.dash-v1 .panel-sub {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--muted-foreground);
+}
+.dash-v1 .panel-body { padding: 4px 0; flex: 1; }
+.dash-v1 .panel-body.padded { padding: 16px 20px; }
+.dash-v1 .panel-foot {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: oklch(0 0 0 / 1.5%);
+  font-size: 13px;
+  color: var(--muted-foreground);
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.dash-v1 .link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--primary);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0;
+  text-decoration: none;
+}
+.dash-v1 .link-btn:hover { text-decoration: underline; }
+
+/* ---------- Avatar initials ---------- */
+.dash-v1 .av {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--secondary);
+  color: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.dash-v1 .av.sm {
+  width: 24px;
+  height: 24px;
+  font-size: 10px;
+}
+
+/* ---------- Chip ---------- */
+.dash-v1 .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.dash-v1 .chip .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+}
+.dash-v1 .chip-neutral { background: var(--muted); color: var(--muted-foreground); }
+.dash-v1 .chip-neutral .dot { background: #9ca3af; }
+.dash-v1 .chip-primary { background: oklch(0.5 0.24 264 / 10%); color: var(--primary); }
+.dash-v1 .chip-primary .dot { background: var(--primary); }
+.dash-v1 .chip-success { background: #dcfce7; color: #15803d; }
+.dash-v1 .chip-success .dot { background: #22c55e; }
+.dash-v1 .chip-warn { background: #fef3c7; color: #854d0e; }
+.dash-v1 .chip-warn .dot { background: #f59e0b; }
+.dash-v1 .chip-danger { background: oklch(0.577 0.245 27.325 / 10%); color: oklch(0.47 0.22 27); }
+.dash-v1 .chip-danger .dot { background: oklch(0.577 0.245 27.325); }
+
+/* ---------- Funnel / pipeline rows ---------- */
+.dash-v1 .funnel-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 40px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+.dash-v1 .funnel-row .f-label { font-size: 13px; }
+.dash-v1 .funnel-row .f-count {
+  font-size: 13px;
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.dash-v1 .funnel-row .f-bar {
+  height: 28px;
+  border-radius: 8px;
+  background: oklch(0.5 0.24 264 / 8%);
+  position: relative;
+  overflow: hidden;
+}
+.dash-v1 .funnel-row .f-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--gradient-primary);
+  border-radius: inherit;
+}
+
+/* ---------- Agenda (today's schedule) ---------- */
+.dash-v1 .agenda-item {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 20px;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+.dash-v1 .agenda-item:first-child { border-top: none; }
+.dash-v1 .agenda-item:hover { background: oklch(0 0 0 / 1.5%); }
+.dash-v1 .agenda-time {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+  text-align: right;
+}
+.dash-v1 .agenda-time .ampm {
+  display: block;
+  font-size: 10px;
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+.dash-v1 .agenda-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  min-width: 0;
+}
+.dash-v1 .agenda-kind {
+  width: 3px;
+  align-self: stretch;
+  border-radius: 2px;
+  background: var(--primary);
+}
+.dash-v1 .agenda-kind.teal { background: oklch(0.7 0.15 200); }
+.dash-v1 .agenda-kind.green { background: oklch(0.65 0.18 150); }
+.dash-v1 .agenda-kind.amber { background: oklch(0.72 0.14 60); }
+.dash-v1 .agenda-kind.magenta { background: oklch(0.6 0.2 310); }
+.dash-v1 .a-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dash-v1 .a-meta {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  margin: 1px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Reports table ---------- */
+.dash-v1 .data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.dash-v1 .data-table th {
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted-foreground);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: oklch(0 0 0 / 1.5%);
+}
+.dash-v1 .data-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13.5px;
+  vertical-align: middle;
+}
+.dash-v1 .data-table tbody tr { cursor: pointer; }
+.dash-v1 .data-table tbody tr:hover { background: oklch(0 0 0 / 1.5%); }
+.dash-v1 .data-table tbody tr:last-child td { border-bottom: 0; }
+
+/* ---------- Revenue bar chart ---------- */
+.dash-v1 .barchart {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 6px;
+  height: 120px;
+  align-items: end;
+  padding: 0 4px;
+}
+.dash-v1 .bc-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.dash-v1 .bc-bar {
+  width: 100%;
+  max-width: 22px;
+  background: oklch(0.5 0.24 264 / 18%);
+  border-radius: 6px 6px 0 0;
+  min-height: 4px;
+  transition: background 200ms;
+}
+.dash-v1 .bc-bar.is-active {
+  background: var(--gradient-primary);
+  box-shadow: var(--shadow-glow);
+}
+.dash-v1 .bc-label {
+  font-size: 10.5px;
+  color: var(--muted-foreground);
+  letter-spacing: 0.03em;
+}
+
+/* ---------- Empty state ---------- */
+.dash-v1 .empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+
+/* ---------- Dark-mode tweaks ---------- */
+.dark .dash-v1 .panel-foot { background: oklch(0 0 0 / 20%); }
+.dark .dash-v1 .data-table th { background: oklch(0 0 0 / 20%); }
+.dark .dash-v1 .data-table tbody tr:hover,
+.dark .dash-v1 .agenda-item:hover { background: oklch(1 0 0 / 3%); }
+.dark .dash-v1 .chip-success { background: oklch(0.65 0.18 150 / 12%); color: oklch(0.75 0.16 150); }
+.dark .dash-v1 .chip-warn { background: oklch(0.72 0.14 60 / 12%); color: oklch(0.82 0.14 60); }
+.dark .dash-v1 .kpi.accent {
+  background:
+    radial-gradient(120% 80% at 100% 0%, oklch(0.5 0.24 264 / 18%), transparent 60%),
+    var(--card);
+}
