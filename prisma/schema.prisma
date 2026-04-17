@@ -326,6 +326,20 @@ model TaxRate {
   @@index([currency])
 }
 
+// Home programme templates — the reusable programmes shown on /programmes.
+// Sections is stored as JSON: Array<{ title: string; items: string[] }>.
+model ProgrammeTemplate {
+  id          String   @id @default(cuid())
+  title       String
+  description String   @db.Text
+  sections    Json     @default("[]") // [{ title, items: [...] }]
+  orderIndex  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([orderIndex])
+}
+
 model WeeklyHours {
   id        String   @id @default(cuid())
   dayOfWeek Int      // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
