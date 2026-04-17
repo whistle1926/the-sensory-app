@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,31 @@ export function ProgrammeForm({ programmeId, initial }: Props) {
   const [error, setError] = useState("");
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
+  // Focus tracking — after adding a new section or item, remember which field
+  // should receive focus and apply it in the next render.
+  const itemRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
+  const sectionTitleRefs = useRef<Map<number, HTMLInputElement | null>>(
+    new Map(),
+  );
+  const [pendingFocus, setPendingFocus] = useState<
+    | { kind: "item"; section: number; item: number }
+    | { kind: "section"; section: number }
+    | null
+  >(null);
+
+  useEffect(() => {
+    if (!pendingFocus) return;
+    if (pendingFocus.kind === "item") {
+      const key = `${pendingFocus.section}-${pendingFocus.item}`;
+      const input = itemRefs.current.get(key);
+      input?.focus();
+    } else {
+      const input = sectionTitleRefs.current.get(pendingFocus.section);
+      input?.focus();
+    }
+    setPendingFocus(null);
+  }, [pendingFocus]);
+
   function updateSection(
     index: number,
     field: keyof Section,
@@ -61,7 +86,11 @@ export function ProgrammeForm({ programmeId, initial }: Props) {
   }
 
   function addSection() {
-    setSections((prev) => [...prev, { title: "", items: [""] }]);
+    setSections((prev) => {
+      const next = [...prev, { title: "", items: [""] }];
+      setPendingFocus({ kind: "section", section: next.length - 1 });
+      return next;
+    });
   }
 
   function removeSection(index: number) {
@@ -80,11 +109,18 @@ export function ProgrammeForm({ programmeId, initial }: Props) {
   }
 
   function addItem(sectionIndex: number) {
-    setSections((prev) =>
-      prev.map((s, i) =>
+    setSections((prev) => {
+      const next = prev.map((s, i) =>
         i === sectionIndex ? { ...s, items: [...s.items, ""] } : s,
-      ),
-    );
+      );
+      const newItemIndex = next[sectionIndex].items.length - 1;
+      setPendingFocus({
+        kind: "item",
+        section: sectionIndex,
+        item: newItemIndex,
+      });
+      return next;
+    });
   }
 
   function removeItem(sectionIndex: number, itemIndex: number) {
@@ -276,6 +312,10 @@ export function ProgrammeForm({ programmeId, initial }: Props) {
               <div className="flex-1 space-y-3">
                 <div className="flex items-center gap-2">
                   <Input
+                    ref={(el) => {
+                      if (el) sectionTitleRefs.current.set(sIndex, el);
+                      else sectionTitleRefs.current.delete(sIndex);
+                    }}
                     value={section.title}
                     onChange={(e) =>
                       updateSection(sIndex, "title", e.target.value)
@@ -294,29 +334,44 @@ export function ProgrammeForm({ programmeId, initial }: Props) {
                 </div>
 
                 <div className="space-y-2 pl-1">
-                  {section.items.map((item, iIndex) => (
-                    <div key={iIndex} className="flex items-center gap-2">
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                      <Input
-                        value={item}
-                        onChange={(e) =>
-                          updateItem(sIndex, iIndex, e.target.value)
-                        }
-                        placeholder="Activity or item"
-                        className="h-9"
-                      />
-                      {section.items.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeItem(sIndex, iIndex)}
-                          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                          aria-label="Remove item"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                  {section.items.map((item, iIndex) => {
+                    const refKey = `${sIndex}-${iIndex}`;
+                    return (
+                      <div key={iIndex} className="flex items-center gap-2">
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                        <Input
+                          ref={(el) => {
+                            if (el) itemRefs.current.set(refKey, el);
+                            else itemRefs.current.delete(refKey);
+                          }}
+                          value={item}
+                          onChange={(e) =>
+                            updateItem(sIndex, iIndex, e.target.value)
+                          }
+                          onKeyDown={(e) => {
+                            // Enter adds a new item and focuses it — common pattern
+                            // for fast data entry so you can keep typing.
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              addItem(sIndex);
+                            }
+                          }}
+                          placeholder="Activity or item"
+                          className="h-9"
+                        />
+                        {section.items.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeItem(sIndex, iIndex)}
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                            aria-label="Remove item"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
 
                   <button
                     type="button"
