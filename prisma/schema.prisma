@@ -68,6 +68,7 @@ model User {
   taskComments    TaskComment[]
   progressNotes   ProgressNote[]
   formsCreated    Form[]         @relation("FormsCreated")
+  leafletsCreated Leaflet[]      @relation("LeafletsCreated")
 }
 
 model PasswordSetupToken {
@@ -619,4 +620,28 @@ model FormInvite {
 
   @@index([formId])
   @@index([token])
+}
+
+// ─── Leaflets — a library of parent/carer handouts ────────────────
+// Each leaflet is either a file uploaded to Vercel Blob or an external URL
+// (e.g. Google Drive). The UI gallery filters by category, searches by title.
+model Leaflet {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?  @db.Text
+  category     String?  // free-text label, e.g. "Fine Motor", "Feeding"
+  fileUrl      String   // Blob URL or external (Drive, etc.)
+  fileName     String?  // display filename (original upload name)
+  mimeType     String?
+  sizeBytes    Int?
+  thumbnailUrl String?  // optional preview image URL
+  tags         String[] @default([])
+  external     Boolean  @default(false) // true when fileUrl points off-app
+  createdById  String
+  createdBy    User     @relation("LeafletsCreated", fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([category])
+  @@index([createdById])
 }
