@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +13,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Lock, CheckCircle2, Mail } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  Loader2,
+  Lock,
+  Mail,
+  Sparkles,
+} from "lucide-react";
 import { formatPrice } from "./course-card";
 
 interface Props {
@@ -21,12 +30,20 @@ interface Props {
   courseId: string;
   courseTitle: string;
   price: number;
+  /** Called when a free-course guest successfully enrols and receives an
+   *  email. Lets the parent page swap the "Enrol for free" CTA for a
+   *  "Check your inbox" state so the user doesn't double-submit. */
+  onEnrolled?: (email: string) => void;
 }
 
 /**
- * Hybrid buy dialog — signed-in users get a single "Confirm & pay" button;
- * guests get a lightweight name + email form. Handles both free and paid
- * courses the same way, redirecting to FireBuddy when price > 0.
+ * Hybrid buy dialog — signed-in users get a single "Confirm" button;
+ * guests get a lightweight name + email form. Handles free and paid
+ * courses; only mentions FireBuddy when payment is actually involved.
+ *
+ * On free-guest success we swap to a fuller "what to do next" panel
+ * with troubleshooting + a resend option, so the user never wonders
+ * whether the request went through.
  */
 export function BuyDialog({
   open,
@@ -34,6 +51,7 @@ export function BuyDialog({
   courseId,
   courseTitle,
   price,
+  onEnrolled,
 }: Props) {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -44,13 +62,20 @@ export function BuyDialog({
   const [honeypot, setHoneypot] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState<null | { checkEmail: boolean }>(null);
+  const [success, setSuccess] = useState<null | { email: string }>(null);
+
+  // Resend-email state for the success panel
+  const [resending, setResending] = useState(false);
+  const [resendMsg, setResendMsg] = useState<
+    { tone: "ok" | "err"; text: string } | null
+  >(null);
 
   useEffect(() => {
     if (open) {
       setError("");
       setSuccess(null);
       setSubmitting(false);
+      setResendMsg(null);
     }
   }, [open]);
 
@@ -94,12 +119,14 @@ export function BuyDialog({
       }
       if (data.checkEmail) {
         // Free-course guest — account created, set-password email on the way.
-        setSuccess({ checkEmail: true });
+        const emailUsed = email.trim().toLowerCase();
+        setSuccess({ email: emailUsed });
         setSubmitting(false);
+        onEnrolled?.(emailUsed);
         return;
       }
-      // Fallback
-      setSuccess({ checkEmail: false });
+      // Fallback (shouldn't normally hit, but surface something)
+      setSuccess({ email: email.trim().toLowerCase() });
       setSubmitting(false);
     } catch {
       setError("Network error. Please try again.");
@@ -107,25 +134,114 @@ export function BuyDialog({
     }
   }
 
-  // Success panel (free-course guest path)
-  if (success?.checkEmail) {
+  async function handleResend() {
+    if (!success?.email) return;
+    setResending(true);
+    setResendMsg(null);
+    try {
+      const res = await fetch("/api/courses/public/resend-setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: success.email, courseId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setResendMsg({
+          tone: "err",
+          text:
+            data.error ||
+            "Couldn't resend right now. Please try again shortly.",
+        });
+      } else {
+        setResendMsg({
+          tone: "ok",
+          text: `Fresh link sent to ${success.email}.`,
+        });
+      }
+    } catch {
+      setResendMsg({ tone: "err", text: "Network error. Please try again." });
+    }
+    setResending(false);
+  }
+
+  // ── Success panel (free-course guest path) ─────────────────────────
+  if (success?.email) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-md">
-          <div className="py-2 text-center">
-            <CheckCircle2 className="mx-auto h-10 w-10 text-green-500" />
-            <h2 className="mt-3 text-xl font-bold">You're enrolled!</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              We've sent a set-password link to{" "}
-              <span className="font-semibold text-foreground">{email}</span>.
-              Open it, pick a password, and dive into the course.
-            </p>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+              You're enrolled!
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-1">
+            <div className="rounded-xl border border-green-200 bg-green-50 p-3 text-sm dark:border-green-900/40 dark:bg-green-950/20">
+              <p className="flex items-center gap-2 font-medium text-green-900 dark:text-green-300">
+                <Mail className="h-4 w-4" />
+                Check your inbox
+              </p>
+              <p className="mt-1 text-xs text-green-900/80 dark:text-green-300/80">
+                We've sent a link to{" "}
+                <span className="font-semibold">{success.email}</span>. Click
+                it, pick a password, and you'll drop straight into{" "}
+                <span className="font-semibold">{courseTitle}</span>.
+              </p>
+            </div>
+
+            <div className="space-y-2 text-xs text-muted-foreground">
+              <p className="flex items-start gap-2">
+                <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                Usually arrives within a minute. Check your spam / junk folder
+                if not.
+              </p>
+              <p className="flex items-start gap-2">
+                <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                The link is valid for 14 days and opens the course after you
+                set a password.
+              </p>
+            </div>
+
+            {resendMsg && (
+              <p
+                className={`rounded-md p-2 text-xs ${
+                  resendMsg.tone === "ok"
+                    ? "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400"
+                    : "bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400"
+                }`}
+              >
+                {resendMsg.text}
+              </p>
+            )}
+
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+              <Button
+                variant="outline"
+                onClick={handleResend}
+                disabled={resending}
+                size="sm"
+              >
+                {resending && (
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                )}
+                {resending ? "Sending…" : "Resend email"}
+              </Button>
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+              >
+                Already set a password? Sign in
+                <ExternalLink className="h-3 w-3" />
+              </Link>
+            </div>
+
             <Button
-              className="mt-5"
+              className="w-full"
               onClick={() => onOpenChange(false)}
-              variant="outline"
+              variant="default"
             >
-              Close
+              Got it
             </Button>
           </div>
         </DialogContent>
@@ -133,6 +249,7 @@ export function BuyDialog({
     );
   }
 
+  // ── Main form ──────────────────────────────────────────────────────
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -146,7 +263,9 @@ export function BuyDialog({
           <div className="rounded-xl bg-muted/40 p-3 text-sm">
             <p className="font-semibold">{courseTitle}</p>
             <p className="mt-1 text-muted-foreground">
-              {isFree ? "Free — enrol instantly" : `${formatPrice(price)} · one-time`}
+              {isFree
+                ? "Free — enrol instantly"
+                : `${formatPrice(price)} · one-time`}
             </p>
           </div>
 
@@ -185,8 +304,9 @@ export function BuyDialog({
                   autoComplete="email"
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  We'll create your account and email you a link to set a
-                  password.
+                  {isFree
+                    ? "We'll create your account and email you a link to set a password."
+                    : "We'll email you receipts and a link to set your password after payment."}
                 </p>
               </div>
               {/* Honeypot */}
@@ -218,7 +338,15 @@ export function BuyDialog({
 
           <div className="flex items-center justify-between gap-2 pt-1">
             <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
-              <Lock className="h-3 w-3" /> Secure checkout via FireBuddy
+              {isFree ? (
+                <>
+                  <Sparkles className="h-3 w-3" /> No payment · no card needed
+                </>
+              ) : (
+                <>
+                  <Lock className="h-3 w-3" /> Secure checkout via FireBuddy
+                </>
+              )}
             </p>
             <Button onClick={submit} disabled={submitting}>
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
