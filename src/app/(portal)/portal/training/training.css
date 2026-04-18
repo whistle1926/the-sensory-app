@@ -508,9 +508,11 @@
 
 /* ---------- Bottom action bar ---------- */
 .lp-bottom-bar {
-  position: sticky;
+  position: fixed;
+  left: 0;
+  right: 0;
   bottom: 0;
-  z-index: 20;
+  z-index: 30;
   background: oklch(1 0 0 / 95%);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
