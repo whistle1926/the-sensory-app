@@ -3,7 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Users } from "lucide-react";
+import {
+  CalendarPlus,
+  Mail,
+  Plus,
+  Search,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Toolbar, Panel, Chip, Empty } from "@/components/ds";
@@ -86,6 +93,57 @@ export default function ClientsPage() {
       ),
     );
   }, [clients, stageFilter, search]);
+
+  // Derived KPIs — computed once from the already-fetched list.
+  const kpis = useMemo(() => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const last30 = new Date(now);
+    last30.setDate(last30.getDate() - 30);
+
+    const newThisMonth = clients.filter(
+      (c) => new Date(c.createdAt) >= monthStart,
+    ).length;
+    const newLast30 = clients.filter(
+      (c) => new Date(c.createdAt) >= last30,
+    ).length;
+    const withParent = clients.filter((c) => c.parentCarerEmail).length;
+    const uncategorised = clients.filter((c) => !c.stageId).length;
+
+    return [
+      {
+        label: "Active",
+        value: String(clients.length),
+        helper: `${withParent} with parent email`,
+        icon: Users,
+        accent: false,
+      },
+      {
+        label: "New · This month",
+        value: String(newThisMonth),
+        helper: `${newLast30} in last 30d`,
+        icon: UserPlus,
+        accent: false,
+      },
+      {
+        label: "Linked parents",
+        value: String(withParent),
+        helper: "Have email on file",
+        icon: Mail,
+        accent: false,
+      },
+      {
+        label: "Needs stage",
+        value: String(uncategorised),
+        helper:
+          uncategorised === 0
+            ? "Everyone's categorised"
+            : "Uncategorised",
+        icon: CalendarPlus,
+        accent: uncategorised > 0,
+      },
+    ];
+  }, [clients]);
 
   const stageCounts = useMemo(() => {
     const counts: Record<string, number> = { all: clients.length, _uncategorised: 0 };
@@ -209,6 +267,30 @@ export default function ClientsPage() {
         </Panel>
       ) : (
         <>
+          {/* KPI row — at-a-glance caseload health */}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {kpis.map((k) => {
+              const Icon = k.icon;
+              return (
+                <div
+                  key={k.label}
+                  className={`ds-kpi ${k.accent ? "accent" : ""}`}
+                >
+                  <div className="ds-kpi-head">
+                    <span className="ds-kpi-label">{k.label}</span>
+                    <span className="ds-kpi-icon">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                  </div>
+                  <span className="ds-kpi-value ds-tabular">{k.value}</span>
+                  <div className="ds-kpi-foot">
+                    <span>{k.helper}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
           {/* Search + stage pill row */}
           <div className="space-y-3">
             <div className="relative">

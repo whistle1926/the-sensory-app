@@ -2,7 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
-import { ChevronRight, FileText, Plus } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronRight,
+  FileClock,
+  FileText,
+  Plus,
+  TrendingUp,
+} from "lucide-react";
 import Link from "next/link";
 import { Toolbar, Panel, Chip, Seg, Empty } from "@/components/ds";
 
@@ -10,6 +17,7 @@ interface Report {
   id: string;
   reportDate: string;
   status: string;
+  createdAt?: string;
   client: { firstName: string; lastName: string };
 }
 
@@ -49,6 +57,67 @@ export default function ReportsPage() {
     [reports],
   );
 
+  /** Derived KPIs for the top row. */
+  const kpis = useMemo(() => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const week = new Date(now);
+    week.setDate(week.getDate() - 7);
+
+    const thisMonth = reports.filter(
+      (r) => new Date(r.createdAt ?? r.reportDate) >= monthStart,
+    ).length;
+    const thisWeek = reports.filter(
+      (r) => new Date(r.createdAt ?? r.reportDate) >= week,
+    ).length;
+    const oldestDraft = reports
+      .filter((r) => (r.status || "").toLowerCase() === "draft")
+      .reduce((oldest, r) => {
+        const d = new Date(r.reportDate);
+        return !oldest || d < oldest ? d : oldest;
+      }, null as Date | null);
+    const daysOldestDraft = oldestDraft
+      ? Math.max(
+          0,
+          Math.round((now.getTime() - oldestDraft.getTime()) / 86400000),
+        )
+      : null;
+
+    return [
+      {
+        label: "Total reports",
+        value: String(counts.all),
+        helper: `${counts.final} finalised`,
+        icon: FileText,
+        accent: false,
+      },
+      {
+        label: "This month",
+        value: String(thisMonth),
+        helper: `${thisWeek} this week`,
+        icon: TrendingUp,
+        accent: false,
+      },
+      {
+        label: "Drafting",
+        value: String(counts.draft),
+        helper:
+          daysOldestDraft == null
+            ? "Nothing outstanding"
+            : `Oldest ${daysOldestDraft}d ago`,
+        icon: FileClock,
+        accent: counts.draft > 0,
+      },
+      {
+        label: "Final",
+        value: String(counts.final),
+        helper: "Sent or complete",
+        icon: CheckCircle2,
+        accent: false,
+      },
+    ];
+  }, [reports, counts]);
+
   return (
     <div className="space-y-6">
       <Toolbar
@@ -68,6 +137,32 @@ export default function ReportsPage() {
           </Link>
         }
       />
+
+      {/* KPI row */}
+      {!loading && reports.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {kpis.map((k) => {
+            const Icon = k.icon;
+            return (
+              <div
+                key={k.label}
+                className={`ds-kpi ${k.accent ? "accent" : ""}`}
+              >
+                <div className="ds-kpi-head">
+                  <span className="ds-kpi-label">{k.label}</span>
+                  <span className="ds-kpi-icon">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                </div>
+                <span className="ds-kpi-value ds-tabular">{k.value}</span>
+                <div className="ds-kpi-foot">
+                  <span>{k.helper}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <Panel
         actions={
