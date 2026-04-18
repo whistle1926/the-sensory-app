@@ -18,6 +18,7 @@ import {
   AlertCircle,
   ArrowLeft,
 } from "lucide-react";
+import { StorefrontHeader } from "@/components/courses/storefront-header";
 
 /* ------------------------------------------------------------------ */
 /*  Data                                                               */
@@ -237,59 +238,23 @@ export default function BookingPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border/50 glass">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-3">
-            <div
-              className="flex h-9 w-9 items-center justify-center rounded-xl"
-              style={{ background: "var(--gradient-primary)" }}
+      <StorefrontHeader />
+
+      {/* Portal shortcut banner — only shown to signed-in CLIENTs so they
+          can pop back to their portal surface without losing the browse. */}
+      {isClient && (
+        <div className="border-b border-border/50 bg-primary/5">
+          <div className="mx-auto flex h-10 max-w-5xl items-center justify-end px-4 sm:px-6">
+            <Link
+              href="/portal"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
             >
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path d="M4 4h7v7H4V4Z" fill="white" opacity="0.9" />
-                <path d="M13 4h7v7h-7V4Z" fill="white" opacity="0.6" />
-                <path d="M4 13h7v7H4v-7Z" fill="white" opacity="0.6" />
-                <path d="M13 13h7v7h-7v-7Z" fill="white" opacity="0.9" />
-              </svg>
-            </div>
-            <span className="text-lg font-bold tracking-tight">
-              The Sensory Submarine
-            </span>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-4">
-            {isClient ? (
-              <Link
-                href="/portal"
-                className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Back to portal
-              </Link>
-            ) : (
-              <>
-                <Link
-                  href="/"
-                  className="hidden rounded-lg px-3 py-1.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-foreground sm:inline-flex"
-                >
-                  Home
-                </Link>
-                <Link
-                  href="/courses"
-                  className="hidden rounded-lg px-3 py-1.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-foreground sm:inline-flex"
-                >
-                  Courses
-                </Link>
-              </>
-            )}
+              <ArrowLeft className="h-3 w-3" />
+              Back to your portal
+            </Link>
           </div>
         </div>
-      </header>
+      )}
 
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         {/* ---- Progress indicator (hidden on the confirmation screen) ---- */}
