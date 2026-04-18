@@ -2,12 +2,21 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, MessageCircle, CheckSquare, Calendar as CalendarIcon, UserCircle2 } from "lucide-react";
+import {
+  Calendar as CalendarIcon,
+  CheckSquare,
+  ListTodo,
+  MessageCircle,
+  Plus,
+  Share2,
+  UserCircle2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NewTaskDialog } from "@/components/tasks/new-task-dialog";
 import { DueCalendar } from "@/components/tasks/due-calendar";
 import { PriorityBadge, StatusBadge } from "@/components/tasks/priority-badge";
 import type { TaskPriority, TaskStatus } from "@/lib/tasks";
+import { Toolbar, Panel, Seg, Empty } from "@/components/ds";
 
 type TabKey = "all" | "todo" | "in_progress" | "done";
 
@@ -32,13 +41,6 @@ interface TaskRow {
   _count: { comments: number };
 }
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "todo", label: "To Do" },
-  { key: "in_progress", label: "In Progress" },
-  { key: "done", label: "Done" },
-];
-
 function initials(name: string) {
   return name
     .split(" ")
@@ -54,12 +56,18 @@ function avatarHue(id: string) {
   return h;
 }
 
-function formatDueLabel(iso: string): { label: string; overdue: boolean; soon: boolean } {
+function formatDueLabel(iso: string): {
+  label: string;
+  overdue: boolean;
+  soon: boolean;
+} {
   const d = new Date(iso);
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const diffDays = Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const diffDays = Math.round(
+    (target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+  );
   const overdue = diffDays < 0;
   const soon = diffDays >= 0 && diffDays <= 2;
   let label: string;
@@ -98,8 +106,55 @@ export default function TasksPage() {
       in_progress: tasks.filter((t) => t.status === "in_progress").length,
       done: tasks.filter((t) => t.status === "done").length,
     }),
-    [tasks]
+    [tasks],
   );
+
+  const overdue = useMemo(
+    () =>
+      tasks.filter(
+        (t) =>
+          t.dueDate &&
+          t.status !== "done" &&
+          new Date(t.dueDate) < new Date(new Date().setHours(0, 0, 0, 0)),
+      ).length,
+    [tasks],
+  );
+
+  const sharedWithClients = useMemo(
+    () => tasks.filter((t) => t.clientUser).length,
+    [tasks],
+  );
+
+  const kpis = [
+    {
+      label: "Active",
+      value: String(counts.todo + counts.in_progress),
+      helper: `${counts.todo} to do · ${counts.in_progress} in progress`,
+      icon: ListTodo,
+      accent: false,
+    },
+    {
+      label: "Overdue",
+      value: String(overdue),
+      helper: overdue === 0 ? "Nothing past due" : "Past due date",
+      icon: CalendarIcon,
+      accent: overdue > 0,
+    },
+    {
+      label: "Done",
+      value: String(counts.done),
+      helper: `${Math.round((counts.done / Math.max(1, counts.all)) * 100)}% of total`,
+      icon: CheckSquare,
+      accent: false,
+    },
+    {
+      label: "Shared",
+      value: String(sharedWithClients),
+      helper: "With clients",
+      icon: Share2,
+      accent: false,
+    },
+  ];
 
   const filtered = useMemo(() => {
     if (tab === "all") return tasks;
@@ -111,67 +166,83 @@ export default function TasksPage() {
       tasks
         .filter((t) => t.dueDate && t.status !== "done")
         .map((t) => t.dueDate!) as string[],
-    [tasks]
+    [tasks],
   );
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
-          <p className="mt-1 text-muted-foreground">
-            Track internal work and collect feedback from clients
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowNew(true)}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white shadow-[var(--shadow-sm)] transition-colors hover:bg-primary/80"
-        >
-          <Plus className="h-4 w-4" /> Add Task
-        </button>
-      </div>
+      <Toolbar
+        title="Tasks"
+        subtitle="Track internal work and collect feedback from clients"
+        actions={
+          <button
+            type="button"
+            onClick={() => setShowNew(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white shadow-[var(--shadow-sm)] transition-colors hover:bg-primary/80"
+          >
+            <Plus className="h-4 w-4" /> Add Task
+          </button>
+        }
+      />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div className="space-y-4">
-          <div className="inline-flex rounded-xl border border-border bg-muted/50 p-1">
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => setTab(t.key)}
-                className={cn(
-                  "rounded-lg px-3 py-1.5 font-medium transition-colors",
-                  tab === t.key
-                    ? "bg-background text-foreground shadow-[var(--shadow-sm)]"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
+      {/* KPI row */}
+      {!loading && (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {kpis.map((k) => {
+            const Icon = k.icon;
+            return (
+              <div
+                key={k.label}
+                className={`ds-kpi ${k.accent ? "accent" : ""}`}
               >
-                {t.label}
-                <span
-                  className={cn(
-                    "ml-1.5 rounded-full px-1.5 text-xs",
-                    tab === t.key ? "bg-muted text-foreground" : "bg-transparent"
-                  )}
-                >
-                  {counts[t.key]}
-                </span>
-              </button>
-            ))}
-          </div>
+                <div className="ds-kpi-head">
+                  <span className="ds-kpi-label">{k.label}</span>
+                  <span className="ds-kpi-icon">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                </div>
+                <span className="ds-kpi-value ds-tabular">{k.value}</span>
+                <div className="ds-kpi-foot">
+                  <span>{k.helper}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
+      {/* Main: task list + calendar sidebar */}
+      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+        <Panel
+          actions={
+            <Seg
+              value={tab}
+              onChange={setTab}
+              options={[
+                { value: "all", label: `All · ${counts.all}` },
+                { value: "todo", label: `To Do · ${counts.todo}` },
+                {
+                  value: "in_progress",
+                  label: `In progress · ${counts.in_progress}`,
+                },
+                { value: "done", label: `Done · ${counts.done}` },
+              ]}
+            />
+          }
+        >
           {loading ? (
-            <div className="rounded-2xl border border-border bg-card p-10 text-center text-muted-foreground shadow-[var(--shadow-sm)]">
-              Loading tasks…
-            </div>
+            <Empty>Loading tasks…</Empty>
           ) : filtered.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-10 text-center shadow-[var(--shadow-sm)]">
-              <CheckSquare className="mx-auto h-8 w-8 text-muted-foreground/50" />
-              <p className="mt-3 font-semibold">No tasks yet</p>
-              <p className="mt-1 text-sm text-muted-foreground">
+            <div className="ds-empty">
+              <CheckSquare
+                className="mx-auto h-7 w-7"
+                style={{ color: "var(--muted-foreground)", opacity: 0.5 }}
+              />
+              <p style={{ marginTop: 10, fontWeight: 600 }}>No tasks yet</p>
+              <p style={{ marginTop: 4, fontSize: 12 }}>
                 {tab === "all"
                   ? "Create your first task to get started."
-                  : `No tasks in "${TABS.find((t) => t.key === tab)?.label}".`}
+                  : "No tasks match this filter."}
               </p>
               {tab === "all" && (
                 <button
@@ -184,7 +255,7 @@ export default function TasksPage() {
               )}
             </div>
           ) : (
-            <div className="space-y-2.5">
+            <div className="divide-y divide-border">
               {filtered.map((task) => {
                 const completedSubs = task.subtasks.filter((s) => s.done).length;
                 const due = task.dueDate ? formatDueLabel(task.dueDate) : null;
@@ -192,15 +263,16 @@ export default function TasksPage() {
                   <Link
                     key={task.id}
                     href={`/tasks/${task.id}`}
-                    className="block rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-sm)] transition-colors hover:border-primary/40"
+                    className="block px-5 py-4 transition-colors hover:bg-muted/20"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <h3
                             className={cn(
                               "truncate font-semibold",
-                              task.status === "done" && "line-through text-muted-foreground"
+                              task.status === "done" &&
+                                "line-through text-muted-foreground",
                             )}
                           >
                             {task.title}
@@ -223,7 +295,9 @@ export default function TasksPage() {
                               className={cn(
                                 "inline-flex items-center gap-1",
                                 due.overdue && "font-semibold text-red-600",
-                                due.soon && !due.overdue && "font-semibold text-orange-600"
+                                due.soon &&
+                                  !due.overdue &&
+                                  "font-semibold text-orange-600",
                               )}
                             >
                               <CalendarIcon className="h-3 w-3" />
@@ -275,35 +349,10 @@ export default function TasksPage() {
               })}
             </div>
           )}
-        </div>
+        </Panel>
 
         <div className="space-y-4">
           <DueCalendar dueDates={dueDates} />
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-sm)]">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Quick stats
-            </h2>
-            <dl className="mt-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <dt className="text-muted-foreground">Active</dt>
-                <dd className="font-semibold">{counts.todo + counts.in_progress}</dd>
-              </div>
-              <div className="flex items-center justify-between">
-                <dt className="text-muted-foreground">In progress</dt>
-                <dd className="font-semibold">{counts.in_progress}</dd>
-              </div>
-              <div className="flex items-center justify-between">
-                <dt className="text-muted-foreground">Done</dt>
-                <dd className="font-semibold">{counts.done}</dd>
-              </div>
-              <div className="flex items-center justify-between">
-                <dt className="text-muted-foreground">Shared with clients</dt>
-                <dd className="font-semibold">
-                  {tasks.filter((t) => t.clientUser).length}
-                </dd>
-              </div>
-            </dl>
-          </div>
         </div>
       </div>
 

@@ -19,6 +19,7 @@ import {
   LayoutDashboard,
   Percent,
 } from "lucide-react";
+import { Toolbar } from "@/components/ds";
 import { ClientStagesSection } from "@/components/settings/client-stages-section";
 import { DashTemplatesSection } from "@/components/settings/dash-templates-section";
 import { TaxSettingsSection } from "@/components/settings/tax-settings-section";
@@ -221,7 +222,10 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+      <Toolbar
+        title="Settings"
+        subtitle="Configure stages, templates, branding, and account preferences."
+      />
 
       {/* Tab buttons — plain buttons, no framework overhead */}
       <div className="flex gap-1 overflow-x-auto border-b border-border">

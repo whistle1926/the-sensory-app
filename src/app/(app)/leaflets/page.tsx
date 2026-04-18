@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { Toolbar, Panel, Empty } from "@/components/ds";
 
 interface Leaflet {
   id: string;
@@ -89,6 +90,38 @@ export default function LeafletsPage() {
     return Array.from(set).sort();
   }, [leaflets]);
 
+  const kpis = useMemo(() => {
+    const written = leaflets.filter((l) => l.kind === "content").length;
+    const files = leaflets.filter((l) => l.kind === "file").length;
+    const links = leaflets.filter((l) => l.kind === "link" || l.external).length;
+    return [
+      {
+        label: "Total leaflets",
+        value: String(leaflets.length),
+        helper: `${categories.length} categor${categories.length === 1 ? "y" : "ies"}`,
+        icon: FileStack,
+      },
+      {
+        label: "Written",
+        value: String(written),
+        helper: "In-app articles",
+        icon: PenLine,
+      },
+      {
+        label: "Files",
+        value: String(files),
+        helper: "PDFs, images",
+        icon: FileText,
+      },
+      {
+        label: "External",
+        value: String(links),
+        helper: "Drive links, sites",
+        icon: ExternalLink,
+      },
+    ];
+  }, [leaflets, categories]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return leaflets.filter((l) => {
@@ -130,21 +163,40 @@ export default function LeafletsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Leaflets</h1>
-          <p className="mt-1 text-muted-foreground">
-            Parent-friendly handouts and info sheets. Upload your own, paste a
-            link from Drive, or browse the library.
-          </p>
+      <Toolbar
+        title="Leaflets"
+        subtitle="Parent-friendly handouts and info sheets. Upload your own, paste a link from Drive, or browse the library."
+        actions={
+          <Link href="/leaflets/new">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              New Leaflet
+            </Button>
+          </Link>
+        }
+      />
+
+      {!loading && leaflets.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {kpis.map((k) => {
+            const Icon = k.icon;
+            return (
+              <div key={k.label} className="ds-kpi">
+                <div className="ds-kpi-head">
+                  <span className="ds-kpi-label">{k.label}</span>
+                  <span className="ds-kpi-icon">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                </div>
+                <span className="ds-kpi-value ds-tabular">{k.value}</span>
+                <div className="ds-kpi-foot">
+                  <span>{k.helper}</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
-        <Link href="/leaflets/new">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            New Leaflet
-          </Button>
-        </Link>
-      </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative max-w-xs flex-1">
@@ -211,30 +263,37 @@ export default function LeafletsPage() {
       )}
 
       {loading ? (
-        <div className="flex h-40 items-center justify-center">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        </div>
+        <Panel>
+          <div className="flex h-40 items-center justify-center">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        </Panel>
       ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-12 text-center">
-          <FileStack className="mx-auto h-10 w-10 text-muted-foreground/40" />
-          <p className="mt-4 font-semibold">
-            {leaflets.length === 0 ? "No leaflets yet" : "No matches"}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {leaflets.length === 0
-              ? "Add your first leaflet — a PDF handout, a diagram, a strategy sheet."
-              : "Try a different search term or clear the category filter."}
-          </p>
-          {leaflets.length === 0 && (
-            <Link
-              href="/leaflets/new"
-              className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:brightness-110"
-            >
-              <Plus className="h-4 w-4" />
-              New Leaflet
-            </Link>
-          )}
-        </div>
+        <Panel>
+          <div className="ds-empty">
+            <FileStack
+              className="mx-auto h-8 w-8"
+              style={{ color: "var(--muted-foreground)", opacity: 0.5 }}
+            />
+            <p style={{ marginTop: 10, fontWeight: 600 }}>
+              {leaflets.length === 0 ? "No leaflets yet" : "No matches"}
+            </p>
+            <p style={{ marginTop: 4, fontSize: 12 }}>
+              {leaflets.length === 0
+                ? "Add your first leaflet — a PDF handout, a diagram, a strategy sheet."
+                : "Try a different search term or clear the category filter."}
+            </p>
+            {leaflets.length === 0 && (
+              <Link
+                href="/leaflets/new"
+                className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:brightness-110"
+              >
+                <Plus className="h-4 w-4" />
+                New Leaflet
+              </Link>
+            )}
+          </div>
+        </Panel>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((leaflet) => {

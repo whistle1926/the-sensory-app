@@ -17,6 +17,7 @@ import {
   Trash2,
   Ban,
 } from "lucide-react";
+import { Toolbar } from "@/components/ds";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -372,13 +373,10 @@ export default function BookingsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Bookings</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Manage your calendar, availability, and client bookings</p>
-        </div>
-      </div>
+      <Toolbar
+        title="Bookings"
+        subtitle="Manage your calendar, availability, and client bookings"
+      />
 
       {/* Booking Link Card */}
       <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">

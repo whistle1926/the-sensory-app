@@ -19,12 +19,13 @@ import {
   type ProgrammeItem,
 } from "@/lib/programme-sections";
 import { DemoViewer } from "@/components/programmes/demo-viewer";
+import { Toolbar, Panel, Chip, Empty } from "@/components/ds";
 
 interface ProgrammeTemplate {
   id: string;
   title: string;
   description: string;
-  sections: unknown; // Json — we coerce when rendering
+  sections: unknown; // Json — coerced at render time
 }
 
 interface Report {
@@ -40,6 +41,11 @@ interface Report {
   client: { firstName: string; lastName: string };
 }
 
+/**
+ * Programmes — admin view. Two sections: reusable Templates + Client-specific
+ * programmes generated from reports. Each section is a Panel; the rows
+ * stay expandable so the content preview is one click away.
+ */
 export default function ProgrammesPage() {
   const { data: session } = useSession();
   const canEdit = session?.user?.role !== "CLIENT";
@@ -49,7 +55,6 @@ export default function ProgrammesPage() {
   const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  // The item whose demo is currently on-screen. null = viewer closed.
   const [activeDemo, setActiveDemo] = useState<ProgrammeItem | null>(null);
 
   useEffect(() => {
@@ -73,45 +78,46 @@ export default function ProgrammesPage() {
   );
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Home Programmes</h1>
-          <p className="mt-1 text-muted-foreground">
-            Structured home programmes and templates for parents and carers
-          </p>
-        </div>
-        {canEdit && (
-          <Link href="/programmes/new">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New Programme
-            </Button>
-          </Link>
-        )}
-      </div>
+    <div className="space-y-6">
+      <Toolbar
+        title="Home Programmes"
+        subtitle="Structured home programmes and templates for parents and carers"
+        actions={
+          canEdit && (
+            <Link href="/programmes/new">
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                New Programme
+              </Button>
+            </Link>
+          )
+        }
+      />
 
       {/* Programme Templates */}
-      <div>
-        <div className="mb-3 flex items-center gap-2">
-          <ClipboardList className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+      <Panel
+        title={
+          <span className="inline-flex items-center gap-2">
+            <ClipboardList className="h-4 w-4 text-primary" />
             Programme Templates
-          </h2>
-          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-primary">
-            {programmes.length}
           </span>
-        </div>
-
+        }
+        subtitle="Reusable blueprints you can share with any client"
+        actions={<Chip tone="primary" dot={false}>{programmes.length}</Chip>}
+      >
         {loading ? (
-          <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-[var(--shadow-sm)]">
-            <p className="text-muted-foreground">Loading programmes…</p>
-          </div>
+          <Empty>Loading programmes…</Empty>
         ) : programmes.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-10 text-center">
-            <p className="font-medium">No programme templates yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Create your first programme to share with parents and carers.
+          <div className="ds-empty">
+            <ClipboardList
+              className="mx-auto h-7 w-7"
+              style={{ color: "var(--muted-foreground)", opacity: 0.5 }}
+            />
+            <p style={{ marginTop: 10, fontWeight: 600 }}>
+              No programme templates yet
+            </p>
+            <p style={{ marginTop: 4, fontSize: 12 }}>
+              Create your first template to share with parents and carers.
             </p>
             {canEdit && (
               <Link
@@ -124,18 +130,15 @@ export default function ProgrammesPage() {
             )}
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="divide-y divide-border">
             {programmes.map((prog) => {
               const sections: ProgrammeSection[] = sanitiseProgrammeSections(
                 prog.sections,
               );
               const isExpanded = expandedTemplate === prog.id;
               return (
-                <div
-                  key={prog.id}
-                  className="overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-sm)]"
-                >
-                  <div className="flex items-start gap-2 p-5">
+                <div key={prog.id}>
+                  <div className="flex items-start gap-2 px-5 py-4">
                     <button
                       type="button"
                       onClick={() =>
@@ -172,7 +175,7 @@ export default function ProgrammesPage() {
                   </div>
 
                   {isExpanded && (
-                    <div className="border-t border-border px-5 pb-5 pt-4">
+                    <div className="bg-muted/20 px-5 pb-5 pt-4">
                       {sections.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
                           This programme has no sections yet.
@@ -180,7 +183,10 @@ export default function ProgrammesPage() {
                       ) : (
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                           {sections.map((block, j) => (
-                            <div key={j} className="rounded-xl bg-background p-4">
+                            <div
+                              key={j}
+                              className="rounded-xl border border-border bg-card p-4"
+                            >
                               <p className="text-xs font-semibold uppercase tracking-wider text-primary">
                                 {block.title}
                               </p>
@@ -192,17 +198,18 @@ export default function ProgrammesPage() {
                                   >
                                     <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
                                     <span className="flex-1">{item.text}</span>
-                                    {item.demoSteps && item.demoSteps.length > 0 && (
-                                      <button
-                                        type="button"
-                                        onClick={() => setActiveDemo(item)}
-                                        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary transition-colors hover:bg-primary/20"
-                                        title="Watch demo"
-                                      >
-                                        <Play className="h-3 w-3" />
-                                        Demo
-                                      </button>
-                                    )}
+                                    {item.demoSteps &&
+                                      item.demoSteps.length > 0 && (
+                                        <button
+                                          type="button"
+                                          onClick={() => setActiveDemo(item)}
+                                          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary transition-colors hover:bg-primary/20"
+                                          title="Watch demo"
+                                        >
+                                          <Play className="h-3 w-3" />
+                                          Demo
+                                        </button>
+                                      )}
                                   </li>
                                 ))}
                               </ul>
@@ -217,45 +224,49 @@ export default function ProgrammesPage() {
             })}
           </div>
         )}
-      </div>
+      </Panel>
 
-      {/* Client-Specific Programmes */}
-      <div>
-        <div className="mb-3 flex items-center gap-2">
-          <Home className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+      {/* Client-Specific Programmes from Reports */}
+      <Panel
+        title={
+          <span className="inline-flex items-center gap-2">
+            <Home className="h-4 w-4 text-primary" />
             Client Programmes from Reports
-          </h2>
-          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-primary">
-            {reportsWithProgrammes.length}
           </span>
-        </div>
+        }
+        subtitle="Auto-generated from recent reports"
+        actions={
+          <Chip tone="primary" dot={false}>
+            {reportsWithProgrammes.length}
+          </Chip>
+        }
+      >
         {reportsWithProgrammes.length === 0 ? (
-          <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-[var(--shadow-sm)]">
-            <p className="text-muted-foreground">
-              No client programmes yet. Generate a report to create a home
-              programme.
-            </p>
-          </div>
+          <Empty>
+            No client programmes yet. Generate a report to create a home
+            programme.
+          </Empty>
         ) : (
-          <div className="space-y-3">
+          <div className="divide-y divide-border">
             {reportsWithProgrammes.map((r) => (
-              <div
-                key={r.id}
-                className="overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-sm)]"
-              >
+              <div key={r.id}>
                 <button
                   onClick={() =>
                     setExpandedReport(expandedReport === r.id ? null : r.id)
                   }
-                  className="flex w-full items-center justify-between p-5 text-left"
+                  className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-muted/20"
                 >
                   <div>
                     <h3 className="font-semibold text-foreground">
                       {r.client.firstName} {r.client.lastName}
                     </h3>
                     <p className="mt-0.5 text-sm text-muted-foreground">
-                      {new Date(r.reportDate).toLocaleDateString()} — {r.status}
+                      {new Date(r.reportDate).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}{" "}
+                      — {r.status}
                     </p>
                   </div>
                   {expandedReport === r.id ? (
@@ -265,7 +276,7 @@ export default function ProgrammesPage() {
                   )}
                 </button>
                 {expandedReport === r.id && (
-                  <div className="space-y-4 border-t border-border px-5 pb-5 pt-4">
+                  <div className="space-y-4 bg-muted/20 px-5 pb-5 pt-4">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wider text-primary">
                         Home Programme
@@ -295,7 +306,7 @@ export default function ProgrammesPage() {
             ))}
           </div>
         )}
-      </div>
+      </Panel>
 
       <DemoViewer
         open={activeDemo !== null}

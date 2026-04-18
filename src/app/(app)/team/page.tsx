@@ -11,7 +11,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Mail, Building2, MoreHorizontal, LayoutDashboard } from "lucide-react";
+import {
+  Building2,
+  LayoutDashboard,
+  Mail,
+  MoreHorizontal,
+  Plus,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
+import { Toolbar } from "@/components/ds";
 
 interface DashTemplate {
   id: string;
@@ -105,20 +114,23 @@ export default function TeamPage() {
     }
   }
 
+  const staff = users.filter(
+    (u) => u.role === "SUPER_ADMIN" || u.role === "TEAM_MANAGER",
+  ).length;
+  const clients = users.filter((u) => u.role === "CLIENT").length;
+  const admins = users.filter((u) => u.role === "SUPER_ADMIN").length;
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Team</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {users.length} team member{users.length !== 1 ? "s" : ""}
-          </p>
-        </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger render={<Button />}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add User
-          </DialogTrigger>
+      <Toolbar
+        title="Team"
+        subtitle={`${users.length} team member${users.length === 1 ? "" : "s"}`}
+        actions={
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger render={<Button />}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add User
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Create New User</DialogTitle>
@@ -171,7 +183,56 @@ export default function TeamPage() {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
+        }
+      />
+
+      {/* KPI row */}
+      {users.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            {
+              label: "Total members",
+              value: String(users.length),
+              helper: `${staff} staff · ${clients} clients`,
+              icon: Users,
+            },
+            {
+              label: "Staff",
+              value: String(staff),
+              helper: "Admins + managers",
+              icon: ShieldCheck,
+            },
+            {
+              label: "Admins",
+              value: String(admins),
+              helper: "Super Admin role",
+              icon: LayoutDashboard,
+            },
+            {
+              label: "Clients",
+              value: String(clients),
+              helper: "Portal accounts",
+              icon: Mail,
+            },
+          ].map((k) => {
+            const Icon = k.icon;
+            return (
+              <div key={k.label} className="ds-kpi">
+                <div className="ds-kpi-head">
+                  <span className="ds-kpi-label">{k.label}</span>
+                  <span className="ds-kpi-icon">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                </div>
+                <span className="ds-kpi-value ds-tabular">{k.value}</span>
+                <div className="ds-kpi-foot">
+                  <span>{k.helper}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Profile Card Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
