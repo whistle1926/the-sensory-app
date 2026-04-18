@@ -15,10 +15,11 @@ import { cn } from "@/lib/utils";
 import { NewTaskDialog } from "@/components/tasks/new-task-dialog";
 import { DueCalendar } from "@/components/tasks/due-calendar";
 import { PriorityBadge, StatusBadge } from "@/components/tasks/priority-badge";
+import { NotesPanel } from "@/components/tasks/notes-panel";
 import type { TaskPriority, TaskStatus } from "@/lib/tasks";
 import { Toolbar, Panel, Seg, Empty } from "@/components/ds";
 
-type TabKey = "all" | "todo" | "in_progress" | "done";
+type TabKey = "all" | "todo" | "in_progress" | "done" | "notes";
 
 interface Assignee {
   user: { id: string; name: string; email: string; role: string };
@@ -226,11 +227,16 @@ export default function TasksPage() {
                   label: `In progress · ${counts.in_progress}`,
                 },
                 { value: "done", label: `Done · ${counts.done}` },
+                { value: "notes", label: "Notes" },
               ]}
             />
           }
         >
-          {loading ? (
+          {tab === "notes" ? (
+            <div className="space-y-4 p-5">
+              <NotesPanel />
+            </div>
+          ) : loading ? (
             <Empty>Loading tasks…</Empty>
           ) : filtered.length === 0 ? (
             <div className="ds-empty">

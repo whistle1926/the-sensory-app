@@ -69,6 +69,7 @@ model User {
   progressNotes   ProgressNote[]
   formsCreated    Form[]         @relation("FormsCreated")
   leafletsCreated Leaflet[]      @relation("LeafletsCreated")
+  notes           Note[]         @relation("UserNotes")
 }
 
 model PasswordSetupToken {
@@ -490,6 +491,23 @@ model CommentAttachment {
   createdAt DateTime    @default(now())
 
   @@index([commentId])
+}
+
+// ─── Scratch notes (team-wide reference content) ────────────────────
+
+model Note {
+  id        String   @id @default(cuid())
+  title     String
+  body      String   @db.Text  // rich HTML authored via RichTextEditor
+  authorId  String
+  author    User     @relation("UserNotes", fields: [authorId], references: [id])
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([authorId])
+  @@index([pinned])
+  @@index([updatedAt])
 }
 
 // ─── Progress Notes (SOAP format) ───────────────────────────────────
