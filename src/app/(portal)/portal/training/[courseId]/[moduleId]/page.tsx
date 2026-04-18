@@ -57,6 +57,7 @@ interface ModuleData {
   content: { sections: Section[] };
   questions: Question[];
   videoUrl: string | null;
+  coverImageUrl?: string | null;
   status: "IN_PROGRESS" | "COMPLETED" | "FAILED";
   score: number | null;
   attempts: number;
@@ -301,6 +302,13 @@ export default function PortalModulePage({
         <div className="lp-media-hero-inner">
           {hasVideo ? (
             <VideoPlayer url={mod.videoUrl!} title={mod.title} />
+          ) : mod.coverImageUrl ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={mod.coverImageUrl}
+              alt={mod.title}
+              className="aspect-[16/7] w-full object-cover"
+            />
           ) : (
             <div className="lp-illus-hero">
               <div className="icon">

@@ -72,7 +72,13 @@ export default async function PortalCourseLandingPage({
     include: {
       modules: {
         orderBy: { order: "asc" },
-        select: { id: true, title: true, order: true, videoUrl: true },
+        select: {
+          id: true,
+          title: true,
+          order: true,
+          videoUrl: true,
+          coverImageUrl: true,
+        },
       },
       enrollments: {
         where: { userId: session.user.id },
@@ -259,54 +265,71 @@ export default async function PortalCourseLandingPage({
           </h2>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {modules.map((m, i) => {
             const locked = m.status === "LOCKED";
             const complete = m.status === "COMPLETED";
+            const isCurrent = nextModule?.id === m.id && !complete;
             const classes = [
               "lp-module-card",
               complete ? "is-complete" : "",
               locked ? "is-locked" : "",
-              nextModule?.id === m.id && !complete ? "is-current" : "",
+              isCurrent ? "is-current" : "",
             ]
               .filter(Boolean)
               .join(" ");
             const inner = (
               <>
+                {/* Cover art */}
+                <div className="relative -mx-5 -mt-5 mb-2 aspect-[16/9] overflow-hidden rounded-t-2xl bg-gradient-to-br from-primary/15 to-primary/30">
+                  {m.coverImageUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={m.coverImageUrl}
+                      alt={m.title}
+                      className={`h-full w-full object-cover ${locked ? "grayscale" : ""}`}
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-5xl font-black text-primary/40">
+                      {i + 1}
+                    </div>
+                  )}
+                  {locked && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                      <Lock className="h-8 w-8 text-white/80" />
+                    </div>
+                  )}
+                  {m.hasVideo && !locked && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/25 opacity-0 transition-opacity group-hover:opacity-100">
+                      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/95 shadow-md">
+                        <PlayCircle className="h-7 w-7 text-primary" />
+                      </span>
+                    </div>
+                  )}
+                  {isCurrent && (
+                    <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-0.5 text-[10px] font-bold text-primary-foreground shadow-md">
+                      <PlayCircle className="h-3 w-3" /> Up next
+                    </span>
+                  )}
+                  {complete && (
+                    <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-green-600 px-2.5 py-0.5 text-[10px] font-bold text-white shadow-md">
+                      <CheckCircle2 className="h-3 w-3" /> Complete
+                    </span>
+                  )}
+                  {m.hasVideo && (
+                    <span className="absolute left-3 bottom-3 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
+                      <PlayCircle className="h-3 w-3" /> Video
+                    </span>
+                  )}
+                </div>
+
                 <div className="lp-module-head">
                   <span className="lp-module-num">{i + 1}</span>
                   <div className="min-w-0 flex-1">
                     <p className="title">{m.title}</p>
                     <p className="sub">{statusLabel(m.status, m.score)}</p>
                   </div>
-                  {statusIcon(m.status)}
-                </div>
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-xs text-muted-foreground inline-flex items-center gap-1.5">
-                    {m.hasVideo && (
-                      <>
-                        <PlayCircle className="h-3.5 w-3.5" />
-                        Video lesson
-                      </>
-                    )}
-                    {!m.hasVideo && !locked && "Reading + quiz"}
-                    {locked && "Unlocks after module " + i}
-                  </span>
-                  {complete && (
-                    <span className="status-chip complete">
-                      <CheckCircle2 className="h-3 w-3" /> Complete
-                    </span>
-                  )}
-                  {!complete && !locked && nextModule?.id === m.id && (
-                    <span className="status-chip ready">
-                      <PlayCircle className="h-3 w-3" /> Up next
-                    </span>
-                  )}
-                  {locked && (
-                    <span className="status-chip locked">
-                      <Lock className="h-3 w-3" /> Locked
-                    </span>
-                  )}
+                  {!locked && !complete && statusIcon(m.status)}
                 </div>
               </>
             );
@@ -318,7 +341,7 @@ export default async function PortalCourseLandingPage({
               <Link
                 key={m.id}
                 href={`/portal/training/${course.id}/${m.id}`}
-                className={classes}
+                className={`group ${classes}`}
               >
                 {inner}
               </Link>

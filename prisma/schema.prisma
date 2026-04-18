@@ -227,16 +227,17 @@ model Course {
 }
 
 model Module {
-  id        String   @id @default(cuid())
-  courseId   String
-  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  title     String
-  order     Int
-  content   Json
-  questions Json
-  videoUrl  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(cuid())
+  courseId       String
+  course         Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title          String
+  order          Int
+  content        Json
+  questions      Json
+  videoUrl       String?
+  coverImageUrl  String?  // 16:9 illustration shown as the lesson hero when no video
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   progress  ModuleProgress[]
   notes     LearnerNote[]
