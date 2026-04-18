@@ -89,6 +89,7 @@ export async function GET() {
       paidInvoicesPrevSince,
       completedBookingsSince,
       completedBookingsPrevSince,
+      outstandingInvoices,
     ] = await Promise.all([
       prisma.client.count({ where: { active: true } }),
       prisma.client.count({ where: { active: true, createdAt: { gte: start30 } } }),
@@ -184,7 +185,18 @@ export async function GET() {
         },
         select: { price: true },
       }),
+      // Outstanding invoices (sent / overdue / draft with a due date in
+      // the current month). Folded into the main parallel batch so we
+      // don't add a serial round-trip at the end of the handler.
+      prisma.invoice.aggregate({
+        where: {
+          status: { in: ["sent", "overdue", "draft"] },
+          dueDate: { gte: monthStart },
+        },
+        _sum: { total: true },
+      }),
     ]);
+
 
     // ── Build 14-day series helpers ────────────────────────────────────
     const dayKey = (d: Date) => {
@@ -388,15 +400,10 @@ export async function GET() {
     const invoicedMtd = Math.round(revenueMtdPence / 100);
     const collectedMtd = invoicedMtd; // Paid-only shown here; same figure
     // Outstanding = sum of invoices due this month that are not yet paid.
-    // Pull a quick second query for outstanding; keep it cheap.
-    const outstandingInvoices = await prisma.invoice.aggregate({
-      where: {
-        status: { in: ["sent", "overdue", "draft"] },
-        dueDate: { gte: monthStart },
-      },
-      _sum: { total: true },
-    });
-    const outstandingMtd = Math.round((outstandingInvoices._sum.total ?? 0) / 100);
+    // Query folded into the main Promise.all batch above.
+    const outstandingMtd = Math.round(
+      (outstandingInvoices._sum.total ?? 0) / 100,
+    );
 
     // ── Response ───────────────────────────────────────────────────────
     return NextResponse.json({
