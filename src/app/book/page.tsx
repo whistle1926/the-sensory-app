@@ -262,8 +262,8 @@ export default function BookingPage() {
               The Sensory Submarine
             </span>
           </div>
-          <div className="flex items-center gap-4">
-            {isClient && (
+          <div className="flex items-center gap-2 sm:gap-4">
+            {isClient ? (
               <Link
                 href="/portal"
                 className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
@@ -271,15 +271,89 @@ export default function BookingPage() {
                 <ArrowLeft className="h-3.5 w-3.5" />
                 Back to portal
               </Link>
+            ) : (
+              <>
+                <Link
+                  href="/"
+                  className="hidden rounded-lg px-3 py-1.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-foreground sm:inline-flex"
+                >
+                  Home
+                </Link>
+                <Link
+                  href="/courses"
+                  className="hidden rounded-lg px-3 py-1.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-foreground sm:inline-flex"
+                >
+                  Courses
+                </Link>
+              </>
             )}
-            <span className="hidden text-sm text-muted-foreground sm:inline">
-              Occupational Therapy
-            </span>
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+        {/* ---- Progress indicator (hidden on the confirmation screen) ---- */}
+        {step !== "confirmed" && (
+          <div className="mx-auto mb-8 max-w-lg">
+            <ol className="flex items-center gap-2 text-xs font-semibold">
+              {(
+                [
+                  { key: "service", label: "Service" },
+                  { key: "datetime", label: "Date & time" },
+                  { key: "details", label: "Your details" },
+                ] as const
+              ).map((s, i, arr) => {
+                const currentIdx = arr.findIndex((x) => x.key === step);
+                const thisIdx = i;
+                const state =
+                  thisIdx < currentIdx
+                    ? "done"
+                    : thisIdx === currentIdx
+                      ? "current"
+                      : "upcoming";
+                return (
+                  <li key={s.key} className="flex flex-1 items-center gap-2">
+                    <span
+                      className={
+                        state === "done"
+                          ? "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground"
+                          : state === "current"
+                            ? "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground ring-4 ring-primary/20"
+                            : "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-bold text-muted-foreground"
+                      }
+                    >
+                      {state === "done" ? (
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      ) : (
+                        i + 1
+                      )}
+                    </span>
+                    <span
+                      className={
+                        state === "upcoming"
+                          ? "text-muted-foreground hidden sm:inline"
+                          : "text-foreground hidden sm:inline"
+                      }
+                    >
+                      {s.label}
+                    </span>
+                    {i < arr.length - 1 && (
+                      <span
+                        className={
+                          state === "done"
+                            ? "h-px flex-1 bg-primary"
+                            : "h-px flex-1 bg-border"
+                        }
+                        aria-hidden
+                      />
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        )}
+
         {/* ------ STEP: SERVICE ------ */}
         {step === "service" && (
           <div className="space-y-8">
@@ -379,7 +453,14 @@ export default function BookingPage() {
               </div>
             )}
 
-            <h2 className="text-xl font-bold">Choose a date and time</h2>
+            <div>
+              <h2 className="text-xl font-bold">Choose a date and time</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                All times shown in your local timezone. Sessions are held over
+                secure video call — you&apos;ll receive a link in your
+                confirmation email.
+              </p>
+            </div>
 
             {/* Week navigation */}
             <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-sm)] overflow-hidden">
@@ -414,17 +495,33 @@ export default function BookingPage() {
                   const isSelected =
                     selectedDate && isSameDay(day, selectedDate);
                   const isWeekend = i === 0 || i === 6;
+                  // Once the server-computed slot map is loaded, reflect
+                  // "no slots on this day" in the strip so people don't
+                  // click into empty days. Before it loads, treat every
+                  // non-weekend weekday as potentially available.
+                  const daySlots = getAvailableTimes(day);
+                  const hasLoadedSlots = slotsLoaded;
+                  const isEmpty =
+                    hasLoadedSlots &&
+                    Array.isArray(daySlots) &&
+                    daySlots.length === 0;
+                  const disabled = isPast || isWeekend || isEmpty;
 
                   return (
                     <button
                       key={i}
-                      disabled={isPast || isWeekend}
+                      disabled={disabled}
                       onClick={() => {
                         setSelectedDate(day);
                         setSelectedTime(null);
                       }}
+                      title={
+                        isEmpty && !isPast && !isWeekend
+                          ? "No availability"
+                          : undefined
+                      }
                       className={`flex flex-col items-center gap-1 py-3 text-center transition-colors ${
-                        isPast || isWeekend
+                        disabled
                           ? "cursor-not-allowed opacity-30"
                           : "hover:bg-muted/50"
                       } ${isSelected ? "bg-primary/5" : ""}`}
@@ -443,6 +540,11 @@ export default function BookingPage() {
                       >
                         {day.getDate()}
                       </span>
+                      {isEmpty && !isPast && !isWeekend && (
+                        <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Full
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -635,7 +737,8 @@ export default function BookingPage() {
               </Button>
 
               <p className="text-center text-xs text-muted-foreground">
-                Payment details will be sent to your email after confirmation.
+                You&apos;ll receive a confirmation email with a secure payment
+                link. Your slot is held for you until payment is completed.
               </p>
             </form>
           </div>
