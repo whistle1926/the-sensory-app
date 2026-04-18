@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { ImpersonationBanner } from "@/components/impersonate/impersonation-banner";
+import { AccountMenu } from "@/components/account/account-menu";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   let session;
@@ -28,13 +29,6 @@ export default async function PortalLayout({ children }: { children: React.React
   if (role !== "CLIENT") redirect("/dashboard");
 
   const name = session.user.name || session.user.email || "You";
-  const initials = name
-    .split(" ")
-    .map((s) => s.charAt(0))
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-
   const isImpersonating = !!session.user.impersonatedBy;
 
   return (
@@ -82,13 +76,9 @@ export default async function PortalLayout({ children }: { children: React.React
             >
               Book
             </Link>
-            <Link
-              href="/logout"
-              className="ml-2 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white ring-1 ring-primary/20 transition-transform hover:scale-105"
-              title={`${name} — Sign out`}
-            >
-              {initials}
-            </Link>
+            <div className="ml-2">
+              <AccountMenu />
+            </div>
           </nav>
         </div>
       </header>

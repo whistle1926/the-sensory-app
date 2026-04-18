@@ -2,18 +2,19 @@
 
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { AccountMenu } from "@/components/account/account-menu";
 
 /**
  * Minimal public header used on /courses and /courses/[slug]. No sidebar —
  * this is a marketing surface, not the admin app shell.
+ *
+ * When the visitor is signed in we show their AccountMenu instead of a bare
+ * "Go to dashboard" link — gives them a clear "you're logged in" signal
+ * and a one-click route to profile / portal / sign-out.
  */
 export function StorefrontHeader() {
   const { data: session } = useSession();
-  const role = session?.user?.role;
   const signedIn = !!session?.user;
-
-  const portalHref =
-    role === "SUPER_ADMIN" || role === "TEAM_MANAGER" ? "/dashboard" : "/portal";
 
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-md">
@@ -56,12 +57,7 @@ export function StorefrontHeader() {
             Book a session
           </Link>
           {signedIn ? (
-            <Link
-              href={portalHref}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground transition-colors hover:brightness-110"
-            >
-              Go to {role === "CLIENT" ? "portal" : "dashboard"}
-            </Link>
+            <AccountMenu />
           ) : (
             <Link
               href="/login"
