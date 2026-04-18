@@ -406,22 +406,35 @@ export async function GET() {
     );
 
     // ── Response ───────────────────────────────────────────────────────
-    return NextResponse.json({
-      visibleWidgets,
-      kpis,
-      pipeline,
-      pipelineTotal,
-      agenda,
-      reports,
-      reportCounts,
-      revenue,
-      revenueSummary: {
-        invoicedMtd,
-        collectedMtd,
-        outstandingMtd,
+    // Browser-private cache: repeated hits within 15s (common: refresh,
+    // back-nav) return instantly from the browser cache. `private` so
+    // nothing leaks across users at a shared edge. `stale-while-
+    // revalidate` lets old data render immediately while a fresh copy
+    // fetches in the background.
+    return NextResponse.json(
+      {
+        visibleWidgets,
+        kpis,
+        pipeline,
+        pipelineTotal,
+        agenda,
+        reports,
+        reportCounts,
+        revenue,
+        revenueSummary: {
+          invoicedMtd,
+          collectedMtd,
+          outstandingMtd,
+        },
+        now: now.toISOString(),
       },
-      now: now.toISOString(),
-    });
+      {
+        headers: {
+          "Cache-Control":
+            "private, max-age=15, stale-while-revalidate=60",
+        },
+      },
+    );
   } catch (error: unknown) {
     console.error("[DASHBOARD API]", error);
     return NextResponse.json({
