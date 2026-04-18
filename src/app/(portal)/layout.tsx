@@ -64,12 +64,8 @@ export default async function PortalLayout({ children }: { children: React.React
             >
               Training
             </Link>
-            <Link
-              href="/portal/feedback"
-              className="rounded-lg px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-foreground"
-            >
-              Feedback
-            </Link>
+            {/* Feedback tab hidden for now — re-enable once the therapist-
+                shared-task flow is ready for clients to actually use. */}
             <Link
               href="/book"
               className="rounded-lg px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-foreground"
