@@ -1,6 +1,21 @@
 import { NextResponse } from "next/server";
+import { unstable_cache } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+
+/**
+ * Shared 20-second server-side cache for the expensive aggregate block.
+ * Every query below is practice-wide (not user-specific), so caching
+ * one result for all admins is safe. After the first request in a
+ * 20s window pays the cold cost, every other admin hit is ~50ms.
+ */
+const getDashboardAggregates = unstable_cache(
+  async () => {
+    return computeDashboardAggregates();
+  },
+  ["dashboard-aggregates-v1"],
+  { revalidate: 20, tags: ["dashboard"] },
+);
 
 /**
  * Dashboard API — powers the "Practice Overview" page (V1 Polished design).
@@ -20,7 +35,7 @@ export async function GET() {
     const session = await auth();
     const userId = session?.user?.id;
 
-    // ── Legacy widget-visibility resolution (older dash templates) ─────
+    // ── Legacy widget-visibility resolution (user-specific, not cached) ─
     let visibleWidgets: string[] | null = null;
     if (userId) {
       const [user, defaultTemplate] = await Promise.all([
@@ -37,6 +52,42 @@ export async function GET() {
       if (template) visibleWidgets = template.widgets;
     }
 
+    // ── Shared aggregates (cached for 20s across all admin users) ──────
+    const aggregates = await getDashboardAggregates();
+
+    return NextResponse.json(
+      { visibleWidgets, ...aggregates },
+      {
+        headers: {
+          "Cache-Control":
+            "private, max-age=15, stale-while-revalidate=60",
+        },
+      },
+    );
+  } catch (error: unknown) {
+    console.error("[DASHBOARD API]", error);
+    return NextResponse.json({
+      visibleWidgets: null,
+      kpis: [],
+      pipeline: [],
+      pipelineTotal: 0,
+      agenda: [],
+      reports: [],
+      reportCounts: { overdue: 0, ready: 0, drafting: 0, sent: 0 },
+      revenue: [],
+      revenueSummary: { invoicedMtd: 0, collectedMtd: 0, outstandingMtd: 0 },
+      now: new Date().toISOString(),
+    });
+  }
+}
+
+/**
+ * The expensive, practice-wide aggregate block — extracted so it can
+ * live behind an unstable_cache wrapper. All data here is aggregate,
+ * so caching one copy across every signed-in admin is safe.
+ */
+async function computeDashboardAggregates() {
+  try {
     // ── Date helpers ───────────────────────────────────────────────────
     const now = new Date();
     const startOfToday = new Date(now);
@@ -412,40 +463,26 @@ export async function GET() {
       (outstandingInvoices._sum.total ?? 0) / 100,
     );
 
-    // ── Response ───────────────────────────────────────────────────────
-    // Browser-private cache: repeated hits within 15s (common: refresh,
-    // back-nav) return instantly from the browser cache. `private` so
-    // nothing leaks across users at a shared edge. `stale-while-
-    // revalidate` lets old data render immediately while a fresh copy
-    // fetches in the background.
-    return NextResponse.json(
-      {
-        visibleWidgets,
-        kpis,
-        pipeline,
-        pipelineTotal,
-        agenda,
-        reports,
-        reportCounts,
-        revenue,
-        revenueSummary: {
-          invoicedMtd,
-          collectedMtd,
-          outstandingMtd,
-        },
-        now: now.toISOString(),
+    // Return the pure payload — the GET handler wraps it with
+    // user-specific visibleWidgets + response headers.
+    return {
+      kpis,
+      pipeline,
+      pipelineTotal,
+      agenda,
+      reports,
+      reportCounts,
+      revenue,
+      revenueSummary: {
+        invoicedMtd,
+        collectedMtd,
+        outstandingMtd,
       },
-      {
-        headers: {
-          "Cache-Control":
-            "private, max-age=15, stale-while-revalidate=60",
-        },
-      },
-    );
+      now: now.toISOString(),
+    };
   } catch (error: unknown) {
-    console.error("[DASHBOARD API]", error);
-    return NextResponse.json({
-      visibleWidgets: null,
+    console.error("[DASHBOARD API aggregates]", error);
+    return {
       kpis: [],
       pipeline: [],
       pipelineTotal: 0,
@@ -455,6 +492,6 @@ export async function GET() {
       revenue: [],
       revenueSummary: { invoicedMtd: 0, collectedMtd: 0, outstandingMtd: 0 },
       now: new Date().toISOString(),
-    });
+    };
   }
 }
