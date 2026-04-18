@@ -204,7 +204,7 @@ function WelcomeHero() {
             Practical, playful courses you can do at home
           </h1>
           <p className="lp-hero-sub">
-            Evidence-based mini-courses from paediatric OT Patrick Farren.
+            Evidence-based mini-courses from paediatric OT Grace Magennis.
             Bite-sized lessons, clear activities, strategies that fit into
             the day you already have.
           </p>

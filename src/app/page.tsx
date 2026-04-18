@@ -89,7 +89,7 @@ export default async function Home() {
               Practical support for children with sensory and regulation needs
             </h1>
             <p className="max-w-xl text-lg text-muted-foreground">
-              Paediatric OT Patrick Farren brings over a decade of hands-on
+              Paediatric OT Grace Magennis brings over a decade of hands-on
               experience to families across Northern Ireland. Evidence-based
               1:1 sessions, online courses, and home programmes you can start
               today.

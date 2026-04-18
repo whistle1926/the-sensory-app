@@ -11,7 +11,7 @@ async function main() {
     update: {},
     create: {
       email: "patrick@thesensorysubmarine.com",
-      name: "Patrick Farren",
+      name: "Grace Magennis",
       passwordHash,
       role: "SUPER_ADMIN",
       business: "SENSORY_SUBMARINE",
