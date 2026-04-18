@@ -3,6 +3,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { ImpersonationBanner } from "@/components/impersonate/impersonation-banner";
 import { AccountMenu } from "@/components/account/account-menu";
+import { PortalNav } from "@/components/portal/portal-nav";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   let session;
@@ -51,31 +52,12 @@ export default async function PortalLayout({ children }: { children: React.React
             <span className="hidden text-base font-bold tracking-tight sm:inline">The Sensory Submarine</span>
           </Link>
 
-          <nav className="flex items-center gap-1">
-            <Link
-              href="/portal/bookings"
-              className="rounded-lg px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-foreground"
-            >
-              My Bookings
-            </Link>
-            <Link
-              href="/portal/training"
-              className="rounded-lg px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-foreground"
-            >
-              Training
-            </Link>
-            {/* Feedback tab hidden for now — re-enable once the therapist-
-                shared-task flow is ready for clients to actually use. */}
-            <Link
-              href="/book"
-              className="rounded-lg px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-foreground"
-            >
-              Book
-            </Link>
-            <div className="ml-2">
+          <div className="flex items-center gap-2">
+            <PortalNav />
+            <div className="ml-1">
               <AccountMenu />
             </div>
-          </nav>
+          </div>
         </div>
       </header>
 

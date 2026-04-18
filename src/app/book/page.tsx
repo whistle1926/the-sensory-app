@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -128,6 +130,8 @@ type Step = "service" | "datetime" | "details" | "confirmed";
 
 export default function BookingPage() {
   const today = useMemo(() => new Date(), []);
+  const { data: session } = useSession();
+  const isClient = session?.user?.role === "CLIENT";
 
   const [step, setStep] = useState<Step>("service");
   const [selectedService, setSelectedService] = useState<string | null>(null);
@@ -258,9 +262,20 @@ export default function BookingPage() {
               The Sensory Submarine
             </span>
           </div>
-          <span className="hidden text-sm text-muted-foreground sm:inline">
-            Occupational Therapy
-          </span>
+          <div className="flex items-center gap-4">
+            {isClient && (
+              <Link
+                href="/portal"
+                className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Back to portal
+              </Link>
+            )}
+            <span className="hidden text-sm text-muted-foreground sm:inline">
+              Occupational Therapy
+            </span>
+          </div>
         </div>
       </header>
 
