@@ -84,7 +84,12 @@ export const authConfig: NextAuthConfig = {
 
       const isLoginPage = pathname === "/login" || pathname === "/admin/login";
       const isApiAuth = pathname.startsWith("/api/auth");
-      const isPublic = PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
+      // Home page is public (marketing landing with course shelf). Signed-in
+      // users get a server-side redirect to their actual home — we just need
+      // to let the request through the middleware.
+      const isHome = pathname === "/";
+      const isPublic =
+        isHome || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
       const isPortal = pathname === "/portal" || pathname.startsWith("/portal/") || pathname.startsWith("/api/portal");
       const isAdminArea = ADMIN_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
