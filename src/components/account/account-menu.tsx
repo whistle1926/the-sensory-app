@@ -7,7 +7,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -52,14 +51,12 @@ export function AccountMenu() {
         {initials}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-56">
-        <DropdownMenuLabel>
-          <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-semibold text-foreground">{name}</span>
-            <span className="text-xs font-normal text-muted-foreground truncate">
-              {user.email}
-            </span>
-          </div>
-        </DropdownMenuLabel>
+        <div className="px-2 py-2">
+          <p className="text-sm font-semibold text-foreground">{name}</p>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+            {user.email}
+          </p>
+        </div>
         <DropdownMenuSeparator />
 
         {isClient && (
