@@ -17,6 +17,7 @@ import {
 } from "@/components/tasks/comment-thread";
 import { RichTextView } from "@/components/ui/rich-text-view";
 import type { TaskPriority, TaskStatus } from "@/lib/tasks";
+import { Panel } from "@/components/ds";
 
 interface Task {
   id: string;
@@ -85,17 +86,18 @@ export default function FeedbackDetailPage({
     <div className="space-y-6">
       <Link
         href="/portal/feedback"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        className="ds-link inline-flex items-center"
+        style={{ fontWeight: 500 }}
       >
-        <ArrowLeft className="h-4 w-4" /> Back to feedback
+        <ArrowLeft className="mr-1 h-3.5 w-3.5" /> Back to feedback
       </Link>
 
-      <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
+      <Panel padded>
         <div className="flex flex-wrap items-center gap-2">
           <h1
             className={cn(
               "text-xl font-bold tracking-tight",
-              task.status === "done" && "line-through text-muted-foreground"
+              task.status === "done" && "line-through text-muted-foreground",
             )}
           >
             {task.title}
@@ -118,22 +120,23 @@ export default function FeedbackDetailPage({
           )}
           <span>Shared by {task.createdBy.name}</span>
         </div>
-      </div>
+      </Panel>
 
-      <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
-        <h2 className="flex items-center gap-1.5 text-sm font-semibold">
-          <MessageCircle className="h-4 w-4" /> Comments{" "}
-          {task.comments.length > 0 && (
-            <span className="text-xs font-normal text-muted-foreground">
-              ({task.comments.length})
-            </span>
-          )}
-        </h2>
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          Use this space to share feedback or request changes.
-        </p>
-
-        <div className="mt-4 space-y-4">
+      <Panel
+        title={
+          <span className="inline-flex items-center gap-1.5">
+            <MessageCircle className="h-4 w-4 text-primary" /> Comments
+            {task.comments.length > 0 && (
+              <span className="text-xs font-normal text-muted-foreground">
+                ({task.comments.length})
+              </span>
+            )}
+          </span>
+        }
+        subtitle="Use this space to share feedback or request changes."
+        padded
+      >
+        <div className="space-y-4">
           <CommentList
             comments={task.comments}
             otherRoleLabel="Therapist"
@@ -145,7 +148,7 @@ export default function FeedbackDetailPage({
             placeholder="Write a comment or request a change…"
           />
         </div>
-      </div>
+      </Panel>
     </div>
   );
 }

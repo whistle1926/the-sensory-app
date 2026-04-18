@@ -2,15 +2,27 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import { canAccessClient } from "@/lib/auth-guard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { FileText, Plus, CheckCircle2, AlertCircle, GraduationCap } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  FileText,
+  GraduationCap,
+  Plus,
+} from "lucide-react";
 import Link from "next/link";
 import { ClientProfileEditor } from "@/components/clients/client-profile-editor";
 import { ViewAsButton } from "@/components/impersonate/view-as-button";
 import { ProgressNotesSection } from "@/components/clients/progress-notes-section";
 import { GoalsSection } from "@/components/clients/goals-section";
+import { Toolbar, Panel, Chip, Empty } from "@/components/ds";
 
+/**
+ * Client detail — admin view.
+ *
+ * Toolbar header with back-link + primary CTA. Everything below sits inside
+ * Panels so the visual language matches the rest of the admin surface.
+ */
 export default async function ClientDetailPage({
   params,
 }: {
@@ -48,7 +60,8 @@ export default async function ClientDetailPage({
   });
 
   if (!client) notFound();
-  if (!canAccessClient(session.user.role, session.user.id, client)) redirect("/dashboard");
+  if (!canAccessClient(session.user.role, session.user.id, client))
+    redirect("/dashboard");
 
   const adminCanEdit = session.user.role !== "CLIENT";
   const isSuperAdmin = session.user.role === "SUPER_ADMIN";
@@ -57,25 +70,32 @@ export default async function ClientDetailPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">
-            {client.firstName} {client.lastName}
-          </h1>
-          <p className="text-muted-foreground">
-            DOB: {new Date(client.dateOfBirth).toLocaleDateString("en-GB")}
-          </p>
-        </div>
-        {adminCanEdit && (
-          <Link
-            href={`/reports/new?clientId=${client.id}`}
-            className="inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-medium h-8 gap-1.5 px-2.5 hover:bg-primary/80 transition-colors"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            New Report
-          </Link>
-        )}
-      </div>
+      <Link
+        href="/clients"
+        className="ds-link inline-flex items-center"
+        style={{ fontWeight: 500 }}
+      >
+        <ArrowLeft className="mr-1 h-3.5 w-3.5" />
+        Back to clients
+      </Link>
+
+      <Toolbar
+        title={`${client.firstName} ${client.lastName}`}
+        subtitle={`DOB ${new Date(client.dateOfBirth).toLocaleDateString("en-GB")}${
+          client.diagnosis ? ` · ${client.diagnosis}` : ""
+        }`}
+        actions={
+          adminCanEdit && (
+            <Link
+              href={`/reports/new?clientId=${client.id}`}
+              className="inline-flex items-center rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/80"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              New Report
+            </Link>
+          )
+        }
+      />
 
       <div className="grid gap-4 lg:grid-cols-2">
         {adminCanEdit ? (
@@ -94,19 +114,18 @@ export default async function ClientDetailPage({
             }}
           />
         ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Client Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
+          <Panel title="Client information" padded>
+            <div className="space-y-2 text-sm">
               {client.diagnosis && (
                 <div>
-                  <span className="font-medium">Diagnosis:</span> {client.diagnosis}
+                  <span className="font-medium">Diagnosis:</span>{" "}
+                  {client.diagnosis}
                 </div>
               )}
               {client.presentingConcerns && (
                 <div>
-                  <span className="font-medium">Presenting Concerns:</span> {client.presentingConcerns}
+                  <span className="font-medium">Presenting Concerns:</span>{" "}
+                  {client.presentingConcerns}
                 </div>
               )}
               {client.referrer && (
@@ -114,109 +133,111 @@ export default async function ClientDetailPage({
                   <span className="font-medium">Referrer:</span> {client.referrer}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </Panel>
         )}
 
         {adminCanEdit && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Parent account</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm">
-              {parent ? (
-                <>
-                  <div className="space-y-2">
-                    <div>
-                      <span className="font-medium">Name:</span> {parent.name}
-                    </div>
-                    <div>
-                      <span className="font-medium">Email:</span>{" "}
-                      <a href={`mailto:${parent.email}`} className="text-primary hover:underline">
-                        {parent.email}
-                      </a>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {hasPendingSetup ? (
-                        <>
-                          <AlertCircle className="h-4 w-4 text-amber-600" />
-                          <span className="text-amber-700 dark:text-amber-400">
-                            Password setup link pending
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="h-4 w-4 text-green-600" />
-                          <span className="text-green-700 dark:text-green-400">Password set · can log in</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {isSuperAdmin && (
-                    <div className="border-t border-border pt-4">
-                      <p className="mb-2 text-xs text-muted-foreground">
-                        Preview what the parent sees when they log in.
-                      </p>
-                      <ViewAsButton
-                        targetUserId={parent.id}
-                        targetLabel={parent.name.split(" ")[0] || "parent"}
-                      />
-                    </div>
-                  )}
-                </>
-              ) : (
+          <Panel title="Parent account" padded>
+            {parent ? (
+              <div className="space-y-4 text-sm">
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">No parent account linked</span>
+                  <div>
+                    <span className="font-medium">Name:</span> {parent.name}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Add a Parent/Carer email in the client details above to create a linked account automatically.
-                  </p>
+                  <div>
+                    <span className="font-medium">Email:</span>{" "}
+                    <a
+                      href={`mailto:${parent.email}`}
+                      className="text-primary hover:underline"
+                    >
+                      {parent.email}
+                    </a>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {hasPendingSetup ? (
+                      <>
+                        <AlertCircle className="h-4 w-4 text-amber-600" />
+                        <span className="text-amber-700 dark:text-amber-400">
+                          Password setup link pending
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                        <span className="text-green-700 dark:text-green-400">
+                          Password set · can log in
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+
+                {isSuperAdmin && (
+                  <div className="border-t border-border pt-4">
+                    <p className="mb-2 text-xs text-muted-foreground">
+                      Preview what the parent sees when they log in.
+                    </p>
+                    <ViewAsButton
+                      targetUserId={parent.id}
+                      targetLabel={parent.name.split(" ")[0] || "parent"}
+                    />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">
+                    No parent account linked
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Add a Parent/Carer email in the client details above to create
+                  a linked account automatically.
+                </p>
+              </div>
+            )}
+          </Panel>
         )}
       </div>
 
       {adminCanEdit && parent && parent.enrollments.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
+        <Panel
+          title={
+            <span className="inline-flex items-center gap-2">
               <GraduationCap className="h-4 w-4 text-primary" />
               Training
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+            </span>
+          }
+          subtitle={`${parent.enrollments.length} enrolment${parent.enrollments.length === 1 ? "" : "s"}`}
+        >
+          <div className="divide-y divide-border">
             {parent.enrollments.map((enrol) => {
               const total = enrol.moduleProgress.length;
               const done = enrol.moduleProgress.filter(
-                (p) => p.status === "COMPLETED"
+                (p) => p.status === "COMPLETED",
               ).length;
               const pct = total > 0 ? Math.round((done / total) * 100) : 0;
               const isComplete = enrol.status === "COMPLETED";
-              const enrolledOn = new Date(enrol.enrolledAt).toLocaleDateString("en-GB");
+              const enrolledOn = new Date(enrol.enrolledAt).toLocaleDateString(
+                "en-GB",
+              );
               return (
-                <div
-                  key={enrol.id}
-                  className="rounded-xl border border-border p-4"
-                >
+                <div key={enrol.id} className="px-5 py-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold">
                         {enrol.course.title}
                       </p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        Enrolled {enrolledOn}
-                        {" · "}
-                        {done} of {total} modules complete
+                        Enrolled {enrolledOn} · {done} of {total} modules complete
                       </p>
                     </div>
-                    <Badge variant={isComplete ? "default" : "secondary"}>
+                    <Chip tone={isComplete ? "success" : "info"}>
                       {isComplete ? "Completed" : "In progress"}
-                    </Badge>
+                    </Chip>
                   </div>
                   <div className="mt-3 flex items-center gap-3">
                     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
@@ -225,7 +246,7 @@ export default async function ClientDetailPage({
                         style={{ width: `${pct}%` }}
                       />
                     </div>
-                    <span className="text-[11px] font-medium text-muted-foreground">
+                    <span className="text-[11px] font-medium text-muted-foreground ds-tabular">
                       {pct}%
                     </span>
                   </div>
@@ -242,43 +263,43 @@ export default async function ClientDetailPage({
                 </div>
               );
             })}
-          </CardContent>
-        </Card>
+          </div>
+        </Panel>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Reports</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {client.reports.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No reports yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {client.reports.map((report) => (
-                <Link
-                  key={report.id}
-                  href={`/reports/${report.id}`}
-                  className="flex items-center justify-between rounded-md border p-3 transition-colors hover:bg-muted"
-                >
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-5 w-5 text-muted-foreground/60" />
-                    <div>
-                      <p className="font-medium">Session {report.session.sessionNumber}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {new Date(report.reportDate).toLocaleDateString("en-GB")}
-                      </p>
-                    </div>
+      <Panel
+        title="Reports"
+        subtitle={`${client.reports.length} report${client.reports.length === 1 ? "" : "s"} on file`}
+      >
+        {client.reports.length === 0 ? (
+          <Empty>No reports yet.</Empty>
+        ) : (
+          <div className="divide-y divide-border">
+            {client.reports.map((report) => (
+              <Link
+                key={report.id}
+                href={`/reports/${report.id}`}
+                className="flex items-center justify-between px-5 py-4 transition-colors hover:bg-muted/20"
+              >
+                <div className="flex items-center gap-3">
+                  <FileText className="h-5 w-5 text-muted-foreground/60" />
+                  <div>
+                    <p className="font-medium">
+                      Session {report.session.sessionNumber}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {new Date(report.reportDate).toLocaleDateString("en-GB")}
+                    </p>
                   </div>
-                  <Badge variant={report.status === "final" ? "default" : "secondary"}>
-                    {report.status}
-                  </Badge>
-                </Link>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                </div>
+                <Chip tone={report.status === "final" ? "success" : "warn"}>
+                  {report.status}
+                </Chip>
+              </Link>
+            ))}
+          </div>
+        )}
+      </Panel>
 
       <ProgressNotesSection clientId={client.id} />
 

@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { ReportViewer } from "@/components/reports/report-viewer";
 import { ReportActions } from "@/components/reports/report-actions";
 import { ReportContent } from "@/types/report";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import Link from "next/link";
+import { Toolbar, Chip, Panel } from "@/components/ds";
 
 interface ReportData {
   id: string;
@@ -28,7 +29,9 @@ export default function ReportDetailPage() {
   const [report, setReport] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const isAdmin = session?.user?.role === "SUPER_ADMIN" || session?.user?.role === "TEAM_MANAGER";
+  const isAdmin =
+    session?.user?.role === "SUPER_ADMIN" ||
+    session?.user?.role === "TEAM_MANAGER";
 
   useEffect(() => {
     fetch(`/api/reports/${reportId}`)
@@ -49,29 +52,48 @@ export default function ReportDetailPage() {
   }
 
   if (!report) {
-    return <p>Report not found.</p>;
+    return (
+      <Panel>
+        <p className="p-10 text-center text-sm text-muted-foreground">
+          Report not found.
+        </p>
+      </Panel>
+    );
   }
+
+  const status = (report.status || "draft").toLowerCase();
+  const tone = status === "final" ? "success" : "warn";
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between print:hidden">
-        <div className="flex items-center gap-3">
-          <Link href="/reports" className="text-sm text-muted-foreground hover:text-muted-foreground">
-            Reports
-          </Link>
-          <span className="text-border">/</span>
-          <h1 className="text-lg font-semibold">
-            {report.client.firstName} {report.client.lastName}
-          </h1>
-          <Badge variant={report.status === "final" ? "default" : "secondary"}>
-            {report.status}
-          </Badge>
-        </div>
-        <ReportActions
-          reportId={report.id}
-          status={report.status}
-          onStatusChange={(s) => setReport({ ...report, status: s })}
-          showEmail={isAdmin}
+      <div className="print:hidden">
+        <Link
+          href="/reports"
+          className="ds-link inline-flex items-center"
+          style={{ fontWeight: 500 }}
+        >
+          <ArrowLeft className="mr-1 h-3.5 w-3.5" />
+          Back to reports
+        </Link>
+      </div>
+
+      <div className="print:hidden">
+        <Toolbar
+          title={`${report.client.firstName} ${report.client.lastName}`}
+          subtitle={`Report dated ${new Date(report.reportDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`}
+          actions={
+            <div className="flex items-center gap-3">
+              <Chip tone={tone}>
+                {status[0].toUpperCase() + status.slice(1)}
+              </Chip>
+              <ReportActions
+                reportId={report.id}
+                status={report.status}
+                onStatusChange={(s) => setReport({ ...report, status: s })}
+                showEmail={isAdmin}
+              />
+            </div>
+          }
         />
       </div>
 

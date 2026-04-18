@@ -12,6 +12,7 @@ import {
   Quote,
   BadgeCheck,
 } from "lucide-react";
+import { Chip } from "@/components/ds";
 
 export const dynamic = "force-dynamic";
 
@@ -74,9 +75,7 @@ export default async function CourseDetailPage({
                 </>
               )}
               {course.isBestseller && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white">
-                  Bestseller
-                </span>
+                <Chip tone="warn">Bestseller</Chip>
               )}
             </div>
             <h1 className="mt-3 text-4xl font-black tracking-tight sm:text-5xl">
