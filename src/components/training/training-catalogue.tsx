@@ -8,13 +8,16 @@ import {
   CheckCircle2,
   Clock,
   GraduationCap,
+  Info,
   Play,
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CourseInfoDialog } from "./course-info-dialog";
 
 interface Course {
   id: string;
+  slug: string;
   title: string;
   audience: string;
   duration: string;
@@ -51,6 +54,11 @@ export function TrainingCatalogue({ courses }: Props) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [errorId, setErrorId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [infoCourseId, setInfoCourseId] = useState<string | null>(null);
+  const infoCourse =
+    infoCourseId != null
+      ? courses.find((c) => c.id === infoCourseId) ?? null
+      : null;
 
   async function handleStart(courseId: string) {
     setBusyId(courseId);
@@ -200,30 +208,50 @@ export function TrainingCatalogue({ courses }: Props) {
               )}
 
               <div className="mt-auto flex flex-wrap items-center gap-2 pt-4">
-                {!isEnrolled && (
-                  <Button
-                    type="button"
-                    onClick={() => handleStart(course.id)}
-                    disabled={busyId === course.id}
-                    className="w-full"
-                  >
-                    <GraduationCap className="mr-1.5 h-4 w-4" />
-                    {busyId === course.id
-                      ? "Starting…"
-                      : isFree
-                        ? "Start course"
-                        : `Buy · ${gbp.format(course.price)}`}
-                  </Button>
-                )}
-                {isEnrolled && !isCompleted && (
-                  <Link
-                    href={`/portal/training/${course.id}`}
-                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:brightness-110"
-                  >
-                    <Play className="h-4 w-4" /> Continue
-                  </Link>
-                )}
-                {isCompleted && (
+                {!isEnrolled ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setInfoCourseId(course.id)}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+                      title="See what's inside"
+                    >
+                      <Info className="h-3.5 w-3.5" />
+                      Info
+                    </button>
+                    <Button
+                      type="button"
+                      onClick={() => handleStart(course.id)}
+                      disabled={busyId === course.id}
+                      className="flex-1"
+                    >
+                      <GraduationCap className="mr-1.5 h-4 w-4" />
+                      {busyId === course.id
+                        ? "Starting…"
+                        : isFree
+                          ? "Start course"
+                          : `Buy · ${gbp.format(course.price)}`}
+                    </Button>
+                  </>
+                ) : !isCompleted ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setInfoCourseId(course.id)}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+                      title="Course info"
+                    >
+                      <Info className="h-3.5 w-3.5" />
+                      Info
+                    </button>
+                    <Link
+                      href={`/portal/training/${course.id}`}
+                      className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:brightness-110"
+                    >
+                      <Play className="h-4 w-4" /> Continue
+                    </Link>
+                  </>
+                ) : (
                   <>
                     <Link
                       href={`/portal/training/${course.id}`}
@@ -248,6 +276,42 @@ export function TrainingCatalogue({ courses }: Props) {
           </div>
         );
       })}
+
+      {/* Info modal — only one is rendered at a time. Course is pulled out
+          of the list so the dialog can call back into handleStart with the
+          right id. */}
+      {infoCourse && (
+        <CourseInfoDialog
+          open={!!infoCourse}
+          onOpenChange={(open) => {
+            if (!open) setInfoCourseId(null);
+          }}
+          slug={infoCourse.slug}
+          primaryAction={(() => {
+            if (infoCourse.enrollmentStatus === "COMPLETED") {
+              return {
+                label: "Review course",
+                href: `/portal/training/${infoCourse.id}`,
+              };
+            }
+            if (infoCourse.enrollmentStatus === "IN_PROGRESS") {
+              return {
+                label: "Continue",
+                href: `/portal/training/${infoCourse.id}`,
+              };
+            }
+            return {
+              label: busyId === infoCourse.id
+                ? "Starting…"
+                : infoCourse.price === 0
+                  ? "Start course"
+                  : `Buy · ${gbp.format(infoCourse.price)}`,
+              onClick: () => handleStart(infoCourse.id),
+              loading: busyId === infoCourse.id,
+            };
+          })()}
+        />
+      )}
     </div>
   );
 }

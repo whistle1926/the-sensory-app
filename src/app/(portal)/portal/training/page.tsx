@@ -55,6 +55,7 @@ export default async function PortalTrainingPage() {
       : 0;
     return {
       id: course.id,
+      slug: course.slug,
       title: course.title,
       audience: course.audience,
       duration: course.duration,
