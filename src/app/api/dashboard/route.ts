@@ -70,17 +70,35 @@ export async function GET() {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
+    // ── Consolidated count query ───────────────────────────────────────
+    // Seven tiny COUNT(*) queries become one raw SQL round-trip using
+    // FILTER clauses. Saves 6 pgBouncer pool checkouts on every cold
+    // dashboard load.
+    type CountsRow = {
+      active_clients: bigint;
+      clients_created_30: bigint;
+      clients_created_prev_30: bigint;
+      reports_this_month: bigint;
+      reports_prev_month: bigint;
+      bookings_this_week: bigint;
+      bookings_prev_week: bigint;
+    };
+    const countsPromise = prisma.$queryRaw<CountsRow[]>`
+      SELECT
+        (SELECT COUNT(*) FROM "Client" WHERE active = true) AS active_clients,
+        (SELECT COUNT(*) FROM "Client" WHERE active = true AND "createdAt" >= ${start30}) AS clients_created_30,
+        (SELECT COUNT(*) FROM "Client" WHERE active = true AND "createdAt" >= ${startPrev30} AND "createdAt" < ${start30}) AS clients_created_prev_30,
+        (SELECT COUNT(*) FROM "Report" WHERE "createdAt" >= ${monthStart}) AS reports_this_month,
+        (SELECT COUNT(*) FROM "Report" WHERE "createdAt" >= ${prevMonthStart} AND "createdAt" < ${monthStart}) AS reports_prev_month,
+        (SELECT COUNT(*) FROM "Booking" WHERE "date" >= ${weekStart} AND "date" < ${weekEnd}) AS bookings_this_week,
+        (SELECT COUNT(*) FROM "Booking" WHERE "date" >= ${prevWeekStart} AND "date" < ${weekStart}) AS bookings_prev_week
+    `;
+
     // ── Parallel data fetches ──────────────────────────────────────────
     const [
-      activeClientCount,
-      clientsCreated30,
-      clientsCreatedPrev30,
+      counts,
       clientSignups14,
-      reportsThisMonth,
-      reportsPrevMonth,
       recentReportsRaw,
-      bookingsThisWeek,
-      bookingsPrevWeek,
       todaysBookings,
       recentReportCounts14,
       stages,
@@ -91,21 +109,10 @@ export async function GET() {
       completedBookingsPrevSince,
       outstandingInvoices,
     ] = await Promise.all([
-      prisma.client.count({ where: { active: true } }),
-      prisma.client.count({ where: { active: true, createdAt: { gte: start30 } } }),
-      prisma.client.count({
-        where: {
-          active: true,
-          createdAt: { gte: startPrev30, lt: start30 },
-        },
-      }),
+      countsPromise,
       prisma.client.findMany({
         where: { createdAt: { gte: start14 } },
         select: { createdAt: true },
-      }),
-      prisma.report.count({ where: { createdAt: { gte: monthStart } } }),
-      prisma.report.count({
-        where: { createdAt: { gte: prevMonthStart, lt: monthStart } },
       }),
       prisma.report.findMany({
         take: 6,
@@ -119,12 +126,6 @@ export async function GET() {
           client: { select: { firstName: true, lastName: true } },
           author: { select: { name: true, email: true } },
         },
-      }),
-      prisma.booking.count({
-        where: { date: { gte: weekStart, lt: weekEnd } },
-      }),
-      prisma.booking.count({
-        where: { date: { gte: prevWeekStart, lt: weekStart } },
       }),
       prisma.booking.findMany({
         where: {
@@ -158,7 +159,6 @@ export async function GET() {
         where: { paidAt: { gte: start14 } },
         select: { paidAt: true, total: true, currency: true },
       }),
-      // Previous 14-day window, for revenue delta
       prisma.invoice.findMany({
         where: {
           paidAt: {
@@ -185,9 +185,6 @@ export async function GET() {
         },
         select: { price: true },
       }),
-      // Outstanding invoices (sent / overdue / draft with a due date in
-      // the current month). Folded into the main parallel batch so we
-      // don't add a serial round-trip at the end of the handler.
       prisma.invoice.aggregate({
         where: {
           status: { in: ["sent", "overdue", "draft"] },
@@ -196,6 +193,16 @@ export async function GET() {
         _sum: { total: true },
       }),
     ]);
+
+    // Unpack counts from the raw query result (bigint → number)
+    const row = counts[0];
+    const activeClientCount = Number(row?.active_clients ?? 0);
+    const clientsCreated30 = Number(row?.clients_created_30 ?? 0);
+    const clientsCreatedPrev30 = Number(row?.clients_created_prev_30 ?? 0);
+    const reportsThisMonth = Number(row?.reports_this_month ?? 0);
+    const reportsPrevMonth = Number(row?.reports_prev_month ?? 0);
+    const bookingsThisWeek = Number(row?.bookings_this_week ?? 0);
+    const bookingsPrevWeek = Number(row?.bookings_prev_week ?? 0);
 
 
     // ── Build 14-day series helpers ────────────────────────────────────
