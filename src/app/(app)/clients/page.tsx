@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Users, Search } from "lucide-react";
+import { Plus, Search, Users } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { Toolbar, Panel, Chip, Empty } from "@/components/ds";
 
 interface Stage {
   id: string;
@@ -27,6 +28,13 @@ interface Client {
   createdAt: string;
 }
 
+/**
+ * Clients list — admin view.
+ *
+ * Toolbar + Panel layout, ds-table for the list itself. Stage pills stay
+ * above the panel (one pill per stage shows counts at a glance; a Seg
+ * doesn't scale past 4-5 options).
+ */
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
@@ -47,20 +55,16 @@ export default function ClientsPage() {
 
   const sortedStages = useMemo(
     () => [...stages].sort((a, b) => a.order - b.order),
-    [stages]
+    [stages],
   );
 
   const filtered = useMemo(() => {
     let list = clients;
-
-    // Stage filter
     if (stageFilter === "_uncategorised") {
       list = list.filter((c) => !c.stageId);
     } else if (stageFilter !== "all") {
       list = list.filter((c) => c.stageId === stageFilter);
     }
-
-    // Search
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter((c) => {
@@ -68,17 +72,21 @@ export default function ClientsPage() {
         const diag = (c.diagnosis || "").toLowerCase();
         const parent = (c.parentCarerName || "").toLowerCase();
         const email = (c.parentCarerEmail || "").toLowerCase();
-        return full.includes(q) || diag.includes(q) || parent.includes(q) || email.includes(q);
+        return (
+          full.includes(q) ||
+          diag.includes(q) ||
+          parent.includes(q) ||
+          email.includes(q)
+        );
       });
     }
-
-    // Sort alphabetically
     return list.sort((a, b) =>
-      `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`)
+      `${a.firstName} ${a.lastName}`.localeCompare(
+        `${b.firstName} ${b.lastName}`,
+      ),
     );
   }, [clients, stageFilter, search]);
 
-  // Stage counts for filter pills
   const stageCounts = useMemo(() => {
     const counts: Record<string, number> = { all: clients.length, _uncategorised: 0 };
     for (const s of stages) counts[s.id] = 0;
@@ -100,11 +108,11 @@ export default function ClientsPage() {
               ...c,
               stageId,
               stage: stageId
-                ? stages.find((s) => s.id === stageId) ?? null
+                ? (stages.find((s) => s.id === stageId) ?? null)
                 : null,
             }
-          : c
-      )
+          : c,
+      ),
     );
     await fetch(`/api/clients/${clientId}`, {
       method: "PATCH",
@@ -113,48 +121,96 @@ export default function ClientsPage() {
     });
   }
 
+  /** Pill filter: one pill per stage, shows count. Active pill uses primary. */
+  const StagePill = ({
+    value,
+    label,
+    dotColour,
+    count,
+  }: {
+    value: string;
+    label: string;
+    dotColour?: string;
+    count: number;
+  }) => {
+    const isActive = stageFilter === value;
+    return (
+      <button
+        type="button"
+        onClick={() => setStageFilter(value)}
+        className={cn(
+          "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition-all",
+          isActive
+            ? "bg-primary text-primary-foreground shadow-[var(--shadow-xs)]"
+            : "border border-border bg-card text-foreground hover:border-primary/40 hover:bg-muted",
+        )}
+      >
+        {dotColour && (
+          <span
+            className="h-2 w-2 rounded-full"
+            style={{ backgroundColor: dotColour }}
+          />
+        )}
+        {label}
+        <span
+          className={cn(
+            "rounded-full px-1.5 py-0 text-[11px] font-bold tabular-nums",
+            isActive ? "bg-white/25" : "bg-muted",
+          )}
+        >
+          {count}
+        </span>
+      </button>
+    );
+  };
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Clients</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {clients.length} {clients.length === 1 ? "client" : "clients"}
-          </p>
-        </div>
-        <Link
-          href="/clients/new"
-          className={buttonVariants({ className: "rounded-xl" })}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Add Client
-        </Link>
-      </div>
-
-      {loading ? (
-        <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground shadow-[var(--shadow-sm)]">
-          Loading clients…
-        </div>
-      ) : clients.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-[var(--shadow-sm)]">
-          <Users className="mx-auto h-8 w-8 text-muted-foreground/50" />
-          <p className="mt-3 text-sm font-semibold">No clients yet</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Add your first client to get started.
-          </p>
+      <Toolbar
+        title="Clients"
+        subtitle={
+          loading
+            ? "Loading…"
+            : `${clients.length} ${clients.length === 1 ? "client" : "clients"}`
+        }
+        actions={
           <Link
             href="/clients/new"
-            className={buttonVariants({ className: "mt-4 rounded-xl" })}
+            className={buttonVariants({ className: "rounded-xl" })}
           >
+            <Plus className="mr-2 h-4 w-4" />
             Add Client
           </Link>
-        </div>
+        }
+      />
+
+      {loading ? (
+        <Panel>
+          <Empty>Loading clients…</Empty>
+        </Panel>
+      ) : clients.length === 0 ? (
+        <Panel>
+          <div className="ds-empty">
+            <Users
+              className="mx-auto h-8 w-8"
+              style={{ color: "var(--muted-foreground)", opacity: 0.5 }}
+            />
+            <p style={{ marginTop: 10, fontWeight: 600 }}>No clients yet</p>
+            <p style={{ marginTop: 4, fontSize: 12 }}>
+              Add your first client to get started.
+            </p>
+            <Link
+              href="/clients/new"
+              className={buttonVariants({ className: "mt-4 rounded-xl" })}
+            >
+              Add Client
+            </Link>
+          </div>
+        </Panel>
       ) : (
         <>
-          {/* Search + Filters */}
+          {/* Search + stage pill row */}
           <div className="space-y-3">
-            {/* Search bar */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -165,196 +221,140 @@ export default function ClientsPage() {
                 className="pl-9"
               />
             </div>
-
-            {/* Stage filter pills */}
             <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setStageFilter("all")}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all",
-                  stageFilter === "all"
-                    ? "bg-primary text-primary-foreground shadow-[var(--shadow-sm)]"
-                    : "border border-border bg-card text-foreground hover:border-primary/40 hover:bg-muted"
-                )}
-              >
-                All
-                <span className={cn(
-                  "rounded-full px-2 py-0.5 text-xs font-bold tabular-nums",
-                  stageFilter === "all" ? "bg-white/25" : "bg-muted"
-                )}>
-                  {stageCounts.all}
-                </span>
-              </button>
+              <StagePill value="all" label="All" count={stageCounts.all} />
               {sortedStages.map((s) => (
-                <button
+                <StagePill
                   key={s.id}
-                  type="button"
-                  onClick={() => setStageFilter(s.id)}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all",
-                    stageFilter === s.id
-                      ? "bg-primary text-primary-foreground shadow-[var(--shadow-sm)]"
-                      : "border border-border bg-card text-foreground hover:border-primary/40 hover:bg-muted"
-                  )}
-                >
-                  <span
-                    className="h-2.5 w-2.5 rounded-full ring-2 ring-background"
-                    style={{ backgroundColor: s.colour }}
-                  />
-                  {s.label}
-                  <span className={cn(
-                    "rounded-full px-2 py-0.5 text-xs font-bold tabular-nums",
-                    stageFilter === s.id ? "bg-white/25" : "bg-muted"
-                  )}>
-                    {stageCounts[s.id] || 0}
-                  </span>
-                </button>
+                  value={s.id}
+                  label={s.label}
+                  dotColour={s.colour}
+                  count={stageCounts[s.id] || 0}
+                />
               ))}
               {stageCounts._uncategorised > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setStageFilter("_uncategorised")}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all",
-                    stageFilter === "_uncategorised"
-                      ? "bg-primary text-primary-foreground shadow-[var(--shadow-sm)]"
-                      : "border border-border bg-card text-foreground hover:border-primary/40 hover:bg-muted"
-                  )}
-                >
-                  Uncategorised
-                  <span className={cn(
-                    "rounded-full px-2 py-0.5 text-xs font-bold tabular-nums",
-                    stageFilter === "_uncategorised" ? "bg-white/25" : "bg-muted"
-                  )}>
-                    {stageCounts._uncategorised}
-                  </span>
-                </button>
+                <StagePill
+                  value="_uncategorised"
+                  label="Uncategorised"
+                  count={stageCounts._uncategorised}
+                />
               )}
             </div>
           </div>
 
-          {/* Client list */}
-          {filtered.length === 0 ? (
-            <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-[var(--shadow-sm)]">
-              <Search className="mx-auto h-8 w-8 text-muted-foreground/50" />
-              <p className="mt-3 text-sm font-semibold">No clients found</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Try adjusting your search or filter.
-              </p>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-sm)] overflow-hidden">
-              {/* Desktop table */}
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/30">
-                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Name
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Diagnosis
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        DOB
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Parent / Carer
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Stage
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {filtered.map((c) => (
-                      <tr
-                        key={c.id}
-                        className="transition-colors hover:bg-muted/30"
-                      >
-                        <td className="px-5 py-3">
-                          <Link
-                            href={`/clients/${c.id}`}
-                            className="font-semibold text-foreground hover:text-primary transition-colors"
-                          >
-                            {c.firstName} {c.lastName}
-                          </Link>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {c.diagnosis || "—"}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                          {new Date(c.dateOfBirth).toLocaleDateString("en-GB")}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {c.parentCarerName || "—"}
-                        </td>
-                        <td className="px-4 py-3">
-                          <select
-                            value={c.stageId ?? ""}
-                            onChange={(e) =>
-                              moveClient(c.id, e.target.value || null)
-                            }
-                            className="rounded-lg border border-border bg-background px-2 py-1 text-xs outline-none transition-colors focus:border-primary/50"
-                          >
-                            <option value="">Uncategorised</option>
-                            {sortedStages.map((s) => (
-                              <option key={s.id} value={s.id}>
-                                {s.label}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
+          <Panel
+            footer={
+              <span>
+                Showing {filtered.length} of {clients.length}
+              </span>
+            }
+          >
+            {filtered.length === 0 ? (
+              <div className="ds-empty">
+                <Search
+                  className="mx-auto h-7 w-7"
+                  style={{ color: "var(--muted-foreground)", opacity: 0.5 }}
+                />
+                <p style={{ marginTop: 10, fontWeight: 600 }}>
+                  No clients found
+                </p>
+                <p style={{ marginTop: 4, fontSize: 12 }}>
+                  Try adjusting your search or filter.
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Desktop table */}
+                <div className="hidden sm:block">
+                  <table className="ds-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Diagnosis</th>
+                        <th>DOB</th>
+                        <th>Parent / Carer</th>
+                        <th>Stage</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {filtered.map((c) => (
+                        <tr
+                          key={c.id}
+                          onClick={(e) => {
+                            // Ignore clicks on the stage dropdown
+                            if ((e.target as HTMLElement).closest("select")) return;
+                            window.location.href = `/clients/${c.id}`;
+                          }}
+                        >
+                          <td style={{ fontWeight: 600 }}>
+                            {c.firstName} {c.lastName}
+                          </td>
+                          <td style={{ color: "var(--muted-foreground)" }}>
+                            {c.diagnosis || "—"}
+                          </td>
+                          <td
+                            className="ds-tabular"
+                            style={{
+                              color: "var(--muted-foreground)",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {new Date(c.dateOfBirth).toLocaleDateString("en-GB")}
+                          </td>
+                          <td style={{ color: "var(--muted-foreground)" }}>
+                            {c.parentCarerName || "—"}
+                          </td>
+                          <td>
+                            <select
+                              value={c.stageId ?? ""}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) =>
+                                moveClient(c.id, e.target.value || null)
+                              }
+                              className="rounded-lg border border-border bg-background px-2 py-1 text-xs outline-none transition-colors focus:border-primary/50"
+                            >
+                              <option value="">Uncategorised</option>
+                              {sortedStages.map((s) => (
+                                <option key={s.id} value={s.id}>
+                                  {s.label}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-              {/* Mobile cards */}
-              <div className="sm:hidden divide-y divide-border">
-                {filtered.map((c) => {
-                  const stageLabel = c.stage?.label || "Uncategorised";
-                  const stageColour = c.stage?.colour || "#9CA3AF";
-                  return (
-                    <Link
-                      key={c.id}
-                      href={`/clients/${c.id}`}
-                      className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-muted/30"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-foreground">
-                          {c.firstName} {c.lastName}
-                        </p>
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                          {c.diagnosis || "No diagnosis"} · DOB{" "}
-                          {new Date(c.dateOfBirth).toLocaleDateString("en-GB")}
-                        </p>
-                      </div>
-                      <span
-                        className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold"
-                        style={{
-                          backgroundColor: `${stageColour}18`,
-                          color: stageColour,
-                        }}
+                {/* Mobile cards */}
+                <div className="sm:hidden divide-y divide-border">
+                  {filtered.map((c) => {
+                    const stageLabel = c.stage?.label || "Uncategorised";
+                    const tone = c.stage ? "primary" : "neutral";
+                    return (
+                      <Link
+                        key={c.id}
+                        href={`/clients/${c.id}`}
+                        className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-muted/30"
                       >
-                        <span
-                          className="h-1.5 w-1.5 rounded-full"
-                          style={{ backgroundColor: stageColour }}
-                        />
-                        {stageLabel}
-                      </span>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <p className="text-xs text-muted-foreground">
-            Showing {filtered.length} of {clients.length} clients
-          </p>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-foreground">
+                            {c.firstName} {c.lastName}
+                          </p>
+                          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                            {c.diagnosis || "No diagnosis"} · DOB{" "}
+                            {new Date(c.dateOfBirth).toLocaleDateString("en-GB")}
+                          </p>
+                        </div>
+                        <Chip tone={tone}>{stageLabel}</Chip>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </Panel>
         </>
       )}
     </div>

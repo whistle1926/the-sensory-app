@@ -1,62 +1,50 @@
 /* =========================================================================
- * Dashboard V1 Polished — styles
+ * Design system — shared patterns
  *
- * Visual system lifted from the "Dashboard Redesign" design handoff
- * (V1 Polished). Uses the existing design tokens declared in globals.css
- * — nothing new is introduced, just composition.
+ * Lifted from the Dashboard Redesign handoff (V1 Polished) and generalised
+ * so any admin page can use the same toolbar / panel / chip / segment /
+ * KPI / data-table vocabulary. Built on the existing design tokens in
+ * globals.css — nothing new is introduced here.
  *
- * Scoped under .dash-v1 so nothing here leaks onto other pages.
+ * All class names are prefixed `ds-` to stay out of the way of other
+ * libraries (shadcn, etc.).
  * ========================================================================= */
 
-.dash-v1 .tabular { font-variant-numeric: tabular-nums; }
-
 /* ---------- Toolbar ---------- */
-.dash-v1 .dash-toolbar {
+.ds-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
 }
-.dash-v1 .dash-toolbar .right {
+.ds-toolbar .ds-toolbar-right {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
-.dash-v1 .page-title {
+.ds-page-title {
   font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.01em;
   margin: 0;
 }
-.dash-v1 .page-subtitle {
+.ds-page-sub {
   font-size: 13.5px;
   color: var(--muted-foreground);
   margin: 3px 0 0;
 }
-.dash-v1 .date-range {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--card);
-  font-size: 13px;
-  color: var(--foreground);
-  cursor: pointer;
-  font-family: inherit;
-}
-.dash-v1 .date-range:hover { background: var(--muted); }
-.dash-v1 .seg {
+
+/* ---------- Segmented control ---------- */
+.ds-seg {
   display: inline-flex;
   padding: 3px;
   border-radius: 10px;
   background: var(--muted);
   border: 1px solid var(--border);
 }
-.dash-v1 .seg button {
+.ds-seg button {
   height: 26px;
   padding: 0 10px;
   border: 0;
@@ -68,14 +56,31 @@
   border-radius: 8px;
   cursor: pointer;
 }
-.dash-v1 .seg button.is-active {
+.ds-seg button.is-active {
   background: var(--card);
   color: var(--foreground);
   box-shadow: var(--shadow-xs);
 }
 
+/* ---------- Outline "pill" button (used for date-range, filter) ---------- */
+.ds-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  font-size: 13px;
+  color: var(--foreground);
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: none;
+}
+.ds-pill-btn:hover { background: var(--muted); }
+
 /* ---------- KPI card ---------- */
-.dash-v1 .kpi {
+.ds-kpi {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-2xl);
@@ -86,30 +91,29 @@
   gap: 10px;
   position: relative;
   overflow: hidden;
-  cursor: default;
   transition:
     transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
     box-shadow 200ms,
     border-color 200ms;
 }
-.dash-v1 .kpi:hover {
+.ds-kpi:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-hover);
   border-color: oklch(0.5 0.24 264 / 25%);
 }
-.dash-v1 .kpi-head {
+.ds-kpi-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-.dash-v1 .kpi-label {
+.ds-kpi-label {
   font-size: 12.5px;
   font-weight: 600;
   color: var(--muted-foreground);
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
-.dash-v1 .kpi-icon {
+.ds-kpi-icon {
   width: 32px;
   height: 32px;
   border-radius: 9px;
@@ -119,14 +123,14 @@
   align-items: center;
   justify-content: center;
 }
-.dash-v1 .kpi-value {
+.ds-kpi-value {
   font-size: 30px;
   font-weight: 700;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
-.dash-v1 .kpi-delta {
+.ds-kpi-delta {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -134,29 +138,29 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
-.dash-v1 .kpi-delta.up { color: #15803d; }
-.dash-v1 .kpi-delta.down { color: #b91c1c; }
-.dash-v1 .kpi-delta.flat { color: var(--muted-foreground); }
-.dash-v1 .kpi-foot {
+.ds-kpi-delta.up { color: #15803d; }
+.ds-kpi-delta.down { color: #b91c1c; }
+.ds-kpi-delta.flat { color: var(--muted-foreground); }
+.ds-kpi-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
   font-size: 12px;
   color: var(--muted-foreground);
 }
-.dash-v1 .kpi .spark {
+.ds-kpi .spark {
   display: block;
   width: 100%;
   height: 36px;
 }
-.dash-v1 .kpi.accent {
+.ds-kpi.accent {
   background:
     radial-gradient(120% 80% at 100% 0%, oklch(0.5 0.24 264 / 10%), transparent 60%),
     var(--card);
 }
 
-/* ---------- Panels ---------- */
-.dash-v1 .panel {
+/* ---------- Panels (section card wrapping a list / table / content) ---------- */
+.ds-panel {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-2xl);
@@ -165,7 +169,7 @@
   display: flex;
   flex-direction: column;
 }
-.dash-v1 .panel-head {
+.ds-panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -174,20 +178,20 @@
   gap: 12px;
   flex-wrap: wrap;
 }
-.dash-v1 .panel-title {
+.ds-panel-title {
   font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.01em;
   margin: 0;
 }
-.dash-v1 .panel-sub {
+.ds-panel-sub {
   margin: 2px 0 0;
   font-size: 12.5px;
   color: var(--muted-foreground);
 }
-.dash-v1 .panel-body { padding: 4px 0; flex: 1; }
-.dash-v1 .panel-body.padded { padding: 16px 20px; }
-.dash-v1 .panel-foot {
+.ds-panel-body { padding: 4px 0; flex: 1; min-width: 0; }
+.ds-panel-body.padded { padding: 16px 20px; }
+.ds-panel-foot {
   padding: 10px 16px;
   border-top: 1px solid var(--border);
   display: flex;
@@ -199,7 +203,9 @@
   gap: 10px;
   flex-wrap: wrap;
 }
-.dash-v1 .link-btn {
+
+/* ---------- Text link ---------- */
+.ds-link {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -213,10 +219,10 @@
   padding: 0;
   text-decoration: none;
 }
-.dash-v1 .link-btn:hover { text-decoration: underline; }
+.ds-link:hover { text-decoration: underline; }
 
 /* ---------- Avatar initials ---------- */
-.dash-v1 .av {
+.ds-av {
   width: 32px;
   height: 32px;
   border-radius: 999px;
@@ -229,14 +235,19 @@
   font-weight: 700;
   flex-shrink: 0;
 }
-.dash-v1 .av.sm {
+.ds-av.sm {
   width: 24px;
   height: 24px;
   font-size: 10px;
 }
+.ds-av.lg {
+  width: 40px;
+  height: 40px;
+  font-size: 13px;
+}
 
-/* ---------- Chip ---------- */
-.dash-v1 .chip {
+/* ---------- Chip (status) ---------- */
+.ds-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -245,54 +256,57 @@
   font-size: 11.5px;
   font-weight: 600;
   line-height: 1.4;
+  white-space: nowrap;
 }
-.dash-v1 .chip .dot {
+.ds-chip .ds-dot {
   width: 6px;
   height: 6px;
   border-radius: 999px;
 }
-.dash-v1 .chip-neutral { background: var(--muted); color: var(--muted-foreground); }
-.dash-v1 .chip-neutral .dot { background: #9ca3af; }
-.dash-v1 .chip-primary { background: oklch(0.5 0.24 264 / 10%); color: var(--primary); }
-.dash-v1 .chip-primary .dot { background: var(--primary); }
-.dash-v1 .chip-success { background: #dcfce7; color: #15803d; }
-.dash-v1 .chip-success .dot { background: #22c55e; }
-.dash-v1 .chip-warn { background: #fef3c7; color: #854d0e; }
-.dash-v1 .chip-warn .dot { background: #f59e0b; }
-.dash-v1 .chip-danger { background: oklch(0.577 0.245 27.325 / 10%); color: oklch(0.47 0.22 27); }
-.dash-v1 .chip-danger .dot { background: oklch(0.577 0.245 27.325); }
+.ds-chip-neutral { background: var(--muted); color: var(--muted-foreground); }
+.ds-chip-neutral .ds-dot { background: #9ca3af; }
+.ds-chip-primary { background: oklch(0.5 0.24 264 / 10%); color: var(--primary); }
+.ds-chip-primary .ds-dot { background: var(--primary); }
+.ds-chip-success { background: #dcfce7; color: #15803d; }
+.ds-chip-success .ds-dot { background: #22c55e; }
+.ds-chip-warn { background: #fef3c7; color: #854d0e; }
+.ds-chip-warn .ds-dot { background: #f59e0b; }
+.ds-chip-danger { background: oklch(0.577 0.245 27.325 / 10%); color: oklch(0.47 0.22 27); }
+.ds-chip-danger .ds-dot { background: oklch(0.577 0.245 27.325); }
+.ds-chip-info { background: oklch(0.7 0.15 200 / 12%); color: oklch(0.45 0.13 200); }
+.ds-chip-info .ds-dot { background: oklch(0.6 0.15 200); }
 
 /* ---------- Funnel / pipeline rows ---------- */
-.dash-v1 .funnel-row {
+.ds-funnel-row {
   display: grid;
   grid-template-columns: 140px 1fr 40px;
   align-items: center;
   gap: 12px;
   padding: 8px 0;
 }
-.dash-v1 .funnel-row .f-label { font-size: 13px; }
-.dash-v1 .funnel-row .f-count {
+.ds-funnel-row .f-label { font-size: 13px; }
+.ds-funnel-row .f-count {
   font-size: 13px;
   font-weight: 700;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.dash-v1 .funnel-row .f-bar {
+.ds-funnel-row .f-bar {
   height: 28px;
   border-radius: 8px;
   background: oklch(0.5 0.24 264 / 8%);
   position: relative;
   overflow: hidden;
 }
-.dash-v1 .funnel-row .f-bar > span {
+.ds-funnel-row .f-bar > span {
   display: block;
   height: 100%;
   background: var(--gradient-primary);
   border-radius: inherit;
 }
 
-/* ---------- Agenda (today's schedule) ---------- */
-.dash-v1 .agenda-item {
+/* ---------- Agenda / timeline rows ---------- */
+.ds-agenda-item {
   display: grid;
   grid-template-columns: 56px 1fr auto;
   gap: 12px;
@@ -303,38 +317,38 @@
   text-decoration: none;
   color: inherit;
 }
-.dash-v1 .agenda-item:first-child { border-top: none; }
-.dash-v1 .agenda-item:hover { background: oklch(0 0 0 / 1.5%); }
-.dash-v1 .agenda-time {
+.ds-agenda-item:first-child { border-top: none; }
+.ds-agenda-item:hover { background: oklch(0 0 0 / 1.5%); }
+.ds-agenda-time {
   font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--foreground);
   text-align: right;
 }
-.dash-v1 .agenda-time .ampm {
+.ds-agenda-time .ampm {
   display: block;
   font-size: 10px;
   color: var(--muted-foreground);
   font-weight: 500;
 }
-.dash-v1 .agenda-row {
+.ds-agenda-row {
   display: flex;
   gap: 10px;
   align-items: stretch;
   min-width: 0;
 }
-.dash-v1 .agenda-kind {
+.ds-agenda-kind {
   width: 3px;
   align-self: stretch;
   border-radius: 2px;
   background: var(--primary);
 }
-.dash-v1 .agenda-kind.teal { background: oklch(0.7 0.15 200); }
-.dash-v1 .agenda-kind.green { background: oklch(0.65 0.18 150); }
-.dash-v1 .agenda-kind.amber { background: oklch(0.72 0.14 60); }
-.dash-v1 .agenda-kind.magenta { background: oklch(0.6 0.2 310); }
-.dash-v1 .a-name {
+.ds-agenda-kind.teal { background: oklch(0.7 0.15 200); }
+.ds-agenda-kind.green { background: oklch(0.65 0.18 150); }
+.ds-agenda-kind.amber { background: oklch(0.72 0.14 60); }
+.ds-agenda-kind.magenta { background: oklch(0.6 0.2 310); }
+.ds-a-name {
   font-size: 13.5px;
   font-weight: 600;
   margin: 0;
@@ -342,7 +356,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.dash-v1 .a-meta {
+.ds-a-meta {
   font-size: 12px;
   color: var(--muted-foreground);
   margin: 1px 0 0;
@@ -351,12 +365,12 @@
   white-space: nowrap;
 }
 
-/* ---------- Reports table ---------- */
-.dash-v1 .data-table {
+/* ---------- Data table ---------- */
+.ds-table {
   width: 100%;
   border-collapse: collapse;
 }
-.dash-v1 .data-table th {
+.ds-table th {
   text-align: left;
   font-size: 11.5px;
   font-weight: 600;
@@ -367,18 +381,19 @@
   border-bottom: 1px solid var(--border);
   background: oklch(0 0 0 / 1.5%);
 }
-.dash-v1 .data-table td {
+.ds-table td {
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
   font-size: 13.5px;
   vertical-align: middle;
 }
-.dash-v1 .data-table tbody tr { cursor: pointer; }
-.dash-v1 .data-table tbody tr:hover { background: oklch(0 0 0 / 1.5%); }
-.dash-v1 .data-table tbody tr:last-child td { border-bottom: 0; }
+.ds-table tbody tr { cursor: pointer; }
+.ds-table tbody tr:hover { background: oklch(0 0 0 / 1.5%); }
+.ds-table tbody tr:last-child td { border-bottom: 0; }
+.ds-table .num { font-variant-numeric: tabular-nums; text-align: right; }
 
 /* ---------- Revenue bar chart ---------- */
-.dash-v1 .barchart {
+.ds-barchart {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
@@ -387,13 +402,13 @@
   align-items: end;
   padding: 0 4px;
 }
-.dash-v1 .bc-col {
+.ds-bc-col {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
 }
-.dash-v1 .bc-bar {
+.ds-bc-bar {
   width: 100%;
   max-width: 22px;
   background: oklch(0.5 0.24 264 / 18%);
@@ -401,32 +416,35 @@
   min-height: 4px;
   transition: background 200ms;
 }
-.dash-v1 .bc-bar.is-active {
+.ds-bc-bar.is-active {
   background: var(--gradient-primary);
   box-shadow: var(--shadow-glow);
 }
-.dash-v1 .bc-label {
+.ds-bc-label {
   font-size: 10.5px;
   color: var(--muted-foreground);
   letter-spacing: 0.03em;
 }
 
-/* ---------- Empty state ---------- */
-.dash-v1 .empty {
+/* ---------- Empty / loading state inside a panel body ---------- */
+.ds-empty {
   padding: 40px 20px;
   text-align: center;
   color: var(--muted-foreground);
   font-size: 13px;
 }
 
+/* ---------- Tabular util ---------- */
+.ds-tabular { font-variant-numeric: tabular-nums; }
+
 /* ---------- Dark-mode tweaks ---------- */
-.dark .dash-v1 .panel-foot { background: oklch(0 0 0 / 20%); }
-.dark .dash-v1 .data-table th { background: oklch(0 0 0 / 20%); }
-.dark .dash-v1 .data-table tbody tr:hover,
-.dark .dash-v1 .agenda-item:hover { background: oklch(1 0 0 / 3%); }
-.dark .dash-v1 .chip-success { background: oklch(0.65 0.18 150 / 12%); color: oklch(0.75 0.16 150); }
-.dark .dash-v1 .chip-warn { background: oklch(0.72 0.14 60 / 12%); color: oklch(0.82 0.14 60); }
-.dark .dash-v1 .kpi.accent {
+.dark .ds-panel-foot { background: oklch(0 0 0 / 20%); }
+.dark .ds-table th { background: oklch(0 0 0 / 20%); }
+.dark .ds-table tbody tr:hover,
+.dark .ds-agenda-item:hover { background: oklch(1 0 0 / 3%); }
+.dark .ds-chip-success { background: oklch(0.65 0.18 150 / 12%); color: oklch(0.75 0.16 150); }
+.dark .ds-chip-warn { background: oklch(0.72 0.14 60 / 12%); color: oklch(0.82 0.14 60); }
+.dark .ds-kpi.accent {
   background:
     radial-gradient(120% 80% at 100% 0%, oklch(0.5 0.24 264 / 18%), transparent 60%),
     var(--card);

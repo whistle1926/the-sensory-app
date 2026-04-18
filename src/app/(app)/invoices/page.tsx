@@ -3,16 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import {
-  Plus,
-  Search,
-  PoundSterling,
-  CheckCircle2,
-  Clock,
   AlertCircle,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
   FileText,
+  Plus,
+  PoundSterling,
+  Search,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { Toolbar, Panel, Chip, Empty, type ChipTone } from "@/components/ds";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -62,7 +64,11 @@ type StatusFilter = "all" | "draft" | "sent" | "paid" | "overdue" | "cancelled";
 /* ------------------------------------------------------------------ */
 
 function formatCurrency(pence: number, cur: string = "GBP"): string {
-  const locales: Record<string, string> = { GBP: "en-GB", EUR: "en-IE", USD: "en-US" };
+  const locales: Record<string, string> = {
+    GBP: "en-GB",
+    EUR: "en-IE",
+    USD: "en-US",
+  };
   return (pence / 100).toLocaleString(locales[cur] || "en-GB", {
     style: "currency",
     currency: cur,
@@ -82,39 +88,20 @@ function isOverdue(dueDate: string, status: string): boolean {
   return new Date(dueDate) < new Date();
 }
 
-/* ------------------------------------------------------------------ */
-/*  Status badge config                                                */
-/* ------------------------------------------------------------------ */
+const STATUS_TONE: Record<Invoice["status"], ChipTone> = {
+  draft: "neutral",
+  sent: "info",
+  paid: "success",
+  overdue: "danger",
+  cancelled: "neutral",
+};
 
-const STATUS_CONFIG: Record<
-  Invoice["status"],
-  { label: string; className: string }
-> = {
-  draft: {
-    label: "Draft",
-    className:
-      "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-  },
-  sent: {
-    label: "Sent",
-    className:
-      "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400",
-  },
-  paid: {
-    label: "Paid",
-    className:
-      "bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-400",
-  },
-  overdue: {
-    label: "Overdue",
-    className:
-      "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400",
-  },
-  cancelled: {
-    label: "Cancelled",
-    className:
-      "bg-gray-100 text-gray-500 line-through dark:bg-gray-800 dark:text-gray-500",
-  },
+const STATUS_LABEL: Record<Invoice["status"], string> = {
+  draft: "Draft",
+  sent: "Sent",
+  paid: "Paid",
+  overdue: "Overdue",
+  cancelled: "Cancelled",
 };
 
 /* ------------------------------------------------------------------ */
@@ -139,27 +126,22 @@ export default function InvoicesPage() {
       .catch(() => setLoading(false));
   }, []);
 
-  /* ---------- Filtered + searched invoices ---------- */
-  const filteredInvoices = useMemo(() => {
+  const filtered = useMemo(() => {
     let list = invoices;
-
     if (activeFilter !== "all") {
       list = list.filter((inv) => inv.status === activeFilter);
     }
-
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(
         (inv) =>
           inv.clientName.toLowerCase().includes(q) ||
-          inv.invoiceNumber.toLowerCase().includes(q)
+          inv.invoiceNumber.toLowerCase().includes(q),
       );
     }
-
     return list;
   }, [invoices, activeFilter, searchQuery]);
 
-  /* ---------- Filter tabs ---------- */
   const filterTabs: { key: StatusFilter; label: string; count: number }[] =
     stats
       ? [
@@ -172,120 +154,90 @@ export default function InvoicesPage() {
         ]
       : [];
 
-  /* ---------- Stat cards ---------- */
-  const statCards = stats
+  // KPI cards (top row) — mirrors the dashboard KPI pattern.
+  const kpis = stats
     ? [
         {
-          label: "Total Invoiced",
-          amount: stats.totalInvoiced,
-          count: stats.countAll,
-          countLabel: "invoices",
+          label: "Invoiced",
+          value: formatCurrency(stats.totalInvoiced),
+          helper: `${stats.countAll} invoices`,
           icon: PoundSterling,
-          borderColour: "border-l-blue-500",
-          iconBg: "bg-blue-50 dark:bg-blue-950/30",
-          iconColour: "text-blue-600 dark:text-blue-400",
+          accent: false,
         },
         {
           label: "Paid",
-          amount: stats.totalPaid,
-          count: stats.countPaid,
-          countLabel: "paid",
+          value: formatCurrency(stats.totalPaid),
+          helper: `${stats.countPaid} collected`,
           icon: CheckCircle2,
-          borderColour: "border-l-green-500",
-          iconBg: "bg-green-50 dark:bg-green-950/30",
-          iconColour: "text-green-600 dark:text-green-400",
+          accent: false,
         },
         {
           label: "Unpaid",
-          amount: stats.totalUnpaid,
-          count: stats.countSent + stats.countDraft,
-          countLabel: "outstanding",
+          value: formatCurrency(stats.totalUnpaid),
+          helper: `${stats.countSent + stats.countDraft} outstanding`,
           icon: Clock,
-          borderColour: "border-l-amber-500",
-          iconBg: "bg-amber-50 dark:bg-amber-950/30",
-          iconColour: "text-amber-600 dark:text-amber-400",
+          accent: false,
         },
         {
           label: "Overdue",
-          amount: stats.totalOverdue,
-          count: stats.countOverdue,
-          countLabel: "overdue",
+          value: formatCurrency(stats.totalOverdue),
+          helper: `${stats.countOverdue} overdue`,
           icon: AlertCircle,
-          borderColour: "border-l-red-500",
-          iconBg: "bg-red-50 dark:bg-red-950/30",
-          iconColour: "text-red-600 dark:text-red-400",
+          accent: true,
         },
       ]
     : [];
 
   return (
     <div className="space-y-6">
-      {/* ---- Header ---- */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Invoices</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Manage and track all invoices.
-          </p>
-        </div>
-        <Link
-          href="/invoices/new"
-          className={buttonVariants({ className: "rounded-xl" })}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Create Invoice
-        </Link>
-      </div>
+      <Toolbar
+        title="Invoices"
+        subtitle="Manage and track all invoices"
+        actions={
+          <Link
+            href="/invoices/new"
+            className={buttonVariants({ className: "rounded-xl" })}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Create Invoice
+          </Link>
+        }
+      />
 
       {loading ? (
-        <div className="rounded-2xl border border-border bg-card p-10 text-center text-sm text-muted-foreground shadow-[var(--shadow-sm)]">
-          Loading invoices...
-        </div>
+        <Panel>
+          <Empty>Loading invoices…</Empty>
+        </Panel>
       ) : (
         <>
-          {/* ---- Stat cards ---- */}
+          {/* ---- KPI row ---- */}
           {stats && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {statCards.map((card) => {
-                const Icon = card.icon;
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {kpis.map((k) => {
+                const Icon = k.icon;
                 return (
                   <div
-                    key={card.label}
-                    className={cn(
-                      "rounded-2xl border border-border border-l-4 bg-card p-5 shadow-[var(--shadow-sm)]",
-                      card.borderColour
-                    )}
+                    key={k.label}
+                    className={`ds-kpi ${k.accent ? "accent" : ""}`}
                   >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={cn(
-                          "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-                          card.iconBg
-                        )}
-                      >
-                        <Icon className={cn("h-5 w-5", card.iconColour)} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          {card.label}
-                        </p>
-                        <p className="text-lg font-bold tracking-tight">
-                          {formatCurrency(card.amount)}
-                        </p>
-                      </div>
+                    <div className="ds-kpi-head">
+                      <span className="ds-kpi-label">{k.label}</span>
+                      <span className="ds-kpi-icon">
+                        <Icon className="h-4 w-4" />
+                      </span>
                     </div>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {card.count} {card.countLabel}
-                    </p>
+                    <span className="ds-kpi-value ds-tabular">{k.value}</span>
+                    <div className="ds-kpi-foot">
+                      <span>{k.helper}</span>
+                    </div>
                   </div>
                 );
               })}
             </div>
           )}
 
-          {/* ---- Filters + search ---- */}
+          {/* ---- Filter tabs + search ---- */}
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            {/* Filter tabs */}
             <div className="flex flex-wrap gap-1">
               {filterTabs.map((tab) => (
                 <button
@@ -293,19 +245,19 @@ export default function InvoicesPage() {
                   type="button"
                   onClick={() => setActiveFilter(tab.key)}
                   className={cn(
-                    "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+                    "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
                     activeFilter === tab.key
                       ? "bg-primary text-primary-foreground shadow-[var(--shadow-xs)]"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
                   {tab.label}
                   <span
                     className={cn(
-                      "ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-semibold",
+                      "inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums",
                       activeFilter === tab.key
                         ? "bg-primary-foreground/20 text-primary-foreground"
-                        : "bg-muted text-muted-foreground"
+                        : "bg-muted text-muted-foreground",
                     )}
                   >
                     {tab.count}
@@ -313,13 +265,11 @@ export default function InvoicesPage() {
                 </button>
               ))}
             </div>
-
-            {/* Search */}
             <div className="relative w-full sm:w-72">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Search invoices..."
+                placeholder="Search invoices…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="h-9 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
@@ -328,131 +278,164 @@ export default function InvoicesPage() {
           </div>
 
           {/* ---- Invoice table ---- */}
-          {filteredInvoices.length === 0 ? (
-            <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-[var(--shadow-sm)]">
-              <FileText className="mx-auto h-8 w-8 text-muted-foreground/50" />
-              <p className="mt-3 text-sm font-semibold">No invoices found</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {searchQuery || activeFilter !== "all"
-                  ? "Try adjusting your search or filters."
-                  : "Create your first invoice to get started."}
-              </p>
-              {!searchQuery && activeFilter === "all" && (
-                <Link
-                  href="/invoices/new"
-                  className={buttonVariants({
-                    className: "mt-4 rounded-xl",
-                  })}
-                >
-                  Create Invoice
-                </Link>
-              )}
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-sm)] overflow-hidden">
-              {/* Table header */}
-              <div className="hidden border-b border-border px-5 py-3 sm:grid sm:grid-cols-[1fr_1.2fr_0.8fr_0.8fr_0.8fr_0.7fr] sm:gap-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Invoice
+          <Panel
+            footer={
+              <span>
+                Showing {filtered.length} of {invoices.length}
+              </span>
+            }
+          >
+            {filtered.length === 0 ? (
+              <div className="ds-empty">
+                <FileText
+                  className="mx-auto h-7 w-7"
+                  style={{ color: "var(--muted-foreground)", opacity: 0.5 }}
+                />
+                <p style={{ marginTop: 10, fontWeight: 600 }}>
+                  No invoices found
                 </p>
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Client
+                <p style={{ marginTop: 4, fontSize: 12 }}>
+                  {searchQuery || activeFilter !== "all"
+                    ? "Try adjusting your search or filters."
+                    : "Create your first invoice to get started."}
                 </p>
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Date
-                </p>
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Due Date
-                </p>
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-right">
-                  Amount
-                </p>
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-right">
-                  Status
-                </p>
+                {!searchQuery && activeFilter === "all" && (
+                  <Link
+                    href="/invoices/new"
+                    className={buttonVariants({ className: "mt-4 rounded-xl" })}
+                  >
+                    Create Invoice
+                  </Link>
+                )}
               </div>
-
-              {/* Table rows */}
-              <div className="divide-y divide-border">
-                {filteredInvoices.map((inv) => {
-                  const statusCfg = STATUS_CONFIG[inv.status];
-                  const overdue = isOverdue(inv.dueDate, inv.status);
-
-                  return (
-                    <Link
-                      key={inv.id}
-                      href={`/invoices/${inv.id}`}
-                      className="block px-5 py-4 transition-colors hover:bg-muted/30"
-                    >
-                      {/* Desktop row */}
-                      <div className="hidden sm:grid sm:grid-cols-[1fr_1.2fr_0.8fr_0.8fr_0.8fr_0.7fr] sm:items-center sm:gap-4">
-                        <p className="text-sm font-semibold text-foreground">
-                          {inv.invoiceNumber}
-                        </p>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm text-foreground">
-                            {inv.clientName}
-                          </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {inv.clientEmail}
-                          </p>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDate(inv.createdAt)}
-                        </p>
-                        <p
-                          className={cn(
-                            "text-sm",
-                            overdue
-                              ? "font-medium text-red-600 dark:text-red-400"
-                              : "text-muted-foreground"
-                          )}
-                        >
-                          {formatDate(inv.dueDate)}
-                        </p>
-                        <p className="text-right text-sm font-semibold text-foreground">
-                          {formatCurrency(inv.total, inv.currency)}
-                        </p>
-                        <div className="flex justify-end">
-                          <span
-                            className={cn(
-                              "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                              statusCfg.className
-                            )}
+            ) : (
+              <>
+                {/* Desktop table */}
+                <div className="hidden sm:block">
+                  <table className="ds-table">
+                    <thead>
+                      <tr>
+                        <th>Invoice</th>
+                        <th>Client</th>
+                        <th>Date</th>
+                        <th>Due</th>
+                        <th className="num">Amount</th>
+                        <th>Status</th>
+                        <th aria-label="Open" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((inv) => {
+                        const overdue = isOverdue(inv.dueDate, inv.status);
+                        return (
+                          <tr
+                            key={inv.id}
+                            onClick={() => {
+                              window.location.href = `/invoices/${inv.id}`;
+                            }}
                           >
-                            {statusCfg.label}
-                          </span>
-                        </div>
-                      </div>
+                            <td style={{ fontWeight: 600 }}>
+                              {inv.invoiceNumber}
+                            </td>
+                            <td>
+                              <div style={{ minWidth: 0 }}>
+                                <p
+                                  style={{
+                                    margin: 0,
+                                    fontWeight: 500,
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                >
+                                  {inv.clientName}
+                                </p>
+                                <p
+                                  style={{
+                                    margin: "2px 0 0",
+                                    fontSize: 12,
+                                    color: "var(--muted-foreground)",
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                >
+                                  {inv.clientEmail}
+                                </p>
+                              </div>
+                            </td>
+                            <td
+                              className="ds-tabular"
+                              style={{ color: "var(--muted-foreground)" }}
+                            >
+                              {formatDate(inv.createdAt)}
+                            </td>
+                            <td
+                              className="ds-tabular"
+                              style={{
+                                color: overdue
+                                  ? "oklch(0.577 0.245 27.325)"
+                                  : "var(--muted-foreground)",
+                                fontWeight: overdue ? 600 : 400,
+                              }}
+                            >
+                              {formatDate(inv.dueDate)}
+                            </td>
+                            <td
+                              className="num"
+                              style={{ fontWeight: 600, whiteSpace: "nowrap" }}
+                            >
+                              {formatCurrency(inv.total, inv.currency)}
+                            </td>
+                            <td>
+                              <Chip tone={STATUS_TONE[inv.status]}>
+                                {STATUS_LABEL[inv.status]}
+                              </Chip>
+                            </td>
+                            <td style={{ textAlign: "right" }}>
+                              <ChevronRight
+                                className="h-3.5 w-3.5"
+                                style={{ color: "var(--muted-foreground)" }}
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
 
-                      {/* Mobile row */}
-                      <div className="sm:hidden">
+                {/* Mobile cards */}
+                <div className="sm:hidden divide-y divide-border">
+                  {filtered.map((inv) => {
+                    const overdue = isOverdue(inv.dueDate, inv.status);
+                    return (
+                      <Link
+                        key={inv.id}
+                        href={`/invoices/${inv.id}`}
+                        className="block px-4 py-3 transition-colors hover:bg-muted/30"
+                      >
                         <div className="flex items-start justify-between">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
                               <p className="text-sm font-semibold text-foreground">
                                 {inv.invoiceNumber}
                               </p>
-                              <span
-                                className={cn(
-                                  "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                                  statusCfg.className
-                                )}
-                              >
-                                {statusCfg.label}
-                              </span>
+                              <Chip tone={STATUS_TONE[inv.status]}>
+                                {STATUS_LABEL[inv.status]}
+                              </Chip>
                             </div>
                             <p className="mt-0.5 truncate text-sm text-muted-foreground">
                               {inv.clientName}
                             </p>
                           </div>
-                          <p className="ml-4 text-sm font-semibold text-foreground">
+                          <p className="ml-4 text-sm font-semibold tabular-nums text-foreground">
                             {formatCurrency(inv.total, inv.currency)}
                           </p>
                         </div>
                         <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
                           <span>{formatDate(inv.createdAt)}</span>
-                          <span className="text-border">|</span>
+                          <span className="text-border">·</span>
                           <span
                             className={
                               overdue
@@ -463,13 +446,13 @@ export default function InvoicesPage() {
                             Due {formatDate(inv.dueDate)}
                           </span>
                         </div>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </Panel>
         </>
       )}
     </div>
