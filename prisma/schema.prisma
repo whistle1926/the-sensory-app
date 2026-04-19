@@ -70,6 +70,7 @@ model User {
   formsCreated    Form[]         @relation("FormsCreated")
   leafletsCreated Leaflet[]      @relation("LeafletsCreated")
   notes           Note[]         @relation("UserNotes")
+  liveRoomsHosted LiveRoom[]     @relation("LiveRoomsHosted")
 }
 
 model PasswordSetupToken {
@@ -508,6 +509,62 @@ model Note {
   @@index([authorId])
   @@index([pinned])
   @@index([updatedAt])
+}
+
+// ─── Live Sessions (LiveKit) ────────────────────────────────────────
+// Ported from the live-stream package in /livestream. Supabase-style
+// table names (live_rooms, live_recordings) are preserved via @@map
+// so the provided SQL migrations + webhook signatures still line up.
+
+model LiveRoom {
+  id                String              @id @default(cuid())
+  title             String
+  description       String              @default("") @db.Text
+  mode              String              @default("broadcast") // "broadcast" | "interactive"
+  status            String              @default("scheduled") // "scheduled" | "live" | "ended" | "cancelled"
+  scheduledStart    DateTime            @map("scheduled_start")
+  scheduledEnd      DateTime?           @map("scheduled_end")
+  actualStart       DateTime?           @map("actual_start")
+  actualEnd         DateTime?           @map("actual_end")
+  // Optional host — points at whoever's broadcasting. Null until assigned.
+  hostId            String?             @map("host_id")
+  host              User?               @relation("LiveRoomsHosted", fields: [hostId], references: [id], onDelete: SetNull)
+  livekitRoomName   String              @unique @map("livekit_room_name")
+  maxParticipants   Int                 @default(100) @map("max_participants")
+  requireAuth       Boolean             @default(false) @map("require_auth")
+  viewerCountPeak   Int                 @default(0) @map("viewer_count_peak")
+  notes             String              @default("") @db.Text
+  mediaUrl          String?             @map("media_url")
+  brandingTitle     String?             @map("branding_title")
+  brandingLogoUrl   String?             @map("branding_logo_url")
+  createdAt         DateTime            @default(now()) @map("created_at")
+
+  recordings        LiveRecording[]
+
+  @@index([hostId])
+  @@index([status])
+  @@index([scheduledStart])
+  @@map("live_rooms")
+}
+
+model LiveRecording {
+  id               String    @id @default(cuid())
+  liveRoomId       String    @map("live_room_id")
+  liveRoom         LiveRoom  @relation(fields: [liveRoomId], references: [id], onDelete: Cascade)
+  livekitEgressId  String?   @map("livekit_egress_id")
+  status           String    @default("recording") // "recording" | "processing" | "ready" | "failed"
+  storageUrl       String?   @map("storage_url")
+  storageKey       String?   @map("storage_key")
+  durationSeconds  Int?      @map("duration_seconds")
+  fileSizeBytes    BigInt?   @map("file_size_bytes")
+  thumbnailUrl     String?   @map("thumbnail_url")
+  startedAt        DateTime  @default(now()) @map("started_at")
+  endedAt          DateTime? @map("ended_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  @@index([liveRoomId])
+  @@index([status])
+  @@map("live_recordings")
 }
 
 // ─── Progress Notes (SOAP format) ───────────────────────────────────

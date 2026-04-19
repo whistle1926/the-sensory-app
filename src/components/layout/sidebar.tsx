@@ -19,6 +19,7 @@ import {
   Receipt,
   ClipboardList,
   FileStack,
+  Radio,
   Pencil,
   Check,
   X,
@@ -54,6 +55,7 @@ const navItems: NavItem[] = [
   { href: "/invoices", label: "Invoices", icon: Receipt, navKey: "nav_invoices", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
   { href: "/forms", label: "Forms", icon: ClipboardList, navKey: "nav_forms", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
   { href: "/leaflets", label: "Leaflets", icon: FileStack, navKey: "nav_leaflets", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
+  { href: "/live-sessions", label: "Live Sessions", icon: Radio, navKey: "nav_live_sessions", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
   { href: "/team", label: "Team", icon: UserPlus, navKey: "nav_team", roles: ["SUPER_ADMIN"] },
   { href: "/settings", label: "Settings", icon: Settings, navKey: "nav_settings", roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
 ];

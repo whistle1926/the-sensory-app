@@ -20,6 +20,7 @@ const VALID_WIDGETS = [
   "nav_team",
   "nav_settings",
   "nav_invoices",
+  "nav_live_sessions",
 ] as const;
 
 type WidgetKey = (typeof VALID_WIDGETS)[number];
