@@ -34,13 +34,37 @@ export default async function LiveSessionsPage() {
   if (!session?.user) redirect("/login");
   if (session.user.role === "CLIENT") redirect("/portal");
 
-  const rooms = await prisma.liveRoom.findMany({
-    orderBy: [{ status: "asc" }, { scheduledStart: "asc" }],
-    include: {
-      host: { select: { id: true, name: true, email: true } },
-      _count: { select: { recordings: true } },
-    },
-  });
+  // Wrap the query in a try/catch so we can show the actual failure
+  // on-page rather than a blank 500. Once we've shipped stable, this
+  // guard can stay (better UX) — it's fine for the query to fail and
+  // the page to still render the setup banner.
+  let rooms: Array<{
+    id: string;
+    title: string;
+    description: string;
+    mode: string;
+    status: string;
+    scheduledStart: Date;
+    host: { id: string; name: string; email: string } | null;
+    _count: { recordings: number };
+  }> = [];
+  let queryError: string | null = null;
+  try {
+    rooms = await prisma.liveRoom.findMany({
+      orderBy: [{ status: "asc" }, { scheduledStart: "asc" }],
+      include: {
+        host: { select: { id: true, name: true, email: true } },
+        _count: { select: { recordings: true } },
+      },
+    });
+  } catch (err: unknown) {
+    queryError =
+      err instanceof Error
+        ? `${err.name}: ${err.message}`
+        : "Unknown Prisma error";
+    // eslint-disable-next-line no-console
+    console.error("[live-sessions] query failed:", err);
+  }
 
   const live = rooms.filter((r) => r.status === "live");
   const scheduled = rooms.filter((r) => r.status === "scheduled");
@@ -134,6 +158,20 @@ export default async function LiveSessionsPage() {
           </div>
         </div>
       </div>
+
+      {/* Diagnostic: show the underlying DB error on-page so 500s become
+          debuggable without digging through Vercel runtime logs. */}
+      {queryError && (
+        <Panel
+          title="⚠️ Database query failed"
+          subtitle="The live-sessions query threw. Details below — copy to Claude for triage."
+          padded
+        >
+          <pre className="overflow-x-auto rounded-lg bg-red-50 p-3 text-xs text-red-900 dark:bg-red-950/40 dark:text-red-200">
+            {queryError}
+          </pre>
+        </Panel>
+      )}
 
       {/* Setup required banner — when LiveKit env isn't configured */}
       {!hasLiveKit && (
