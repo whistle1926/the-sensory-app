@@ -1,9 +1,11 @@
-// Step 3: add the Prisma query. If the page still renders, the crash must
-// have been in a component (Toolbar / Panel / Chip). Strip the try/catch in
-// a later step once we know what's happening.
+// Step 4: add DS components (Toolbar / Panel / Chip) back.
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Plus, Radio } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { Toolbar, Panel, Chip } from "@/components/ds";
+import { buttonVariants } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
@@ -12,38 +14,92 @@ export default async function LiveSessionsPage() {
   if (!session?.user) redirect("/login");
   if (session.user.role === "CLIENT") redirect("/portal");
 
-  let prismaError: string | null = null;
-  let rowCount = 0;
-  try {
-    const rooms = await prisma.liveRoom.findMany({
-      orderBy: [{ scheduledStart: "desc" }],
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        mode: true,
-        status: true,
-        scheduledStart: true,
-        _count: { select: { recordings: true } },
-      },
-    });
-    rowCount = rooms.length;
-  } catch (err: unknown) {
-    prismaError =
-      err instanceof Error ? `${err.name}: ${err.message}` : "prisma error";
-  }
+  const rooms = await prisma.liveRoom.findMany({
+    orderBy: [{ scheduledStart: "desc" }],
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      mode: true,
+      status: true,
+      scheduledStart: true,
+      _count: { select: { recordings: true } },
+    },
+  });
 
   return (
-    <div style={{ padding: 40 }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700 }}>Live Sessions</h1>
-      <p>Step 3 — auth + prisma.liveRoom.findMany.</p>
-      <p style={{ marginTop: 12, fontSize: 14 }}>
-        {prismaError ? (
-          <span style={{ color: "#b91c1c" }}>PRISMA ERROR: {prismaError}</span>
+    <div className="space-y-6">
+      <Toolbar
+        title="Live Sessions"
+        subtitle="Broadcast or run interactive video rooms."
+        actions={
+          <Link
+            href="/live-sessions/new"
+            className={buttonVariants({ className: "rounded-xl" })}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            New session
+          </Link>
+        }
+      />
+
+      <Panel title="All sessions" subtitle={`${rooms.length} total`}>
+        {rooms.length === 0 ? (
+          <div className="ds-empty">
+            <Radio
+              className="mx-auto h-8 w-8"
+              style={{ color: "var(--muted-foreground)", opacity: 0.5 }}
+            />
+            <p style={{ marginTop: 10, fontWeight: 600 }}>
+              No sessions yet
+            </p>
+            <p style={{ marginTop: 4, fontSize: 12 }}>
+              Click <strong>New session</strong> to schedule your first
+              broadcast.
+            </p>
+          </div>
         ) : (
-          <>Found <strong>{rowCount}</strong> live rooms in the DB.</>
+          <div className="divide-y divide-border">
+            {rooms.map((r) => (
+              <Link
+                key={r.id}
+                href={`/live-sessions/${r.id}`}
+                className="flex items-start justify-between gap-4 px-5 py-4 transition hover:bg-muted/20"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-semibold">{r.title}</h3>
+                    <Chip tone={toneFor(r.status)}>
+                      {r.status[0].toUpperCase() + r.status.slice(1)}
+                    </Chip>
+                    <Chip tone={r.mode === "interactive" ? "info" : "primary"}>
+                      {r.mode === "interactive" ? "Interactive" : "Broadcast"}
+                    </Chip>
+                  </div>
+                  {r.description && (
+                    <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+                      {r.description}
+                    </p>
+                  )}
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Scheduled{" "}
+                    {new Date(r.scheduledStart).toLocaleString("en-GB")}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
         )}
-      </p>
+      </Panel>
     </div>
   );
+}
+
+function toneFor(
+  status: string,
+): "success" | "primary" | "warn" | "neutral" {
+  if (status === "live") return "success";
+  if (status === "scheduled") return "primary";
+  if (status === "cancelled") return "warn";
+  return "neutral";
 }
