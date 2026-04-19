@@ -13,7 +13,7 @@ import {
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { buttonVariants } from "@/components/ui/button";
-import { Toolbar, Panel, Chip, Empty } from "@/components/ds";
+import { Toolbar, Panel, Chip } from "@/components/ds";
 
 export const dynamic = "force-dynamic";
 
@@ -260,18 +260,18 @@ LIVEKIT_WS_URL=wss://your-project.livekit.cloud`}
 
 /* ─── Session row list ─────────────────────────────────────────── */
 
-type Room = Awaited<ReturnType<typeof prismaRoomsType>>[number];
-async function prismaRoomsType() {
-  // Type-only helper — used to derive the Room type from the query shape.
-  return prisma.liveRoom.findMany({
-    include: {
-      host: { select: { id: true, name: true, email: true } },
-      _count: { select: { recordings: true } },
-    },
-  });
+interface RoomRow {
+  id: string;
+  title: string;
+  description: string;
+  mode: string;
+  status: string;
+  scheduledStart: Date;
+  host: { id: string; name: string; email: string } | null;
+  _count: { recordings: number };
 }
 
-function SessionList({ rooms }: { rooms: Room[] }) {
+function SessionList({ rooms }: { rooms: RoomRow[] }) {
   return (
     <div className="divide-y divide-border">
       {rooms.map((r) => {
@@ -351,5 +351,3 @@ function labelForStatus(s: string): string {
   }
 }
 
-/* ─── Unused import silencer for the Room helper ─────────────────── */
-void Empty;
