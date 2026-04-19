@@ -11,19 +11,53 @@ export async function GET(_req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // Pull the latest comment alongside the task so we can compute a real
+  // "last activity" timestamp = max(task.updatedAt, latest-comment.createdAt)
+  // and sort by it. That way new comments bubble tasks to the top too,
+  // not just direct edits.
   const tasks = await prisma.task.findMany({
-    orderBy: [{ status: "asc" }, { dueDate: "asc" }, { createdAt: "desc" }],
     include: {
       assignees: {
         include: { user: { select: { id: true, name: true, email: true, role: true } } },
       },
       clientUser: { select: { id: true, name: true, email: true } },
       subtasks: { orderBy: { order: "asc" } },
+      comments: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { createdAt: true, author: { select: { name: true } } },
+      },
       _count: { select: { comments: true } },
     },
   });
 
-  return NextResponse.json(tasks);
+  const withActivity = tasks.map((t) => {
+    const lastComment = t.comments[0]?.createdAt ?? null;
+    const lastActivityAt =
+      lastComment && lastComment > t.updatedAt ? lastComment : t.updatedAt;
+    const source: "created" | "edited" | "comment" =
+      lastComment && lastComment > t.updatedAt
+        ? "comment"
+        : t.updatedAt.getTime() === t.createdAt.getTime()
+          ? "created"
+          : "edited";
+    // Strip the latest-comment relation from the payload so the client
+    // sees a clean shape — lastActivitySource / Author carry the meta.
+    const { comments: _c, ...rest } = t;
+    void _c;
+    return {
+      ...rest,
+      lastActivityAt,
+      lastActivitySource: source,
+      lastActivityAuthor:
+        source === "comment" ? (t.comments[0]?.author?.name ?? null) : null,
+    };
+  });
+  withActivity.sort(
+    (a, b) => b.lastActivityAt.getTime() - a.lastActivityAt.getTime(),
+  );
+
+  return NextResponse.json(withActivity);
 }
 
 export async function POST(req: NextRequest) {

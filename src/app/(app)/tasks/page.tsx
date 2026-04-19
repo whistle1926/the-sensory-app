@@ -40,6 +40,47 @@ interface TaskRow {
   assignees: Assignee[];
   subtasks: Subtask[];
   _count: { comments: number };
+  // Server-computed "last activity" — the max of task.updatedAt and the
+  // newest comment's createdAt. Sorted by this, so most-recently-moved
+  // tasks appear first.
+  lastActivityAt?: string;
+  lastActivitySource?: "created" | "edited" | "comment";
+  lastActivityAuthor?: string | null;
+}
+
+/** Relative short-form formatter: "just now", "5m", "3h", "2d", "12 Mar". */
+function formatRelative(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const diff = Date.now() - d.getTime();
+  const m = Math.round(diff / 60_000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h`;
+  const days = Math.round(h / 24);
+  if (days < 7) return `${days}d`;
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: d.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
+  });
+}
+
+function activityLabel(t: TaskRow): string {
+  const when = formatRelative(t.lastActivityAt);
+  if (!when) return "";
+  switch (t.lastActivitySource) {
+    case "comment":
+      return t.lastActivityAuthor
+        ? `${t.lastActivityAuthor} commented · ${when}`
+        : `Commented · ${when}`;
+    case "edited":
+      return `Edited · ${when}`;
+    case "created":
+    default:
+      return `Added · ${when}`;
+  }
 }
 
 function initials(name: string) {
@@ -296,6 +337,20 @@ export default function TasksPage() {
                           </p>
                         )}
                         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                          {activityLabel(task) && (
+                            <span
+                              className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[11px] font-medium"
+                              title={
+                                task.lastActivityAt
+                                  ? new Date(task.lastActivityAt).toLocaleString(
+                                      "en-GB",
+                                    )
+                                  : undefined
+                              }
+                            >
+                              {activityLabel(task)}
+                            </span>
+                          )}
                           {due && (
                             <span
                               className={cn(
