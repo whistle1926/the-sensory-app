@@ -21,6 +21,13 @@ const PUBLIC_PREFIXES = [
   "/courses",
   "/api/courses/public",
   "/api/courses/checkout",
+  // Public live-session viewer — anyone with the link can join. The
+  // /api/livekit/token route itself decides publish permissions from
+  // the room record + signed-in state; admin-only routes stay
+  // outside the whitelist so middleware continues to gate them.
+  "/live/",
+  "/api/livekit/public/",
+  "/api/livekit/token",
 ];
 
 // Admin-only app routes (prefix match). CLIENT users get bounced to /portal.
