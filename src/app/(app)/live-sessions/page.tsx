@@ -1,105 +1,48 @@
-// Step 4: add DS components (Toolbar / Panel / Chip) back.
-import Link from "next/link";
-import { redirect } from "next/navigation";
-import { Plus, Radio } from "lucide-react";
+// Debug: surface any error from DS components / buttonVariants import tree.
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Toolbar, Panel, Chip } from "@/components/ds";
-import { buttonVariants } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
 export default async function LiveSessionsPage() {
-  const session = await auth();
-  if (!session?.user) redirect("/login");
-  if (session.user.role === "CLIENT") redirect("/portal");
+  let stage = "start";
+  try {
+    stage = "auth";
+    const session = await auth();
+    const email = session?.user?.email ?? "(no session)";
 
-  const rooms = await prisma.liveRoom.findMany({
-    orderBy: [{ scheduledStart: "desc" }],
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      mode: true,
-      status: true,
-      scheduledStart: true,
-      _count: { select: { recordings: true } },
-    },
-  });
+    stage = "prisma";
+    const count = await prisma.liveRoom.count();
 
-  return (
-    <div className="space-y-6">
-      <Toolbar
-        title="Live Sessions"
-        subtitle="Broadcast or run interactive video rooms."
-        actions={
-          <Link
-            href="/live-sessions/new"
-            className={buttonVariants({ className: "rounded-xl" })}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            New session
-          </Link>
-        }
-      />
+    stage = "import ds";
+    const ds = await import("@/components/ds");
+    const dsKeys = Object.keys(ds).join(", ");
 
-      <Panel title="All sessions" subtitle={`${rooms.length} total`}>
-        {rooms.length === 0 ? (
-          <div className="ds-empty">
-            <Radio
-              className="mx-auto h-8 w-8"
-              style={{ color: "var(--muted-foreground)", opacity: 0.5 }}
-            />
-            <p style={{ marginTop: 10, fontWeight: 600 }}>
-              No sessions yet
-            </p>
-            <p style={{ marginTop: 4, fontSize: 12 }}>
-              Click <strong>New session</strong> to schedule your first
-              broadcast.
-            </p>
-          </div>
-        ) : (
-          <div className="divide-y divide-border">
-            {rooms.map((r) => (
-              <Link
-                key={r.id}
-                href={`/live-sessions/${r.id}`}
-                className="flex items-start justify-between gap-4 px-5 py-4 transition hover:bg-muted/20"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-semibold">{r.title}</h3>
-                    <Chip tone={toneFor(r.status)}>
-                      {r.status[0].toUpperCase() + r.status.slice(1)}
-                    </Chip>
-                    <Chip tone={r.mode === "interactive" ? "info" : "primary"}>
-                      {r.mode === "interactive" ? "Interactive" : "Broadcast"}
-                    </Chip>
-                  </div>
-                  {r.description && (
-                    <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
-                      {r.description}
-                    </p>
-                  )}
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Scheduled{" "}
-                    {new Date(r.scheduledStart).toLocaleString("en-GB")}
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </Panel>
-    </div>
-  );
-}
+    stage = "import button";
+    const btn = await import("@/components/ui/button");
+    const btnKeys = Object.keys(btn).join(", ");
 
-function toneFor(
-  status: string,
-): "success" | "primary" | "warn" | "neutral" {
-  if (status === "live") return "success";
-  if (status === "scheduled") return "primary";
-  if (status === "cancelled") return "warn";
-  return "neutral";
+    stage = "render";
+    return (
+      <div style={{ padding: 24, fontFamily: "monospace" }}>
+        <h1>Live Sessions — diag step 4.5</h1>
+        <p>Session: {email}</p>
+        <p>Rooms in DB: {count}</p>
+        <p>ds exports: {dsKeys}</p>
+        <p>button exports: {btnKeys}</p>
+      </div>
+    );
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : "";
+    return (
+      <div style={{ padding: 24, fontFamily: "monospace" }}>
+        <h1 style={{ color: "red" }}>Crash at stage: {stage}</h1>
+        <pre style={{ whiteSpace: "pre-wrap" }}>{msg}</pre>
+        <pre style={{ whiteSpace: "pre-wrap", fontSize: 11, opacity: 0.7 }}>
+          {stack}
+        </pre>
+      </div>
+    );
+  }
 }
