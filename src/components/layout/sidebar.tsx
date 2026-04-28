@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Users,
+  UserCircle2,
   FileText,
   UserPlus,
   Settings,
@@ -46,6 +47,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, navKey: "nav_dashboard", roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
   { href: "/clients", label: "Clients", icon: Users, navKey: "nav_clients", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
+  { href: "/website-users", label: "Website Users", icon: UserCircle2, navKey: "nav_website_users", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
   { href: "/reports", label: "Reports", icon: FileText, navKey: "nav_reports", roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
   { href: "/activities", label: "Activities", icon: BookOpen, navKey: "nav_activities", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
   { href: "/programmes", label: "Programmes", icon: Home, navKey: "nav_programmes", roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
