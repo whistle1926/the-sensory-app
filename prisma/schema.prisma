@@ -400,6 +400,18 @@ model Booking {
   paymentRef    String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  // ── Booking T&C consent (captured during /book step 3) ──────────────
+  // Audit trail of which terms version the client agreed to. Required for
+  // any new booking; populated server-side from the version constant in
+  // src/lib/booking-terms.ts at submission time.
+  acceptedTermsAt      DateTime? @map("accepted_terms_at")
+  acceptedTermsVersion String?   @map("accepted_terms_version")
+  // Snapshot of deposit policy that applied to THIS booking. Set
+  // automatically for "initial-ot" today; future booking types could
+  // require deposits too. depositAmount is in pence to match `price`.
+  depositRequired      Boolean   @default(false) @map("deposit_required")
+  depositAmount        Int       @default(0)     @map("deposit_amount")
 }
 
 model PrivateConfig {

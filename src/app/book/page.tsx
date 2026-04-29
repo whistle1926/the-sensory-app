@@ -19,6 +19,11 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { StorefrontHeader } from "@/components/courses/storefront-header";
+import {
+  TERMS_VERSION,
+  clausesForService,
+  DEPOSIT_SERVICES,
+} from "@/lib/booking-terms";
 
 /* ------------------------------------------------------------------ */
 /*  Data                                                               */
@@ -149,6 +154,10 @@ export default function BookingPage() {
   const [submitError, setSubmitError] = useState("");
   const [accountCreated, setAccountCreated] = useState(false);
 
+  // T&C consent — one boolean per applicable clause id. Submit blocks
+  // until every applicable clause is ticked.
+  const [agreedClauses, setAgreedClauses] = useState<Record<string, boolean>>({});
+
   // Computed available slots per date { "2026-04-07": ["09:00","09:30",...], ... }
   const [computedSlots, setComputedSlots] = useState<Record<string, string[]>>({});
   const [slotsLoaded, setSlotsLoaded] = useState(false);
@@ -191,10 +200,24 @@ export default function BookingPage() {
     return slots || [];
   }
 
+  // T&C clauses applicable to the chosen service (deposit clause only
+  // shows for "initial-ot"). Recomputed when the service changes so a
+  // previously-ticked clause for a different service doesn't survive
+  // the swap.
+  const applicableClauses = useMemo(
+    () => (service ? clausesForService(service.id) : []),
+    [service],
+  );
+  const allAgreed = applicableClauses.every((c) => agreedClauses[c.id]);
+
   /* ------ Submit booking ------ */
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!service || !selectedDate || !selectedTime) return;
+    if (!allAgreed) {
+      setSubmitError("Please tick all of the boxes to agree to our terms.");
+      return;
+    }
 
     setSubmitting(true);
     setSubmitError("");
@@ -213,6 +236,8 @@ export default function BookingPage() {
           clientEmail: email,
           clientPhone: phone || undefined,
           notes: notes || undefined,
+          acceptedTermsVersion: TERMS_VERSION,
+          acceptedClauses: applicableClauses.map((c) => c.id),
         }),
       });
 
@@ -679,6 +704,58 @@ export default function BookingPage() {
                 />
               </div>
 
+              {/* ------- Terms & Conditions ------- */}
+              <div className="space-y-3 rounded-2xl border border-border bg-muted/20 p-4">
+                <div className="flex items-baseline justify-between">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                    Terms &amp; Conditions
+                  </h3>
+                  <span className="text-[10px] text-muted-foreground">
+                    v{TERMS_VERSION}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Please read each clause and tick to confirm you agree. A copy
+                  is included in the confirmation email for your records.
+                </p>
+                {applicableClauses.map((c) => {
+                  const checked = Boolean(agreedClauses[c.id]);
+                  return (
+                    <label
+                      key={c.id}
+                      htmlFor={`tc-${c.id}`}
+                      className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-card p-3 transition hover:border-primary/40"
+                    >
+                      <input
+                        id={`tc-${c.id}`}
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) =>
+                          setAgreedClauses((prev) => ({
+                            ...prev,
+                            [c.id]: e.target.checked,
+                          }))
+                        }
+                        className="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-primary focus:ring-primary"
+                      />
+                      <span className="flex-1">
+                        <span className="block text-sm font-semibold">
+                          {c.heading}
+                          {c.id === "deposit" && service && DEPOSIT_SERVICES[service.id] && (
+                            <span className="ml-1 text-xs font-normal text-muted-foreground">
+                              ({DEPOSIT_SERVICES[service.id].label} non-refundable)
+                            </span>
+                          )}
+                        </span>
+                        <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
+                          {c.body}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+
               {submitError && (
                 <div className="flex items-center gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950/30 dark:text-red-400">
                   <AlertCircle className="h-4 w-4 shrink-0" />
@@ -688,7 +765,7 @@ export default function BookingPage() {
 
               <Button
                 type="submit"
-                disabled={submitting || !name || !email}
+                disabled={submitting || !name || !email || !allAgreed}
                 className="h-11 w-full rounded-xl"
               >
                 {submitting ? (
