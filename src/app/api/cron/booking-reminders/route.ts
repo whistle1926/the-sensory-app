@@ -1,12 +1,15 @@
 /**
- * Hourly cron — sends a 24-hour appointment reminder email to anyone whose
- * appointment falls in the [now+24h, now+25h) window. Called by Vercel Cron
- * (config in /vercel.json) once an hour.
+ * Daily cron — sends an appointment reminder email to everyone whose
+ * appointment falls on "tomorrow" (UK time). Called by Vercel Cron at
+ * 09:00 UTC (10:00 BST / 09:00 GMT) per /vercel.json.
  *
- * The cron runs every hour so each booking enters the window exactly once
- * (unless it's deleted/cancelled before its slot). The booking row's
- * `reminderSentAt` timestamp acts as the idempotency key — even if Vercel
- * re-fires the cron twice in the same hour we'll never double-email.
+ * Hobby-plan Vercel only allows daily crons, so we send the whole
+ * tomorrow batch in one morning sweep rather than firing precisely 24h
+ * before each individual time. Functionally still "the day before",
+ * which is what clients expect.
+ *
+ * `reminderSentAt` is the idempotency key — even if Vercel re-fires the
+ * cron twice in the same day we'll never double-email a given booking.
  *
  * Auth: Vercel Cron sends an `Authorization: Bearer <CRON_SECRET>` header.
  * Set CRON_SECRET in the Vercel environment to a long random string. Local
@@ -43,15 +46,18 @@ export async function GET(req: NextRequest) {
   }
 
   const now = new Date();
-  // Cast a wide net at the DB level (12h–36h ahead) so the index range scan
-  // is small; precise filtering happens in JS using the time string.
+  // "Tomorrow in UK" — formatted as YYYY-MM-DD using Europe/London so we
+  // correctly cross BST/GMT boundaries and don't drift on day-of-week.
+  const tomorrowUk = ukDateString(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+
+  // Wide DB filter so the index range scan is small; we narrow in JS.
   const candidates = (await prisma.booking.findMany({
     where: {
       status: { not: "cancelled" },
       reminderSentAt: null,
       date: {
-        gte: new Date(now.getTime() + 12 * 60 * 60 * 1000),
-        lte: new Date(now.getTime() + 36 * 60 * 60 * 1000),
+        gte: new Date(now.getTime() - 6 * 60 * 60 * 1000),
+        lte: new Date(now.getTime() + 48 * 60 * 60 * 1000),
       },
     },
     select: {
@@ -65,12 +71,11 @@ export async function GET(req: NextRequest) {
     },
   })) as BookingForReminder[];
 
-  const windowStart = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-  const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
-
+  // Compare each candidate's appointment UK-date against tomorrowUk. This
+  // catches every booking on the target day regardless of the time stored.
   const due = candidates.filter((b) => {
     const t = appointmentTimestamp(b.date, b.time);
-    return t >= windowStart && t < windowEnd;
+    return ukDateString(t) === tomorrowUk;
   });
 
   let sent = 0;
@@ -109,6 +114,17 @@ export async function GET(req: NextRequest) {
  * appointment timestamp. Works for both BST and GMT because the stored
  * date already encodes the UK day boundary in UTC.
  */
+/** YYYY-MM-DD calendar string for the given timestamp in UK time. */
+function ukDateString(d: Date): string {
+  // 'en-CA' formats as YYYY-MM-DD by default — no manual parsing needed.
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
 function appointmentTimestamp(date: Date, time: string): Date {
   const [h, m] = time.split(":").map((n) => parseInt(n, 10));
   if (Number.isNaN(h) || Number.isNaN(m)) {
