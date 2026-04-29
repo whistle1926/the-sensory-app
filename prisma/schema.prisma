@@ -412,6 +412,11 @@ model Booking {
   // require deposits too. depositAmount is in pence to match `price`.
   depositRequired      Boolean   @default(false) @map("deposit_required")
   depositAmount        Int       @default(0)     @map("deposit_amount")
+
+  // Stamped by /api/cron/booking-reminders the first time a 24-hour
+  // reminder email fires successfully. Used as the idempotency key so the
+  // hourly cron never sends the same reminder twice.
+  reminderSentAt       DateTime? @map("reminder_sent_at")
 }
 
 model PrivateConfig {

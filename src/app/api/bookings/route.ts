@@ -8,6 +8,7 @@ import {
   clausesForService,
   renderTermsHtml,
 } from "@/lib/booking-terms";
+import { bookingServiceMeta } from "@/lib/booking-services";
 import { sendTransactionalEmail } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
@@ -191,7 +192,7 @@ async function sendBookingConfirmationEmail(args: {
       <div style="border:1px solid #E2E8F0;border-radius:12px;padding:16px;background:#F8FAFC">
         <p style="margin:0 0 8px 0;font-size:12px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.04em">Booking details</p>
         <p style="margin:0;font-size:14px;line-height:1.7">
-          <strong>Service:</strong> ${escapeHtml(args.service)}<br/>
+          <strong>Service:</strong> ${escapeHtml(bookingServiceMeta(args.service).title)}<br/>
           <strong>Date:</strong> ${escapeHtml(dateStr)}<br/>
           <strong>Time:</strong> ${escapeHtml(args.time)}<br/>
           <strong>Total:</strong> ${escapeHtml(args.priceLabel)}

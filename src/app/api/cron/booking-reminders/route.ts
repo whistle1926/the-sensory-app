@@ -1,0 +1,173 @@
+/**
+ * Hourly cron — sends a 24-hour appointment reminder email to anyone whose
+ * appointment falls in the [now+24h, now+25h) window. Called by Vercel Cron
+ * (config in /vercel.json) once an hour.
+ *
+ * The cron runs every hour so each booking enters the window exactly once
+ * (unless it's deleted/cancelled before its slot). The booking row's
+ * `reminderSentAt` timestamp acts as the idempotency key — even if Vercel
+ * re-fires the cron twice in the same hour we'll never double-email.
+ *
+ * Auth: Vercel Cron sends an `Authorization: Bearer <CRON_SECRET>` header.
+ * Set CRON_SECRET in the Vercel environment to a long random string. Local
+ * tests can hit the endpoint with the same header.
+ *
+ * Email delivery uses the existing Mailcub transport (`sendTransactionalEmail`).
+ * If Mailcub isn't configured we silently skip the send and DON'T mark the
+ * reminder as sent, so once Patrick configures Mailcub the next cron tick
+ * will pick the booking up again.
+ */
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { sendTransactionalEmail } from "@/lib/email";
+import { bookingServiceMeta } from "@/lib/booking-services";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+interface BookingForReminder {
+  id: string;
+  service: string;
+  date: Date;
+  time: string;
+  duration: string;
+  clientName: string;
+  clientEmail: string;
+}
+
+export async function GET(req: NextRequest) {
+  const authHeader = req.headers.get("authorization") ?? "";
+  const expected = `Bearer ${process.env.CRON_SECRET ?? ""}`;
+  if (!process.env.CRON_SECRET || authHeader !== expected) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const now = new Date();
+  // Cast a wide net at the DB level (12h–36h ahead) so the index range scan
+  // is small; precise filtering happens in JS using the time string.
+  const candidates = (await prisma.booking.findMany({
+    where: {
+      status: { not: "cancelled" },
+      reminderSentAt: null,
+      date: {
+        gte: new Date(now.getTime() + 12 * 60 * 60 * 1000),
+        lte: new Date(now.getTime() + 36 * 60 * 60 * 1000),
+      },
+    },
+    select: {
+      id: true,
+      service: true,
+      date: true,
+      time: true,
+      duration: true,
+      clientName: true,
+      clientEmail: true,
+    },
+  })) as BookingForReminder[];
+
+  const windowStart = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+
+  const due = candidates.filter((b) => {
+    const t = appointmentTimestamp(b.date, b.time);
+    return t >= windowStart && t < windowEnd;
+  });
+
+  let sent = 0;
+  let failed = 0;
+  for (const b of due) {
+    try {
+      const result = await sendReminderEmail(b);
+      if (result.ok) {
+        await prisma.booking.update({
+          where: { id: b.id },
+          data: { reminderSentAt: new Date() },
+        });
+        sent++;
+      } else {
+        failed++;
+        console.error("[booking-reminder] send failed", b.id, result.error);
+      }
+    } catch (err) {
+      failed++;
+      console.error("[booking-reminder] exception", b.id, err);
+    }
+  }
+
+  return NextResponse.json({
+    ranAt: now.toISOString(),
+    candidates: candidates.length,
+    due: due.length,
+    sent,
+    failed,
+  });
+}
+
+/**
+ * Combine the stored UTC midnight (e.g. "2026-04-16T23:00Z" for an April 17
+ * BST booking) with the local-time string ("10:30") to get the actual UTC
+ * appointment timestamp. Works for both BST and GMT because the stored
+ * date already encodes the UK day boundary in UTC.
+ */
+function appointmentTimestamp(date: Date, time: string): Date {
+  const [h, m] = time.split(":").map((n) => parseInt(n, 10));
+  if (Number.isNaN(h) || Number.isNaN(m)) {
+    // Defensive: a malformed time string shouldn't blow up the cron run.
+    return new Date(date);
+  }
+  const dt = new Date(date);
+  dt.setUTCMinutes(dt.getUTCMinutes() + h * 60 + m);
+  return dt;
+}
+
+async function sendReminderEmail(b: BookingForReminder) {
+  const meta = bookingServiceMeta(b.service);
+  const dateStr = new Date(b.date).toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Europe/London",
+  });
+  const html = `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0F172A">
+      <h1 style="font-size:20px;margin:0 0 8px 0">Reminder: your appointment is tomorrow</h1>
+      <p style="font-size:14px;color:#475569;margin:0 0 20px 0">
+        Hi ${escapeHtml(b.clientName)}, this is a friendly reminder of your appointment with The Sensory Submarine.
+      </p>
+      <div style="border:1px solid #E2E8F0;border-radius:12px;padding:16px;background:#F8FAFC">
+        <p style="margin:0 0 8px 0;font-size:12px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.04em">Appointment details</p>
+        <p style="margin:0;font-size:14px;line-height:1.7">
+          <strong>Service:</strong> ${escapeHtml(meta.title)}<br/>
+          <strong>Format:</strong> ${escapeHtml(meta.description)}<br/>
+          <strong>Date:</strong> ${escapeHtml(dateStr)}<br/>
+          <strong>Time:</strong> ${escapeHtml(b.time)} (UK time)<br/>
+          ${b.duration ? `<strong>Duration:</strong> ${escapeHtml(b.duration)}` : ""}
+        </p>
+      </div>
+      <p style="font-size:13px;color:#475569;margin-top:20px;line-height:1.55">
+        ${
+          meta.online
+            ? "We&rsquo;ll send the video link separately closer to the time. Please find a quiet space with a good internet connection and have your child nearby if relevant."
+            : "Please arrive 5 minutes early. If anything has changed for your child since booking, feel free to reply with a quick note."
+        }
+      </p>
+      <p style="font-size:12px;color:#94A3B8;margin-top:24px">
+        Need to cancel or reschedule? Reply to this email as soon as possible.
+        Cancellations within 24 hours of the appointment require full payment per the terms you agreed to at booking, unless in case of sickness.
+      </p>
+    </div>`;
+  return sendTransactionalEmail({
+    to: b.clientEmail,
+    subject: `Reminder: your appointment with The Sensory Submarine is tomorrow at ${b.time}`,
+    html,
+  });
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
