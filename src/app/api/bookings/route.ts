@@ -6,9 +6,12 @@ import {
   TERMS_VERSION,
   DEPOSIT_SERVICES,
   clausesForService,
-  renderTermsHtml,
 } from "@/lib/booking-terms";
-import { bookingServiceMeta } from "@/lib/booking-services";
+import {
+  getEnabledAutomation,
+  renderTemplate,
+  variablesForBooking,
+} from "@/lib/booking-automation";
 import { sendTransactionalEmail } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
@@ -111,8 +114,9 @@ export async function POST(req: NextRequest) {
     service,
     date: bookingDate,
     time,
-    priceLabel: formatPrice(price || 0),
-    depositLabel: depositPolicy?.label,
+    duration: duration || "",
+    pricePence: price || 0,
+    depositPence: depositPolicy?.amountPence,
   }).catch((err) => console.error("Booking confirmation email failed:", err));
 
   // Attempt to create FireBuddy payment if enabled
@@ -165,61 +169,38 @@ export async function GET() {
   return NextResponse.json(bookings);
 }
 
-/** Render-and-send the booking confirmation email. Includes the T&Cs the
- * client just agreed to so they have a copy in their inbox alongside the
- * audit timestamp on the Booking row. */
+/** Render-and-send the booking confirmation email using the
+ * "confirmation" automation row. If that row is disabled or missing the
+ * function silently returns — letting Patrick turn confirmations off
+ * from the admin UI without code changes. */
 async function sendBookingConfirmationEmail(args: {
   to: string;
   clientName: string;
   service: string;
   date: Date;
   time: string;
-  priceLabel: string;
-  depositLabel?: string;
+  duration: string;
+  pricePence: number;
+  depositPence?: number;
 }) {
-  const dateStr = args.date.toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
+  const automation = await getEnabledAutomation("confirmation");
+  if (!automation) return;
+  const vars = variablesForBooking({
+    clientName: args.clientName,
+    service: args.service,
+    date: args.date,
+    time: args.time,
+    duration: args.duration,
+    pricePence: args.pricePence,
+    depositPence: args.depositPence,
   });
-  const html = `
-    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0F172A">
-      <h1 style="font-size:20px;margin:0 0 8px 0">Your booking is confirmed</h1>
-      <p style="font-size:14px;color:#475569;margin:0 0 20px 0">
-        Hi ${escapeHtml(args.clientName)}, thanks for booking with The Sensory Submarine.
-      </p>
-      <div style="border:1px solid #E2E8F0;border-radius:12px;padding:16px;background:#F8FAFC">
-        <p style="margin:0 0 8px 0;font-size:12px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.04em">Booking details</p>
-        <p style="margin:0;font-size:14px;line-height:1.7">
-          <strong>Service:</strong> ${escapeHtml(bookingServiceMeta(args.service).title)}<br/>
-          <strong>Date:</strong> ${escapeHtml(dateStr)}<br/>
-          <strong>Time:</strong> ${escapeHtml(args.time)}<br/>
-          <strong>Total:</strong> ${escapeHtml(args.priceLabel)}
-          ${args.depositLabel ? `<br/><strong>Deposit (non-refundable):</strong> ${escapeHtml(args.depositLabel)}` : ""}
-        </p>
-      </div>
-      ${renderTermsHtml(args.service)}
-      <p style="font-size:12px;color:#94A3B8;margin-top:24px">
-        If you need to cancel or reschedule, please reply to this email as soon as possible.
-        Cancellation charges apply per the terms above.
-      </p>
-    </div>`;
   await sendTransactionalEmail({
     to: args.to,
-    subject: "Your booking with The Sensory Submarine is confirmed",
-    html,
+    subject: renderTemplate(automation.subject, vars),
+    html: renderTemplate(automation.bodyHtml, vars),
   });
 }
 
 function formatPrice(pence: number): string {
   return `£${(pence / 100).toFixed(pence % 100 === 0 ? 0 : 2)}`;
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }

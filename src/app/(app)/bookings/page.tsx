@@ -16,8 +16,10 @@ import {
   Plus,
   Trash2,
   Ban,
+  Mail,
 } from "lucide-react";
 import { Toolbar } from "@/components/ds";
+import { AutomationsSection } from "@/components/bookings/automations-section";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -142,7 +144,7 @@ function formatTime12(t: string) {
 /*  Page                                                               */
 /* ------------------------------------------------------------------ */
 
-type Tab = "calendar" | "availability";
+type Tab = "calendar" | "availability" | "automations";
 
 export default function BookingsPage() {
   const today = useMemo(() => new Date(), []);
@@ -420,7 +422,21 @@ export default function BookingsPage() {
           <Settings2 className="mr-2 inline h-4 w-4" />
           Availability
         </button>
+        <button
+          onClick={() => setTab("automations")}
+          className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+            tab === "automations" ? "bg-card text-foreground shadow-[var(--shadow-xs)]" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Mail className="mr-2 inline h-4 w-4" />
+          Automations
+        </button>
       </div>
+
+      {/* ================================================================ */}
+      {/*  AUTOMATIONS TAB                                                  */}
+      {/* ================================================================ */}
+      {tab === "automations" && <AutomationsSection />}
 
       {/* ================================================================ */}
       {/*  CALENDAR TAB                                                     */}

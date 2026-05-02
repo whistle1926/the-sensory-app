@@ -419,6 +419,32 @@ model Booking {
   reminderSentAt       DateTime? @map("reminder_sent_at")
 }
 
+/// User-editable email automations attached to bookings. Two are seeded
+/// as defaults on first load:
+///   • "confirmation"   — sent immediately when a booking is created
+///   • "reminder_24h"   — sent by the daily cron 24 hours before the slot
+/// Both can be toggled off, edited (subject + body), or supplemented with
+/// extra rows for follow-up emails. Body uses {{variable}} placeholders
+/// substituted at send time (see src/lib/booking-automation.ts).
+model BookingAutomation {
+  id                 String   @id @default(cuid())
+  key                String   @unique // stable id used by send code
+  label              String              // "Booking confirmation"
+  description        String   @db.Text  // shown in the admin UI
+  triggerType        String   @map("trigger_type") // "on_booking" | "before_appointment"
+  triggerHoursBefore Int?     @map("trigger_hours_before") // for "before_appointment"
+  enabled            Boolean  @default(true)
+  subject            String   @db.Text
+  bodyHtml           String   @db.Text @map("body_html")
+  /// Defaults are protected from deletion in the UI (the send code refers
+  /// to their keys). User-added automations can be deleted freely.
+  isDefault          Boolean  @default(false) @map("is_default")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("booking_automations")
+}
+
 model PrivateConfig {
   id         String   @id @default("singleton")
   incomeGoal Int      @default(250000)

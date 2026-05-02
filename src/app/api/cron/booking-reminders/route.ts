@@ -23,7 +23,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendTransactionalEmail } from "@/lib/email";
-import { bookingServiceMeta } from "@/lib/booking-services";
+import {
+  getEnabledAutomation,
+  renderTemplate,
+  variablesForBooking,
+} from "@/lib/booking-automation";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -137,53 +141,21 @@ function appointmentTimestamp(date: Date, time: string): Date {
 }
 
 async function sendReminderEmail(b: BookingForReminder) {
-  const meta = bookingServiceMeta(b.service);
-  const dateStr = new Date(b.date).toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: "Europe/London",
+  const automation = await getEnabledAutomation("reminder_24h");
+  if (!automation) {
+    return { ok: false, error: "reminder_24h automation disabled or missing" };
+  }
+  const vars = variablesForBooking({
+    clientName: b.clientName,
+    service: b.service,
+    date: b.date,
+    time: b.time,
+    duration: b.duration,
+    pricePence: 0,
   });
-  const html = `
-    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0F172A">
-      <h1 style="font-size:20px;margin:0 0 8px 0">Reminder: your appointment is tomorrow</h1>
-      <p style="font-size:14px;color:#475569;margin:0 0 20px 0">
-        Hi ${escapeHtml(b.clientName)}, this is a friendly reminder of your appointment with The Sensory Submarine.
-      </p>
-      <div style="border:1px solid #E2E8F0;border-radius:12px;padding:16px;background:#F8FAFC">
-        <p style="margin:0 0 8px 0;font-size:12px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.04em">Appointment details</p>
-        <p style="margin:0;font-size:14px;line-height:1.7">
-          <strong>Service:</strong> ${escapeHtml(meta.title)}<br/>
-          <strong>Format:</strong> ${escapeHtml(meta.description)}<br/>
-          <strong>Date:</strong> ${escapeHtml(dateStr)}<br/>
-          <strong>Time:</strong> ${escapeHtml(b.time)} (UK time)<br/>
-          ${b.duration ? `<strong>Duration:</strong> ${escapeHtml(b.duration)}` : ""}
-        </p>
-      </div>
-      <p style="font-size:13px;color:#475569;margin-top:20px;line-height:1.55">
-        ${
-          meta.online
-            ? "We&rsquo;ll send the video link separately closer to the time. Please find a quiet space with a good internet connection and have your child nearby if relevant."
-            : "Please arrive 5 minutes early. If anything has changed for your child since booking, feel free to reply with a quick note."
-        }
-      </p>
-      <p style="font-size:12px;color:#94A3B8;margin-top:24px">
-        Need to cancel or reschedule? Reply to this email as soon as possible.
-        Cancellations within 24 hours of the appointment require full payment per the terms you agreed to at booking, unless in case of sickness.
-      </p>
-    </div>`;
   return sendTransactionalEmail({
     to: b.clientEmail,
-    subject: `Reminder: your appointment with The Sensory Submarine is tomorrow at ${b.time}`,
-    html,
+    subject: renderTemplate(automation.subject, vars),
+    html: renderTemplate(automation.bodyHtml, vars),
   });
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
