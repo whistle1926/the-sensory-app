@@ -38,6 +38,10 @@ import { X as XIcon, Plus } from "lucide-react";
 interface EmailConfig {
   provider: string;
   apiKey: string;
+  /** Server flag — true when a key is already saved. The form keeps
+   * the input blank in that case so the user can't accidentally type
+   * over a working key. */
+  hasKey?: boolean;
   senderEmail: string;
   senderName: string;
   enabled: boolean;
@@ -383,23 +387,34 @@ export default function SettingsPage() {
                 <Input
                   id="apiKey"
                   type="password"
-                  placeholder="Enter your Mailcub API key"
+                  placeholder={
+                    emailConfig.hasKey
+                      ? "API key saved — leave blank to keep, or paste a new key to replace"
+                      : "Enter your Mailcub API key"
+                  }
                   value={emailConfig.apiKey}
                   onChange={(e) =>
                     setEmailConfig({ ...emailConfig, apiKey: e.target.value })
                   }
                 />
                 <p className="text-xs text-muted-foreground">
-                  Find this in your{" "}
+                  {emailConfig.hasKey ? (
+                    <span className="text-green-700 dark:text-green-400">
+                      ✓ API key saved.
+                    </span>
+                  ) : (
+                    "No API key saved yet."
+                  )}{" "}
+                  Find your key in your{" "}
                   <a
-                    href="https://mailcub.com"
+                    href="https://client.mailcub.com/api-keys"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary underline"
                   >
                     Mailcub dashboard
                   </a>{" "}
-                  under API Keys
+                  under API Keys.
                 </p>
               </div>
 

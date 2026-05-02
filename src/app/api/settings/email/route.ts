@@ -16,15 +16,23 @@ export async function GET() {
     return NextResponse.json({
       provider: "mailcub",
       apiKey: "",
+      hasKey: false,
       senderEmail: "",
       senderName: "The Sensory Submarine",
       enabled: false,
     });
   }
 
+  // Return an EMPTY apiKey field plus a `hasKey` flag instead of a masked
+  // version. This was changed after a near-miss where the masked dots
+  // (`••••`) looked like part of the key and the user typed over them,
+  // overwriting a working Mailcub key with a password they thought
+  // belonged in a different field. Now the form shows "API key saved"
+  // and only updates the DB if the user pastes a fresh non-empty value.
   return NextResponse.json({
     provider: settings.provider,
-    apiKey: settings.apiKey ? maskKey(settings.apiKey) : "",
+    apiKey: "",
+    hasKey: Boolean(settings.apiKey),
     senderEmail: settings.senderEmail || "",
     senderName: settings.senderName,
     enabled: settings.enabled,
@@ -50,7 +58,12 @@ export async function POST(req: NextRequest) {
   });
 
   const data: Record<string, unknown> = {};
-  if (apiKey !== undefined && !apiKey.includes("•")) data.apiKey = apiKey;
+  // Only update the API key if the user submitted a non-empty value.
+  // Empty string means "leave the existing key alone" — prevents the
+  // form from blanking the key on every save.
+  if (apiKey !== undefined && apiKey !== "" && !apiKey.includes("•")) {
+    data.apiKey = apiKey;
+  }
   if (senderEmail !== undefined) data.senderEmail = senderEmail;
   if (senderName !== undefined) data.senderName = senderName;
   if (enabled !== undefined) data.enabled = enabled;
@@ -76,14 +89,10 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     provider: settings.provider,
-    apiKey: settings.apiKey ? maskKey(settings.apiKey) : "",
+    apiKey: "",
+    hasKey: Boolean(settings.apiKey),
     senderEmail: settings.senderEmail || "",
     senderName: settings.senderName,
     enabled: settings.enabled,
   });
-}
-
-function maskKey(key: string): string {
-  if (key.length <= 8) return "•".repeat(key.length);
-  return key.slice(0, 4) + "•".repeat(key.length - 8) + key.slice(-4);
 }
