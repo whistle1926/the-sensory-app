@@ -18,6 +18,9 @@ import {
   Milestone,
   LayoutDashboard,
   Percent,
+  ExternalLink,
+  GraduationCap,
+  CalendarDays,
 } from "lucide-react";
 import { Toolbar } from "@/components/ds";
 import { ClientStagesSection } from "@/components/settings/client-stages-section";
@@ -270,6 +273,53 @@ export default function SettingsPage() {
                 {roleLabel || "\u2014"}
               </span>
             </div>
+          </div>
+        </div>
+
+        {/* Public-facing pages \u2014 quick links so admins can hop straight to the
+            client-facing surfaces (open in a new tab to keep their settings
+            session alive). The hostname is read at runtime so this works in
+            preview deploys too. */}
+        <div className="mt-6 rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
+          <h2 className="text-base font-semibold">Public pages</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Links your clients see. Open in a new tab.
+          </p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <a
+              href="/courses"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-background p-4 transition hover:border-primary/40 hover:bg-muted/40"
+            >
+              <span className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                  <GraduationCap className="h-4 w-4 text-primary" />
+                </span>
+                <span>
+                  <span className="block text-sm font-semibold">Courses storefront</span>
+                  <span className="block text-xs text-muted-foreground">/courses</span>
+                </span>
+              </span>
+              <ExternalLink className="h-4 w-4 text-muted-foreground transition group-hover:text-foreground" />
+            </a>
+            <a
+              href="/book"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-background p-4 transition hover:border-primary/40 hover:bg-muted/40"
+            >
+              <span className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                  <CalendarDays className="h-4 w-4 text-primary" />
+                </span>
+                <span>
+                  <span className="block text-sm font-semibold">Booking page</span>
+                  <span className="block text-xs text-muted-foreground">/book</span>
+                </span>
+              </span>
+              <ExternalLink className="h-4 w-4 text-muted-foreground transition group-hover:text-foreground" />
+            </a>
           </div>
         </div>
       </div>
