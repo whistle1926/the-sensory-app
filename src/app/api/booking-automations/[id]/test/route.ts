@@ -50,32 +50,47 @@ export async function POST(
     );
   }
 
-  // Sample variables — chosen to look like a plausible booking. The
-  // appointment date is set to two days from now so the formatted date
-  // string doesn't read as "today".
-  const sampleDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
-  sampleDate.setUTCHours(0, 0, 0, 0);
-  const vars = variablesForBooking({
-    clientName: session.user.name || "Sample Client",
-    service: "initial-ot",
-    date: sampleDate,
-    time: "10:30",
-    duration: "60 minutes",
-    pricePence: 8500,
-    depositPence: 10000,
-  });
+  try {
+    // Sample variables — chosen to look like a plausible booking. The
+    // appointment date is set to two days from now so the formatted date
+    // string doesn't read as "today".
+    const sampleDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+    sampleDate.setUTCHours(0, 0, 0, 0);
+    const vars = variablesForBooking({
+      clientName: session.user.name || "Sample Client",
+      service: "initial-ot",
+      date: sampleDate,
+      time: "10:30",
+      duration: "60 minutes",
+      pricePence: 8500,
+      depositPence: 10000,
+    });
 
-  const result = await sendTransactionalEmail({
-    to,
-    subject: `[TEST] ${renderTemplate(automation.subject, vars)}`,
-    html: renderTemplate(automation.bodyHtml, vars),
-  });
+    const result = await sendTransactionalEmail({
+      to,
+      subject: `[TEST] ${renderTemplate(automation.subject, vars)}`,
+      html: renderTemplate(automation.bodyHtml, vars),
+    });
 
-  if (!result.ok) {
+    if (!result.ok) {
+      console.error("[automation-test] Mailcub said no:", result);
+      return NextResponse.json(
+        {
+          error: result.error ?? `Mailcub send failed (HTTP ${result.statusCode ?? "n/a"})`,
+        },
+        { status: 502 },
+      );
+    }
+    return NextResponse.json({ ok: true, to });
+  } catch (err: unknown) {
+    // Common cause: prisma/email lookup throws, or fetch to Mailcub
+    // throws a low-level network error. Surface the message so the UI
+    // can show something more useful than a bare "502".
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[automation-test] Unhandled exception:", err);
     return NextResponse.json(
-      { error: result.error ?? "Mailcub send failed" },
+      { error: `Test send crashed: ${message}` },
       { status: 502 },
     );
   }
-  return NextResponse.json({ ok: true, to });
 }
