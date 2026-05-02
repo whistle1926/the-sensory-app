@@ -19,10 +19,24 @@ function isStaff(role: string | undefined): boolean {
   return role === "SUPER_ADMIN" || role === "TEAM_MANAGER";
 }
 
+// Vercel was returning 502 with no body — meaning the function itself is
+// crashing at module-load time. Force the runtime to nodejs (instead of
+// edge inference) and bump maxDuration so we know which environment we're
+// on if it crashes again.
+export const runtime = "nodejs";
+export const maxDuration = 30;
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  // Probe — if this query string is set we short-circuit so we can confirm
+  // the function CAN be invoked at all (separate from any later code path).
+  const url = new URL(req.url);
+  if (url.searchParams.get("probe") === "1") {
+    return NextResponse.json({ ok: true, probe: "alive" });
+  }
+
   let stage = "init";
   try {
     stage = "auth";
