@@ -96,26 +96,17 @@ export const DEFAULT_AUTOMATIONS = {
     triggerType: "on_booking" as const,
     triggerHoursBefore: null as number | null,
     subject: "Your booking with The Sensory Submarine is confirmed",
-    bodyHtml: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0F172A">
-  <h1 style="font-size:20px;margin:0 0 8px 0">Your booking is confirmed</h1>
-  <p style="font-size:14px;color:#475569;margin:0 0 20px 0">
-    Hi {{client_name}}, thanks for booking with The Sensory Submarine.
-  </p>
-  <div style="border:1px solid #E2E8F0;border-radius:12px;padding:16px;background:#F8FAFC">
-    <p style="margin:0 0 8px 0;font-size:12px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.04em">Booking details</p>
-    <p style="margin:0;font-size:14px;line-height:1.7">
-      <strong>Service:</strong> {{service}}<br/>
-      <strong>Date:</strong> {{date}}<br/>
-      <strong>Time:</strong> {{time}}<br/>
-      <strong>Total:</strong> {{price}}
-    </p>
-  </div>
-  {{terms}}
-  <p style="font-size:12px;color:#94A3B8;margin-top:24px">
-    If you need to cancel or reschedule, please reply to this email as soon as possible.
-    Cancellation charges apply per the terms above.
-  </p>
-</div>`,
+    bodyHtml: `<h2>Your booking is confirmed</h2>
+<p>Hi {{client_name}}, thanks for booking with The Sensory Submarine.</p>
+<h3>Booking details</h3>
+<ul>
+  <li><strong>Service:</strong> {{service}}</li>
+  <li><strong>Date:</strong> {{date}}</li>
+  <li><strong>Time:</strong> {{time}}</li>
+  <li><strong>Total:</strong> {{price}}</li>
+</ul>
+{{terms}}
+<p>If you need to cancel or reschedule, please reply to this email as soon as possible. Cancellation charges apply per the terms above.</p>`,
   },
   reminder_24h: {
     key: "reminder_24h",
@@ -125,27 +116,17 @@ export const DEFAULT_AUTOMATIONS = {
     triggerType: "before_appointment" as const,
     triggerHoursBefore: 24 as number | null,
     subject: "Reminder: your appointment with The Sensory Submarine is tomorrow at {{time}}",
-    bodyHtml: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0F172A">
-  <h1 style="font-size:20px;margin:0 0 8px 0">Reminder: your appointment is tomorrow</h1>
-  <p style="font-size:14px;color:#475569;margin:0 0 20px 0">
-    Hi {{client_name}}, this is a friendly reminder of your appointment with The Sensory Submarine.
-  </p>
-  <div style="border:1px solid #E2E8F0;border-radius:12px;padding:16px;background:#F8FAFC">
-    <p style="margin:0 0 8px 0;font-size:12px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.04em">Appointment details</p>
-    <p style="margin:0;font-size:14px;line-height:1.7">
-      <strong>Service:</strong> {{service}}<br/>
-      <strong>Date:</strong> {{date}}<br/>
-      <strong>Time:</strong> {{time}} (UK time)<br/>
-      <strong>Duration:</strong> {{duration}}
-    </p>
-  </div>
-  <p style="font-size:13px;color:#475569;margin-top:20px;line-height:1.55">
-    We'll send the video link separately closer to the time. Please find a quiet space with a good internet connection and have your child nearby if relevant.
-  </p>
-  <p style="font-size:12px;color:#94A3B8;margin-top:24px">
-    Need to cancel or reschedule? Reply to this email as soon as possible. Cancellations within 24 hours of the appointment require full payment unless in case of sickness.
-  </p>
-</div>`,
+    bodyHtml: `<h2>Reminder: your appointment is tomorrow</h2>
+<p>Hi {{client_name}}, this is a friendly reminder of your appointment with The Sensory Submarine.</p>
+<h3>Appointment details</h3>
+<ul>
+  <li><strong>Service:</strong> {{service}}</li>
+  <li><strong>Date:</strong> {{date}}</li>
+  <li><strong>Time:</strong> {{time}} (UK time)</li>
+  <li><strong>Duration:</strong> {{duration}}</li>
+</ul>
+<p>We'll send the video link separately closer to the time. Please find a quiet space with a good internet connection and have your child nearby if relevant.</p>
+<p>Need to cancel or reschedule? Reply to this email as soon as possible. Cancellations within 24 hours of the appointment require full payment unless in case of sickness.</p>`,
   },
 };
 

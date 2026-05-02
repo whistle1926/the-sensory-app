@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  Copy,
   Loader2,
   Mail,
   RotateCcw,
@@ -24,6 +25,7 @@ import {
   Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 interface Automation {
   id: string;
@@ -110,15 +112,12 @@ export function AutomationsSection() {
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Available variables
         </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Click any to copy, then paste into the body or subject.
+        </p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {VARIABLE_HINTS.map((v) => (
-            <div
-              key={v.name}
-              className="rounded-lg border border-border bg-card px-3 py-2 text-xs"
-            >
-              <code className="font-mono text-primary">{`{{${v.name}}}`}</code>
-              <span className="ml-2 text-muted-foreground">{v.description}</span>
-            </div>
+            <VariableChip key={v.name} name={v.name} description={v.description} />
           ))}
         </div>
       </div>
@@ -229,15 +228,21 @@ function AutomationCard({
 
           <div className="space-y-2">
             <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Body (HTML)
+              Body
             </label>
-            <textarea
+            <RichTextEditor
               value={bodyHtml}
-              onChange={(e) => setBodyHtml(e.target.value)}
-              rows={14}
-              spellCheck={false}
-              className="w-full rounded-xl border border-input bg-background px-3 py-2 font-mono text-[12px] leading-relaxed shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              onChange={setBodyHtml}
+              minHeight={260}
             />
+            <p className="text-[11px] text-muted-foreground">
+              Type freely. Use placeholders like{" "}
+              <code className="rounded bg-muted px-1 font-mono text-primary">
+                {"{{client_name}}"}
+              </code>{" "}
+              to drop in booking details — see the variable list at the bottom
+              of the page (click any to copy).
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
@@ -285,6 +290,39 @@ function AutomationCard({
         </div>
       )}
     </div>
+  );
+}
+
+/** Click-to-copy chip for the variable reference list. Stays "Copied!" for
+ * 1.5s so non-technical users get clear feedback that something happened. */
+function VariableChip({
+  name,
+  description,
+}: {
+  name: string;
+  description: string;
+}) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        navigator.clipboard?.writeText(`{{${name}}}`);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      className="group flex items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2 text-left text-xs transition hover:border-primary/40 hover:bg-muted/50"
+    >
+      <span className="min-w-0 flex-1">
+        <code className="font-mono text-primary">{`{{${name}}}`}</code>
+        <span className="ml-2 text-muted-foreground">{description}</span>
+      </span>
+      {copied ? (
+        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-600" />
+      ) : (
+        <Copy className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
+      )}
+    </button>
   );
 }
 
