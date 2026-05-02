@@ -321,9 +321,9 @@ export function Sidebar({ role, allowedNavKeys, navOrder }: SidebarProps) {
         </div>
       )}
       <div className="border-t border-white/10 p-4">
-        <div className="rounded-xl bg-white/5 p-3 ring-1 ring-white/10">
-          <p className="text-xs font-medium text-sidebar-foreground">The Sensory Submarine</p>
-          <p className="mt-0.5 text-[11px] text-sidebar-foreground/60">OT Report Platform</p>
+        <div className="rounded-xl bg-white/10 p-3 ring-1 ring-white/15">
+          <p className="text-xs font-semibold text-white">The Sensory Submarine</p>
+          <p className="mt-0.5 text-[11px] text-white/70">OT Report Platform</p>
         </div>
       </div>
     </aside>
