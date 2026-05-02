@@ -47,14 +47,18 @@ export async function sendTransactionalEmail(
   }
 
   const text = input.text ?? stripHtml(input.html);
+  // Mailcub's API uses `receiver` / `email_from` / `subject` / `html` / `text`
+  // (not the more common `to` / `from`). It also returns HTTP 200 even on
+  // validation errors and signals success via a `code` field in the body —
+  // so we parse the JSON and check that, not just `res.ok`.
   const body: Record<string, unknown> = {
-    to: input.to,
-    from: input.fromOverride ?? settings.senderEmail,
+    receiver: input.to,
+    email_from: input.fromOverride ?? settings.senderEmail,
     subject: input.subject,
     html: input.html,
     text,
   };
-  if (input.replyTo) body.replyTo = input.replyTo;
+  if (input.replyTo) body.reply_to = input.replyTo;
 
   const res = await fetch("https://api.mail.mailcub.com/api/send_email", {
     method: "POST",
@@ -65,13 +69,17 @@ export async function sendTransactionalEmail(
     body: JSON.stringify(body),
   });
 
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    console.error("[email] Mailcub error", res.status, errText);
+  const json = (await res.json().catch(() => ({}))) as {
+    code?: number;
+    message?: string;
+  };
+
+  if (!res.ok || json.code !== 200) {
+    console.error("[email] Mailcub error", res.status, json);
     return {
       ok: false,
       statusCode: res.status,
-      error: `Mailcub returned ${res.status}`,
+      error: json.message ?? `Mailcub returned ${res.status}`,
     };
   }
 
