@@ -317,23 +317,118 @@ function Toggle({
   );
 }
 
-/** Small "Send test" button for the editor footer. Currently opens a
- * placeholder alert; wiring this to a real test endpoint is a 30-min
- * follow-up if Patrick wants it. */
+/** Send a sample of this automation to a chosen email. Defaults to the
+ * current user's address (resolved server-side) — typing one in is only
+ * needed when previewing in another inbox.
+ *
+ * Calls POST /api/booking-automations/<id>/test which renders the body
+ * with realistic placeholder data and pushes it through Mailcub
+ * synchronously. We surface the API error verbatim so Patrick can debug
+ * sender-domain or API-key issues without leaving the page.
+ */
 function SendTestButton({ automationId }: { automationId: string }) {
-  return (
-    <Button
-      variant="outline"
-      onClick={() =>
-        alert(
-          "Test send isn't wired yet — for now, save your changes and create a real booking to verify. Tell Claude if you want a 'Send test to my email' button.",
-        )
+  const [open, setOpen] = useState(false);
+  const [to, setTo] = useState("");
+  const [sending, setSending] = useState(false);
+  const [status, setStatus] = useState<
+    | { kind: "ok"; to: string }
+    | { kind: "err"; message: string }
+    | null
+  >(null);
+
+  async function send() {
+    setSending(true);
+    setStatus(null);
+    try {
+      const res = await fetch(`/api/booking-automations/${automationId}/test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(to.trim() ? { to: to.trim() } : {}),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        to?: string;
+        error?: string;
+      };
+      if (res.ok && data.ok) {
+        setStatus({ kind: "ok", to: data.to ?? to });
+      } else {
+        setStatus({
+          kind: "err",
+          message: data.error ?? `Send failed (${res.status})`,
+        });
       }
-      className="rounded-xl"
-      data-automation-id={automationId}
-    >
-      <Send className="mr-2 h-4 w-4" />
-      Send test
-    </Button>
+    } catch (e: unknown) {
+      setStatus({
+        kind: "err",
+        message: e instanceof Error ? e.message : "Network error",
+      });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="relative">
+      <Button
+        variant="outline"
+        onClick={() => setOpen((v) => !v)}
+        className="rounded-xl"
+      >
+        <Send className="mr-2 h-4 w-4" />
+        Send test
+      </Button>
+      {open && (
+        <div className="absolute right-0 top-full z-10 mt-2 w-80 rounded-xl border border-border bg-card p-4 shadow-lg">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Send a test email
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Renders this template with sample booking data and emails it.
+            Leave blank to send to yourself.
+          </p>
+          <input
+            type="email"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            placeholder="recipient@example.com (optional)"
+            className="mt-3 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          />
+          <div className="mt-3 flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setOpen(false);
+                setStatus(null);
+                setTo("");
+              }}
+              className="rounded-lg"
+              disabled={sending}
+            >
+              Close
+            </Button>
+            <Button onClick={send} disabled={sending} className="rounded-lg">
+              {sending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="mr-2 h-4 w-4" />
+              )}
+              Send
+            </Button>
+          </div>
+          {status?.kind === "ok" && (
+            <p className="mt-3 flex items-center gap-1.5 text-xs text-green-700 dark:text-green-400">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Sent to {status.to}.
+            </p>
+          )}
+          {status?.kind === "err" && (
+            <p className="mt-3 text-xs text-red-600 dark:text-red-400">
+              {status.message}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
