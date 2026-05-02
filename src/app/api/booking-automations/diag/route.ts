@@ -90,16 +90,19 @@ export async function GET() {
   // 4. Direct Mailcub fetch (bypass our wrapper) so we know if it's an
   //    issue with the wrapper or the network/provider.
   if (settingsStep.result?.apiKey && settingsStep.result.senderEmail) {
+    const apiKey = settingsStep.result.apiKey ?? "";
+    const senderEmail = settingsStep.result.senderEmail ?? "";
+    const recipient = authStep.result?.user?.email ?? "";
     const mailcubStep = await safeStage("mailcub-direct", async () => {
       const res = await fetch("https://api.mail.mailcub.com/api/send_email", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-sh-key": settingsStep.result!.apiKey,
+          "x-sh-key": apiKey,
         },
         body: JSON.stringify({
-          receiver: authStep.result!.user!.email,
-          email_from: settingsStep.result!.senderEmail,
+          receiver: recipient,
+          email_from: senderEmail,
           subject: "[DIAG] Mailcub round-trip test",
           html: "<p>Diagnostic ping — if you see this, the pipeline is healthy.</p>",
           text: "Diagnostic ping",
