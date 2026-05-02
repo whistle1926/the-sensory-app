@@ -383,18 +383,23 @@ function SendTestButton({ automationId }: { automationId: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(to.trim() ? { to: to.trim() } : {}),
       });
-      const data = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        to?: string;
-        error?: string;
-      };
+      // Read as text first so we can show whatever the server returned even
+      // when it's a Vercel edge HTML error page (function crash → 502 with
+      // an HTML body, not our JSON).
+      const raw = await res.text();
+      let data: { ok?: boolean; to?: string; error?: string } = {};
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        /* response wasn't JSON — likely a Vercel platform error page */
+      }
       if (res.ok && data.ok) {
         setStatus({ kind: "ok", to: data.to ?? to });
       } else {
-        setStatus({
-          kind: "err",
-          message: data.error ?? `Send failed (${res.status})`,
-        });
+        const detail =
+          data.error ??
+          (raw && raw.length < 200 ? raw : `HTTP ${res.status} (no body)`);
+        setStatus({ kind: "err", message: `Send failed: ${detail}` });
       }
     } catch (e: unknown) {
       setStatus({
