@@ -320,10 +320,10 @@ export function Sidebar({ role, allowedNavKeys, navOrder }: SidebarProps) {
           </Link>
         </div>
       )}
-      <div className="border-t border-white/10 p-4">
-        <div className="rounded-xl bg-white/10 p-3 ring-1 ring-white/15">
-          <p className="text-xs font-semibold text-white">The Sensory Submarine</p>
-          <p className="mt-0.5 text-[11px] text-white/70">OT Report Platform</p>
+      <div className="border-t border-white/15 p-4">
+        <div className="rounded-xl bg-sidebar-primary/20 p-3 ring-1 ring-sidebar-primary/40">
+          <p className="text-xs font-bold text-white">The Sensory Submarine</p>
+          <p className="mt-1 text-[11px] font-medium text-white/85">OT Report Platform</p>
         </div>
       </div>
     </aside>
