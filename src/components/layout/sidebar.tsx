@@ -254,7 +254,7 @@ export function Sidebar({ role, allowedNavKeys, navOrder }: SidebarProps) {
         </div>
       </div>
 
-      <nav className="mt-2 flex-1 space-y-1 px-3">
+      <nav className="mt-2 flex-1 min-h-0 space-y-1 overflow-y-auto px-3">
         {displayKeys.map((key, index) => {
           const item = byKey.get(key);
           if (!item) return null;
