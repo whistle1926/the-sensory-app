@@ -145,7 +145,7 @@ async function sendReminderEmail(b: BookingForReminder) {
   if (!automation) {
     return { ok: false, error: "reminder_24h automation disabled or missing" };
   }
-  const vars = variablesForBooking({
+  const vars = await variablesForBooking({
     clientName: b.clientName,
     service: b.service,
     date: b.date,

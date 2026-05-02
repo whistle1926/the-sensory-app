@@ -17,9 +17,11 @@ import {
   Trash2,
   Ban,
   Mail,
+  ScrollText,
 } from "lucide-react";
 import { Toolbar } from "@/components/ds";
 import { AutomationsSection } from "@/components/bookings/automations-section";
+import { TermsSection } from "@/components/bookings/terms-section";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -144,7 +146,7 @@ function formatTime12(t: string) {
 /*  Page                                                               */
 /* ------------------------------------------------------------------ */
 
-type Tab = "calendar" | "availability" | "automations";
+type Tab = "calendar" | "availability" | "automations" | "terms";
 
 export default function BookingsPage() {
   const today = useMemo(() => new Date(), []);
@@ -431,12 +433,26 @@ export default function BookingsPage() {
           <Mail className="mr-2 inline h-4 w-4" />
           Automations
         </button>
+        <button
+          onClick={() => setTab("terms")}
+          className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+            tab === "terms" ? "bg-card text-foreground shadow-[var(--shadow-xs)]" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <ScrollText className="mr-2 inline h-4 w-4" />
+          Terms
+        </button>
       </div>
 
       {/* ================================================================ */}
       {/*  AUTOMATIONS TAB                                                  */}
       {/* ================================================================ */}
       {tab === "automations" && <AutomationsSection />}
+
+      {/* ================================================================ */}
+      {/*  TERMS TAB                                                        */}
+      {/* ================================================================ */}
+      {tab === "terms" && <TermsSection />}
 
       {/* ================================================================ */}
       {/*  CALENDAR TAB                                                     */}

@@ -445,6 +445,20 @@ model BookingAutomation {
   @@map("booking_automations")
 }
 
+/// Single source of truth for the booking T&Cs the client agrees to at
+/// /book step 3. Stored as a singleton (id="default") with the clause
+/// array as JSON so admin edits don't require a migration. The `version`
+/// is a free-text label (we use ISO date by convention) — Booking rows
+/// reference it via `acceptedTermsVersion` so we always know which copy
+/// any given client signed off on, even after edits.
+model BookingTermsConfig {
+  id        String   @id @default("default")
+  version   String                                       // e.g. "2026-04-29"
+  clauses   Json     @default("[]")                      // Array<TermsClause>
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@map("booking_terms_config")
+}
+
 model PrivateConfig {
   id         String   @id @default("singleton")
   incomeGoal Int      @default(250000)

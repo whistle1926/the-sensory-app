@@ -22,8 +22,10 @@ export const DEPOSIT_SERVICES: Record<string, { amountPence: number; label: stri
 };
 
 export interface TermsClause {
-  /** Stable id used as the React key + form field name. */
-  id: "cancellation" | "deposit" | "gdpr";
+  /** Stable id used as the React key + form field name. The seeded
+   * defaults use "cancellation", "deposit", "gdpr" — admin-added
+   * clauses can use any short slug. */
+  id: string;
   /** Short, scannable headline shown next to the checkbox. */
   heading: string;
   /** Full clause text — rendered as plain text below the heading. */

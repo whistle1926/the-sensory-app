@@ -15,7 +15,7 @@
  * placeholders don't break the layout.
  */
 import { prisma } from "@/lib/prisma";
-import { renderTermsHtml } from "@/lib/booking-terms";
+import { renderTermsHtmlFromDb } from "@/lib/booking-terms-store";
 import { bookingServiceMeta } from "@/lib/booking-services";
 
 export interface AutomationVariables {
@@ -40,8 +40,9 @@ export function renderTemplate(
   });
 }
 
-/** Build the variable map for a booking row (DB row, not the API body). */
-export function variablesForBooking(args: {
+/** Build the variable map for a booking row. Async because the
+ * `{{terms}}` block is fetched from the live admin-editable terms. */
+export async function variablesForBooking(args: {
   clientName: string;
   service: string;
   date: Date;
@@ -49,7 +50,7 @@ export function variablesForBooking(args: {
   duration: string;
   pricePence: number;
   depositPence?: number;
-}): AutomationVariables {
+}): Promise<AutomationVariables> {
   const meta = bookingServiceMeta(args.service);
   const dateStr = args.date.toLocaleDateString("en-GB", {
     weekday: "long",
@@ -66,7 +67,7 @@ export function variablesForBooking(args: {
     duration: args.duration,
     price: formatPrice(args.pricePence),
     deposit: args.depositPence ? formatPrice(args.depositPence) : "",
-    terms: renderTermsHtml(args.service),
+    terms: await renderTermsHtmlFromDb(args.service),
   };
 }
 

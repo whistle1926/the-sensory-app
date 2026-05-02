@@ -71,7 +71,7 @@ export async function POST(
     stage = "render-vars";
     const sampleDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
     sampleDate.setUTCHours(0, 0, 0, 0);
-    const vars = variablesForBooking({
+    const vars = await variablesForBooking({
       clientName: session.user.name || "Sample Client",
       service: "initial-ot",
       date: sampleDate,

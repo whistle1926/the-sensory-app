@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { FireBuddy } from "@/lib/firebuddy";
 import { ensureParentAccount } from "@/lib/parent-account";
+import { DEPOSIT_SERVICES } from "@/lib/booking-terms";
 import {
-  TERMS_VERSION,
-  DEPOSIT_SERVICES,
-  clausesForService,
-} from "@/lib/booking-terms";
+  getTermsConfig,
+  clausesForServiceFromDb,
+} from "@/lib/booking-terms-store";
 import {
   getEnabledAutomation,
   renderTemplate,
@@ -41,12 +41,15 @@ export async function POST(req: NextRequest) {
   }
 
   // Validate T&C agreement: client must have ticked every applicable
-  // clause and submitted with the current TERMS_VERSION. We re-derive the
+  // clause and submitted with the live terms version. We re-derive the
   // expected list server-side so a mischievous client can't strip clauses.
-  const expectedClauseIds = clausesForService(service).map((c) => c.id);
+  const termsCfg = await getTermsConfig();
+  const expectedClauseIds = (
+    await clausesForServiceFromDb(service)
+  ).map((c) => c.id);
   const submittedIds: string[] = Array.isArray(acceptedClauses) ? acceptedClauses : [];
   const allTicked = expectedClauseIds.every((id) => submittedIds.includes(id));
-  if (!allTicked || acceptedTermsVersion !== TERMS_VERSION) {
+  if (!allTicked || acceptedTermsVersion !== termsCfg.version) {
     return NextResponse.json(
       { error: "Please tick all of the terms boxes to confirm your booking." },
       { status: 400 },
@@ -85,7 +88,7 @@ export async function POST(req: NextRequest) {
       clientPhone: clientPhone || null,
       notes: notes || null,
       acceptedTermsAt: new Date(),
-      acceptedTermsVersion: TERMS_VERSION,
+      acceptedTermsVersion: termsCfg.version,
       depositRequired: Boolean(depositPolicy),
       depositAmount: depositPolicy?.amountPence ?? 0,
     },
@@ -185,7 +188,7 @@ async function sendBookingConfirmationEmail(args: {
 }) {
   const automation = await getEnabledAutomation("confirmation");
   if (!automation) return;
-  const vars = variablesForBooking({
+  const vars = await variablesForBooking({
     clientName: args.clientName,
     service: args.service,
     date: args.date,

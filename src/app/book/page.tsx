@@ -19,11 +19,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { StorefrontHeader } from "@/components/courses/storefront-header";
-import {
-  TERMS_VERSION,
-  clausesForService,
-  DEPOSIT_SERVICES,
-} from "@/lib/booking-terms";
+import { DEPOSIT_SERVICES, type TermsClause } from "@/lib/booking-terms";
 
 /* ------------------------------------------------------------------ */
 /*  Data                                                               */
@@ -158,6 +154,21 @@ export default function BookingPage() {
   // until every applicable clause is ticked.
   const [agreedClauses, setAgreedClauses] = useState<Record<string, boolean>>({});
 
+  // Live terms (version + clauses) fetched from /api/booking-terms so
+  // admin edits show up without redeploy. Falls back to an empty list
+  // if the fetch fails — the API route still validates server-side, so
+  // a misconfigured DB won't let a no-tick submission through.
+  const [terms, setTerms] = useState<{
+    version: string;
+    clauses: TermsClause[];
+  } | null>(null);
+  useEffect(() => {
+    fetch("/api/booking-terms")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => data && setTerms(data))
+      .catch(() => {});
+  }, []);
+
   // Computed available slots per date { "2026-04-07": ["09:00","09:30",...], ... }
   const [computedSlots, setComputedSlots] = useState<Record<string, string[]>>({});
   const [slotsLoaded, setSlotsLoaded] = useState(false);
@@ -201,14 +212,16 @@ export default function BookingPage() {
   }
 
   // T&C clauses applicable to the chosen service (deposit clause only
-  // shows for "initial-ot"). Recomputed when the service changes so a
-  // previously-ticked clause for a different service doesn't survive
-  // the swap.
-  const applicableClauses = useMemo(
-    () => (service ? clausesForService(service.id) : []),
-    [service],
-  );
-  const allAgreed = applicableClauses.every((c) => agreedClauses[c.id]);
+  // shows for services in DEPOSIT_SERVICES). Pulled from the live admin
+  // editable terms (`/api/booking-terms`).
+  const applicableClauses = useMemo(() => {
+    if (!service || !terms) return [] as TermsClause[];
+    const showDeposit = service.id in DEPOSIT_SERVICES;
+    return terms.clauses.filter((c) => !c.depositOnly || showDeposit);
+  }, [service, terms]);
+  const allAgreed =
+    applicableClauses.length > 0 &&
+    applicableClauses.every((c) => agreedClauses[c.id]);
 
   /* ------ Submit booking ------ */
   async function handleSubmit(e: React.FormEvent) {
@@ -236,7 +249,7 @@ export default function BookingPage() {
           clientEmail: email,
           clientPhone: phone || undefined,
           notes: notes || undefined,
-          acceptedTermsVersion: TERMS_VERSION,
+          acceptedTermsVersion: terms?.version ?? "",
           acceptedClauses: applicableClauses.map((c) => c.id),
         }),
       });
@@ -710,9 +723,11 @@ export default function BookingPage() {
                   <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                     Terms &amp; Conditions
                   </h3>
-                  <span className="text-[10px] text-muted-foreground">
-                    v{TERMS_VERSION}
-                  </span>
+                  {terms?.version && (
+                    <span className="text-[10px] text-muted-foreground">
+                      v{terms.version}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Please read each clause and tick to confirm you agree. A copy
