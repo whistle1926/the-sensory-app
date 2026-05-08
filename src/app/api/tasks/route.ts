@@ -27,6 +27,18 @@ export async function GET(_req: NextRequest) {
         take: 1,
         select: { createdAt: true, author: { select: { name: true } } },
       },
+      // Quick-tap "Build Updates" feedback chips. Newest first so the
+      // page can render an unread count without re-sorting.
+      feedback: {
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          kind: true,
+          message: true,
+          createdAt: true,
+          resolvedAt: true,
+        },
+      },
       _count: { select: { comments: true } },
     },
   });

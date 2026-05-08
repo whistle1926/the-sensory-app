@@ -497,10 +497,31 @@ model Task {
   assignees     TaskAssignee[]
   subtasks      Subtask[]
   comments      TaskComment[]
+  feedback      TaskFeedback[]
 
   @@index([status])
   @@index([dueDate])
   @@index([clientUserId])
+}
+
+/// Quick-tap feedback rows for the /tasks "Build Updates" view. Each row
+/// is one click of the Works / Issue / Suggestion / Confused chips on a
+/// task card, plus an optional free-text note. Used so Patrick can leave
+/// rapid-fire notes against shipped features and Claude can pull them
+/// back as a batch when picking the next thing to fix.
+model TaskFeedback {
+  id        String   @id @default(cuid())
+  taskId    String   @map("task_id")
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  /// "works" | "issue" | "suggestion" | "confused"
+  kind      String
+  message   String   @default("") @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  /// Resolved when Claude has actioned the note (or it's been dismissed).
+  resolvedAt DateTime? @map("resolved_at")
+
+  @@index([taskId, createdAt])
+  @@map("task_feedback")
 }
 
 model TaskAssignee {
