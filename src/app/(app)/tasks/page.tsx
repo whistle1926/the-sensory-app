@@ -163,12 +163,11 @@ export default function TasksPage() {
               Build Updates &middot; Testers&rsquo; home base
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Every recently-shipped feature lives here. Click the title to
-              jump into it (a new tab opens so this page stays put), follow
-              the test steps, then leave a quick chip — 👍 Works · ✋ Issue ·
-              💡 Suggestion · ❓ Confused. Optional message attached. Your
-              feedback lands in the DB and Claude can pull it as a batch
-              when picking the next thing to fix.
+              Recently-shipped features and ones still in flight. Try each
+              one and leave a quick chip — 👍 Works · ✋ Issue · 💡 Suggestion ·
+              ❓ Confused. Optional note attached. Anything flagged gets
+              actioned and the card bubbles back up when it&rsquo;s ready
+              for re-test.
             </p>
             <div className="mt-5 flex flex-wrap items-baseline gap-x-8 gap-y-2">
               <Stat number={counts.live} label="Features live" />
