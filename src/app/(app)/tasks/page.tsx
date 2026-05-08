@@ -12,6 +12,7 @@
  * (Task + TaskFeedback rows on top), so existing tasks survive intact.
  */
 import { useEffect, useMemo, useState } from "react";
+import { Fragment, type ReactNode } from "react";
 import {
   CheckCircle2,
   HandMetal,
@@ -243,6 +244,62 @@ export default function TasksPage() {
   );
 }
 
+// Bare-URL detector. Tight bounds so we don't grab trailing punctuation
+// (e.g. "https://example.com.") into the link.
+const URL_REGEX = /\bhttps?:\/\/[^\s<>"')]+/g;
+
+/**
+ * Auto-linkify a chunk of HTML — wraps bare http(s) URLs in anchor tags
+ * but skips text already inside an <a>...</a> block. Used on task
+ * descriptions, which are stored as raw HTML and historically were
+ * typed in with bare URLs that didn't render as links.
+ */
+function autoLinkifyHtml(html: string): string {
+  // Split on existing <a>...</a> blocks. Even indices are outside-link
+  // text we want to scan; odd indices are existing anchors we leave
+  // untouched.
+  const parts = html.split(/(<a[\s\S]*?<\/a>)/gi);
+  return parts
+    .map((chunk, i) => {
+      if (i % 2 === 1) return chunk;
+      return chunk.replace(
+        URL_REGEX,
+        (url) =>
+          `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-primary underline break-all">${url}</a>`,
+      );
+    })
+    .join("");
+}
+
+/**
+ * Render plain text with bare URLs as clickable links. React-native
+ * version of the helper above — used for the feedback notes which are
+ * rendered as text rather than HTML.
+ */
+function linkifyText(text: string): ReactNode {
+  const out: ReactNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  URL_REGEX.lastIndex = 0;
+  while ((m = URL_REGEX.exec(text)) !== null) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    out.push(
+      <a
+        key={m.index}
+        href={m[0]}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="break-all text-primary underline"
+      >
+        {m[0]}
+      </a>,
+    );
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out.map((node, i) => <Fragment key={i}>{node}</Fragment>);
+}
+
 function Stat({ number, label }: { number: number; label: string }) {
   return (
     <div>
@@ -295,7 +352,9 @@ function FeatureCard({
           {task.description && (
             <div
               className="prose prose-sm mt-2 max-w-none text-sm text-muted-foreground prose-p:my-1.5 prose-a:text-primary"
-              dangerouslySetInnerHTML={{ __html: task.description }}
+              dangerouslySetInnerHTML={{
+                __html: autoLinkifyHtml(task.description),
+              }}
             />
           )}
         </div>
@@ -498,7 +557,7 @@ function FeedbackRow({
       <div className="min-w-0 flex-1">
         {f.message ? (
           <p className="whitespace-pre-wrap text-sm leading-relaxed">
-            {f.message}
+            {linkifyText(f.message)}
           </p>
         ) : (
           <p className="text-xs italic text-muted-foreground">No note.</p>
