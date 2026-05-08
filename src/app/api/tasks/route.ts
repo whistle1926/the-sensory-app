@@ -45,14 +45,24 @@ export async function GET(_req: NextRequest) {
 
   const withActivity = tasks.map((t) => {
     const lastComment = t.comments[0]?.createdAt ?? null;
-    const lastActivityAt =
-      lastComment && lastComment > t.updatedAt ? lastComment : t.updatedAt;
-    const source: "created" | "edited" | "comment" =
-      lastComment && lastComment > t.updatedAt
-        ? "comment"
-        : t.updatedAt.getTime() === t.createdAt.getTime()
-          ? "created"
-          : "edited";
+    // Newest feedback chip — bubbles cards up the moment Patrick leaves
+    // a Works/Issue/Suggestion/Confused note. `feedback` is already
+    // ordered desc above, so feedback[0] is the latest.
+    const lastFeedback = t.feedback[0]?.createdAt ?? null;
+    // Pick the most recent of the three signals (task edit, comment,
+    // feedback) as the cards' "last activity" stamp.
+    const candidates: { at: Date; source: "edited" | "comment" | "feedback" }[] = [
+      { at: t.updatedAt, source: "edited" },
+    ];
+    if (lastComment) candidates.push({ at: lastComment, source: "comment" });
+    if (lastFeedback) candidates.push({ at: lastFeedback, source: "feedback" });
+    candidates.sort((a, b) => b.at.getTime() - a.at.getTime());
+    const lastActivityAt = candidates[0].at;
+    const source: "created" | "edited" | "comment" | "feedback" =
+      t.updatedAt.getTime() === t.createdAt.getTime() &&
+      candidates[0].source === "edited"
+        ? "created"
+        : candidates[0].source;
     // Strip the latest-comment relation from the payload so the client
     // sees a clean shape — lastActivitySource / Author carry the meta.
     const { comments: _c, ...rest } = t;

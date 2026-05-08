@@ -49,6 +49,11 @@ interface TaskRow {
   priority: string;
   feedback: Feedback[];
   updatedAt: string;
+  /** Server-computed "last activity" — newest of (task edited, comment,
+   * feedback). API already sorts by this desc, so the freshest card is
+   * always at the top of the list without extra client-side work. */
+  lastActivityAt?: string;
+  lastActivitySource?: "created" | "edited" | "comment" | "feedback";
 }
 
 type FilterKey =
@@ -250,6 +255,42 @@ export default function TasksPage() {
 // (e.g. "https://example.com.") into the link.
 const URL_REGEX = /\bhttps?:\/\/[^\s<>"')]+/g;
 
+/** Short relative timestamp — "just now", "5m", "3h", "2d", "12 May" — */
+function formatRelative(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const diff = Date.now() - d.getTime();
+  const m = Math.round(diff / 60_000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const days = Math.round(h / 24);
+  if (days < 7) return `${days}d ago`;
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year:
+      d.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
+  });
+}
+
+function activityLabel(t: TaskRow): string {
+  const when = formatRelative(t.lastActivityAt);
+  if (!when) return "";
+  switch (t.lastActivitySource) {
+    case "feedback":
+      return `Feedback · ${when}`;
+    case "comment":
+      return `Commented · ${when}`;
+    case "edited":
+      return `Edited · ${when}`;
+    case "created":
+    default:
+      return `Added · ${when}`;
+  }
+}
+
 /**
  * Auto-linkify a chunk of HTML — wraps bare http(s) URLs in anchor tags
  * but skips text already inside an <a>...</a> block. Used on task
@@ -350,6 +391,16 @@ function FeatureCard({
                 {unresolved.length} OPEN
               </span>
             )}
+            <span
+              title={
+                task.lastActivityAt
+                  ? new Date(task.lastActivityAt).toLocaleString("en-GB")
+                  : ""
+              }
+              className="ml-auto inline-flex items-center text-[11px] text-muted-foreground"
+            >
+              {activityLabel(task)}
+            </span>
           </div>
           {task.description && (
             <div
