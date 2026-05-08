@@ -14,12 +14,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Fragment, type ReactNode } from "react";
 import {
+  Check,
   CheckCircle2,
   HandMetal,
   HelpCircle,
   Lightbulb,
   Loader2,
   Plus,
+  RotateCcw,
   Search,
   ThumbsUp,
   Trash2,
@@ -358,6 +360,7 @@ function FeatureCard({
             />
           )}
         </div>
+        <CardActionMenu task={task} onChange={onChange} />
       </div>
 
       {/* Quick-feedback row */}
@@ -409,6 +412,94 @@ function FeatureCard({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Top-right action button on a feature card. Two buttons exposed
+ * inline (no menu, since there are only two actions): mark
+ * complete/reopen, and delete. Both call the existing
+ * /api/tasks/[id] endpoints (PATCH for status, DELETE for removal).
+ *
+ * Delete asks for confirm() because it's destructive and irreversible —
+ * it cascades to the task's comments + feedback + assignees too.
+ */
+function CardActionMenu({
+  task,
+  onChange,
+}: {
+  task: TaskRow;
+  onChange: () => void;
+}) {
+  const [busy, setBusy] = useState<"toggle" | "delete" | null>(null);
+  const isDone = task.status === "done";
+
+  async function toggleDone() {
+    setBusy("toggle");
+    try {
+      await fetch(`/api/tasks/${task.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: isDone ? "in_progress" : "done" }),
+      });
+      onChange();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function remove() {
+    if (!confirm(`Delete "${task.title}"?\n\nThis can't be undone — feedback notes and comments on this task will also be removed.`)) {
+      return;
+    }
+    setBusy("delete");
+    try {
+      await fetch(`/api/tasks/${task.id}`, { method: "DELETE" });
+      onChange();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-1 shrink-0">
+      <button
+        type="button"
+        onClick={toggleDone}
+        disabled={busy !== null}
+        title={isDone ? "Reopen — move back to Partial" : "Mark complete — move to Shipped"}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition disabled:opacity-50",
+          isDone
+            ? "border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
+            : "bg-green-600 text-white hover:bg-green-700",
+        )}
+      >
+        {busy === "toggle" ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : isDone ? (
+          <RotateCcw className="h-3.5 w-3.5" />
+        ) : (
+          <Check className="h-3.5 w-3.5" />
+        )}
+        <span className="hidden sm:inline">
+          {isDone ? "Reopen" : "Mark complete"}
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={remove}
+        disabled={busy !== null}
+        title="Delete this task"
+        className="inline-flex items-center justify-center rounded-lg border border-border bg-card p-2 text-muted-foreground transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:hover:bg-red-950/30"
+      >
+        {busy === "delete" ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <Trash2 className="h-3.5 w-3.5" />
+        )}
+      </button>
     </div>
   );
 }
