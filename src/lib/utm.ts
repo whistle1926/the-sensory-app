@@ -47,9 +47,11 @@ export function parseUtms(search: string): CapturedUtms {
   for (const k of UTM_KEYS) {
     const v = params.get(k);
     if (v) {
-      const camel = k
-        .replace("utm_", "utm")
-        .replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+      // utm_source → utmSource, utm_campaign → utmCampaign, etc.
+      // Earlier version stripped the underscore first, leaving "utmsource"
+      // which didn't match the DB column names — breaking attribution
+      // end-to-end.
+      const camel = k.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
       (out as Record<string, string>)[camel] = v.slice(0, 200);
     }
   }
