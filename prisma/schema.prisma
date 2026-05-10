@@ -288,7 +288,23 @@ model CoursePurchase {
   createdAt     DateTime  @default(now())
   completedAt   DateTime?
 
+  // ── Paid-traffic attribution ───────────────────────────────────────
+  // Captured client-side when the visitor first lands on /courses (or
+  // any public page) with UTM query params. Persisted to sessionStorage
+  // and sent with the checkout body so we can see which ad creative
+  // produced the order. All optional — direct/organic visitors leave
+  // these null.
+  utmSource   String? @map("utm_source")    // e.g. "meta", "google", "tiktok"
+  utmMedium   String? @map("utm_medium")    // e.g. "cpc", "social", "email"
+  utmCampaign String? @map("utm_campaign")  // e.g. "courses-launch-may26"
+  utmContent  String? @map("utm_content")   // e.g. "carousel-3-childpaint"
+  utmTerm     String? @map("utm_term")      // search keyword if Google Search
+  /// Referring URL at the moment of order creation — useful when ad
+  /// platform strips UTMs (some browsers do).
+  referrer    String? @map("referrer") @db.Text
+
   @@index([userId, courseId])
+  @@index([utmCampaign])
 }
 
 model LearnerNote {
@@ -924,4 +940,20 @@ model TenantFeatureAccess {
   @@unique([tenantId, featureKey])
   @@index([tenantId])
   @@map("tenant_feature_access")
+}
+
+/// Tracking + analytics integrations. Singleton today (id="default")
+/// for parity with EmailSettings/PaymentSettings; will become per-
+/// tenant in Phase 1c of the white-label plan.
+model TrackingSettings {
+  id               String   @id @default("default")
+  /// Microsoft Clarity Project ID (the alphanumeric token from
+  /// clarity.microsoft.com → Setup → Tracking code). When null or
+  /// empty, the script doesn't render and no data is sent.
+  clarityProjectId String?  @map("clarity_project_id")
+  /// Master kill-switch — flip to false to immediately stop loading
+  /// the Clarity script anywhere without removing the project ID.
+  enabled          Boolean  @default(true)
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  @@map("tracking_settings")
 }

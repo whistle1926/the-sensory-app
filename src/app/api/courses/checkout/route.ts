@@ -86,6 +86,19 @@ export async function POST(req: NextRequest) {
   if (!courseId)
     return NextResponse.json({ error: "Course is required." }, { status: 400 });
 
+  // Pull UTM bundle off the request body (sent by <BuyDialog>). All
+  // fields optional and length-capped — we trust the field shape but
+  // not the values.
+  const utmBundle = (body?.utm ?? {}) as Record<string, unknown>;
+  const utm = {
+    utmSource: stringField(utmBundle.utmSource),
+    utmMedium: stringField(utmBundle.utmMedium),
+    utmCampaign: stringField(utmBundle.utmCampaign),
+    utmContent: stringField(utmBundle.utmContent),
+    utmTerm: stringField(utmBundle.utmTerm),
+    referrer: stringField(utmBundle.referrer, 2000),
+  };
+
   const course = await prisma.course.findUnique({
     where: { id: courseId },
     include: { modules: { select: { id: true } } },
@@ -211,6 +224,7 @@ export async function POST(req: NextRequest) {
       courseId,
       amount: course.price,
       paymentStatus: "pending",
+      ...utm,
     },
   });
 
@@ -301,4 +315,14 @@ async function sendSetPasswordEmail(opts: {
   } catch (err) {
     console.error("[courses/checkout] set-password email failed:", err);
   }
+}
+
+/** Coerce a JSON-body field into an optional trimmed string. Returns
+ * undefined on null/empty/non-string so the Prisma row gets a clean
+ * NULL rather than an empty string. */
+function stringField(v: unknown, max = 200): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const trimmed = v.trim();
+  if (!trimmed) return undefined;
+  return trimmed.slice(0, max);
 }

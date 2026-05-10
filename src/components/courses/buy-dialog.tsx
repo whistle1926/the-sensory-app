@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { readStoredUtms } from "@/lib/utm";
 import {
   CheckCircle2,
   Clock,
@@ -93,6 +94,10 @@ export function BuyDialog({
         payload.name = name.trim();
         payload.email = email.trim().toLowerCase();
       }
+      // Attribution — pulls UTMs / gclid / fbclid stashed by <UtmCapture>
+      // on first visit. Sent to the API and persisted to CoursePurchase.
+      const utms = readStoredUtms();
+      if (utms) payload.utm = utms;
 
       const res = await fetch("/api/courses/checkout", {
         method: "POST",
