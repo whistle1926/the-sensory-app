@@ -8,7 +8,23 @@ import { Star, ShieldCheck, Award, Sparkles } from "lucide-react";
 // after the seed script runs, without waiting for a cache bust.
 export const dynamic = "force-dynamic";
 
+const DEFAULT_TAGLINE = "Where expert knowledge meets playful, child-centred practice";
+const DEFAULT_HERO_TITLE =
+  "Evidence-based courses, specialist occupational therapy services, and support for parents and professionals";
+const DEFAULT_HERO_BLURB =
+  "Supporting children to thrive through expert-led courses, specialist assessments, and personalised occupational therapy. Designed for parents, educators, and professionals seeking practical, child-centred strategies that make a real difference.";
+
 export default async function CoursesStorefrontPage() {
+  // Admin-editable hero copy via Settings → Storefront. Null fields
+  // fall back to the defaults above so the page always has something
+  // sensible to render.
+  const config = await prisma.storefrontConfig.findUnique({
+    where: { id: "default" },
+  });
+  const tagline = config?.tagline?.trim() || DEFAULT_TAGLINE;
+  const heroTitle = config?.heroTitle?.trim() || DEFAULT_HERO_TITLE;
+  const heroBlurb = config?.heroBlurb?.trim() || DEFAULT_HERO_BLURB;
+
   const courses = await prisma.course.findMany({
     where: { status: "AVAILABLE" },
     orderBy: [
@@ -54,15 +70,13 @@ export default async function CoursesStorefrontPage() {
           <div className="space-y-6">
             <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary shadow-sm">
               <Sparkles className="h-3 w-3" />
-              Training that makes a difference
+              {tagline}
             </span>
             <h1 className="text-4xl font-black tracking-tight sm:text-5xl md:text-6xl">
-              Evidence-based courses for parents and practitioners
+              {heroTitle}
             </h1>
             <p className="max-w-xl text-lg text-muted-foreground">
-              Practical, OT-led courses supporting children with sensory,
-              regulation and motor needs. Learn at your own pace, with
-              strategies you can use at home from day one.
+              {heroBlurb}
             </p>
             <div className="flex flex-wrap gap-3">
               <Link

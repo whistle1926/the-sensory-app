@@ -129,6 +129,20 @@ export default async function CourseDetailPage({
       {/* Main content + sticky buy panel */}
       <div className="mx-auto grid max-w-6xl gap-10 px-5 pb-20 md:grid-cols-[1.5fr_1fr]">
         <main className="space-y-12">
+          {/* Who this is for — only rendered when populated. Sits above
+              "What you'll learn" so visitors immediately know whether
+              the course is for them. */}
+          {course.audienceFor && course.audienceFor.trim() && (
+            <section className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-primary">
+                Who this is for
+              </h2>
+              <p className="mt-2 text-base leading-relaxed">
+                {course.audienceFor}
+              </p>
+            </section>
+          )}
+
           {/* Features / What you'll learn */}
           {features.length > 0 && (
             <section>

@@ -131,7 +131,7 @@ const COURSES: SeedCourse[] = [
     duration: "3 hours",
     level: "Intermediate",
     price: 89,
-    tagline: "CPD-accredited deep-dive for OTs, teachers and allied professionals.",
+    tagline: "CPD course — deep-dive for OTs, teachers and allied professionals.",
     shortDescription:
       "A practitioner-focused course exploring each sensory system in depth, with clinical examples and screening tools.",
     description:

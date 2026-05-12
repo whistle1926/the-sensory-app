@@ -223,6 +223,17 @@ model Course {
   isFeatured          Boolean  @default(false) // appears in the featured row on storefront
   isBestseller        Boolean  @default(false) // shows a "Bestseller" badge on card
 
+  /// "Who this is for" — single paragraph rendered as a callout on the
+  /// course detail page. Null/empty hides the block.
+  audienceFor  String? @db.Text @map("audience_for")
+  /// Optional recommendation surfaced on the completion screen as the
+  /// "Continue your learning" suggestion. Self-referential FK; deleting
+  /// the recommended course nulls this out rather than cascading.
+  nextCourseId String? @map("next_course_id")
+  nextCourse   Course? @relation("CourseProgression", fields: [nextCourseId], references: [id], onDelete: SetNull)
+  /// Back-relation — courses that recommend THIS course as a follow-up.
+  prevCourses  Course[] @relation("CourseProgression")
+
   modules     Module[]
   enrollments Enrollment[]
   purchases   CoursePurchase[]
@@ -956,4 +967,20 @@ model TrackingSettings {
   enabled          Boolean  @default(true)
   updatedAt        DateTime @updatedAt @map("updated_at")
   @@map("tracking_settings")
+}
+
+/// Admin-editable copy for the public courses storefront. Singleton
+/// (id="default") for parity with EmailSettings / PaymentSettings.
+/// Becomes per-tenant in Phase 1c of the white-label plan.
+model StorefrontConfig {
+  id        String   @id @default("default")
+  /// Small text above the big title — was "Training that makes a
+  /// difference". Free-text, ~120 chars enforced in the form.
+  tagline   String?
+  /// The big hero headline. Defaults to the new wording when null.
+  heroTitle String?  @map("hero_title")
+  /// Supporting paragraph under the title.
+  heroBlurb String?  @map("hero_blurb") @db.Text
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@map("storefront_config")
 }
