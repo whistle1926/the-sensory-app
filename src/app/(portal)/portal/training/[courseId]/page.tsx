@@ -93,6 +93,21 @@ export default async function PortalCourseLandingPage({
           },
         },
       },
+      // Optional recommendation shown on the completion screen — pulled
+      // along with the course so the "Continue your learning" card
+      // renders without a second round-trip.
+      nextCourse: {
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          tagline: true,
+          shortDescription: true,
+          thumbnailUrl: true,
+          heroImageUrl: true,
+          price: true,
+        },
+      },
     },
   });
 
@@ -249,6 +264,60 @@ export default async function PortalCourseLandingPage({
           </div>
         </div>
       </section>
+
+      {/* "Continue your learning" — only renders when this course is
+          complete AND the admin has set a `nextCourseId`. Falls back to
+          a soft link to /courses when no recommendation is configured. */}
+      {isComplete && (
+        <section className="rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent p-6 shadow-[var(--shadow-sm)]">
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">
+            Continue your learning
+          </p>
+          {course.nextCourse ? (
+            <Link
+              href={`/courses/${course.nextCourse.slug}`}
+              className="mt-3 flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 transition hover:border-primary/40 hover:shadow-[var(--shadow-md)] sm:flex-row sm:items-center"
+            >
+              {(course.nextCourse.thumbnailUrl ||
+                course.nextCourse.heroImageUrl) && (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={
+                    course.nextCourse.thumbnailUrl ??
+                    course.nextCourse.heroImageUrl ??
+                    ""
+                  }
+                  alt=""
+                  className="h-24 w-full shrink-0 rounded-xl object-cover sm:w-32"
+                />
+              )}
+              <div className="min-w-0 flex-1">
+                <h3 className="text-lg font-bold tracking-tight">
+                  {course.nextCourse.title}
+                </h3>
+                {course.nextCourse.tagline && (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {course.nextCourse.tagline}
+                  </p>
+                )}
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {course.nextCourse.price === 0
+                    ? "Free"
+                    : `£${course.nextCourse.price}`}
+                </p>
+              </div>
+              <ArrowRight className="hidden h-5 w-5 shrink-0 text-primary sm:block" />
+            </Link>
+          ) : (
+            <Link
+              href="/courses"
+              className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+            >
+              See all courses <ArrowRight className="h-4 w-4" />
+            </Link>
+          )}
+        </section>
+      )}
 
       {/* Modules grid */}
       <section>

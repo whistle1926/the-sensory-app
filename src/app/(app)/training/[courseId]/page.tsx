@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { ArrowLeft, Lock, Circle, CheckCircle2, XCircle, Award, Clock, Users, Play } from "lucide-react";
+import { ArrowLeft, Lock, Circle, CheckCircle2, XCircle, Award, Clock, Users, Play, Pencil } from "lucide-react";
 import Link from "next/link";
 
 interface ModuleData {
@@ -78,7 +78,16 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
         <Link href="/training" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors mb-3">
           <ArrowLeft className="h-4 w-4" /> Back to Training
         </Link>
-        <h1 className="text-2xl font-bold tracking-tight">{course.title}</h1>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-2xl font-bold tracking-tight">{course.title}</h1>
+          <Link
+            href={`/training/${courseId}/edit`}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-medium transition hover:bg-muted/50"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Edit course content
+          </Link>
+        </div>
         <div className="mt-1.5 flex flex-wrap gap-3 text-xs text-muted-foreground">
           <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {course.audience}</span>
           <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {course.duration}</span>
