@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import {
@@ -11,6 +11,8 @@ import {
   Plus,
   Pencil,
   Play,
+  Search,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,6 +58,27 @@ export default function ProgrammesPage() {
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeDemo, setActiveDemo] = useState<ProgrammeItem | null>(null);
+  /** Filter the templates list. Matches title / description / any
+   * section heading or item text so a search for "bedtime" surfaces
+   * Sleep Support even though it's deep in the structure. */
+  const [search, setSearch] = useState("");
+
+  const filteredProgrammes = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return programmes;
+    return programmes.filter((p) => {
+      if (p.title.toLowerCase().includes(q)) return true;
+      if (p.description.toLowerCase().includes(q)) return true;
+      // Search section titles + item text — cheap because the list is
+      // small (a few dozen programmes at most).
+      const sections = sanitiseProgrammeSections(p.sections);
+      return sections.some(
+        (s) =>
+          s.title.toLowerCase().includes(q) ||
+          s.items.some((i) => i.text.toLowerCase().includes(q)),
+      );
+    });
+  }, [programmes, search]);
 
   useEffect(() => {
     Promise.all([
@@ -103,7 +126,32 @@ export default function ProgrammesPage() {
           </span>
         }
         subtitle="Reusable blueprints you can share with any client"
-        actions={<Chip tone="primary" dot={false}>{programmes.length}</Chip>}
+        actions={
+          <div className="flex items-center gap-2">
+            <div className="relative w-72 max-w-full">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search programmes…"
+                className="h-8 w-full rounded-lg border border-border bg-background pl-8 pr-7 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  aria-label="Clear search"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+            <Chip tone="primary" dot={false}>
+              {search ? `${filteredProgrammes.length}/${programmes.length}` : programmes.length}
+            </Chip>
+          </div>
+        }
       >
         {loading ? (
           <Empty>Loading programmes…</Empty>
@@ -129,9 +177,26 @@ export default function ProgrammesPage() {
               </Link>
             )}
           </div>
+        ) : filteredProgrammes.length === 0 ? (
+          <div className="ds-empty">
+            <Search
+              className="mx-auto h-7 w-7"
+              style={{ color: "var(--muted-foreground)", opacity: 0.5 }}
+            />
+            <p style={{ marginTop: 10, fontWeight: 600 }}>
+              No programmes match &ldquo;{search}&rdquo;
+            </p>
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="mt-3 text-xs text-primary underline"
+            >
+              Clear search
+            </button>
+          </div>
         ) : (
           <div className="divide-y divide-border">
-            {programmes.map((prog) => {
+            {filteredProgrammes.map((prog) => {
               const sections: ProgrammeSection[] = sanitiseProgrammeSections(
                 prog.sections,
               );
