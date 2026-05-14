@@ -179,13 +179,16 @@ export default function CourseEditPage({
         throw new Error(body.error ?? `Save failed (${res.status})`);
       }
 
-      // Save each module's video URL (only if changed since load).
+      // Save each module's title + video URL in one PATCH per module.
       await Promise.all(
         course.modules.map(async (m) => {
           await fetch(`/api/courses/${courseId}/modules/${m.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ videoUrl: moduleVideos[m.id] ?? "" }),
+            body: JSON.stringify({
+              title: m.title,
+              videoUrl: moduleVideos[m.id] ?? "",
+            }),
           });
         }),
       );
@@ -551,36 +554,95 @@ export default function CourseEditPage({
         </select>
       </section>
 
-      {/* ── Module videos ─────────────────────────────────────────────── */}
+      {/* ── Modules ───────────────────────────────────────────────────── */}
       <section className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
-        <h2 className="text-sm font-semibold">Module videos</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Paste a Loom, YouTube or Vimeo share URL for each module. Leave
-          blank if the lesson has no video.
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold">Modules</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Add a module per lesson. Title saves with the rest of the form;
+              video URL is a Loom / YouTube / Vimeo share link (optional).
+              Module body content (text, quiz) lives in a separate lesson
+              editor — coming soon.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={async () => {
+              const res = await fetch(`/api/courses/${courseId}/modules`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ title: "New module" }),
+              });
+              if (res.ok) window.location.reload();
+              else alert("Couldn't create module.");
+            }}
+            className="shrink-0 rounded-xl"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add module
+          </Button>
+        </div>
         <div className="mt-4 space-y-3">
-          {course.modules.map((m) => (
-            <div
-              key={m.id}
-              className="flex items-center gap-3 rounded-xl border border-border bg-muted/20 p-3"
-            >
-              <Video className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <span className="w-48 shrink-0 text-sm font-medium">
-                {m.order + 1}. {m.title}
-              </span>
-              <Input
-                value={moduleVideos[m.id] ?? ""}
-                onChange={(e) =>
-                  setModuleVideos((prev) => ({
-                    ...prev,
-                    [m.id]: e.target.value,
-                  }))
-                }
-                placeholder="https://www.loom.com/share/..."
-                className="flex-1"
-              />
-            </div>
-          ))}
+          {course.modules.length === 0 ? (
+            <p className="text-xs italic text-muted-foreground">
+              No modules yet — click &ldquo;Add module&rdquo; to create the first one.
+            </p>
+          ) : (
+            course.modules.map((m) => (
+              <div
+                key={m.id}
+                className="flex items-center gap-3 rounded-xl border border-border bg-muted/20 p-3"
+              >
+                <Video className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <Input
+                  value={m.title}
+                  onChange={(e) => {
+                    const next = course.modules.map((mod) =>
+                      mod.id === m.id ? { ...mod, title: e.target.value } : mod,
+                    );
+                    patchCourse({ modules: next });
+                  }}
+                  placeholder="Module title"
+                  className="w-56 shrink-0"
+                />
+                <Input
+                  value={moduleVideos[m.id] ?? ""}
+                  onChange={(e) =>
+                    setModuleVideos((prev) => ({
+                      ...prev,
+                      [m.id]: e.target.value,
+                    }))
+                  }
+                  placeholder="https://www.loom.com/share/..."
+                  className="flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (
+                      !confirm(
+                        `Delete module "${m.title}"? This can't be undone — module progress for any enrolled learners will also be cleared.`,
+                      )
+                    ) {
+                      return;
+                    }
+                    const res = await fetch(
+                      `/api/courses/${courseId}/modules/${m.id}`,
+                      { method: "DELETE" },
+                    );
+                    if (res.ok) window.location.reload();
+                    else alert("Couldn't delete module.");
+                  }}
+                  className="rounded-lg p-2 text-muted-foreground transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
+                  title="Delete module"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))
+          )}
         </div>
       </section>
     </div>

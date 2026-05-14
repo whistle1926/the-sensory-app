@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Award,
   BarChart3,
   BookOpen,
   Clock,
   GraduationCap,
+  Plus,
   Play,
   Users,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { Toolbar, Panel, Chip, Empty } from "@/components/ds";
@@ -320,8 +323,48 @@ function AdminManagePanel({
   courses: CourseData[];
   onRefresh: () => void;
 }) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  async function createCourse() {
+    setCreating(true);
+    try {
+      const res = await fetch("/api/courses", { method: "POST" });
+      if (res.ok) {
+        const { id } = (await res.json()) as { id: string };
+        router.push(`/training/${id}/edit`);
+      } else {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        alert(body.error ?? "Couldn't create the course.");
+      }
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function deleteCourse(id: string, title: string) {
+    if (
+      !confirm(
+        `Delete "${title}"?\n\nIf the course has paid purchases this will be refused — archive it instead. Otherwise this also wipes its modules and any in-progress enrollments. Cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/courses/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        onRefresh();
+      } else {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        alert(body.error ?? "Couldn't delete the course.");
+      }
+    } finally {
+      setBusyId(null);
+    }
+  }
   const filtered = courses.filter((c) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
@@ -371,6 +414,15 @@ function AdminManagePanel({
           <Chip tone="primary" dot={false}>
             {filtered.length}/{courses.length}
           </Chip>
+          <button
+            type="button"
+            onClick={createCourse}
+            disabled={creating}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition hover:brightness-110 disabled:opacity-50"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {creating ? "Creating…" : "New course"}
+          </button>
         </div>
       }
     >
@@ -462,12 +514,23 @@ function AdminManagePanel({
                       </div>
                     </td>
                     <td className="px-5 py-3 text-right">
-                      <Link
-                        href={`/training/${c.id}/edit`}
-                        className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium hover:bg-muted/50"
-                      >
-                        Edit
-                      </Link>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Link
+                          href={`/training/${c.id}/edit`}
+                          className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium hover:bg-muted/50"
+                        >
+                          Edit
+                        </Link>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => deleteCourse(c.id, c.title)}
+                          className="rounded-lg border border-border bg-card p-1.5 text-muted-foreground transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:hover:bg-red-950/30"
+                          title="Delete course"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

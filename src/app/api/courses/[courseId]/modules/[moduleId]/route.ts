@@ -97,3 +97,25 @@ export async function PATCH(
   });
   return NextResponse.json({ ok: true, id: updated.id });
 }
+
+/** Delete a module. Staff only. ModuleProgress rows cascade. */
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ courseId: string; moduleId: string }> },
+) {
+  const session = await auth();
+  if (
+    !session?.user ||
+    (session.user.role !== "SUPER_ADMIN" && session.user.role !== "TEAM_MANAGER")
+  ) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const { courseId, moduleId } = await params;
+  const mod = await prisma.module.findFirst({
+    where: { id: moduleId, courseId },
+    select: { id: true },
+  });
+  if (!mod) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  await prisma.module.delete({ where: { id: moduleId } });
+  return NextResponse.json({ ok: true });
+}

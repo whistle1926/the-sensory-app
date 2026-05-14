@@ -197,3 +197,42 @@ export async function PATCH(
   });
   return NextResponse.json({ ok: true, id: updated.id });
 }
+
+/**
+ * Delete a course. Staff only. Refuses if anyone has paid for the
+ * course (we keep historical purchase records intact); in that case
+ * the recommended fallback is to set status=ARCHIVED via PATCH.
+ */
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ courseId: string }> },
+) {
+  const session = await auth();
+  if (
+    !session?.user ||
+    (session.user.role !== "SUPER_ADMIN" && session.user.role !== "TEAM_MANAGER")
+  ) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { courseId } = await params;
+
+  const paidPurchases = await prisma.coursePurchase.count({
+    where: { courseId, paymentStatus: "paid" },
+  });
+  if (paidPurchases > 0) {
+    return NextResponse.json(
+      {
+        error:
+          "This course has paid purchases — archive it instead (Status → Archived) to preserve order history.",
+      },
+      { status: 409 },
+    );
+  }
+
+  // Prisma's onDelete: Cascade rules already wipe modules + enrollments
+  // + module progress when the course goes. Notes + testimonials live
+  // on the row itself.
+  await prisma.course.delete({ where: { id: courseId } });
+  return NextResponse.json({ ok: true });
+}
