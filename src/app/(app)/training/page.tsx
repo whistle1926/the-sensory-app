@@ -22,6 +22,9 @@ interface CourseData {
   description: string;
   status: "AVAILABLE" | "COMING_SOON" | "ARCHIVED";
   totalModules: number;
+  price: number;
+  isFeatured: boolean;
+  isBestseller: boolean;
   enrollmentStatus: "IN_PROGRESS" | "COMPLETED" | null;
   enrollmentId: string | null;
   completedModules: number;
@@ -153,6 +156,14 @@ export default function TrainingPage() {
           );
         })}
       </div>
+
+      {/* Admin manage panel — staff only. Quick view of every course,
+          including ARCHIVED, with search + edit shortcuts. */}
+      {isAdmin && (
+        <AdminManagePanel courses={courses} onRefresh={() => {
+          fetch("/api/courses").then((r) => r.json()).then(setCourses);
+        }} />
+      )}
 
       {/* Available Courses */}
       <Panel
@@ -294,5 +305,177 @@ export default function TrainingPage() {
         </Panel>
       )}
     </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Admin manage panel — search + per-row status/price toggle + edit link.
+// Renders ALL courses, including ARCHIVED (which are hidden from the
+// "Available" / "Coming Soon" sections below).
+// ──────────────────────────────────────────────────────────────────────
+function AdminManagePanel({
+  courses,
+  onRefresh,
+}: {
+  courses: CourseData[];
+  onRefresh: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const filtered = courses.filter((c) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      c.title.toLowerCase().includes(q) ||
+      (c.audience ?? "").toLowerCase().includes(q) ||
+      (c.description ?? "").toLowerCase().includes(q)
+    );
+  });
+
+  async function quickPatch(id: string, body: Record<string, unknown>) {
+    setBusyId(id);
+    try {
+      await fetch(`/api/courses/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      onRefresh();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <Panel
+      title={
+        <span className="inline-flex items-center gap-2">
+          <GraduationCap className="h-4 w-4 text-primary" />
+          Manage courses
+        </span>
+      }
+      subtitle="Edit content, flip status, change price, toggle featured/bestseller."
+      actions={
+        <div className="flex items-center gap-2">
+          <div className="relative w-64 max-w-full">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+              🔍
+            </span>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search courses…"
+              className="h-8 w-full rounded-lg border border-border bg-background pl-8 pr-3 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+            />
+          </div>
+          <Chip tone="primary" dot={false}>
+            {filtered.length}/{courses.length}
+          </Chip>
+        </div>
+      }
+    >
+      {filtered.length === 0 ? (
+        <Empty>No courses match &ldquo;{search}&rdquo;.</Empty>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
+                <th className="px-5 py-3 font-medium">Title</th>
+                <th className="px-5 py-3 font-medium">Audience</th>
+                <th className="px-5 py-3 font-medium">Price</th>
+                <th className="px-5 py-3 font-medium">Status</th>
+                <th className="px-5 py-3 font-medium">Flags</th>
+                <th className="px-5 py-3 font-medium" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filtered.map((c) => {
+                const busy = busyId === c.id;
+                return (
+                  <tr key={c.id} className="hover:bg-muted/20">
+                    <td className="px-5 py-3 font-medium">{c.title}</td>
+                    <td className="px-5 py-3 text-xs text-muted-foreground">
+                      {c.audience}
+                    </td>
+                    <td className="px-5 py-3 text-xs">
+                      {c.price === 0 ? (
+                        <span className="text-green-700 dark:text-green-400">
+                          Free
+                        </span>
+                      ) : (
+                        <span>£{c.price}</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3">
+                      <select
+                        value={c.status}
+                        disabled={busy}
+                        onChange={(e) =>
+                          quickPatch(c.id, { status: e.target.value })
+                        }
+                        className={`rounded-full border px-2 py-0.5 text-[11px] font-bold tracking-wider ${
+                          c.status === "AVAILABLE"
+                            ? "border-green-200 bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300"
+                            : c.status === "COMING_SOON"
+                              ? "border-amber-200 bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                              : "border-border bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        <option value="AVAILABLE">LIVE</option>
+                        <option value="COMING_SOON">SOON</option>
+                        <option value="ARCHIVED">ARCHIVED</option>
+                      </select>
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() =>
+                            quickPatch(c.id, { isFeatured: !c.isFeatured })
+                          }
+                          className={`rounded-full px-2 py-0.5 font-bold tracking-wider transition ${
+                            c.isFeatured
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted text-muted-foreground hover:bg-muted/70"
+                          }`}
+                        >
+                          {c.isFeatured ? "★ FEATURED" : "☆ FEATURE"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() =>
+                            quickPatch(c.id, {
+                              isBestseller: !c.isBestseller,
+                            })
+                          }
+                          className={`rounded-full px-2 py-0.5 font-bold tracking-wider transition ${
+                            c.isBestseller
+                              ? "bg-amber-500 text-white"
+                              : "bg-muted text-muted-foreground hover:bg-muted/70"
+                          }`}
+                        >
+                          {c.isBestseller ? "🔥 BEST" : "BEST"}
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <Link
+                        href={`/training/${c.id}/edit`}
+                        className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium hover:bg-muted/50"
+                      >
+                        Edit
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Panel>
   );
 }

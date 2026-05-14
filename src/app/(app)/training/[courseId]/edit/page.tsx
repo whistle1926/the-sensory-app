@@ -44,10 +44,25 @@ interface ModuleRow {
   order: number;
 }
 
+type CourseStatus = "AVAILABLE" | "COMING_SOON" | "ARCHIVED";
+
 interface CourseShape {
   id: string;
   title: string;
+  slug: string;
   audience: string;
+  duration: string;
+  description: string;
+  status: CourseStatus;
+  level: string | null;
+  price: number;
+  isFeatured: boolean;
+  isBestseller: boolean;
+  tagline: string | null;
+  shortDescription: string | null;
+  heroImageUrl: string | null;
+  thumbnailUrl: string | null;
+  features: string[];
   instructorName: string | null;
   instructorRole: string | null;
   instructorBio: string | null;
@@ -132,6 +147,24 @@ export default function CourseEditPage({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          // Basic meta
+          title: course.title,
+          audience: course.audience,
+          duration: course.duration,
+          description: course.description,
+          level: course.level ?? "",
+          // Pricing + visibility
+          price: course.price,
+          status: course.status,
+          isFeatured: course.isFeatured,
+          isBestseller: course.isBestseller,
+          // Storefront copy
+          tagline: course.tagline ?? "",
+          shortDescription: course.shortDescription ?? "",
+          heroImageUrl: course.heroImageUrl ?? "",
+          thumbnailUrl: course.thumbnailUrl ?? "",
+          features: course.features,
+          // Instructor + audience + progression
           instructorName: course.instructorName ?? "",
           instructorRole: course.instructorRole ?? "",
           instructorBio: course.instructorBio ?? "",
@@ -223,6 +256,200 @@ export default function CourseEditPage({
           {error}
         </div>
       )}
+
+      {/* ── Basic ─────────────────────────────────────────────────────── */}
+      <section className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
+        <h2 className="text-sm font-semibold">Basic details</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Title, audience and duration shown on the storefront card and the
+          course detail page. Slug ({course.slug}) and certificate-template
+          identity stay seed-managed.
+        </p>
+        <div className="mt-4 space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="c-title">Title</Label>
+            <Input
+              id="c-title"
+              value={course.title}
+              onChange={(e) => patchCourse({ title: e.target.value })}
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="c-audience">Audience</Label>
+              <Input
+                id="c-audience"
+                value={course.audience}
+                placeholder="Parents & carers"
+                onChange={(e) => patchCourse({ audience: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="c-duration">Duration</Label>
+              <Input
+                id="c-duration"
+                value={course.duration}
+                placeholder="2 hours (self-paced)"
+                onChange={(e) => patchCourse({ duration: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="c-level">Level</Label>
+              <Input
+                id="c-level"
+                value={course.level ?? ""}
+                placeholder="Beginner / Intermediate"
+                onChange={(e) => patchCourse({ level: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="c-desc">Description</Label>
+            <textarea
+              id="c-desc"
+              value={course.description}
+              onChange={(e) => patchCourse({ description: e.target.value })}
+              rows={4}
+              maxLength={5000}
+              className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ── Pricing & visibility ───────────────────────────────────────── */}
+      <section className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
+        <h2 className="text-sm font-semibold">Pricing &amp; visibility</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Set a price in pounds (0 = free). Status controls who sees the
+          course — &ldquo;Available&rdquo; goes live on /courses; &ldquo;Coming soon&rdquo;
+          shows as a teaser with no buy button; &ldquo;Archived&rdquo; hides it.
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="c-price">Price (£)</Label>
+            <Input
+              id="c-price"
+              type="number"
+              min={0}
+              value={course.price}
+              onChange={(e) =>
+                patchCourse({ price: Number(e.target.value) || 0 })
+              }
+            />
+            <p className="text-xs text-muted-foreground">
+              {course.price === 0
+                ? "✓ Free course — no payment required."
+                : `Buyers pay £${course.price} via FireBuddy at checkout.`}
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="c-status">Status</Label>
+            <select
+              id="c-status"
+              value={course.status}
+              onChange={(e) =>
+                patchCourse({ status: e.target.value as CourseStatus })
+              }
+              className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <option value="AVAILABLE">Available (live on /courses)</option>
+              <option value="COMING_SOON">Coming soon (visible, not buyable)</option>
+              <option value="ARCHIVED">Archived (hidden from storefront)</option>
+            </select>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <label className="flex cursor-pointer items-center justify-between gap-2 rounded-xl border border-border bg-muted/20 p-3">
+            <div>
+              <p className="text-sm font-medium">Featured</p>
+              <p className="text-xs text-muted-foreground">
+                Appears in the &ldquo;Featured row&rdquo; on /courses.
+              </p>
+            </div>
+            <Toggle
+              checked={course.isFeatured}
+              onChange={(v) => patchCourse({ isFeatured: v })}
+            />
+          </label>
+          <label className="flex cursor-pointer items-center justify-between gap-2 rounded-xl border border-border bg-muted/20 p-3">
+            <div>
+              <p className="text-sm font-medium">Bestseller</p>
+              <p className="text-xs text-muted-foreground">
+                Shows a &ldquo;Bestseller&rdquo; badge on the card.
+              </p>
+            </div>
+            <Toggle
+              checked={course.isBestseller}
+              onChange={(v) => patchCourse({ isBestseller: v })}
+            />
+          </label>
+        </div>
+      </section>
+
+      {/* ── Storefront copy ───────────────────────────────────────────── */}
+      <section className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
+        <h2 className="text-sm font-semibold">Storefront copy &amp; imagery</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          The tagline / short description / hero image rendered on the
+          public course detail page.
+        </p>
+        <div className="mt-4 space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="c-tag">Tagline</Label>
+            <Input
+              id="c-tag"
+              value={course.tagline ?? ""}
+              placeholder="One-line catchphrase under the title."
+              onChange={(e) => patchCourse({ tagline: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="c-short">Short description (storefront card)</Label>
+            <textarea
+              id="c-short"
+              value={course.shortDescription ?? ""}
+              onChange={(e) =>
+                patchCourse({ shortDescription: e.target.value })
+              }
+              rows={3}
+              maxLength={500}
+              className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="c-hero">Hero image URL (16:9)</Label>
+              <Input
+                id="c-hero"
+                value={course.heroImageUrl ?? ""}
+                placeholder="https://blob.vercel.com/..."
+                onChange={(e) =>
+                  patchCourse({ heroImageUrl: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="c-thumb">Thumbnail URL (4:3)</Label>
+              <Input
+                id="c-thumb"
+                value={course.thumbnailUrl ?? ""}
+                placeholder="https://blob.vercel.com/..."
+                onChange={(e) =>
+                  patchCourse({ thumbnailUrl: e.target.value })
+                }
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>&ldquo;What you&rsquo;ll learn&rdquo; bullets</Label>
+            <FeaturesEditor
+              items={course.features}
+              onChange={(features) => patchCourse({ features })}
+            />
+          </div>
+        </div>
+      </section>
 
       {/* ── Who this is for ───────────────────────────────────────────── */}
       <section className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
@@ -449,5 +676,119 @@ function TestimonialsEditor({
         </div>
       )}
     </section>
+  );
+}
+
+/** Small switch used in the Pricing & visibility section. */
+function Toggle({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${
+        checked ? "bg-primary" : "bg-muted"
+      }`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
+          checked ? "translate-x-6" : "translate-x-1"
+        }`}
+      />
+    </button>
+  );
+}
+
+/** Bulleted "What you'll learn" feature list editor. Add / edit / delete /
+ * reorder via up-down buttons. Max 20 features enforced server-side. */
+function FeaturesEditor({
+  items,
+  onChange,
+}: {
+  items: string[];
+  onChange: (next: string[]) => void;
+}) {
+  function patch(i: number, v: string) {
+    onChange(items.map((x, idx) => (idx === i ? v : x)));
+  }
+  function add() {
+    onChange([...items, ""]);
+  }
+  function remove(i: number) {
+    onChange(items.filter((_, idx) => idx !== i));
+  }
+  function move(i: number, dir: -1 | 1) {
+    const target = i + dir;
+    if (target < 0 || target >= items.length) return;
+    const next = [...items];
+    [next[i], next[target]] = [next[target], next[i]];
+    onChange(next);
+  }
+
+  return (
+    <div className="space-y-2">
+      {items.length === 0 ? (
+        <p className="text-xs italic text-muted-foreground">
+          No bullets yet. Click &ldquo;Add bullet&rdquo; to add one.
+        </p>
+      ) : (
+        items.map((f, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <span className="text-xs font-mono text-muted-foreground">
+              {i + 1}.
+            </span>
+            <Input
+              value={f}
+              onChange={(e) => patch(i, e.target.value)}
+              placeholder="What learners will be able to do…"
+              className="flex-1"
+            />
+            <button
+              type="button"
+              onClick={() => move(i, -1)}
+              disabled={i === 0}
+              className="rounded p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+              title="Move up"
+            >
+              ▲
+            </button>
+            <button
+              type="button"
+              onClick={() => move(i, 1)}
+              disabled={i === items.length - 1}
+              className="rounded p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+              title="Move down"
+            >
+              ▼
+            </button>
+            <button
+              type="button"
+              onClick={() => remove(i)}
+              className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
+              title="Delete"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        ))
+      )}
+      <Button
+        type="button"
+        variant="outline"
+        onClick={add}
+        disabled={items.length >= 20}
+        className="rounded-xl"
+      >
+        <Plus className="mr-2 h-4 w-4" />
+        Add bullet {items.length >= 20 ? "(max 20)" : ""}
+      </Button>
+    </div>
   );
 }

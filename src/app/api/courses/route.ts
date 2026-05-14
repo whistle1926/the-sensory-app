@@ -36,6 +36,8 @@ export async function GET() {
       status: course.status,
       order: course.order,
       price: course.price,
+      isFeatured: course.isFeatured,
+      isBestseller: course.isBestseller,
       totalModules,
       enrollmentStatus: enrollment?.status ?? null,
       enrollmentId: enrollment?.id ?? null,

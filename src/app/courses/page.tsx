@@ -14,7 +14,17 @@ const DEFAULT_HERO_TITLE =
 const DEFAULT_HERO_BLURB =
   "Supporting children to thrive through expert-led courses, specialist assessments, and personalised occupational therapy. Designed for parents, educators, and professionals seeking practical, child-centred strategies that make a real difference.";
 
-export default async function CoursesStorefrontPage() {
+export default async function CoursesStorefrontPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  // Visitor-typed search via ?q=… in the URL. Server-rendered so the
+  // filtered URL is bookmarkable + indexable by search engines + shows
+  // up cleanly in ad-platform attribution.
+  const { q } = await searchParams;
+  const query = (q ?? "").trim().toLowerCase();
+
   // Admin-editable hero copy via Settings → Storefront. Null fields
   // fall back to the defaults above so the page always has something
   // sensible to render.
@@ -52,8 +62,26 @@ export default async function CoursesStorefrontPage() {
     },
   });
 
-  const featured = courses.filter((c) => c.isFeatured);
-  const rest = courses.filter((c) => !c.isFeatured);
+  // Apply visitor's search filter before featured/rest split. Matches on
+  // title, tagline, description and audience so common synonyms still
+  // surface the right course (e.g. "kids", "parents", "fine motor").
+  const matches = (c: (typeof courses)[number]) => {
+    if (!query) return true;
+    const hay = [
+      c.title,
+      c.tagline ?? "",
+      c.shortDescription ?? "",
+      c.description ?? "",
+      c.audience ?? "",
+      c.level ?? "",
+    ]
+      .join(" ")
+      .toLowerCase();
+    return hay.includes(query);
+  };
+  const filtered = courses.filter(matches);
+  const featured = filtered.filter((c) => c.isFeatured);
+  const rest = filtered.filter((c) => !c.isFeatured);
 
   // Collect unique accreditation badges to render a trust strip.
   const allBadges = Array.from(
@@ -175,7 +203,7 @@ export default async function CoursesStorefrontPage() {
 
       {/* All courses */}
       <section id="courses" className="mx-auto max-w-6xl scroll-mt-20 px-5 py-12">
-        <div className="mb-6 flex items-end justify-between">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-primary">
               The Library
@@ -184,9 +212,33 @@ export default async function CoursesStorefrontPage() {
               Explore all courses
             </h2>
           </div>
-          <p className="hidden text-sm text-muted-foreground sm:block">
-            {courses.length} course{courses.length === 1 ? "" : "s"} available
-          </p>
+          {/* Search — URL-driven so it survives reload, shares, and ad
+              landing pages with prefilled queries (`/courses?q=fine+motor`). */}
+          <form
+            method="GET"
+            className="flex w-full max-w-sm items-center gap-2 sm:w-auto"
+          >
+            <div className="relative flex-1">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                🔍
+              </span>
+              <input
+                type="search"
+                name="q"
+                defaultValue={query}
+                placeholder="Search courses…"
+                className="h-10 w-full rounded-xl border border-border bg-white pl-9 pr-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+              />
+            </div>
+            {query && (
+              <Link
+                href="/courses"
+                className="text-xs text-primary underline"
+              >
+                Clear
+              </Link>
+            )}
+          </form>
         </div>
 
         {courses.length === 0 ? (
@@ -196,9 +248,22 @@ export default async function CoursesStorefrontPage() {
               Check back soon — we're working on it.
             </p>
           </div>
+        ) : filtered.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-border bg-white p-12 text-center">
+            <p className="font-semibold">
+              No courses match &ldquo;{query}&rdquo;.
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Try a different search, or{" "}
+              <Link href="/courses" className="text-primary underline">
+                clear the filter
+              </Link>{" "}
+              to see everything.
+            </p>
+          </div>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {(rest.length > 0 ? rest : courses).map((course) => (
+            {(rest.length > 0 ? rest : filtered).map((course) => (
               <CourseCard
                 key={course.id}
                 course={course as StorefrontCourse}

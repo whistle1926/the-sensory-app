@@ -55,6 +55,15 @@ export async function GET(
     duration: course.duration,
     description: course.description,
     status: course.status,
+    level: course.level,
+    price: course.price,
+    isFeatured: course.isFeatured,
+    isBestseller: course.isBestseller,
+    tagline: course.tagline,
+    shortDescription: course.shortDescription,
+    heroImageUrl: course.heroImageUrl,
+    thumbnailUrl: course.thumbnailUrl,
+    features: course.features,
     instructorName: course.instructorName,
     instructorRole: course.instructorRole,
     instructorBio: course.instructorBio,
@@ -89,6 +98,56 @@ export async function PATCH(
 
   const data: Record<string, unknown> = {};
 
+  // ── Basic course meta ────────────────────────────────────────────────
+  if (typeof body.title === "string") {
+    const t = body.title.trim();
+    if (!t) return NextResponse.json({ error: "Title can't be empty." }, { status: 400 });
+    data.title = t.slice(0, 200);
+  }
+  if (typeof body.audience === "string")
+    data.audience = body.audience.trim().slice(0, 120);
+  if (typeof body.duration === "string")
+    data.duration = body.duration.trim().slice(0, 120);
+  if (typeof body.description === "string")
+    data.description = body.description.trim().slice(0, 5_000);
+  if (typeof body.level === "string")
+    data.level = body.level.trim().slice(0, 60) || null;
+
+  // ── Pricing & visibility ─────────────────────────────────────────────
+  if (typeof body.price === "number" && Number.isFinite(body.price)) {
+    const p = Math.max(0, Math.floor(body.price));
+    data.price = p;
+  }
+  if (typeof body.status === "string") {
+    const allowed = new Set(["AVAILABLE", "COMING_SOON", "ARCHIVED"]);
+    if (!allowed.has(body.status)) {
+      return NextResponse.json({ error: "Invalid status." }, { status: 400 });
+    }
+    data.status = body.status;
+  }
+  if (typeof body.isFeatured === "boolean") data.isFeatured = body.isFeatured;
+  if (typeof body.isBestseller === "boolean") data.isBestseller = body.isBestseller;
+
+  // ── Storefront copy ─────────────────────────────────────────────────
+  if (typeof body.tagline === "string")
+    data.tagline = body.tagline.trim().slice(0, 240) || null;
+  if (typeof body.shortDescription === "string")
+    data.shortDescription =
+      body.shortDescription.trim().slice(0, 500) || null;
+  if (typeof body.heroImageUrl === "string")
+    data.heroImageUrl = body.heroImageUrl.trim().slice(0, 1_000) || null;
+  if (typeof body.thumbnailUrl === "string")
+    data.thumbnailUrl = body.thumbnailUrl.trim().slice(0, 1_000) || null;
+  if (Array.isArray(body.features)) {
+    data.features = (body.features as unknown[])
+      .filter((f): f is string => typeof f === "string")
+      .map((f) => f.trim())
+      .filter((f) => f.length > 0)
+      .map((f) => f.slice(0, 300))
+      .slice(0, 20);
+  }
+
+  // ── Instructor + audienceFor + progression (existing) ──────────────
   if (typeof body.instructorName === "string")
     data.instructorName = body.instructorName.trim().slice(0, 120) || null;
   if (typeof body.instructorRole === "string")
