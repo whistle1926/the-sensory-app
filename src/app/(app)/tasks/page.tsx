@@ -30,7 +30,12 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { NewTaskDialog } from "@/components/tasks/new-task-dialog";
 
-type Status = "todo" | "in_progress" | "done";
+type Status =
+  | "todo"
+  | "in_progress"
+  | "for_review"
+  | "done"
+  | "deferred";
 
 interface AssigneeShape {
   user: { id: string; name: string; email: string; role: string };
@@ -52,32 +57,65 @@ interface TaskRow {
   _count: { comments: number };
 }
 
-type FilterKey = "all" | "open" | "sent" | "done";
+type FilterKey =
+  | "all"
+  | "todo"
+  | "in_progress"
+  | "for_review"
+  | "done"
+  | "deferred";
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "All items" },
-  { key: "open", label: "Logged (not yet sent)" },
-  { key: "sent", label: "Sent to Paddy" },
-  { key: "done", label: "Completed" },
+  { key: "todo", label: "🔴 New" },
+  { key: "in_progress", label: "🟡 In Progress" },
+  { key: "for_review", label: "🟣 For Review (Grace)" },
+  { key: "done", label: "✅ Completed" },
+  { key: "deferred", label: "⚪ Deferred" },
 ];
 
+/**
+ * Visual + semantic metadata for each status.
+ *
+ *   • dotClass — used inside the status circle on the left of each row.
+ *   • pill     — used by the inline-edit dropdown.
+ *   • next     — what the circle cycles to on click. Mirrors a typical
+ *                workflow:
+ *                  new → in_progress → for_review → done → (back to new)
+ *                Deferred sits outside the loop — flip via the dropdown.
+ */
 const STATUS_META: Record<
   Status,
-  { label: string; pill: string; next?: Status }
+  { label: string; pill: string; dotClass: string; next?: Status }
 > = {
   todo: {
-    label: "Logged",
-    pill: "bg-muted text-muted-foreground",
+    label: "New",
+    pill: "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300",
+    dotClass: "border-red-500 bg-red-500",
     next: "in_progress",
   },
   in_progress: {
-    label: "Sent to Paddy",
+    label: "In Progress",
     pill: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
+    dotClass: "border-amber-400 bg-amber-100 dark:bg-amber-950/40",
+    next: "for_review",
+  },
+  for_review: {
+    label: "For Review (Grace)",
+    pill: "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300",
+    dotClass: "border-violet-500 bg-violet-500",
     next: "done",
   },
   done: {
     label: "Completed",
     pill: "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300",
+    dotClass: "border-green-500 bg-green-500 text-white",
+    next: "todo",
+  },
+  deferred: {
+    label: "Deferred",
+    pill: "bg-muted text-muted-foreground",
+    dotClass: "border-border bg-muted",
     next: "todo",
   },
 };
@@ -104,10 +142,7 @@ export default function TasksPage() {
 
   const filtered = useMemo(() => {
     let list = rows;
-    if (filter === "open") list = list.filter((t) => t.status === "todo");
-    else if (filter === "sent")
-      list = list.filter((t) => t.status === "in_progress");
-    else if (filter === "done") list = list.filter((t) => t.status === "done");
+    if (filter !== "all") list = list.filter((t) => t.status === filter);
 
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -121,10 +156,18 @@ export default function TasksPage() {
   }, [rows, filter, search]);
 
   const counts = useMemo(() => {
-    const sent = rows.filter((r) => r.status === "in_progress").length;
-    const open = rows.filter((r) => r.status === "todo").length;
-    const done = rows.filter((r) => r.status === "done").length;
-    return { sent, open, done, total: rows.length };
+    const c = {
+      total: rows.length,
+      todo: 0,
+      in_progress: 0,
+      for_review: 0,
+      done: 0,
+      deferred: 0,
+    };
+    for (const r of rows) {
+      if (r.status in c) c[r.status]++;
+    }
+    return c;
   }, [rows]);
 
   async function changeStatus(id: string, status: Status) {
@@ -157,9 +200,13 @@ export default function TasksPage() {
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Build Updates</h1>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {counts.total} items · {counts.open} logged · {counts.sent} sent ·{" "}
-            {counts.done} completed
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{counts.total} items</span>
+            <span>🔴 {counts.todo} new</span>
+            <span>🟡 {counts.in_progress} in progress</span>
+            <span>🟣 {counts.for_review} for review</span>
+            <span>✅ {counts.done} completed</span>
+            {counts.deferred > 0 && <span>⚪ {counts.deferred} deferred</span>}
           </p>
         </div>
         <Button onClick={() => setShowNew(true)} className="rounded-xl">
@@ -310,7 +357,9 @@ function TaskRow({
 
   return (
     <tr className="transition hover:bg-muted/20">
-      {/* Status circle — click to advance through todo → in_progress → done → todo */}
+      {/* Status circle — click to advance the row one stage:
+            New → In Progress → For Review → Completed → New.
+          Deferred is set via the dropdown (sits outside the loop). */}
       <td className="px-4 py-3 align-top">
         <button
           type="button"
@@ -318,15 +367,15 @@ function TaskRow({
           onClick={() => meta.next && onStatusChange(meta.next)}
           className={cn(
             "flex h-5 w-5 items-center justify-center rounded-full border-2 transition",
-            isDone
-              ? "border-green-500 bg-green-500 text-white"
-              : task.status === "in_progress"
-                ? "border-amber-400 bg-amber-100 dark:bg-amber-950/40"
-                : "border-border bg-card hover:border-primary",
+            meta.dotClass,
           )}
-          title={`Next: ${STATUS_META[meta.next ?? "todo"].label}`}
+          title={
+            meta.next
+              ? `${meta.label} → click for ${STATUS_META[meta.next].label}`
+              : meta.label
+          }
         >
-          {isDone ? <Check className="h-3 w-3" /> : null}
+          {isDone ? <Check className="h-3 w-3 text-white" /> : null}
         </button>
       </td>
 
@@ -382,7 +431,8 @@ function TaskRow({
         {task.dueDate ? formatShortDate(task.dueDate) : "—"}
       </td>
 
-      {/* Status dropdown — inline editable */}
+      {/* Status dropdown — inline editable. Grace flips "For Review" →
+          "Completed" when she's verified the build. */}
       <td className="px-4 py-3 align-top">
         <select
           value={task.status}
@@ -393,9 +443,11 @@ function TaskRow({
             meta.pill,
           )}
         >
-          <option value="todo">Logged</option>
-          <option value="in_progress">Sent to Paddy</option>
-          <option value="done">Completed</option>
+          <option value="todo">🔴 New</option>
+          <option value="in_progress">🟡 In Progress</option>
+          <option value="for_review">🟣 For Review (Grace)</option>
+          <option value="done">✅ Completed</option>
+          <option value="deferred">⚪ Deferred</option>
         </select>
       </td>
 

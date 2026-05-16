@@ -67,16 +67,17 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
     data.status = body.status;
+    // `completedAt` is set only when Grace flips a task to "done"
+    // (her sign-off after review). Moving away from done clears it so
+    // the audit trail reflects the most recent completion.
     data.completedAt = body.status === "done" ? new Date() : null;
 
-    // CRM-style lifecycle stamps for the /tasks table view:
-    //   • First flip to "in_progress" (Sent to Paddy) → lock firstBuildAt
-    //     and stamp latestBuildAt.
-    //   • Every subsequent flip back to "in_progress" → bump latestBuildAt
-    //     only ("user re-pinged to iterate").
-    // Other status transitions leave both untouched so the audit trail
-    // shows the original request lifecycle even after completion.
-    if (body.status === "in_progress") {
+    // CRM-style lifecycle stamps for the /tasks table view. We treat
+    // both "in_progress" (Paddy building) and "for_review" (handed to
+    // Grace) as "actively in flight" — they both bump the build-date
+    // columns so the row sorts to the top and the timestamps reflect
+    // the most recent activity.
+    if (body.status === "in_progress" || body.status === "for_review") {
       const existing = await prisma.task.findUnique({
         where: { id: taskId },
         select: { firstBuildAt: true },
