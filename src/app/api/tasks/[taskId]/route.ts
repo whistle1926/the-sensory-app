@@ -68,6 +68,22 @@ export async function PATCH(
     }
     data.status = body.status;
     data.completedAt = body.status === "done" ? new Date() : null;
+
+    // CRM-style lifecycle stamps for the /tasks table view:
+    //   • First flip to "in_progress" (Sent to Paddy) → lock firstBuildAt
+    //     and stamp latestBuildAt.
+    //   • Every subsequent flip back to "in_progress" → bump latestBuildAt
+    //     only ("user re-pinged to iterate").
+    // Other status transitions leave both untouched so the audit trail
+    // shows the original request lifecycle even after completion.
+    if (body.status === "in_progress") {
+      const existing = await prisma.task.findUnique({
+        where: { id: taskId },
+        select: { firstBuildAt: true },
+      });
+      if (!existing?.firstBuildAt) data.firstBuildAt = new Date();
+      data.latestBuildAt = new Date();
+    }
   }
   if ("dueDate" in body) {
     if (body.dueDate === null) {

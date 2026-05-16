@@ -521,6 +521,16 @@ model Task {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  // ── Build lifecycle timestamps (CRM-style table view on /tasks) ───
+  // Stamped server-side whenever status flips to "in_progress" (i.e.
+  // "sent to Paddy to build"). `firstBuildAt` is locked-in on the FIRST
+  // such flip and never overwritten — useful for measuring how long a
+  // request sat before getting picked up. `latestBuildAt` always tracks
+  // the most recent flip and bumps every time the user re-pings ("I've
+  // looked at it, please iterate").
+  firstBuildAt  DateTime? @map("first_build_at")
+  latestBuildAt DateTime? @map("latest_build_at")
+
   assignees     TaskAssignee[]
   subtasks      Subtask[]
   comments      TaskComment[]

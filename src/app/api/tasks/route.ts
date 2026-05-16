@@ -17,6 +17,8 @@ export async function GET(_req: NextRequest) {
   // not just direct edits.
   const tasks = await prisma.task.findMany({
     include: {
+      // "Requested By" column on the new CRM-style table view.
+      createdBy: { select: { id: true, name: true, email: true } },
       assignees: {
         include: { user: { select: { id: true, name: true, email: true, role: true } } },
       },
