@@ -13,10 +13,10 @@
  * Paddy" stamps `firstBuildAt` (if null) and bumps `latestBuildAt` via
  * the existing PATCH endpoint.
  */
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Check,
-  CheckCircle2,
   ChevronDown,
   Filter,
   Loader2,
@@ -330,9 +330,16 @@ function TaskRow({
         </button>
       </td>
 
-      {/* Name (strikethrough when done) + comment count */}
+      {/* Name (strikethrough when done) + comment count.
+          The whole name cell is a link → /tasks/[id] which has the
+          full comment thread + reply form. Status dropdown, circle,
+          and delete button below stay independent so they don't fire
+          the navigation by accident. */}
       <td className="px-4 py-3 align-top">
-        <div className="flex items-center gap-1.5">
+        <Link
+          href={`/tasks/${task.id}`}
+          className="group inline-flex items-center gap-1.5 hover:underline"
+        >
           <span
             className={cn(
               "font-medium",
@@ -342,11 +349,11 @@ function TaskRow({
             {task.title}
           </span>
           {commentCount > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
               <MessageCircle className="h-2.5 w-2.5" /> {commentCount}
             </span>
           )}
-        </div>
+        </Link>
       </td>
 
       {/* Requested by */}
@@ -357,11 +364,17 @@ function TaskRow({
         </div>
       </td>
 
-      {/* Text — render html-stripped + truncated */}
+      {/* Text — render html-stripped + truncated, also linked through to
+          the detail page so clicking the row body opens the comments. */}
       <td className="px-4 py-3 align-top text-xs text-muted-foreground">
-        <span className="line-clamp-2 max-w-md">
-          {stripHtml(task.description ?? "")}
-        </span>
+        <Link
+          href={`/tasks/${task.id}`}
+          className="line-clamp-2 block max-w-md hover:text-foreground"
+        >
+          {stripHtml(task.description ?? "") || (
+            <span className="italic">No description.</span>
+          )}
+        </Link>
       </td>
 
       {/* Due date */}
