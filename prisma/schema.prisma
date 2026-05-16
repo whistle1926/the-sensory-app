@@ -411,6 +411,53 @@ model DateOverride {
   @@unique([date])
 }
 
+/// Admin-editable catalogue of booking services. Replaces the
+/// hardcoded array that used to live in src/app/book/page.tsx. Each
+/// row is uniquely addressable at /book/[slug] for ads + per-service
+/// share links.
+///
+/// Booking.service stores the slug (free text — soft FK so we don't
+/// fail an old booking if its service gets renamed).
+model BookingService {
+  id              String   @id @default(cuid())
+  /// URL slug — `initial-ot` produces /book/initial-ot.
+  slug            String   @unique
+  title           String
+  /// Long marketing description shown on the public booking page and
+  /// in the per-service landing page hero. Rich text supported.
+  description     String   @db.Text @default("")
+  /// Short tagline / sub-line on cards.
+  tagline         String?
+  /// "Parents & individuals" / "Schools & community" / free text. Used
+  /// to group services on /book and in the admin list.
+  category        String   @default("")
+  /// Price in pence — 0 = free / quote.
+  pricePence      Int      @default(0)
+  /// Friendly duration label ("60 minutes", "5 × 60 mins") shown on
+  /// cards. The booking calendar always uses durationMinutes for the
+  /// time-slot math.
+  durationLabel   String   @default("")
+  durationMinutes Int      @default(60)
+  /// Optional non-refundable deposit (e.g. £100 to secure an
+  /// assessment). Falls back to 0 = no deposit. Snapshot copied onto
+  /// the Booking row at checkout time.
+  depositPence    Int      @default(0)
+  /// false = hide from public /book entirely. true = appear in the
+  /// listing AND the per-slug URL works.
+  isActive        Boolean  @default(true)
+  order           Int      @default(0)
+  /// Optional Lucide icon name for the card — falls back to a default
+  /// generic icon on render. Picked from a small allowlist.
+  iconKey         String?
+  /// Optional accent colour for the card stripe.
+  accentColor     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([isActive, order])
+  @@map("booking_services")
+}
+
 model Booking {
   id            String   @id @default(cuid())
   service       String

@@ -18,10 +18,12 @@ import {
   Ban,
   Mail,
   ScrollText,
+  PoundSterling,
 } from "lucide-react";
 import { Toolbar } from "@/components/ds";
 import { AutomationsSection } from "@/components/bookings/automations-section";
 import { TermsSection } from "@/components/bookings/terms-section";
+import { ServicesSection } from "@/components/bookings/services-section";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -146,7 +148,12 @@ function formatTime12(t: string) {
 /*  Page                                                               */
 /* ------------------------------------------------------------------ */
 
-type Tab = "calendar" | "availability" | "automations" | "terms";
+type Tab =
+  | "calendar"
+  | "availability"
+  | "automations"
+  | "terms"
+  | "services";
 
 export default function BookingsPage() {
   const today = useMemo(() => new Date(), []);
@@ -442,6 +449,15 @@ export default function BookingsPage() {
           <ScrollText className="mr-2 inline h-4 w-4" />
           Terms
         </button>
+        <button
+          onClick={() => setTab("services")}
+          className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+            tab === "services" ? "bg-card text-foreground shadow-[var(--shadow-xs)]" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <PoundSterling className="mr-2 inline h-4 w-4" />
+          Services
+        </button>
       </div>
 
       {/* ================================================================ */}
@@ -453,6 +469,11 @@ export default function BookingsPage() {
       {/*  TERMS TAB                                                        */}
       {/* ================================================================ */}
       {tab === "terms" && <TermsSection />}
+
+      {/* ================================================================ */}
+      {/*  SERVICES TAB                                                     */}
+      {/* ================================================================ */}
+      {tab === "services" && <ServicesSection />}
 
       {/* ================================================================ */}
       {/*  CALENDAR TAB                                                     */}

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { Suspense, useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,56 +26,67 @@ import { DEPOSIT_SERVICES, type TermsClause } from "@/lib/booking-terms";
 /*  Data                                                               */
 /* ------------------------------------------------------------------ */
 
-const services = [
-  {
-    id: "initial-ot",
-    title: "Initial OT Consultation",
-    duration: "60 minutes",
-    durationMins: 60,
-    price: 8500,
-    priceLabel: "\u00a385",
-    description:
-      "Comprehensive initial assessment via video call. Includes discussion of presenting concerns, observation of your child during play, and immediate practical recommendations.",
-    icon: Video,
-    colour: "oklch(0.55 0.20 264)",
-  },
-  {
-    id: "follow-up",
-    title: "Follow-Up Session",
-    duration: "45 minutes",
-    durationMins: 45,
-    price: 6500,
-    priceLabel: "\u00a365",
-    description:
-      "Review progress, adjust strategies, and address new concerns. Includes updated home programme recommendations.",
-    icon: Clock,
-    colour: "oklch(0.60 0.18 170)",
-  },
-  {
-    id: "school",
-    title: "School Consultation",
-    duration: "30 minutes",
-    durationMins: 30,
-    price: 4500,
-    priceLabel: "\u00a345",
-    description:
-      "Video call with your child\u2019s teacher or SENCO to discuss sensory strategies for the classroom.",
-    icon: Users,
-    colour: "oklch(0.65 0.17 50)",
-  },
-  {
-    id: "sensory-eaters",
-    title: "Sensory Eaters Programme",
-    duration: "6 \u00d7 45-minute sessions",
-    durationMins: 270,
-    price: 25000,
-    priceLabel: "\u00a3250",
-    description:
-      "Structured online programme for parents of children with selective eating. Small group format (max 6 families).",
-    icon: Globe,
-    colour: "oklch(0.55 0.20 310)",
-  },
+interface ServiceCatalogueRow {
+  /** Maps to BookingService.slug on the API side; kept as `id` here
+   * because the rest of the page already reasons in terms of `id`. */
+  id: string;
+  title: string;
+  duration: string;
+  durationMins: number;
+  price: number; // pence
+  priceLabel: string;
+  description: string;
+  category: string;
+  /** Picked at render time \u2014 every card gets a consistent icon based on
+   * a stable hash of the slug so it doesn't change between visits. */
+  icon: typeof Video;
+  colour: string;
+}
+
+// Stable icon + colour palettes \u2014 both keyed off the slug so a given
+// service always renders with the same look.
+const ICON_PALETTE = [Video, Clock, Users, Globe];
+const COLOUR_PALETTE = [
+  "oklch(0.55 0.20 264)",
+  "oklch(0.60 0.18 170)",
+  "oklch(0.65 0.17 50)",
+  "oklch(0.55 0.20 310)",
+  "oklch(0.55 0.20 30)",
+  "oklch(0.50 0.18 200)",
 ];
+
+function hashCode(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function adaptService(
+  row: {
+    slug: string;
+    title: string;
+    description: string;
+    tagline: string | null;
+    category: string;
+    pricePence: number;
+    durationLabel: string;
+    durationMinutes: number;
+  },
+): ServiceCatalogueRow {
+  const h = hashCode(row.slug);
+  return {
+    id: row.slug,
+    title: row.title,
+    duration: row.durationLabel || `${row.durationMinutes} minutes`,
+    durationMins: row.durationMinutes,
+    price: row.pricePence,
+    priceLabel: row.pricePence === 0 ? "Free" : `\u00a3${row.pricePence / 100}`,
+    description: row.description || row.tagline || "",
+    category: row.category || "",
+    icon: ICON_PALETTE[h % ICON_PALETTE.length],
+    colour: COLOUR_PALETTE[h % COLOUR_PALETTE.length],
+  };
+}
 
 const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -130,7 +142,28 @@ function formatDate(d: Date) {
 
 type Step = "service" | "datetime" | "details" | "confirmed";
 
+/**
+ * Next.js 15 requires anything that calls `useSearchParams()` to live
+ * inside a Suspense boundary, otherwise prerender bails out. The page
+ * wrapper handles that — `BookingPageInner` holds the actual UI.
+ */
 export default function BookingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-background">
+          <div className="mx-auto max-w-5xl p-10 text-center text-sm text-muted-foreground">
+            Loading booking…
+          </div>
+        </div>
+      }
+    >
+      <BookingPageInner />
+    </Suspense>
+  );
+}
+
+function BookingPageInner() {
   const today = useMemo(() => new Date(), []);
   const { data: session } = useSession();
   const isClient = session?.user?.role === "CLIENT";
@@ -140,6 +173,44 @@ export default function BookingPage() {
   const [weekStart, setWeekStart] = useState(() => getWeekStart(today));
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+
+  // Live catalogue from /api/booking-services. Empty array while
+  // loading — the service-picker step renders a small spinner in that
+  // window.
+  const [services, setServices] = useState<ServiceCatalogueRow[]>([]);
+  const [catalogueLoading, setCatalogueLoading] = useState(true);
+
+  // Deep-link support — /book/[slug] forwards to /book?service=<slug>
+  // (and /book/[slug]'s landing CTA does the same). When the catalogue
+  // loads we honour the param by auto-selecting that service and
+  // skipping straight to step 2 (calendar).
+  const searchParams = useSearchParams();
+  const preselectSlug = searchParams.get("service");
+
+  useEffect(() => {
+    fetch("/api/booking-services")
+      .then((r) => r.json())
+      .then((data: unknown[]) => {
+        if (Array.isArray(data)) {
+          const adapted = data.map((d) =>
+            adaptService(d as Parameters<typeof adaptService>[0]),
+          );
+          setServices(adapted);
+          // Auto-advance only if the preselect slug actually exists in
+          // the catalogue — guards against stale ad links pointing at
+          // archived services.
+          if (
+            preselectSlug &&
+            adapted.some((s) => s.id === preselectSlug)
+          ) {
+            setSelectedService(preselectSlug);
+            setStep("datetime");
+          }
+        }
+        setCatalogueLoading(false);
+      })
+      .catch(() => setCatalogueLoading(false));
+  }, [preselectSlug]);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -369,52 +440,25 @@ export default function BookingPage() {
               </p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              {services.map((s) => {
-                const Icon = s.icon;
-                const isSelected = selectedService === s.id;
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => setSelectedService(s.id)}
-                    className={`group relative rounded-2xl border-2 bg-card p-5 text-left shadow-[var(--shadow-sm)] card-lift ${
-                      isSelected
-                        ? "border-primary ring-2 ring-primary/20"
-                        : "border-border"
-                    }`}
-                  >
-                    {isSelected && (
-                      <div className="absolute right-3 top-3">
-                        <CheckCircle2 className="h-5 w-5 text-primary" />
-                      </div>
-                    )}
-                    <div className="flex items-start gap-3">
-                      <div
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-[var(--shadow-glow)]"
-                        style={{ backgroundColor: s.colour }}
-                      >
-                        <Icon className="h-5 w-5 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between pr-6">
-                          <h3 className="font-semibold">{s.title}</h3>
-                        </div>
-                        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{s.duration}</span>
-                          <span className="text-border">|</span>
-                          <span className="font-semibold text-primary">
-                            {s.priceLabel}
-                          </span>
-                        </div>
-                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                          {s.description}
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+            {catalogueLoading ? (
+              <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading services…
+              </div>
+            ) : services.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border bg-white p-10 text-center">
+                <p className="font-semibold">No services published yet.</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Please contact us directly to arrange a booking.
+                </p>
+              </div>
+            ) : (
+              <ServicePicker
+                services={services}
+                selectedService={selectedService}
+                onSelect={setSelectedService}
+              />
+            )}
 
             <div className="flex justify-center">
               <Button
@@ -874,6 +918,91 @@ export default function BookingPage() {
           Northern Ireland
         </p>
       </footer>
+    </div>
+  );
+}
+
+/**
+ * Service picker for step 1. Groups cards by `category` so the parent
+ * services don't sit alongside the schools ones — keeps the choice
+ * scannable when there are 10+ options.
+ */
+function ServicePicker({
+  services,
+  selectedService,
+  onSelect,
+}: {
+  services: ServiceCatalogueRow[];
+  selectedService: string | null;
+  onSelect: (id: string) => void;
+}) {
+  // Preserve catalogue order within each category. "" sorts last.
+  const grouped = new Map<string, ServiceCatalogueRow[]>();
+  for (const s of services) {
+    const k = s.category || "Other";
+    if (!grouped.has(k)) grouped.set(k, []);
+    grouped.get(k)!.push(s);
+  }
+  const groups = Array.from(grouped.entries());
+
+  return (
+    <div className="space-y-8">
+      {groups.map(([category, items]) => (
+        <div key={category}>
+          {groups.length > 1 && (
+            <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              {category}
+            </h2>
+          )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {items.map((s) => {
+              const Icon = s.icon;
+              const isSelected = selectedService === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => onSelect(s.id)}
+                  className={`group relative rounded-2xl border-2 bg-card p-5 text-left shadow-[var(--shadow-sm)] card-lift ${
+                    isSelected
+                      ? "border-primary ring-2 ring-primary/20"
+                      : "border-border"
+                  }`}
+                >
+                  {isSelected && (
+                    <div className="absolute right-3 top-3">
+                      <CheckCircle2 className="h-5 w-5 text-primary" />
+                    </div>
+                  )}
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-[var(--shadow-glow)]"
+                      style={{ backgroundColor: s.colour }}
+                    >
+                      <Icon className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between pr-6">
+                        <h3 className="font-semibold">{s.title}</h3>
+                      </div>
+                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{s.duration}</span>
+                        <span className="text-border">|</span>
+                        <span className="font-semibold text-primary">
+                          {s.priceLabel}
+                        </span>
+                      </div>
+                      <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-muted-foreground line-clamp-4">
+                        {s.description}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

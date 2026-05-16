@@ -16,7 +16,7 @@
  */
 import { prisma } from "@/lib/prisma";
 import { renderTermsHtmlFromDb } from "@/lib/booking-terms-store";
-import { bookingServiceMeta } from "@/lib/booking-services";
+import { bookingServiceMetaFromDb } from "@/lib/booking-services";
 
 export interface AutomationVariables {
   client_name: string;
@@ -51,7 +51,7 @@ export async function variablesForBooking(args: {
   pricePence: number;
   depositPence?: number;
 }): Promise<AutomationVariables> {
-  const meta = bookingServiceMeta(args.service);
+  const meta = await bookingServiceMetaFromDb(args.service);
   const dateStr = args.date.toLocaleDateString("en-GB", {
     weekday: "long",
     day: "numeric",

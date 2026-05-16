@@ -5,8 +5,9 @@ import Credentials from "next-auth/providers/credentials";
 const PUBLIC_PREFIXES = [
   "/book",
   "/api/bookings",
-  // Public read of booking terms — the /book form fetches these to show
-  // the tick boxes. The PUT endpoint enforces auth itself.
+  // Public read of booking services + terms — the /book form fetches
+  // both. The mutating endpoints enforce auth themselves.
+  "/api/booking-services",
   "/api/booking-terms",
   "/api/webhooks",
   "/api/availability",
