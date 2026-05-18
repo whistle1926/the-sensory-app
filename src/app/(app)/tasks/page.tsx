@@ -413,14 +413,14 @@ function TaskRow({
         </div>
       </td>
 
-      {/* Text — render html-stripped + truncated, also linked through to
-          the detail page so clicking the row body opens the comments. */}
+      {/* Text — short preview only (first sentence-ish, capped). Click
+          through to the detail page for the fully-formatted version. */}
       <td className="px-4 py-3 align-top text-xs text-muted-foreground">
         <Link
           href={`/tasks/${task.id}`}
-          className="line-clamp-2 block max-w-md hover:text-foreground"
+          className="block max-w-md hover:text-foreground"
         >
-          {stripHtml(task.description ?? "") || (
+          {previewText(task.description) || (
             <span className="italic">No description.</span>
           )}
         </Link>
@@ -515,4 +515,27 @@ function formatShortDate(iso: string): string {
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Build a short, scannable preview from a rich-text description. We
+ * pull the first paragraph / first sentence, then hard-cap at ~140
+ * chars with a trailing ellipsis so the table row never grows tall.
+ * Adds nothing if there's nothing to preview.
+ */
+function previewText(html: string | null | undefined): string {
+  if (!html) return "";
+  // Convert <li>/<p>/<br> boundaries to "·" / spaces so the preview
+  // doesn't smush list items into adjacent words.
+  const withBreaks = html
+    .replace(/<\/(p|h\d|li|ul|ol|pre|blockquote)>/gi, "$& ")
+    .replace(/<li[^>]*>/gi, "• ")
+    .replace(/<br\s*\/?\s*>/gi, " ");
+  const flat = stripHtml(withBreaks);
+  const MAX = 140;
+  if (flat.length <= MAX) return flat;
+  // Try to cut at the nearest sentence/space boundary before the cap.
+  const slice = flat.slice(0, MAX);
+  const cut = Math.max(slice.lastIndexOf(". "), slice.lastIndexOf(" "));
+  return (cut > 60 ? slice.slice(0, cut) : slice).trimEnd() + "…";
 }
