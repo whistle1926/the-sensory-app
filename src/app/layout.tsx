@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { ClarityScript } from "@/components/analytics/clarity-script";
+import { MetaPixelScript } from "@/components/analytics/meta-pixel-script";
 import { UtmCapture } from "@/components/analytics/utm-capture";
 import "./globals.css";
 
@@ -33,10 +34,12 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <Providers>{children}</Providers>
-        {/* Tracking — Clarity is server-rendered (no script if unconfigured),
-            UTM capture is client-side and runs once on first load to
-            stash the campaign params in sessionStorage. */}
+        {/* Tracking — Clarity + Meta Pixel are server-rendered (each
+            no-ops if unconfigured). UTM capture is client-side and runs
+            once on first load to stash the campaign params in
+            sessionStorage. */}
         <ClarityScript />
+        <MetaPixelScript />
         <UtmCapture />
       </body>
     </html>

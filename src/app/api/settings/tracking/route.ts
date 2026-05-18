@@ -1,8 +1,9 @@
 /**
- * Settings → Tracking. Stores the Microsoft Clarity Project ID.
+ * Settings → Tracking. Stores the Microsoft Clarity Project ID and the
+ * Meta (Facebook) Pixel ID.
  *
  * Mirror of /api/settings/email — singleton row keyed by id="default",
- * GET returns a `hasKey` flag rather than the raw ID so the form can't
+ * GET returns `hasKey` flags rather than the raw IDs so the form can't
  * accidentally overwrite a saved value with masked dots (this was the
  * bug that took the Mailcub key offline a few sessions ago).
  */
@@ -25,7 +26,9 @@ export async function GET() {
   return NextResponse.json({
     enabled: row?.enabled ?? true,
     hasClarityId: Boolean(row?.clarityProjectId),
+    hasMetaPixelId: Boolean(row?.metaPixelId),
     clarityProjectId: "", // never sent back to the client
+    metaPixelId: "",      // never sent back to the client
   });
 }
 
@@ -36,6 +39,7 @@ export async function POST(req: NextRequest) {
   }
   const body = (await req.json().catch(() => ({}))) as {
     clarityProjectId?: string;
+    metaPixelId?: string;
     enabled?: boolean;
   };
 
@@ -48,6 +52,14 @@ export async function POST(req: NextRequest) {
   ) {
     data.clarityProjectId = body.clarityProjectId.trim().slice(0, 64);
   }
+  if (
+    typeof body.metaPixelId === "string" &&
+    body.metaPixelId.trim() !== ""
+  ) {
+    // Meta Pixel IDs are 15-16 digits — strip anything that isn't a
+    // digit so a stray space or wrapper doesn't bork the snippet.
+    data.metaPixelId = body.metaPixelId.trim().replace(/\D/g, "").slice(0, 32);
+  }
 
   const row = await prisma.trackingSettings.upsert({
     where: { id: "default" },
@@ -56,6 +68,8 @@ export async function POST(req: NextRequest) {
       id: "default",
       clarityProjectId:
         (data.clarityProjectId as string | undefined) ?? null,
+      metaPixelId:
+        (data.metaPixelId as string | undefined) ?? null,
       enabled: (data.enabled as boolean | undefined) ?? true,
     },
   });
@@ -63,6 +77,8 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     enabled: row.enabled,
     hasClarityId: Boolean(row.clarityProjectId),
+    hasMetaPixelId: Boolean(row.metaPixelId),
     clarityProjectId: "",
+    metaPixelId: "",
   });
 }

@@ -1019,8 +1019,13 @@ model TrackingSettings {
   /// clarity.microsoft.com → Setup → Tracking code). When null or
   /// empty, the script doesn't render and no data is sent.
   clarityProjectId String?  @map("clarity_project_id")
+  /// Meta (Facebook) Pixel ID — the 15-16 digit number from Events
+  /// Manager → Data sources → your pixel. Used for tracking FB/IG ad
+  /// conversions back to Ads Manager (works for Ad Center boosts too).
+  /// Empty/null means the pixel script doesn't render.
+  metaPixelId      String?  @map("meta_pixel_id")
   /// Master kill-switch — flip to false to immediately stop loading
-  /// the Clarity script anywhere without removing the project ID.
+  /// the Clarity/Pixel scripts anywhere without removing the IDs.
   enabled          Boolean  @default(true)
   updatedAt        DateTime @updatedAt @map("updated_at")
   @@map("tracking_settings")

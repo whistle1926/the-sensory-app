@@ -21,12 +21,15 @@ import { Label } from "@/components/ui/label";
 interface TrackingState {
   enabled: boolean;
   hasClarityId: boolean;
+  hasMetaPixelId: boolean;
   clarityProjectId: string;
+  metaPixelId: string;
 }
 
 export function TrackingSettingsSection() {
   const [state, setState] = useState<TrackingState | null>(null);
   const [draftId, setDraftId] = useState("");
+  const [draftPixelId, setDraftPixelId] = useState("");
   const [draftEnabled, setDraftEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -53,6 +56,7 @@ export function TrackingSettingsSection() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clarityProjectId: draftId.trim(),
+          metaPixelId: draftPixelId.trim(),
           enabled: draftEnabled,
         }),
       });
@@ -63,6 +67,7 @@ export function TrackingSettingsSection() {
       const data = (await res.json()) as TrackingState;
       setState(data);
       setDraftId("");
+      setDraftPixelId("");
       setSavedAt(Date.now());
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Save failed");
@@ -81,10 +86,10 @@ export function TrackingSettingsSection() {
           <div>
             <h2 className="text-base font-semibold">Tracking &amp; analytics</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Connect Microsoft Clarity to record session replays + heatmaps
-              across every public page (storefront, booking page, landing
-              pages). Paste your Project ID below; the script loads
-              automatically once saved.
+              Connect Microsoft Clarity for session replays + heatmaps, and
+              Meta (Facebook) Pixel for ad conversion tracking. Both scripts
+              load automatically across every public page once saved. The
+              master toggle below kills everything in one click.
             </p>
           </div>
         </div>
@@ -125,12 +130,49 @@ export function TrackingSettingsSection() {
             </p>
           </div>
 
+          <div className="space-y-2 border-t border-border pt-4">
+            <Label htmlFor="meta-pixel-id">Meta (Facebook) Pixel ID</Label>
+            <Input
+              id="meta-pixel-id"
+              type="text"
+              inputMode="numeric"
+              placeholder={
+                state?.hasMetaPixelId
+                  ? "Pixel ID saved — leave blank to keep, or paste a new one to replace"
+                  : "e.g. 1234567890123456"
+              }
+              value={draftPixelId}
+              onChange={(e) => setDraftPixelId(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              {state?.hasMetaPixelId ? (
+                <span className="text-green-700 dark:text-green-400">
+                  ✓ Meta Pixel ID saved.
+                </span>
+              ) : (
+                "No Meta Pixel ID saved yet."
+              )}{" "}
+              Find it at{" "}
+              <a
+                href="https://business.facebook.com/events_manager2/list/pixel"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline"
+              >
+                business.facebook.com → Events Manager
+              </a>
+              {" → "}Data sources → your pixel. The ID is a 15-16 digit
+              number. Works for both Ads Manager campaigns and Ad Center
+              boosts — the pixel fires on every public page once saved.
+            </p>
+          </div>
+
           <div className="flex items-center justify-between rounded-xl border border-border bg-muted/30 px-4 py-3">
             <div>
-              <p className="text-sm font-medium">Enable Clarity</p>
+              <p className="text-sm font-medium">Enable tracking</p>
               <p className="text-xs text-muted-foreground">
-                Master toggle. Off = script doesn&apos;t load anywhere, no
-                data sent.
+                Master toggle. Off = neither Clarity nor the Meta Pixel
+                loads anywhere, no data sent.
               </p>
             </div>
             <button
