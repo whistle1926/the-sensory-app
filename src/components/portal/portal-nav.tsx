@@ -15,7 +15,7 @@ interface Item {
 const ITEMS: Item[] = [
   {
     href: "/portal/training",
-    label: "Training",
+    label: "Courses",
     matchPrefixes: ["/portal/training"],
   },
   {

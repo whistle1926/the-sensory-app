@@ -62,7 +62,7 @@ const NAV_ITEMS: WidgetDef[] = [
   { key: "nav_activities", label: "Activities", description: "Activity bank" },
   { key: "nav_programmes", label: "Programmes", description: "Home programmes" },
   { key: "nav_bookings", label: "Bookings", description: "Session bookings" },
-  { key: "nav_training", label: "Training", description: "CPD courses and training" },
+  { key: "nav_training", label: "Courses", description: "CPD courses and training" },
   { key: "nav_tasks", label: "Tasks", description: "Tasks and feedback" },
   { key: "nav_team", label: "Team", description: "Team management" },
   { key: "nav_settings", label: "Settings", description: "App settings" },
