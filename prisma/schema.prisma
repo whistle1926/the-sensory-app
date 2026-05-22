@@ -763,6 +763,31 @@ model ClientGoal {
   @@index([clientId])
 }
 
+// ─── Services (billing catalogue) ───────────────────────────────────
+//
+// A list of products / services Patrick can quickly pick from when
+// building an invoice. Kept separate from BookingService (which is
+// the public /book catalogue) on purpose — invoice items include
+// non-bookable things like reports, materials, training packages.
+model Service {
+  id          String   @id @default(cuid())
+  name        String                            // shown in picker + line description
+  description String   @db.Text @default("")    // optional notes (not shown on invoice unless copied)
+  /// Default unit price in pence. 0 = "quote / set on invoice".
+  pricePence  Int      @default(0)
+  /// "GBP" | "EUR" | "USD". Picker filters by invoice currency.
+  currency    String   @default("GBP")
+  /// Optional free-text category (e.g. "Sessions", "Reports", "Materials").
+  category    String   @default("")
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, order])
+  @@map("services")
+}
+
 // ─── Invoices ───────────────────────────────────────────────────────
 
 model Invoice {

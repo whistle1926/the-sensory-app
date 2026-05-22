@@ -67,6 +67,7 @@ const NAV_ITEMS: WidgetDef[] = [
   { key: "nav_team", label: "Team", description: "Team management" },
   { key: "nav_settings", label: "Settings", description: "App settings" },
   { key: "nav_invoices", label: "Invoices", description: "Create and send invoices" },
+  { key: "nav_services", label: "Services", description: "Billing price list — items shown in invoice picker" },
   { key: "nav_live_sessions", label: "Live Sessions", description: "Broadcast or run interactive video rooms" },
 ];
 

@@ -31,6 +31,15 @@ interface LineItem {
   unitPrice: string; // stored as string for controlled input (pounds)
 }
 
+interface Service {
+  id: string;
+  name: string;
+  description: string;
+  pricePence: number;
+  currency: string;
+  category: string;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -92,6 +101,9 @@ export default function NewInvoicePage() {
     "EUR",
   ]);
 
+  /* ---- service catalogue (filtered by invoice currency) ---- */
+  const [services, setServices] = useState<Service[]>([]);
+
   /* ---- ui state ---- */
   const [saving, setSaving] = useState(false);
   const [sendAfterSave, setSendAfterSave] = useState(false);
@@ -120,6 +132,14 @@ export default function NewInvoicePage() {
       })
       .catch(() => {});
   }, []);
+
+  /* ---- load service catalogue whenever the invoice currency changes ---- */
+  useEffect(() => {
+    fetch(`/api/services?currency=${encodeURIComponent(currency)}`)
+      .then((r) => r.json())
+      .then((data) => setServices(Array.isArray(data) ? data : []))
+      .catch(() => setServices([]));
+  }, [currency]);
 
   /* ---- options shown in picker for the current currency ---- */
   const taxOptions = availableTaxRates.filter(
@@ -440,6 +460,22 @@ export default function NewInvoicePage() {
                   </div>
 
                   <div className="space-y-3">
+                    {services.length > 0 && (
+                      <ServicePicker
+                        services={services}
+                        currency={currency}
+                        onPick={(svc) => {
+                          updateItem(item.key, "description", svc.name);
+                          if (svc.pricePence > 0) {
+                            updateItem(
+                              item.key,
+                              "unitPrice",
+                              (svc.pricePence / 100).toFixed(2),
+                            );
+                          }
+                        }}
+                      />
+                    )}
                     <div className="space-y-2">
                       <Label>Description *</Label>
                       <Input
@@ -641,6 +677,93 @@ export default function NewInvoicePage() {
             </Button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Service picker — searchable dropdown over the catalogue            */
+/* ------------------------------------------------------------------ */
+
+function ServicePicker({
+  services,
+  currency,
+  onPick,
+}: {
+  services: Service[];
+  currency: string;
+  onPick: (svc: Service) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+
+  const filtered = query.trim()
+    ? services.filter((s) => {
+        const q = query.toLowerCase();
+        return (
+          s.name.toLowerCase().includes(q) ||
+          s.category.toLowerCase().includes(q)
+        );
+      })
+    : services;
+
+  return (
+    <div className="space-y-2">
+      <Label>Pick from services</Label>
+      <div className="relative">
+        <Input
+          type="text"
+          placeholder="Search your services…"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+        />
+        {open && filtered.length > 0 && (
+          <div className="absolute z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-border bg-popover shadow-md">
+            {filtered.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => {
+                  onPick(s);
+                  setQuery("");
+                  setOpen(false);
+                }}
+                className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">{s.name}</span>
+                  {s.category && (
+                    <span className="block text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {s.category}
+                    </span>
+                  )}
+                </span>
+                <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                  {s.pricePence === 0
+                    ? "Quote"
+                    : formatCurrency(s.pricePence, currency)}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+        {open && query.trim() && filtered.length === 0 && (
+          <div className="absolute z-50 mt-1 w-full rounded-lg border border-border bg-popover p-3 text-center text-sm text-muted-foreground shadow-md">
+            No services match. Type below to enter manually.
+          </div>
+        )}
+        {open && (
+          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setOpen(false)}
+          />
+        )}
       </div>
     </div>
   );
