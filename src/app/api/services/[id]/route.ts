@@ -44,6 +44,13 @@ export async function PATCH(
     data.pricePence = Math.max(0, Math.floor(body.pricePence));
   if (typeof body.currency === "string")
     data.currency = body.currency.trim().toUpperCase().slice(0, 3) || "GBP";
+  if ("defaultTaxRateId" in body) {
+    if (body.defaultTaxRateId === null || body.defaultTaxRateId === "") {
+      data.defaultTaxRateId = null;
+    } else if (typeof body.defaultTaxRateId === "string") {
+      data.defaultTaxRateId = body.defaultTaxRateId;
+    }
+  }
   if (typeof body.isActive === "boolean") data.isActive = body.isActive;
   if (typeof body.order === "number" && Number.isFinite(body.order))
     data.order = Math.floor(body.order);

@@ -33,8 +33,17 @@ interface ServiceRow {
   pricePence: number;
   currency: string;
   category: string;
+  defaultTaxRateId: string | null;
   isActive: boolean;
   order: number;
+}
+
+interface TaxRateOption {
+  id: string;
+  currency: string;
+  label: string;
+  rate: number;
+  enabled: boolean;
 }
 
 function priceLabel(pence: number, currency: string): string {
@@ -46,6 +55,7 @@ function priceLabel(pence: number, currency: string): string {
 
 export default function ServicesPage() {
   const [rows, setRows] = useState<ServiceRow[] | null>(null);
+  const [taxRates, setTaxRates] = useState<TaxRateOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -64,6 +74,10 @@ export default function ServicesPage() {
 
   useEffect(() => {
     refresh();
+    fetch("/api/settings/tax-rates")
+      .then((r) => r.json())
+      .then((data) => setTaxRates(Array.isArray(data) ? data : []))
+      .catch(() => setTaxRates([]));
   }, []);
 
   const filtered = useMemo(() => {
@@ -218,6 +232,7 @@ export default function ServicesPage() {
               <EditorPanel
                 key={svc.id}
                 service={svc}
+                taxRates={taxRates}
                 onCancel={() => setEditingId(null)}
                 onSave={async (next) => {
                   await patchService(svc.id, next);
@@ -229,6 +244,7 @@ export default function ServicesPage() {
               <ListRow
                 key={svc.id}
                 service={svc}
+                taxRates={taxRates}
                 onEdit={() => setEditingId(svc.id)}
                 onToggleActive={() =>
                   patchService(svc.id, { isActive: !svc.isActive })
@@ -250,17 +266,22 @@ export default function ServicesPage() {
 
 function ListRow({
   service,
+  taxRates,
   onEdit,
   onToggleActive,
   onDelete,
   busy,
 }: {
   service: ServiceRow;
+  taxRates: TaxRateOption[];
   onEdit: () => void;
   onToggleActive: () => void;
   onDelete: () => void;
   busy: boolean;
 }) {
+  const tax = service.defaultTaxRateId
+    ? taxRates.find((t) => t.id === service.defaultTaxRateId)
+    : null;
   return (
     <div className="rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-sm)]">
       <div className="flex flex-wrap items-start gap-4">
@@ -289,6 +310,14 @@ function ListRow({
             </span>
             <span className="text-muted-foreground">·</span>
             <span className="text-muted-foreground">{service.currency}</span>
+            {tax && (
+              <>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">
+                  {tax.label} {tax.rate}%
+                </span>
+              </>
+            )}
           </p>
         </div>
 
@@ -330,11 +359,13 @@ function ListRow({
 
 function EditorPanel({
   service,
+  taxRates,
   onCancel,
   onSave,
   busy,
 }: {
   service: ServiceRow;
+  taxRates: TaxRateOption[];
   onCancel: () => void;
   onSave: (next: Partial<ServiceRow>) => Promise<void>;
   busy: boolean;
@@ -343,9 +374,26 @@ function EditorPanel({
   const [description, setDescription] = useState(service.description);
   const [category, setCategory] = useState(service.category);
   const [currency, setCurrency] = useState(service.currency);
+  const [defaultTaxRateId, setDefaultTaxRateId] = useState<string>(
+    service.defaultTaxRateId ?? "",
+  );
   const [priceText, setPriceText] = useState(
     service.pricePence === 0 ? "" : (service.pricePence / 100).toString(),
   );
+
+  // Tax options matching the chosen currency (e.g. only show GBP rates
+  // when the service is priced in GBP). Reset the picked rate if the
+  // user switches currency and the previously-picked rate no longer
+  // applies.
+  const taxOptions = taxRates.filter(
+    (t) => t.currency === currency && t.enabled,
+  );
+  useEffect(() => {
+    if (defaultTaxRateId && !taxOptions.some((t) => t.id === defaultTaxRateId)) {
+      setDefaultTaxRateId("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currency, taxRates]);
 
   async function save() {
     const parsed = parseFloat(priceText);
@@ -357,6 +405,7 @@ function EditorPanel({
       category,
       currency,
       pricePence,
+      defaultTaxRateId: defaultTaxRateId || null,
     });
   }
 
@@ -428,6 +477,41 @@ function EditorPanel({
             onChange={(e) => setPriceText(e.target.value)}
             placeholder="0.00 (leave blank for quote-only)"
           />
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="svc-tax">Default tax</Label>
+          {taxOptions.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              No tax rates configured for {currency}. Add one in{" "}
+              <a
+                href="/settings"
+                className="text-primary underline"
+              >
+                Settings → Tax
+              </a>
+              .
+            </p>
+          ) : (
+            <>
+              <select
+                id="svc-tax"
+                value={defaultTaxRateId}
+                onChange={(e) => setDefaultTaxRateId(e.target.value)}
+                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="">No tax</option>
+                {taxOptions.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label} ({t.rate}%)
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                When this service is added to an invoice, the invoice
+                tax selector flips to this rate.
+              </p>
+            </>
+          )}
         </div>
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="svc-description">Description (optional)</Label>

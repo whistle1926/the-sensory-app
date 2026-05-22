@@ -38,6 +38,7 @@ interface Service {
   pricePence: number;
   currency: string;
   category: string;
+  defaultTaxRateId: string | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -472,6 +473,17 @@ export default function NewInvoicePage() {
                               "unitPrice",
                               (svc.pricePence / 100).toFixed(2),
                             );
+                          }
+                          // If the service has a default tax that is
+                          // valid for the current invoice currency,
+                          // switch the invoice's tax selector to it.
+                          if (
+                            svc.defaultTaxRateId &&
+                            taxOptions.some(
+                              (t) => t.id === svc.defaultTaxRateId,
+                            )
+                          ) {
+                            setSelectedTaxId(svc.defaultTaxRateId);
                           }
                         }}
                       />

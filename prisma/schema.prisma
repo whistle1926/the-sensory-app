@@ -372,6 +372,8 @@ model TaxRate {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  services  Service[] // services that default to this rate
+
   @@index([currency])
 }
 
@@ -779,6 +781,11 @@ model Service {
   currency    String   @default("GBP")
   /// Optional free-text category (e.g. "Sessions", "Reports", "Materials").
   category    String   @default("")
+  /// Optional default tax rate. Picked from Settings → Tax rates.
+  /// Soft FK (SetNull) so deleting a tax rate doesn't break the
+  /// service — the invoice picker just falls back to "no tax".
+  defaultTaxRateId String?
+  defaultTaxRate   TaxRate? @relation(fields: [defaultTaxRateId], references: [id], onDelete: SetNull)
   isActive    Boolean  @default(true)
   order       Int      @default(0)
   createdAt   DateTime @default(now())
