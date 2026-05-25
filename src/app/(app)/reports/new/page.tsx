@@ -46,26 +46,51 @@ function NewReportPage() {
 
     const form = new FormData(e.currentTarget);
 
-    const res = await fetch("/api/reports/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clientId: form.get("clientId"),
-        sessionDate: form.get("sessionDate"),
-        sessionNumber: Number(form.get("sessionNumber")),
-        rawNotes: form.get("rawNotes"),
-      }),
-    });
+    // Safety net: the server route is capped at 60s (Vercel's
+    // maxDuration). Give the client 90s to receive the response,
+    // then abort and show a clear error instead of spinning
+    // indefinitely.
+    const ctrl = new AbortController();
+    const watchdog = setTimeout(() => ctrl.abort(), 90_000);
 
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error?.fieldErrors ? "Please check the form fields" : "Failed to generate report. Please try again.");
+    try {
+      const res = await fetch("/api/reports/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: form.get("clientId"),
+          sessionDate: form.get("sessionDate"),
+          sessionNumber: Number(form.get("sessionNumber")),
+          rawNotes: form.get("rawNotes"),
+        }),
+        signal: ctrl.signal,
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(
+          data.error?.fieldErrors
+            ? "Please check the form fields"
+            : "Failed to generate report. Please try again.",
+        );
+        setGenerating(false);
+        return;
+      }
+
+      const { reportId } = await res.json();
+      router.push(`/reports/${reportId}`);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setError(
+          "Report generation timed out (over 90 seconds). This is unusual — please try again with shorter notes, or contact support if it keeps happening.",
+        );
+      } else {
+        setError("Couldn't reach the server. Check your connection and try again.");
+      }
       setGenerating(false);
-      return;
+    } finally {
+      clearTimeout(watchdog);
     }
-
-    const { reportId } = await res.json();
-    router.push(`/reports/${reportId}`);
   }
 
   return (

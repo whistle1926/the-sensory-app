@@ -5,6 +5,14 @@ import { generateReportSchema } from "@/lib/validators";
 import { generateReport } from "@/lib/claude";
 import { format } from "date-fns";
 
+// The Anthropic call now reliably takes 25-35s after the prompt
+// was expanded to auto-fill the Functional Review fields. Vercel's
+// default function timeout (10s on Hobby, 15s on Pro) was killing
+// the request and leaving the browser stuck on a spinner. 60s is
+// the maximum allowed on Hobby/Pro plans and gives comfortable
+// headroom over typical generation latency.
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
