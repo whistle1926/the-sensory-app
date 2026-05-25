@@ -611,6 +611,18 @@ const ACTIVITIES: ActivitySeed[] = [
   },
 ];
 
+/**
+ * Title-case a category string so categories stay consistent
+ * regardless of how a contributor types them in the data array
+ * ("TACTILE" vs "Tactile" vs "tactile" all become "Tactile"). Prevents
+ * the case-duplicate filter chips Grace flagged on 19 May 2026.
+ */
+function normaliseCategory(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/\b([a-z])/g, (m) => m.toUpperCase());
+}
+
 async function main() {
   let created = 0;
   let updated = 0;
@@ -625,7 +637,7 @@ async function main() {
     const data = {
       name: a.name,
       description: a.description,
-      category: a.category,
+      category: normaliseCategory(a.category),
       targetArea: a.targetArea,
       ageRange: a.ageRange ?? null,
       equipment: a.equipment ?? [],
