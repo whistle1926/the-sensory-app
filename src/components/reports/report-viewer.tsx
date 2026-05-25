@@ -32,6 +32,12 @@ function setAtPath(
   const next: ReportContent = JSON.parse(JSON.stringify(obj));
   let cursor: Record<string, unknown> = next as unknown as Record<string, unknown>;
   for (let i = 0; i < parts.length - 1; i++) {
+    // Older reports may not have newer nested groups (e.g.
+    // functionalReview); materialise them on first write so the leaf
+    // assignment below doesn't blow up.
+    if (cursor[parts[i]] == null || typeof cursor[parts[i]] !== "object") {
+      cursor[parts[i]] = {};
+    }
     cursor = cursor[parts[i]] as Record<string, unknown>;
   }
   cursor[parts[parts.length - 1]] = value;
@@ -206,6 +212,19 @@ export function ReportViewer({ content, editing = false, onChange }: ReportViewe
         <SubSection title="Gross Motor Skills" text={c.assessmentFindings.grossMotor} editing={editing} onChange={set("assessmentFindings.grossMotor")} />
         <SubSection title="Self-Regulation" text={c.assessmentFindings.selfRegulation} editing={editing} onChange={set("assessmentFindings.selfRegulation")} />
         <SubSection title="Play and Functional Skills" text={c.assessmentFindings.playFunctional} editing={editing} onChange={set("assessmentFindings.playFunctional")} />
+      </Section>
+
+      {/* ─── Functional Review — daily-life prompts the OT works through */}
+      {/* during an assessment. Empty subsections are hidden in view mode */}
+      {/* (handled by SubSection) so older reports without this data stay tidy */}
+      <Section title="Functional Review" id="functional-review">
+        <SubSection title="Feeding and Eating" text={c.functionalReview?.feedingAndEating ?? ""} editing={editing} onChange={set("functionalReview.feedingAndEating")} />
+        <SubSection title="Personal Care and Dressing" text={c.functionalReview?.personalCareAndDressing ?? ""} editing={editing} onChange={set("functionalReview.personalCareAndDressing")} />
+        <SubSection title="Toileting" text={c.functionalReview?.toileting ?? ""} editing={editing} onChange={set("functionalReview.toileting")} />
+        <SubSection title="Sleep" text={c.functionalReview?.sleep ?? ""} editing={editing} onChange={set("functionalReview.sleep")} />
+        <SubSection title="School" text={c.functionalReview?.school ?? ""} editing={editing} onChange={set("functionalReview.school")} />
+        <SubSection title="Any Other Concerns" text={c.functionalReview?.otherConcerns ?? ""} editing={editing} onChange={set("functionalReview.otherConcerns")} />
+        <SubSection title="Discussion with Parent/Carer" text={c.functionalReview?.discussionWithParent ?? ""} editing={editing} onChange={set("functionalReview.discussionWithParent")} />
       </Section>
 
       <Section title="Interventions Used">

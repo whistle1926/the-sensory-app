@@ -39,6 +39,15 @@ Return ONLY valid JSON matching this exact structure (no markdown, no code fence
     "selfRegulation": "string (detailed paragraph)",
     "playFunctional": "string (detailed paragraph)"
   },
+  "functionalReview": {
+    "feedingAndEating": "string (bullet points or short paragraph; '' if not discussed)",
+    "personalCareAndDressing": "string (bullet points or short paragraph; '' if not discussed)",
+    "toileting": "string (bullet points or short paragraph; '' if not discussed)",
+    "sleep": "string (bullet points or short paragraph; '' if not discussed)",
+    "school": "string (bullet points or short paragraph; '' if not discussed)",
+    "otherConcerns": "string (bullet points or short paragraph; '' if not discussed)",
+    "discussionWithParent": "string (summary of what was discussed with the parent/carer; '' if not discussed)"
+  },
   "interventionsUsed": "string (bullet-point style, separated by newlines)",
   "responseToIntervention": "string (detailed paragraph)",
   "clinicalImpressions": "string (summary paragraph)",

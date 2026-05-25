@@ -157,6 +157,26 @@ function buildReportSection(content: ReportContent): string {
         ${sub("Self-Regulation", c.assessmentFindings.selfRegulation)}
         ${sub("Play and Functional Skills", c.assessmentFindings.playFunctional)}
 
+        ${(() => {
+          // Functional Review — render only if at least one subsection
+          // has content. `sub()` already skips empty inputs, but we
+          // also suppress the heading itself when everything is blank
+          // (e.g. older reports without this section).
+          const fr = c.functionalReview;
+          if (!fr) return "";
+          const parts = [
+            sub("Feeding and Eating", fr.feedingAndEating ?? ""),
+            sub("Personal Care and Dressing", fr.personalCareAndDressing ?? ""),
+            sub("Toileting", fr.toileting ?? ""),
+            sub("Sleep", fr.sleep ?? ""),
+            sub("School", fr.school ?? ""),
+            sub("Any Other Concerns", fr.otherConcerns ?? ""),
+            sub("Discussion with Parent/Carer", fr.discussionWithParent ?? ""),
+          ];
+          if (parts.every((p) => !p)) return "";
+          return `${heading("Functional Review")}${parts.join("")}`;
+        })()}
+
         ${heading("Interventions Used")}
         <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#444;">${nl(c.interventionsUsed)}</p>
 

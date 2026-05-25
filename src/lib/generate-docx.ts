@@ -20,6 +20,38 @@ const border = { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" };
 const borders = { top: border, bottom: border, left: border, right: border };
 const cellMargins = { top: 80, bottom: 80, left: 120, right: 120 };
 
+/**
+ * Build the Functional Review section's paragraphs. Empty subsections
+ * are skipped; the whole heading is suppressed if everything is blank.
+ * Heading/subheading/multiLineText helpers are passed in to match the
+ * styles defined inside the main builder closure.
+ */
+function functionalReviewParas(
+  c: ReportContent,
+  heading: (t: string) => Paragraph,
+  subheading: (t: string) => Paragraph,
+  multiLineText: (t: string) => Paragraph[],
+): Paragraph[] {
+  const fr = c.functionalReview;
+  if (!fr) return [];
+  const items: Array<[string, string | undefined]> = [
+    ["Feeding and Eating", fr.feedingAndEating],
+    ["Personal Care and Dressing", fr.personalCareAndDressing],
+    ["Toileting", fr.toileting],
+    ["Sleep", fr.sleep],
+    ["School", fr.school],
+    ["Any Other Concerns", fr.otherConcerns],
+    ["Discussion with Parent/Carer", fr.discussionWithParent],
+  ];
+  const filled = items.filter(([, v]) => v && v.trim().length > 0);
+  if (filled.length === 0) return [];
+  const out: Paragraph[] = [heading("Functional Review")];
+  for (const [label, value] of filled) {
+    out.push(subheading(label), ...multiLineText(value as string));
+  }
+  return out;
+}
+
 function infoRow(label: string, value: string) {
   return new TableRow({
     children: [
@@ -149,6 +181,11 @@ export async function generateDocx(content: ReportContent): Promise<Buffer> {
           ...multiLineText(c.assessmentFindings.selfRegulation),
           subheading("Play and Functional Skills"),
           ...multiLineText(c.assessmentFindings.playFunctional),
+
+          // Functional Review — only render subsections that have
+          // content. Whole section is omitted if every entry is empty
+          // (e.g. older reports written before this section existed).
+          ...functionalReviewParas(c, heading, subheading, multiLineText),
 
           heading("Interventions Used"),
           ...multiLineText(c.interventionsUsed),

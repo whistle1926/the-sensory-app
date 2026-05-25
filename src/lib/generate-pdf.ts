@@ -1,5 +1,34 @@
 import { ReportContent } from "@/types/report";
 
+/**
+ * Render the optional Functional Review section. Subsections with no
+ * content are skipped so older reports (and partially-filled new
+ * reports) print tidily. If every subsection is empty the whole
+ * heading is suppressed too.
+ */
+function functionalReviewHtml(
+  c: ReportContent,
+  nl: (s: string) => string,
+): string {
+  const fr = c.functionalReview;
+  if (!fr) return "";
+  const items: Array<[string, string | undefined]> = [
+    ["Feeding and Eating", fr.feedingAndEating],
+    ["Personal Care and Dressing", fr.personalCareAndDressing],
+    ["Toileting", fr.toileting],
+    ["Sleep", fr.sleep],
+    ["School", fr.school],
+    ["Any Other Concerns", fr.otherConcerns],
+    ["Discussion with Parent/Carer", fr.discussionWithParent],
+  ];
+  const filled = items.filter(([, v]) => v && v.trim().length > 0);
+  if (filled.length === 0) return "";
+  const rows = filled
+    .map(([label, value]) => `<h3>${label}</h3><p>${nl(value as string)}</p>`)
+    .join("");
+  return `<h2>Functional Review</h2>${rows}`;
+}
+
 // Simple HTML-to-PDF approach using the browser's print functionality
 // For server-side PDF, we generate a styled HTML string that can be rendered
 export function generateReportHtml(content: ReportContent): string {
@@ -59,6 +88,8 @@ export function generateReportHtml(content: ReportContent): string {
   <h3>Gross Motor Skills</h3><p>${nl(c.assessmentFindings.grossMotor)}</p>
   <h3>Self-Regulation</h3><p>${nl(c.assessmentFindings.selfRegulation)}</p>
   <h3>Play and Functional Skills</h3><p>${nl(c.assessmentFindings.playFunctional)}</p>
+
+  ${functionalReviewHtml(c, nl)}
 
   <h2>Interventions Used</h2>
   <p>${nl(c.interventionsUsed)}</p>

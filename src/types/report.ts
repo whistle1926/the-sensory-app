@@ -24,6 +24,20 @@ export interface ReportContent {
     selfRegulation: string;
     playFunctional: string;
   };
+  /**
+   * Functional Review — daily-life areas the OT checks during an
+   * assessment. Optional so reports written before this section
+   * existed don't fail to parse.
+   */
+  functionalReview?: {
+    feedingAndEating?: string;
+    personalCareAndDressing?: string;
+    toileting?: string;
+    sleep?: string;
+    school?: string;
+    otherConcerns?: string;
+    discussionWithParent?: string;
+  };
   interventionsUsed: string;
   responseToIntervention: string;
   clinicalImpressions: string;
