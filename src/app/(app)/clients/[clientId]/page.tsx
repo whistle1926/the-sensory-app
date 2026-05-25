@@ -6,9 +6,13 @@ import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
+  ClipboardList,
+  ExternalLink,
   FileText,
   GraduationCap,
+  Home,
   Plus,
+  Target,
 } from "lucide-react";
 import Link from "next/link";
 import { ClientProfileEditor } from "@/components/clients/client-profile-editor";
@@ -40,6 +44,26 @@ export default async function ClientDetailPage({
         include: { session: true },
         orderBy: { reportDate: "desc" },
       },
+      // Referral / assessment forms attached to this client (parent
+      // questionnaire, SPM, custom intakes…).
+      intakeItems: {
+        orderBy: { createdAt: "desc" },
+      },
+      // Forms built in /forms and sent to this client. Latest
+      // submission per invite is enough for the row preview.
+      formInvites: {
+        include: {
+          form: { select: { id: true, title: true, slug: true } },
+          submissions: {
+            orderBy: { submittedAt: "desc" },
+            take: 1,
+            select: { id: true, submittedAt: true },
+          },
+        },
+        orderBy: { sentAt: "desc" },
+      },
+      // Used by the Overview card to show goal count.
+      goals: { select: { id: true } },
       parent: {
         include: {
           setupTokens: {
@@ -67,6 +91,64 @@ export default async function ClientDetailPage({
   const isSuperAdmin = session.user.role === "SUPER_ADMIN";
   const parent = client.parent;
   const hasPendingSetup = !!parent && parent.setupTokens.length > 0;
+
+  // ─── Overview stats ──────────────────────────────────────────────
+  // "Where are we with this client?" — what's done, what's pending.
+  const intakeTotal = client.intakeItems.length;
+  const intakeDone = client.intakeItems.filter(
+    (i) => i.status === "completed",
+  ).length;
+  const formsSent = client.formInvites.length;
+  const formsSubmitted = client.formInvites.filter(
+    (i) => i.submissions.length > 0,
+  ).length;
+  const reportCount = client.reports.length;
+  const goalCount = client.goals.length;
+
+  // Home programme lives in the latest report's content blob (no
+  // separate per-client programme record exists yet — see
+  // src/app/(app)/programmes/page.tsx). We surface the most recent
+  // report that actually has suggestions, not just the latest report.
+  const reportWithProgramme = client.reports.find((r) => {
+    const c = r.content as { homeProgrammeSuggestions?: string } | null;
+    return !!c?.homeProgrammeSuggestions?.trim();
+  });
+  const homeProgrammeText =
+    (reportWithProgramme?.content as { homeProgrammeSuggestions?: string } | null)
+      ?.homeProgrammeSuggestions?.trim() ?? "";
+
+  // ─── Unified "Forms & assessments" feed ─────────────────────────
+  // Intake items + form invites in a single list, newest first, so
+  // Patrick can scan a single timeline rather than two separate ones.
+  type FeedRow = {
+    id: string;
+    kind: "intake" | "form";
+    label: string;
+    status: "completed" | "submitted" | "sent" | "opened" | "pending";
+    when: Date;
+    href?: string;
+  };
+  const feed: FeedRow[] = [
+    ...client.intakeItems.map<FeedRow>((i) => ({
+      id: `intake-${i.id}`,
+      kind: "intake",
+      label: i.label,
+      status: i.status === "completed" ? "completed" : i.status === "sent" ? "sent" : "pending",
+      when: i.completedAt ?? i.sentAt ?? i.createdAt,
+      href: i.fileUrl || i.url || undefined,
+    })),
+    ...client.formInvites.map<FeedRow>((inv) => {
+      const submitted = inv.submissions[0];
+      return {
+        id: `form-${inv.id}`,
+        kind: "form",
+        label: inv.form.title,
+        status: submitted ? "submitted" : inv.openedAt ? "opened" : "sent",
+        when: submitted?.submittedAt ?? inv.openedAt ?? inv.sentAt,
+        href: `/forms/${inv.form.id}`,
+      };
+    }),
+  ].sort((a, b) => b.when.getTime() - a.when.getTime());
 
   return (
     <div className="space-y-6">
@@ -96,6 +178,72 @@ export default async function ClientDetailPage({
           )
         }
       />
+
+      {/* ─── Overview — quick status across the case ─────────────── */}
+      {adminCanEdit && (
+        <Panel
+          title={`Where we are with ${client.firstName}`}
+          subtitle="A snapshot of completed and pending work"
+          padded
+        >
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <OverviewCell
+              icon={<ClipboardList className="h-4 w-4" />}
+              label="Intake forms"
+              valueTone={
+                intakeTotal === 0
+                  ? "neutral"
+                  : intakeDone === intakeTotal
+                    ? "success"
+                    : "warn"
+              }
+              value={
+                intakeTotal === 0
+                  ? "None yet"
+                  : `${intakeDone} of ${intakeTotal} complete`
+              }
+            />
+            <OverviewCell
+              icon={<FileText className="h-4 w-4" />}
+              label="Forms sent"
+              valueTone={
+                formsSent === 0
+                  ? "neutral"
+                  : formsSubmitted === formsSent
+                    ? "success"
+                    : "warn"
+              }
+              value={
+                formsSent === 0
+                  ? "None yet"
+                  : `${formsSubmitted} of ${formsSent} submitted`
+              }
+            />
+            <OverviewCell
+              icon={<FileText className="h-4 w-4" />}
+              label="Reports"
+              valueTone={reportCount > 0 ? "success" : "neutral"}
+              value={
+                reportCount === 0
+                  ? "None yet"
+                  : `${reportCount} on file`
+              }
+            />
+            <OverviewCell
+              icon={<Home className="h-4 w-4" />}
+              label="Home programme"
+              valueTone={homeProgrammeText ? "success" : "neutral"}
+              value={homeProgrammeText ? "On file" : "Not yet"}
+            />
+            <OverviewCell
+              icon={<Target className="h-4 w-4" />}
+              label="Goals"
+              valueTone={goalCount > 0 ? "success" : "neutral"}
+              value={goalCount === 0 ? "None yet" : `${goalCount} set`}
+            />
+          </div>
+        </Panel>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         {adminCanEdit ? (
@@ -301,9 +449,150 @@ export default async function ClientDetailPage({
         )}
       </Panel>
 
+      {/* ─── Forms & assessments — unified intake + form-invite feed */}
+      {adminCanEdit && (
+        <Panel
+          title={
+            <span className="inline-flex items-center gap-2">
+              <ClipboardList className="h-4 w-4 text-primary" />
+              Forms & assessments
+            </span>
+          }
+          subtitle={
+            feed.length === 0
+              ? undefined
+              : `${feed.length} item${feed.length === 1 ? "" : "s"}`
+          }
+        >
+          {feed.length === 0 ? (
+            <Empty>
+              No intake items or form invites for {client.firstName} yet.
+            </Empty>
+          ) : (
+            <div className="divide-y divide-border">
+              {feed.map((row) => {
+                const tone: "success" | "warn" | "info" | "neutral" =
+                  row.status === "completed" || row.status === "submitted"
+                    ? "success"
+                    : row.status === "opened"
+                      ? "info"
+                      : row.status === "sent"
+                        ? "warn"
+                        : "neutral";
+                const rowBody = (
+                  <div className="flex items-center justify-between gap-3 px-5 py-4">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">
+                        {row.label}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {row.kind === "intake" ? "Intake" : "Form"} ·{" "}
+                        {row.when.toLocaleDateString("en-GB")}
+                      </p>
+                    </div>
+                    <Chip tone={tone}>{row.status}</Chip>
+                  </div>
+                );
+                return row.href ? (
+                  <Link
+                    key={row.id}
+                    href={row.href}
+                    className="block transition-colors hover:bg-muted/20"
+                    target={row.href.startsWith("http") ? "_blank" : undefined}
+                    rel={
+                      row.href.startsWith("http")
+                        ? "noopener noreferrer"
+                        : undefined
+                    }
+                  >
+                    {rowBody}
+                  </Link>
+                ) : (
+                  <div key={row.id}>{rowBody}</div>
+                );
+              })}
+            </div>
+          )}
+        </Panel>
+      )}
+
+      {/* ─── Home programme — pulled from the latest report on file ── */}
+      {adminCanEdit && (
+        <Panel
+          title={
+            <span className="inline-flex items-center gap-2">
+              <Home className="h-4 w-4 text-primary" />
+              Home programme
+            </span>
+          }
+          subtitle={
+            reportWithProgramme
+              ? `From report dated ${new Date(reportWithProgramme.reportDate).toLocaleDateString("en-GB")}`
+              : undefined
+          }
+          actions={
+            reportWithProgramme && (
+              <Link
+                href={`/reports/${reportWithProgramme.id}`}
+                className="ds-link inline-flex items-center text-xs"
+              >
+                Open report
+                <ExternalLink className="ml-1 h-3 w-3" />
+              </Link>
+            )
+          }
+          padded
+        >
+          {homeProgrammeText ? (
+            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
+              {homeProgrammeText}
+            </pre>
+          ) : (
+            <Empty>
+              No home programme yet. Generate one inside a report and it'll
+              appear here automatically.
+            </Empty>
+          )}
+        </Panel>
+      )}
+
       <ProgressNotesSection clientId={client.id} />
 
       <GoalsSection clientId={client.id} isAdmin={adminCanEdit} />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Overview cell — one stat in the "Where we are" grid               */
+/* ------------------------------------------------------------------ */
+
+function OverviewCell({
+  icon,
+  label,
+  value,
+  valueTone,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  valueTone: "success" | "warn" | "neutral";
+}) {
+  const toneClass =
+    valueTone === "success"
+      ? "text-green-700 dark:text-green-400"
+      : valueTone === "warn"
+        ? "text-amber-700 dark:text-amber-400"
+        : "text-muted-foreground";
+  return (
+    <div className="rounded-xl border border-border bg-card p-3">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        {icon}
+        <span className="text-[11px] font-semibold uppercase tracking-wider">
+          {label}
+        </span>
+      </div>
+      <p className={`mt-1.5 text-sm font-semibold ${toneClass}`}>{value}</p>
     </div>
   );
 }
