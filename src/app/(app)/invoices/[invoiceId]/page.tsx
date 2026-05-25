@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -132,8 +132,15 @@ export default function InvoiceDetailPage() {
   const [composing, setComposing] = useState(false);
   const [emailTo, setEmailTo] = useState("");
   const [emailCc, setEmailCc] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
   const [emailNote, setEmailNote] = useState("");
   const [emailSending, setEmailSending] = useState(false);
+
+  // ?compose=1 auto-opens the composer on load — used by the Save &
+  // Review Email flow on /invoices/new so the user lands here ready
+  // to personalise + confirm instead of having to find a button.
+  const searchParams = useSearchParams();
+  const wantsCompose = searchParams.get("compose") === "1";
 
   /* ---- delete confirmation ---- */
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -279,12 +286,30 @@ export default function InvoiceDetailPage() {
     if (!invoice) return;
     setEmailTo(invoice.clientEmail);
     setEmailCc("");
+    setEmailSubject(
+      `Invoice ${invoice.invoiceNumber} from The Sensory Submarine`,
+    );
     setEmailNote("");
     setComposing(true);
   }
 
+  // Auto-open the composer when the URL says so (e.g. arriving from
+  // Save & Review Email on /invoices/new). We only fire this once
+  // per invoice load to avoid re-opening if the user dismisses it.
+  useEffect(() => {
+    if (wantsCompose && invoice && !composing) {
+      startCompose();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantsCompose, invoice]);
+
   /* ---- send invoice ---- */
-  async function sendInvoice(opts?: { personalNote?: string; cc?: string }) {
+  async function sendInvoice(opts?: {
+    personalNote?: string;
+    cc?: string;
+    subject?: string;
+    to?: string;
+  }) {
     setError("");
     setEmailSending(true);
 
@@ -295,6 +320,8 @@ export default function InvoiceDetailPage() {
         body: JSON.stringify({
           personalNote: opts?.personalNote || undefined,
           cc: opts?.cc || undefined,
+          subject: opts?.subject || undefined,
+          to: opts?.to || undefined,
         }),
       });
 
@@ -719,9 +746,8 @@ export default function InvoiceDetailPage() {
                   <Label htmlFor="emailSubject">Subject</Label>
                   <Input
                     id="emailSubject"
-                    value={`Invoice ${invoice.invoiceNumber} from The Sensory Submarine`}
-                    disabled
-                    className="bg-muted/50"
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
                   />
                 </div>
 
@@ -757,7 +783,14 @@ export default function InvoiceDetailPage() {
 
             {/* Send button */}
             <Button
-              onClick={() => sendInvoice({ personalNote: emailNote, cc: emailCc })}
+              onClick={() =>
+                sendInvoice({
+                  to: emailTo,
+                  cc: emailCc,
+                  subject: emailSubject,
+                  personalNote: emailNote,
+                })
+              }
               disabled={emailSending || !emailTo.trim()}
               className="w-full"
               size="lg"
@@ -784,6 +817,27 @@ export default function InvoiceDetailPage() {
                   Email Preview
                 </p>
               </div>
+
+              {/* "Envelope" header — mimics what the recipient sees in
+                  their inbox. Mirrors the live To/CC/Subject fields so
+                  Patrick can confirm the addressing before he hits Send. */}
+              <div className="border-b border-border bg-muted/10 px-6 py-3 text-xs">
+                <div className="flex gap-2">
+                  <span className="w-12 shrink-0 font-semibold text-muted-foreground">To</span>
+                  <span className="truncate">{emailTo || invoice.clientEmail}</span>
+                </div>
+                {emailCc && (
+                  <div className="mt-1 flex gap-2">
+                    <span className="w-12 shrink-0 font-semibold text-muted-foreground">Cc</span>
+                    <span className="truncate">{emailCc}</span>
+                  </div>
+                )}
+                <div className="mt-1 flex gap-2">
+                  <span className="w-12 shrink-0 font-semibold text-muted-foreground">Subject</span>
+                  <span className="truncate font-medium">{emailSubject || `Invoice ${invoice.invoiceNumber} from The Sensory Submarine`}</span>
+                </div>
+              </div>
+
               <div className="p-6">
                 {/* Preview header */}
                 <div className="rounded-xl bg-[#1a1a2e] p-5 text-center text-white">
@@ -844,12 +898,16 @@ export default function InvoiceDetailPage() {
                     </div>
                   </div>
 
-                  {/* Pay Now button preview */}
-                  <div className="rounded-xl bg-orange-50 p-5 text-center dark:bg-orange-950/30">
-                    <p className="text-sm font-bold text-foreground">Pay This Invoice Online</p>
-                    <div className="mt-3 inline-block rounded-full bg-orange-500 px-8 py-2.5 text-sm font-bold text-white">
-                      Pay Now &rarr;
+                  {/* Pay Now button preview — kept visually in step
+                      with the actual email template so what Patrick
+                      sees here is what the recipient gets. */}
+                  <div className="py-2 text-center">
+                    <div className="inline-block rounded-xl bg-[#1a1a2e] px-10 py-3.5 text-sm font-bold text-white shadow-md">
+                      Pay {sym}{(invoice.total / 100).toFixed(2)} now &rarr;
                     </div>
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                      Secure payment via FireBuddy
+                    </p>
                   </div>
 
                   <p className="text-xs text-muted-foreground">

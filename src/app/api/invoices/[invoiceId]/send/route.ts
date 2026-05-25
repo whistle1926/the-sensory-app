@@ -14,13 +14,18 @@ export async function POST(
 
   const { invoiceId } = await params;
 
-  // Parse optional compose fields from body
+  // Parse optional compose fields from body. All four are optional —
+  // the legacy one-click send sent an empty body which still works.
   let personalNote = "";
   let cc = "";
+  let customSubject = "";
+  let customTo = "";
   try {
     const body = await req.json();
     personalNote = typeof body.personalNote === "string" ? body.personalNote.trim() : "";
     cc = typeof body.cc === "string" ? body.cc.trim() : "";
+    customSubject = typeof body.subject === "string" ? body.subject.trim() : "";
+    customTo = typeof body.to === "string" ? body.to.trim() : "";
   } catch {
     // No body or invalid JSON — that's fine, fields are optional
   }
@@ -92,9 +97,14 @@ export async function POST(
     personalNote,
   });
 
+  // Honour caller-supplied To / Subject when present (the compose
+  // panel lets staff edit both before sending), otherwise fall back
+  // to the saved client email + the default subject line.
   const mailOptions: { to: string; subject: string; html: string; cc?: string } = {
-    to: invoice.clientEmail,
-    subject: `Invoice ${invoice.invoiceNumber} from The Sensory Submarine`,
+    to: customTo || invoice.clientEmail,
+    subject:
+      customSubject ||
+      `Invoice ${invoice.invoiceNumber} from The Sensory Submarine`,
     html: emailHtml,
   };
   if (cc) mailOptions.cc = cc;
@@ -256,13 +266,19 @@ function buildInvoiceEmail(params: {
         </tfoot>
       </table>
 
-      <!-- Pay Now button -->
-      <div style="text-align:center;margin:0 0 32px;">
+      <!-- Pay Now button — primary CTA, includes amount so the
+           parent sees exactly what they're paying without having to
+           re-scan the table. Bullet-proof inline styles for the
+           widest email-client support. -->
+      <div style="text-align:center;margin:0 0 12px;">
         <a href="${escapeHtml(paymentUrl)}"
-           style="display:inline-block;background:#1a1a2e;color:#fff;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:700;font-size:16px;">
-          Pay Now
+           style="display:inline-block;background:#1a1a2e;color:#ffffff;text-decoration:none;padding:18px 56px;border-radius:12px;font-weight:700;font-size:18px;letter-spacing:0.2px;box-shadow:0 4px 12px rgba(26,26,46,0.18);">
+          Pay ${formatPence(invoice.total)} now &rarr;
         </a>
       </div>
+      <p style="text-align:center;margin:0 0 28px;font-size:12px;color:#888;">
+        Secure payment via FireBuddy
+      </p>
 
       <p style="margin:0 0 8px;font-size:12px;color:#777;">
         Or copy this link to pay:

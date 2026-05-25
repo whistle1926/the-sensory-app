@@ -283,19 +283,12 @@ export default function NewInvoicePage() {
 
       const invoice = await res.json();
 
-      if (shouldSend) {
-        const sendRes = await fetch(`/api/invoices/${invoice.id}/send`, {
-          method: "POST",
-        });
-
-        if (!sendRes.ok) {
-          // Invoice was created but send failed - still navigate to it
-          const sendData = await sendRes.json();
-          console.error("Send failed:", sendData.error);
-        }
-      }
-
-      router.push(`/invoices/${invoice.id}`);
+      // `shouldSend` now means "review & send" — land on the invoice
+      // detail page with the composer auto-opened so Patrick can
+      // personalise the subject + note, eyeball the live preview,
+      // optionally add a CC, and confirm before the email goes out.
+      // (Previously this one-click sent the email straight away.)
+      router.push(`/invoices/${invoice.id}${shouldSend ? "?compose=1" : ""}`);
       router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");
@@ -663,12 +656,12 @@ export default function NewInvoicePage() {
               {saving && sendAfterSave ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving & Sending...
+                  Saving…
                 </>
               ) : (
                 <>
                   <Send className="mr-2 h-4 w-4" />
-                  Save & Send
+                  Save & Review Email
                 </>
               )}
             </Button>
