@@ -68,10 +68,19 @@ function NewReportPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        // Show the actual server message when we have one — generic
+        // "try again" hides useful diagnostics like missing env vars
+        // or Claude API errors that the OT/dev needs to see.
+        const serverMsg =
+          typeof data.error === "string"
+            ? data.error
+            : data.error?.fieldErrors
+              ? "Please check the form fields"
+              : null;
         setError(
-          data.error?.fieldErrors
-            ? "Please check the form fields"
-            : "Failed to generate report. Please try again.",
+          serverMsg
+            ? `Failed to generate report (${res.status}): ${serverMsg}`
+            : `Failed to generate report (${res.status}). Please try again.`,
         );
         setGenerating(false);
         return;

@@ -32,40 +32,71 @@ export async function POST(req: NextRequest) {
     where: { id: session.user.id },
   });
 
-  const reportContent = await generateReport(
-    {
-      firstName: client.firstName,
-      lastName: client.lastName,
-      dateOfBirth: format(client.dateOfBirth, "dd/MM/yyyy"),
-      diagnosis: client.diagnosis,
-      presentingConcerns: client.presentingConcerns,
-      referrer: client.referrer,
-      parentCarerName: client.parentCarerName,
-    },
-    parsed.data.sessionDate,
-    parsed.data.sessionNumber,
-    parsed.data.rawNotes,
-    therapist?.name || session.user.name
-  );
+  // Each stage is wrapped so we can return a clear error to the UI
+  // instead of a generic 500. Generation failures (Claude API, JSON
+  // parse) usually beat DB failures, so we split them out.
+  let reportContent;
+  try {
+    reportContent = await generateReport(
+      {
+        firstName: client.firstName,
+        lastName: client.lastName,
+        dateOfBirth: format(client.dateOfBirth, "dd/MM/yyyy"),
+        diagnosis: client.diagnosis,
+        presentingConcerns: client.presentingConcerns,
+        referrer: client.referrer,
+        parentCarerName: client.parentCarerName,
+      },
+      parsed.data.sessionDate,
+      parsed.data.sessionNumber,
+      parsed.data.rawNotes,
+      therapist?.name || session.user.name,
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[reports/generate] Claude failure:", err);
+    // Make common failure modes recognisable on the UI banner.
+    const hint = /api[_ ]?key/i.test(msg)
+      ? "Claude API key is missing or invalid (check ANTHROPIC_API_KEY in Vercel env)."
+      : /json|parse/i.test(msg)
+        ? "Claude returned a response we couldn't parse — try again, or shorten the session notes."
+        : /timeout|aborted/i.test(msg)
+          ? "Claude took too long to respond. Try again, or shorten the session notes."
+          : msg.slice(0, 240);
+    return NextResponse.json(
+      { error: `AI generation failed: ${hint}` },
+      { status: 502 },
+    );
+  }
 
-  const therapySession = await prisma.therapySession.create({
-    data: {
-      clientId: client.id,
-      therapistId: session.user.id,
-      sessionDate: new Date(parsed.data.sessionDate),
-      sessionNumber: parsed.data.sessionNumber,
-      rawNotes: parsed.data.rawNotes,
-    },
-  });
+  try {
+    const therapySession = await prisma.therapySession.create({
+      data: {
+        clientId: client.id,
+        therapistId: session.user.id,
+        sessionDate: new Date(parsed.data.sessionDate),
+        sessionNumber: parsed.data.sessionNumber,
+        rawNotes: parsed.data.rawNotes,
+      },
+    });
 
-  const report = await prisma.report.create({
-    data: {
-      clientId: client.id,
-      sessionId: therapySession.id,
-      authorId: session.user.id,
-      content: JSON.parse(JSON.stringify(reportContent)),
-    },
-  });
+    const report = await prisma.report.create({
+      data: {
+        clientId: client.id,
+        sessionId: therapySession.id,
+        authorId: session.user.id,
+        content: JSON.parse(JSON.stringify(reportContent)),
+      },
+    });
 
-  return NextResponse.json({ reportId: report.id }, { status: 201 });
+    return NextResponse.json({ reportId: report.id }, { status: 201 });
+  } catch (err) {
+    console.error("[reports/generate] DB failure:", err);
+    return NextResponse.json(
+      {
+        error: `Saving the report failed: ${err instanceof Error ? err.message : String(err)}`,
+      },
+      { status: 500 },
+    );
+  }
 }
