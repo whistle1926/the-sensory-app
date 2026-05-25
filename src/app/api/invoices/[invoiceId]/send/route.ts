@@ -112,7 +112,23 @@ export async function POST(
   const emailSent = await sendMail(mailOptions);
 
   if (!emailSent) {
+    // FireBuddy has already created the payment + stamped the
+    // invoice as "sent" with paymentUrl, so we can't roll that back
+    // cleanly — instead we surface a clear 502 so the UI shows
+    // the failure rather than silently pretending success. The
+    // invoice can be re-sent (the existing paymentUrl is reused;
+    // no new FireBuddy charge is created).
     console.error(`Invoice ${invoice.invoiceNumber}: payment link created but email failed to send`);
+    return NextResponse.json(
+      {
+        error:
+          "Payment link was created, but the email failed to send. Check the email provider (Mailcub) settings or your sender address, then click Send again to retry.",
+        invoice: updatedInvoice,
+        paymentUrl: result.paymentUrl,
+        emailSent: false,
+      },
+      { status: 502 },
+    );
   }
 
   return NextResponse.json({

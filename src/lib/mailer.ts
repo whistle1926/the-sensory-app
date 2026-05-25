@@ -23,6 +23,22 @@ export async function sendMail(opts: SendMailOptions): Promise<boolean> {
       return false;
     }
 
+    // Mailcub's send_email schema (verified empirically 2026-05-25):
+    //   receiver    — string, the To address
+    //   email_from  — string, the From address (must be a verified sender)
+    //   subject     — string
+    //   html / text — bodies
+    //   cc          — ARRAY of strings (rejected as a bare string)
+    //   sender_name / email_from_name are NOT supported by the API,
+    //   the display name comes from whatever Mailcub has on file for
+    //   the sender record.
+    const ccList = opts.cc
+      ? opts.cc
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
+
     const res = await fetch("https://api.mail.mailcub.com/api/send_email", {
       method: "POST",
       headers: {
@@ -30,12 +46,12 @@ export async function sendMail(opts: SendMailOptions): Promise<boolean> {
         "x-sh-key": settings.apiKey,
       },
       body: JSON.stringify({
-        to: opts.to,
-        ...(opts.cc ? { cc: opts.cc } : {}),
-        from: settings.senderEmail,
+        receiver: opts.to,
+        email_from: settings.senderEmail,
         subject: opts.subject,
         html: opts.html,
         text: opts.text || stripHtml(opts.html),
+        ...(ccList.length > 0 ? { cc: ccList } : {}),
       }),
     });
 
