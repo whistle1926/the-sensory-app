@@ -149,6 +149,19 @@ function NewReportPage() {
                   rows={15}
                   placeholder="Paste your raw session notes here. Include observations about sensory responses, behaviours, interventions used, and the child's response. The more detail you provide, the better the report."
                 />
+                <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
+                  <p className="font-semibold text-foreground">Tip — AI will populate the Functional Review automatically.</p>
+                  <p className="mt-1">
+                    If you mention any of these areas in your notes — even briefly — AI will summarise
+                    them in clinical language: <span className="font-medium">Feeding &amp; Eating, Personal Care &amp; Dressing, Toileting,
+                    Sleep, School, Other Concerns, Discussion with Parent/Carer</span>.
+                  </p>
+                  <p className="mt-1">
+                    For areas you didn&apos;t cover, AI will draft a <em>&ldquo;Suggested follow-up&rdquo;</em>
+                    prompt based on the child&apos;s diagnosis so you have a starter to edit instead
+                    of an empty box.
+                  </p>
+                </div>
               </div>
 
               <div className="flex gap-3 pt-4">
