@@ -813,6 +813,11 @@ model Invoice {
   total         Int       @default(0)        // pence
   paymentRef    String?                      // FireBuddy payment code
   paymentUrl    String?                      // FireBuddy payment URL
+  /// Mirror invoice ID in FireBuddy's Accounting → Invoices view.
+  /// Created on first send so the accountant has a clean parallel
+  /// record. Updated to status=paid via the FireBuddy webhook on
+  /// settlement. Optional — older invoices won't have it.
+  firebuddyInvoiceId String?
   paidAt        DateTime?
   sentAt        DateTime?
   createdAt     DateTime  @default(now())

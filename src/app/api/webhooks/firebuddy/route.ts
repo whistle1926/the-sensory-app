@@ -179,6 +179,25 @@ async function handleInvoicePayment(invoiceId: string, paymentId: string, amount
     },
   });
 
+  // Mirror the paid status onto the matching FireBuddy invoice so
+  // the accountant view in Accounting → Invoices reflects reality.
+  // Non-fatal — payment is already settled and recorded in our DB.
+  if (invoice.firebuddyInvoiceId) {
+    try {
+      const settings = await prisma.paymentSettings.findUnique({
+        where: { id: "default" },
+      });
+      if (settings?.apiKey) {
+        const fb = new FireBuddy(settings.apiKey);
+        await fb.updateInvoice(invoice.firebuddyInvoiceId, {
+          status: "paid",
+        });
+      }
+    } catch (err) {
+      console.error("[WEBHOOK] FireBuddy invoice status patch failed:", err);
+    }
+  }
+
   // Credit the private income tracker
   const amountPence = Math.round(amountPounds * 100);
   if (amountPence > 0) {

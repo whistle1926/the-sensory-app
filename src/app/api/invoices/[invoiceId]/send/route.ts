@@ -90,6 +90,14 @@ export async function POST(
     include: { items: true },
   });
 
+  // 4b. Mirror the invoice into FireBuddy's Accounting view so it
+  // appears in Accounting → Invoices for the accountant. Failure
+  // here is non-fatal — payment link + email still go out — but we
+  // log it so it's visible if it starts misbehaving.
+  await mirrorInvoiceToFireBuddy(updatedInvoice, settings.apiKey, result.paymentUrl).catch(
+    (err) => console.error(`[INVOICE-SEND] FireBuddy mirror failed for ${invoice.invoiceNumber}:`, err),
+  );
+
   // 5. Send email
   const emailHtml = buildInvoiceEmail({
     invoice: updatedInvoice,
@@ -158,6 +166,79 @@ interface InvoiceWithItems {
     unitPrice: number;
     amount: number;
   }>;
+}
+
+/**
+ * Mirror a portal invoice into FireBuddy's Accounting → Invoices.
+ * Idempotent — if the row already has a `firebuddyInvoiceId`, PATCH
+ * the existing FireBuddy invoice instead of creating a duplicate
+ * (re-sends should not create new accounting rows). Always sets
+ * status="sent" on the FireBuddy side because we only call this
+ * after the payment link is live and the email is about to go out.
+ */
+async function mirrorInvoiceToFireBuddy(
+  invoice: {
+    id: string;
+    invoiceNumber: string;
+    currency: string;
+    clientName: string;
+    clientEmail: string;
+    createdAt: Date;
+    dueDate: Date;
+    notes: string | null;
+    firebuddyInvoiceId: string | null;
+    items: Array<{
+      description: string;
+      quantity: number;
+      unitPrice: number;
+      amount: number;
+    }>;
+  },
+  apiKey: string,
+  paymentUrl: string,
+): Promise<void> {
+  const fb = new FireBuddy(apiKey);
+
+  const isoDate = (d: Date) => d.toISOString().slice(0, 10);
+  const items = invoice.items.map((it) => ({
+    description: it.description,
+    quantity: it.quantity,
+    unit_price: it.unitPrice,
+    amount: it.amount,
+  }));
+  const currency = (invoice.currency || "GBP") as "EUR" | "GBP" | "USD";
+
+  if (invoice.firebuddyInvoiceId) {
+    // Re-send: refresh the payment link + ensure status is "sent".
+    // Line items / client / dates can't be edited via PATCH; if the
+    // invoice has been materially changed since the first send we'd
+    // need to cancel + re-create — out of scope for the common case.
+    await fb.updateInvoice(invoice.firebuddyInvoiceId, {
+      payment_url: paymentUrl,
+      payment_reference: invoice.invoiceNumber,
+      status: "sent",
+    });
+    return;
+  }
+
+  const created = await fb.createInvoice({
+    invoice_number: invoice.invoiceNumber,
+    currency,
+    client_name: invoice.clientName,
+    client_email: invoice.clientEmail,
+    issue_date: isoDate(invoice.createdAt),
+    due_date: isoDate(invoice.dueDate),
+    notes: invoice.notes ?? undefined,
+    items,
+    payment_url: paymentUrl,
+    payment_reference: invoice.invoiceNumber,
+    status: "sent",
+  });
+
+  await prisma.invoice.update({
+    where: { id: invoice.id },
+    data: { firebuddyInvoiceId: created.id },
+  });
 }
 
 function buildInvoiceEmail(params: {
