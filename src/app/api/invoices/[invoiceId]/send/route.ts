@@ -200,11 +200,16 @@ async function mirrorInvoiceToFireBuddy(
   const fb = new FireBuddy(apiKey);
 
   const isoDate = (d: Date) => d.toISOString().slice(0, 10);
+  // FireBuddy's /invoices API expects amounts in the MAJOR currency
+  // unit (pounds / euros), not pence/cents. Our DB stores everything
+  // in pence as integers. Convert with toFixed(2) so we send a clean
+  // 2-decimal-place number (e.g. 114 pence → 1.14). Tested 25-05-2026.
+  const toMajor = (pence: number) => Number((pence / 100).toFixed(2));
   const items = invoice.items.map((it) => ({
     description: it.description,
     quantity: it.quantity,
-    unit_price: it.unitPrice,
-    amount: it.amount,
+    unit_price: toMajor(it.unitPrice),
+    amount: toMajor(it.amount),
   }));
   const currency = (invoice.currency || "GBP") as "EUR" | "GBP" | "USD";
 
