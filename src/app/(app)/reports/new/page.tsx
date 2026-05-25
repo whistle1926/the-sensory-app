@@ -73,17 +73,7 @@ function NewReportPage() {
       <h1 className="mb-6 text-2xl font-bold">Generate Report</h1>
 
       {generating ? (
-        <Card>
-          <CardContent className="flex flex-col items-center gap-4 py-16">
-            <Loader2 className="h-10 w-10 animate-spin text-muted-foreground/60" />
-            <div className="text-center">
-              <p className="text-lg font-medium">Generating your report...</p>
-              <p className="text-sm text-muted-foreground">
-                This usually takes 10-15 seconds. Claude is analysing the session notes and writing a structured OT report.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <GeneratingPanel />
       ) : (
         <Card>
           <CardHeader>
@@ -177,5 +167,94 @@ function NewReportPage() {
         </Card>
       )}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Generating panel — animated step indicator + elapsed timer        */
+/* ------------------------------------------------------------------ */
+
+// The AI call runs ~25-35s now that Claude has to fill in the
+// Functional Review fields with reasoned follow-up prompts. A plain
+// spinner makes that feel longer than it is — these stepped messages
+// + an elapsed counter give a sense of progress.
+function GeneratingPanel() {
+  const STEPS = [
+    "Reading your session notes…",
+    "Identifying observations and behaviours…",
+    "Drafting assessment findings…",
+    "Populating Functional Review (Feeding, Sleep, School…)…",
+    "Generating goals and recommendations…",
+    "Finalising the report…",
+  ];
+
+  const [elapsed, setElapsed] = useState(0);
+  const [stepIdx, setStepIdx] = useState(0);
+
+  useEffect(() => {
+    const tick = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(tick);
+  }, []);
+
+  useEffect(() => {
+    // Cycle through steps roughly every ~5s so by ~30s we land on the
+    // last one. If the actual response is slower we just hold there.
+    const advance = setInterval(() => {
+      setStepIdx((i) => Math.min(i + 1, STEPS.length - 1));
+    }, 5000);
+    return () => clearInterval(advance);
+  }, [STEPS.length]);
+
+  return (
+    <Card>
+      <CardContent className="flex flex-col items-center gap-5 py-14">
+        <Loader2 className="h-10 w-10 animate-spin text-primary/70" />
+        <div className="text-center">
+          <p className="text-lg font-semibold">Generating your report…</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Typically 25–35 seconds. Claude is reading your notes and writing a
+            structured OT report.
+          </p>
+        </div>
+
+        {/* Stepwise progress */}
+        <div className="w-full max-w-md space-y-1.5">
+          {STEPS.map((label, i) => {
+            const state =
+              i < stepIdx ? "done" : i === stepIdx ? "active" : "pending";
+            return (
+              <div
+                key={label}
+                className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors ${
+                  state === "done"
+                    ? "text-muted-foreground"
+                    : state === "active"
+                      ? "bg-primary/5 font-medium text-foreground"
+                      : "text-muted-foreground/60"
+                }`}
+              >
+                <span
+                  className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] ${
+                    state === "done"
+                      ? "bg-primary/15 text-primary"
+                      : state === "active"
+                        ? "bg-primary text-white"
+                        : "bg-muted text-muted-foreground"
+                  }`}
+                  aria-hidden
+                >
+                  {state === "done" ? "✓" : i + 1}
+                </span>
+                {label}
+              </div>
+            );
+          })}
+        </div>
+
+        <p className="text-xs text-muted-foreground tabular-nums">
+          {elapsed}s elapsed
+        </p>
+      </CardContent>
+    </Card>
   );
 }
