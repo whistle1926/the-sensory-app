@@ -1,6 +1,7 @@
 "use client";
 
 import { ReportContent } from "@/types/report";
+import { HomeProgrammeEditor } from "@/components/reports/home-programme-editor";
 
 interface ReportViewerProps {
   content: ReportContent;
@@ -62,9 +63,17 @@ function ProseTextarea({
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  id,
+  children,
+}: {
+  title: string;
+  id?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="mb-6">
+    <div id={id} className="mb-6 scroll-mt-20">
       <h2 className="mb-2 border-b pb-1 text-lg font-semibold text-foreground">{title}</h2>
       <div className="text-sm leading-relaxed text-muted-foreground">{children}</div>
     </div>
@@ -221,8 +230,19 @@ export function ReportViewer({ content, editing = false, onChange }: ReportViewe
         <SubSection title="Next Session Plan" text={c.goals.nextSessionPlan} editing={editing} onChange={set("goals.nextSessionPlan")} />
       </Section>
 
-      <Section title="Home Programme Suggestions">
-        <Prose value={c.homeProgrammeSuggestions} editing={editing} onChange={set("homeProgrammeSuggestions")} />
+      <Section title="Home Programme Suggestions" id="home-programme">
+        {editing ? (
+          // Custom editor with Insert template / Insert activity
+          // pickers above the textarea, so Patrick can drop a
+          // pre-built programme or activity into the field and then
+          // personalise it for the client.
+          <HomeProgrammeEditor
+            value={c.homeProgrammeSuggestions}
+            onChange={(v) => set("homeProgrammeSuggestions")(v)}
+          />
+        ) : (
+          <Prose value={c.homeProgrammeSuggestions} editing={false} />
+        )}
       </Section>
 
       {/* Footer — therapist details + dates. Editable in edit mode. */}

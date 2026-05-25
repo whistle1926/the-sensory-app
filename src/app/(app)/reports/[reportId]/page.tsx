@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ArrowLeft, Pencil, Save, X, Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -26,6 +26,12 @@ interface ReportData {
 
 export default function ReportDetailPage() {
   const { reportId } = useParams<{ reportId: string }>();
+  const searchParams = useSearchParams();
+  // ?edit=1 (deep-link from elsewhere, e.g. the client page's
+  // "Edit programme" CTA) auto-enters edit mode once the report
+  // has loaded. The confirmation prompt for final reports still
+  // fires inside startEdit().
+  const wantsEdit = searchParams.get("edit") === "1";
   const { data: session } = useSession();
   const [report, setReport] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,8 +54,17 @@ export default function ReportDetailPage() {
       .then((data) => {
         setReport(data);
         setLoading(false);
+        // Honour ?edit=1 once on load. We seed draftContent here
+        // directly to skip the "final report" confirm dialog when
+        // the deep-link was clicked intentionally from the client
+        // page — startEdit() shows that prompt and a deep-link
+        // shouldn't be interrupted.
+        if (wantsEdit && data?.content) {
+          setDraftContent(JSON.parse(JSON.stringify(data.content)));
+          setEditing(true);
+        }
       });
-  }, [reportId]);
+  }, [reportId, wantsEdit]);
 
   function startEdit() {
     if (!report) return;

@@ -532,13 +532,21 @@ export default async function ClientDetailPage({
           }
           actions={
             reportWithProgramme && (
-              <Link
-                href={`/reports/${reportWithProgramme.id}`}
-                className="ds-link inline-flex items-center text-xs"
-              >
-                Open report
-                <ExternalLink className="ml-1 h-3 w-3" />
-              </Link>
+              <div className="flex items-center gap-3">
+                <Link
+                  href={`/reports/${reportWithProgramme.id}?edit=1#home-programme`}
+                  className="ds-link inline-flex items-center text-xs"
+                >
+                  Edit programme
+                </Link>
+                <Link
+                  href={`/reports/${reportWithProgramme.id}`}
+                  className="ds-link inline-flex items-center text-xs"
+                >
+                  Open report
+                  <ExternalLink className="ml-1 h-3 w-3" />
+                </Link>
+              </div>
             )
           }
           padded
@@ -550,7 +558,8 @@ export default async function ClientDetailPage({
           ) : (
             <Empty>
               No home programme yet. Generate one inside a report and it'll
-              appear here automatically.
+              appear here automatically. You can drop in a programme template
+              or activity from the library when editing.
             </Empty>
           )}
         </Panel>
