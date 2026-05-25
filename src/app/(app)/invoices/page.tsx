@@ -8,9 +8,12 @@ import {
   ChevronRight,
   Clock,
   FileText,
+  Loader2,
   Plus,
   PoundSterling,
   Search,
+  Trash2,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -114,6 +117,30 @@ export default function InvoicesPage() {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<StatusFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Inline delete state (mirror of the /reports list pattern). Only
+  // one row is ever in confirm/in-flight at a time so plain ids work.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function deleteInvoice(id: string) {
+    setDeleteError(null);
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/invoices/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? `Delete failed (${res.status})`);
+      }
+      setInvoices((prev) => prev.filter((i) => i.id !== id));
+      setConfirmDeleteId(null);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   useEffect(() => {
     fetch("/api/invoices")
@@ -327,6 +354,74 @@ export default function InvoicesPage() {
                     <tbody>
                       {filtered.map((inv) => {
                         const overdue = isOverdue(inv.dueDate, inv.status);
+                        const isConfirming = confirmDeleteId === inv.id;
+                        const isDeleting = deletingId === inv.id;
+                        // Paid invoices can't be deleted server-side
+                        // (see API); hide the trash button to avoid
+                        // a confusing rejected request.
+                        const canDelete = inv.status !== "paid";
+
+                        if (isConfirming) {
+                          return (
+                            <tr
+                              key={inv.id}
+                              style={{ background: "rgba(239,68,68,0.04)" }}
+                            >
+                              <td colSpan={7}>
+                                <div className="flex flex-wrap items-center justify-between gap-3 px-1 py-1">
+                                  <span className="text-sm">
+                                    Delete <strong>{inv.invoiceNumber}</strong>{" "}
+                                    for <strong>{inv.clientName}</strong>{" "}
+                                    ({formatCurrency(inv.total, inv.currency)})?
+                                    This is permanent.
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    {deleteError && (
+                                      <span className="text-xs text-red-600">
+                                        {deleteError}
+                                      </span>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setConfirmDeleteId(null);
+                                        setDeleteError(null);
+                                      }}
+                                      disabled={isDeleting}
+                                      className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium hover:bg-muted/50 disabled:opacity-50"
+                                    >
+                                      <X className="h-3 w-3" />
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteInvoice(inv.id);
+                                      }}
+                                      disabled={isDeleting}
+                                      className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-60"
+                                    >
+                                      {isDeleting ? (
+                                        <>
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                          Deleting…
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Trash2 className="h-3 w-3" />
+                                          Confirm delete
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        }
+
                         return (
                           <tr
                             key={inv.id}
@@ -393,10 +488,27 @@ export default function InvoicesPage() {
                               </Chip>
                             </td>
                             <td style={{ textAlign: "right" }}>
-                              <ChevronRight
-                                className="h-3.5 w-3.5"
-                                style={{ color: "var(--muted-foreground)" }}
-                              />
+                              <div className="inline-flex items-center gap-1">
+                                {canDelete && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setConfirmDeleteId(inv.id);
+                                      setDeleteError(null);
+                                    }}
+                                    title="Delete invoice"
+                                    aria-label="Delete invoice"
+                                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                                <ChevronRight
+                                  className="h-3.5 w-3.5"
+                                  style={{ color: "var(--muted-foreground)" }}
+                                />
+                              </div>
                             </td>
                           </tr>
                         );

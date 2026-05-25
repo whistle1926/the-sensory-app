@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft,
+  Ban,
   Send,
   Trash2,
   Plus,
@@ -142,8 +143,9 @@ export default function InvoiceDetailPage() {
   const searchParams = useSearchParams();
   const wantsCompose = searchParams.get("compose") === "1";
 
-  /* ---- delete confirmation ---- */
+  /* ---- delete / cancel confirmation ---- */
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   /* ---- load invoice ---- */
   async function load() {
@@ -395,6 +397,33 @@ export default function InvoiceDetailPage() {
       setError("Something went wrong. Please try again.");
     }
 
+    setActionLoading(null);
+  }
+
+  /* ---- cancel invoice (status → cancelled) ---- */
+  async function cancelInvoice() {
+    setError("");
+    setActionLoading("cancel");
+    try {
+      const res = await fetch(`/api/invoices/${invoiceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "cancelled" }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || "Failed to cancel invoice.");
+        setActionLoading(null);
+        setConfirmCancel(false);
+        return;
+      }
+      const updated = await res.json();
+      setInvoice(updated);
+      setConfirmCancel(false);
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setConfirmCancel(false);
+    }
     setActionLoading(null);
   }
 
@@ -1146,17 +1175,56 @@ export default function InvoiceDetailPage() {
 
       {/* ---- Actions ---- */}
       <div className="flex flex-wrap gap-3">
-        {/* Draft actions */}
-        {invoice.status === "draft" && (
+        {/* Universal admin actions — Edit / Cancel / Delete are
+            available on every status except Paid (which is locked
+            for accounting integrity). Status-specific actions like
+            Mark as Paid / Compose Email follow below. */}
+        {invoice.status !== "paid" && (
           <>
             <Button variant="outline" onClick={enterEditMode}>
               <Pencil className="mr-2 h-4 w-4" />
               Edit
             </Button>
-            <Button onClick={startCompose}>
-              <Mail className="mr-2 h-4 w-4" />
-              Compose Email
-            </Button>
+
+            {/* Cancel — only meaningful when not already cancelled */}
+            {invoice.status !== "cancelled" && (
+              !confirmCancel ? (
+                <Button
+                  variant="outline"
+                  onClick={() => setConfirmCancel(true)}
+                >
+                  <Ban className="mr-2 h-4 w-4" />
+                  Cancel invoice
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 dark:border-amber-800 dark:bg-amber-950/30">
+                  <span className="text-sm text-amber-700 dark:text-amber-400">
+                    Cancel this invoice? It will be marked as
+                    cancelled but stays on the list for audit.
+                  </span>
+                  <Button
+                    size="sm"
+                    onClick={cancelInvoice}
+                    disabled={actionLoading === "cancel"}
+                  >
+                    {actionLoading === "cancel" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Yes, cancel"
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfirmCancel(false)}
+                  >
+                    Keep
+                  </Button>
+                </div>
+              )
+            )}
+
+            {/* Delete — destructive, removes the row entirely */}
             {!confirmDelete ? (
               <Button
                 variant="destructive"
@@ -1168,7 +1236,7 @@ export default function InvoiceDetailPage() {
             ) : (
               <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2 dark:border-red-800 dark:bg-red-950/30">
                 <span className="text-sm text-red-600 dark:text-red-400">
-                  Are you sure?
+                  Delete permanently?
                 </span>
                 <Button
                   variant="destructive"
@@ -1187,11 +1255,19 @@ export default function InvoiceDetailPage() {
                   size="sm"
                   onClick={() => setConfirmDelete(false)}
                 >
-                  Cancel
+                  Keep
                 </Button>
               </div>
             )}
           </>
+        )}
+
+        {/* Draft-only: surface Compose Email up here */}
+        {invoice.status === "draft" && (
+          <Button onClick={startCompose}>
+            <Mail className="mr-2 h-4 w-4" />
+            Compose Email
+          </Button>
         )}
 
         {/* Sent actions */}
