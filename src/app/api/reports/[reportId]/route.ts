@@ -46,3 +46,43 @@ export async function PATCH(
 
   return NextResponse.json(report);
 }
+
+/**
+ * Hard-delete a report (staff only). Also removes the backing
+ * TherapySession — they're 1:1 and a session with no report is
+ * an orphan from the user's perspective. Patrick uses this to
+ * clean up test runs.
+ */
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ reportId: string }> },
+) {
+  const session = await auth();
+  if (!session?.user)
+    return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  if (session.user.role === "CLIENT")
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const { reportId } = await params;
+  const report = await prisma.report.findUnique({
+    where: { id: reportId },
+    select: { sessionId: true },
+  });
+  if (!report)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // Order matters — TherapySession is referenced by Report.sessionId,
+  // and the relation defaults to RESTRICT. Delete the report first,
+  // then the session it pointed at.
+  await prisma.report.delete({ where: { id: reportId } });
+  await prisma.therapySession
+    .delete({ where: { id: report.sessionId } })
+    .catch((err) => {
+      // Session deletion is best-effort — if some other row started
+      // referencing it (future feature) we don't want to fail the
+      // overall delete that the user already confirmed.
+      console.warn("[reports/DELETE] therapy session orphan:", err);
+    });
+
+  return NextResponse.json({ ok: true });
+}

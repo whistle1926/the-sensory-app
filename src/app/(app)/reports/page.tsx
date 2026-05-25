@@ -7,8 +7,11 @@ import {
   ChevronRight,
   FileClock,
   FileText,
+  Loader2,
   Plus,
+  Trash2,
   TrendingUp,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { Toolbar, Panel, Chip, Seg, Empty } from "@/components/ds";
@@ -31,6 +34,29 @@ export default function ReportsPage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<StatusFilter>("all");
+  // Inline-confirm + in-flight delete state — only one row is ever in
+  // either state at a time so plain id strings are enough.
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function deleteReport(id: string) {
+    setDeleteError(null);
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/reports/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? `Delete failed (${res.status})`);
+      }
+      setReports((prev) => prev.filter((r) => r.id !== id));
+      setConfirmId(null);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   useEffect(() => {
     fetch("/api/reports")
@@ -212,6 +238,73 @@ export default function ReportsPage() {
                 const s = (r.status || "draft").toLowerCase();
                 const tone = s === "final" ? "success" : "warn";
                 const label = s[0].toUpperCase() + s.slice(1);
+                const isConfirming = confirmId === r.id;
+                const isDeleting = deletingId === r.id;
+
+                if (isConfirming) {
+                  // Inline confirmation — replaces the row content
+                  // instead of opening a modal. Spans all four cells
+                  // so the strip reads as one unit.
+                  return (
+                    <tr key={r.id} style={{ background: "rgba(239,68,68,0.04)" }}>
+                      <td colSpan={4}>
+                        <div className="flex flex-wrap items-center justify-between gap-3 px-1 py-1">
+                          <span className="text-sm">
+                            Delete report for{" "}
+                            <strong>
+                              {r.client.firstName} {r.client.lastName}
+                            </strong>{" "}
+                            ({new Date(r.reportDate).toLocaleDateString("en-GB")})?
+                            This also removes the session notes it was built
+                            from.
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {deleteError && (
+                              <span className="text-xs text-red-600">
+                                {deleteError}
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setConfirmId(null);
+                                setDeleteError(null);
+                              }}
+                              disabled={isDeleting}
+                              className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium hover:bg-muted/50 disabled:opacity-50"
+                            >
+                              <X className="h-3 w-3" />
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteReport(r.id);
+                              }}
+                              disabled={isDeleting}
+                              className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-60"
+                            >
+                              {isDeleting ? (
+                                <>
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  Deleting…
+                                </>
+                              ) : (
+                                <>
+                                  <Trash2 className="h-3 w-3" />
+                                  Confirm delete
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }
+
                 return (
                   <tr
                     key={r.id}
@@ -236,10 +329,25 @@ export default function ReportsPage() {
                       <Chip tone={tone}>{label}</Chip>
                     </td>
                     <td style={{ textAlign: "right" }}>
-                      <ChevronRight
-                        className="h-3.5 w-3.5"
-                        style={{ color: "var(--muted-foreground)" }}
-                      />
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmId(r.id);
+                            setDeleteError(null);
+                          }}
+                          title="Delete report"
+                          aria-label="Delete report"
+                          className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                        <ChevronRight
+                          className="h-3.5 w-3.5"
+                          style={{ color: "var(--muted-foreground)" }}
+                        />
+                      </div>
                     </td>
                   </tr>
                 );
