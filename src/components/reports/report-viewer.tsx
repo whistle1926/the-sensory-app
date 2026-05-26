@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { GripVertical } from "lucide-react";
+import { ChevronDown, ChevronRight, GripVertical } from "lucide-react";
 import {
   REPORT_SECTION_TITLES,
   resolveSectionOrder,
@@ -109,6 +109,9 @@ function DraggableSection({
   onDragStart,
   onDragOver,
   onDragEnd,
+  collapsible,
+  isCollapsed,
+  onToggleCollapsed,
   children,
 }: {
   sectionKey: ReportSectionKey;
@@ -122,6 +125,9 @@ function DraggableSection({
   onDragStart: () => void;
   onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
   onDragEnd: () => void;
+  collapsible: boolean;
+  isCollapsed: boolean;
+  onToggleCollapsed: () => void;
   children: React.ReactNode;
 }) {
   if (!draggable) {
@@ -143,11 +149,28 @@ function DraggableSection({
       className={`mb-6 rounded-md border border-transparent transition-all ${
         isDragging
           ? "opacity-50 ring-2 ring-primary"
-          : "hover:border-border hover:bg-muted/20"
+          : isCollapsed
+            ? "border-border bg-muted/10 hover:bg-muted/30"
+            : "hover:border-border hover:bg-muted/20"
       }`}
     >
-      <div className="flex items-center gap-2 border-b py-1 pl-1 pr-2">
+      {/* Header — entire row acts as the collapse toggle so the OT
+          doesn't have to hunt for a tiny chevron. The drag handle on
+          the left stops click-propagation so grabbing it for a drag
+          doesn't accidentally also expand/collapse. */}
+      <button
+        type="button"
+        onClick={collapsible ? onToggleCollapsed : undefined}
+        className={`flex w-full items-center gap-2 border-b py-1 pl-1 pr-2 text-left ${
+          collapsible ? "cursor-pointer" : ""
+        } ${isCollapsed ? "border-b-transparent" : ""}`}
+      >
         <span
+          // Stop drag-start clicks on the grip from also firing the
+          // collapse toggle. Pointerdown is enough — the actual drag
+          // event still works via the parent's draggable.
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
           className="cursor-grab text-muted-foreground/60 transition-colors hover:text-foreground"
           title="Drag to reorder"
           aria-label="Drag handle"
@@ -168,10 +191,24 @@ function DraggableSection({
         <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60 tabular-nums">
           {position} / {total}
         </span>
-      </div>
-      <div className="text-sm leading-relaxed text-muted-foreground">
-        {children}
-      </div>
+        {collapsible && (
+          <span
+            className="text-muted-foreground/60 transition-transform"
+            aria-label={isCollapsed ? "Expand section" : "Collapse section"}
+          >
+            {isCollapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </span>
+        )}
+      </button>
+      {!isCollapsed && (
+        <div className="text-sm leading-relaxed text-muted-foreground">
+          {children}
+        </div>
+      )}
     </div>
   );
 }
@@ -241,6 +278,30 @@ export function ReportViewer({ content, editing = false, onChange }: ReportViewe
   );
 
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+
+  /* ───────────── Collapsed-section state ───────────── */
+  // Per-section collapse toggle for edit mode. Patrick flagged that
+  // dragging sections is painful when every body is expanded — so
+  // each section can now be folded to just the header, and "Collapse
+  // all" zips them up for a clean reorder view. Set holds the COLLAPSED
+  // keys so the default (empty set) is "everything expanded", which
+  // matches today's behaviour for an unsuspecting user.
+  const [collapsed, setCollapsed] = useState<Set<ReportSectionKey>>(new Set());
+  function toggleCollapsed(k: ReportSectionKey) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  }
+  const allCollapsed = collapsed.size === orderedKeys.length;
+  function collapseAll() {
+    setCollapsed(new Set(orderedKeys));
+  }
+  function expandAll() {
+    setCollapsed(new Set());
+  }
 
   function handleDragStart(i: number) {
     if (!editing) return;
@@ -355,6 +416,37 @@ export function ReportViewer({ content, editing = false, onChange }: ReportViewe
         <p className="text-sm text-muted-foreground">The Sensory Submarine</p>
       </div>
 
+      {/* Reorder toolbar — only relevant in edit mode. Lets the OT
+          fold every section to just its header for a clean drag-and-drop
+          view, or expand back for editing. */}
+      {editing && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/30 px-3 py-2 text-xs">
+          <span className="text-muted-foreground">
+            Tip: <strong>Collapse all</strong> to make reordering easier, then expand the one you want to edit.
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={collapseAll}
+              disabled={allCollapsed}
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium hover:bg-muted/50 disabled:opacity-50"
+            >
+              <ChevronRight className="h-3 w-3" />
+              Collapse all
+            </button>
+            <button
+              type="button"
+              onClick={expandAll}
+              disabled={collapsed.size === 0}
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium hover:bg-muted/50 disabled:opacity-50"
+            >
+              <ChevronDown className="h-3 w-3" />
+              Expand all
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Client Info Table */}
       <div className="mb-6 overflow-hidden rounded-md border">
         <table className="w-full text-sm">
@@ -414,6 +506,9 @@ export function ReportViewer({ content, editing = false, onChange }: ReportViewe
             onDragStart={() => handleDragStart(index)}
             onDragOver={(e) => handleDragOver(e, index)}
             onDragEnd={handleDragEnd}
+            collapsible={editing}
+            isCollapsed={collapsed.has(key)}
+            onToggleCollapsed={() => toggleCollapsed(key)}
           >
             {body}
           </DraggableSection>
