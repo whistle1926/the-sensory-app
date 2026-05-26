@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
+import { VoiceNotesRecorder } from "@/components/reports/voice-notes-recorder";
 
 interface Client {
   id: string;
@@ -32,6 +33,8 @@ function NewReportPage() {
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
+  // Controlled so the voice recorder can append transcripts.
+  const [rawNotes, setRawNotes] = useState("");
 
   useEffect(() => {
     fetch("/api/clients")
@@ -61,7 +64,9 @@ function NewReportPage() {
           clientId: form.get("clientId"),
           sessionDate: form.get("sessionDate"),
           sessionNumber: Number(form.get("sessionNumber")),
-          rawNotes: form.get("rawNotes"),
+          // rawNotes is controlled (so the voice recorder can append
+          // to it). Pull from state, not FormData.
+          rawNotes,
         }),
         signal: ctrl.signal,
       });
@@ -166,12 +171,15 @@ function NewReportPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="rawNotes">Session Notes *</Label>
+                <VoiceNotesRecorder value={rawNotes} onChange={setRawNotes} />
                 <Textarea
                   id="rawNotes"
                   name="rawNotes"
                   required
                   rows={15}
-                  placeholder="Paste your raw session notes here. Include observations about sensory responses, behaviours, interventions used, and the child's response. The more detail you provide, the better the report."
+                  value={rawNotes}
+                  onChange={(e) => setRawNotes(e.target.value)}
+                  placeholder="Paste your raw session notes here, or use Record voice notes above. Include observations about sensory responses, behaviours, interventions used, and the child's response. The more detail you provide, the better the report."
                 />
                 <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
                   <p className="font-semibold text-foreground">Tip — AI will populate the Functional Review automatically.</p>
