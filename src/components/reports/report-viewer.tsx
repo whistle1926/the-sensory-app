@@ -101,6 +101,8 @@ function Section({
 function DraggableSection({
   sectionKey,
   title,
+  position,
+  total,
   id,
   draggable,
   isDragging,
@@ -111,6 +113,9 @@ function DraggableSection({
 }: {
   sectionKey: ReportSectionKey;
   title: string;
+  /** 1-based index in the resolved order — shown next to the drag handle. */
+  position: number;
+  total: number;
   id?: string;
   draggable: boolean;
   isDragging: boolean;
@@ -149,9 +154,20 @@ function DraggableSection({
         >
           <GripVertical className="h-4 w-4" />
         </span>
+        {/* Numbered badge so the OT can see at a glance which
+            position each section is in (and what the total is) */}
+        <span
+          className="inline-flex h-5 min-w-[1.5rem] items-center justify-center rounded-full bg-primary/10 px-1.5 text-[11px] font-bold tabular-nums text-primary"
+          title={`Section ${position} of ${total}`}
+        >
+          {position}
+        </span>
         <h2 className="flex-1 pb-1 text-lg font-semibold text-foreground">
           {title}
         </h2>
+        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60 tabular-nums">
+          {position} / {total}
+        </span>
       </div>
       <div className="text-sm leading-relaxed text-muted-foreground">
         {children}
@@ -388,6 +404,8 @@ export function ReportViewer({ content, editing = false, onChange }: ReportViewe
             key={key}
             sectionKey={key}
             title={title}
+            position={index + 1}
+            total={orderedKeys.length}
             // home-programme anchor is used by the "Edit programme"
             // deep-link from the client page.
             id={key === "homeProgramme" ? "home-programme" : undefined}
