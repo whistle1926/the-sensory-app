@@ -280,13 +280,15 @@ export function ReportViewer({ content, editing = false, onChange }: ReportViewe
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
   /* ───────────── Collapsed-section state ───────────── */
-  // Per-section collapse toggle for edit mode. Patrick flagged that
-  // dragging sections is painful when every body is expanded — so
-  // each section can now be folded to just the header, and "Collapse
-  // all" zips them up for a clean reorder view. Set holds the COLLAPSED
-  // keys so the default (empty set) is "everything expanded", which
-  // matches today's behaviour for an unsuspecting user.
-  const [collapsed, setCollapsed] = useState<Set<ReportSectionKey>>(new Set());
+  // Per-section collapse toggle for edit mode. Patrick wants the
+  // editor to open in compact "all collapsed" mode by default so
+  // reordering is the immediate, frictionless first action. Lazy
+  // init seeds the set once on mount from the resolved order;
+  // expanding/collapsing during the session is preserved across
+  // re-renders. Empty set = everything expanded.
+  const [collapsed, setCollapsed] = useState<Set<ReportSectionKey>>(
+    () => new Set(orderedKeys),
+  );
   function toggleCollapsed(k: ReportSectionKey) {
     setCollapsed((prev) => {
       const next = new Set(prev);
