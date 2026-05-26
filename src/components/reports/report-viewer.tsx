@@ -188,7 +188,7 @@ function DraggableSection({
         <h2 className="flex-1 pb-1 text-lg font-semibold text-foreground">
           {title}
         </h2>
-        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60 tabular-nums">
+        <span className="text-xs font-semibold tabular-nums text-muted-foreground">
           {position} / {total}
         </span>
         {collapsible && (
