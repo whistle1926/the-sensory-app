@@ -15,10 +15,25 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Mic, MicOff, Loader2 } from "lucide-react";
 
 interface Props {
-  /** Current textarea value — recorder appends to this on stop. */
+  /** Current textarea / rich-text value — recorder appends to this on stop. */
   value: string;
   /** Called with the next value (existing + transcript). */
   onChange: (next: string) => void;
+  /**
+   * Output format for the appended transcript.
+   *  - "plain"  (default): adds "\n\n{transcript}" — for <textarea>s.
+   *  - "html": adds "<p>{escaped transcript}</p>" — for TipTap rich-text
+   *    editors where the value is an HTML string.
+   */
+  mode?: "plain" | "html";
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 /* ------------------------------------------------------------------ */
@@ -105,7 +120,7 @@ function createSpeechRecognition(): SpeechRecognition {
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
-export function VoiceNotesRecorder({ value, onChange }: Props) {
+export function VoiceNotesRecorder({ value, onChange, mode = "plain" }: Props) {
   // Boolean only — never stash the constructor itself (see note on
   // isSpeechRecognitionSupported above). `null` = not yet checked
   // (during SSR / first paint), so the component renders nothing.
@@ -211,8 +226,15 @@ export function VoiceNotesRecorder({ value, onChange }: Props) {
     stop();
     const captured = (finalised + interim).trim();
     if (!captured) return;
-    const sep = value.trim() ? `\n\n` : "";
-    onChange(`${value}${sep}${captured}`);
+    if (mode === "html") {
+      // Rich-text editors store an HTML string. Append a paragraph
+      // so TipTap renders it cleanly alongside whatever's there.
+      const next = `${value}<p>${escapeHtml(captured)}</p>`;
+      onChange(next);
+    } else {
+      const sep = value.trim() ? `\n\n` : "";
+      onChange(`${value}${sep}${captured}`);
+    }
     setFinalised("");
     setInterim("");
   }

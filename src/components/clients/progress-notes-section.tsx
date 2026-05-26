@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { RichTextView } from "@/components/ui/rich-text-view";
+import { VoiceNotesRecorder } from "@/components/reports/voice-notes-recorder";
 
 interface ProgressNote {
   id: string;
@@ -219,11 +220,16 @@ export function ProgressNotesSection({ clientId }: { clientId: string }) {
 
             <div className="space-y-2">
               <Label>Note</Label>
+              <VoiceNotesRecorder
+                value={body}
+                onChange={setBody}
+                mode="html"
+              />
               <RichTextEditor
                 key={editorKey}
                 value={body}
                 onChange={setBody}
-                placeholder="Write your progress note..."
+                placeholder="Write your progress note, or use the recorder above to dictate it..."
                 minHeight={160}
               />
             </div>
