@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ReportContent } from "@/types/report";
+import {
+  REPORT_SECTION_TITLES,
+  resolveSectionOrder,
+  type ReportContent,
+  type ReportSectionKey,
+} from "@/types/report";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -138,64 +143,9 @@ function buildReportSection(content: ReportContent): string {
           <tr><td style="border:1px solid #e5e7eb;padding:6px 12px;font-size:12px;font-weight:700;background:#f9fafb;color:#555;">Parent/Carer Present</td><td style="border:1px solid #e5e7eb;padding:6px 12px;font-size:12px;color:#333;">${escapeHtml(c.clientInfo.parentCarer)}</td></tr>
         </table>
 
-        ${heading("Reason for Referral")}
-        <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#444;">${nl(c.reasonForReferral)}</p>
-
-        ${heading("Session Overview")}
-        <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#444;">${nl(c.sessionOverview)}</p>
-
-        ${heading("Observations and Behaviours")}
-        ${sub("Sensory Responses", c.observations.sensoryResponses)}
-        ${sub("Engagement and Participation", c.observations.engagementParticipation)}
-        ${sub("Communication and Social Interaction", c.observations.communicationSocial)}
-        ${sub("Emotional Regulation and Behaviour", c.observations.emotionalRegulation)}
-
-        ${heading("Assessment Findings")}
-        ${sub("Sensory Processing", c.assessmentFindings.sensoryProcessing)}
-        ${sub("Fine Motor Skills", c.assessmentFindings.fineMotor)}
-        ${sub("Gross Motor Skills", c.assessmentFindings.grossMotor)}
-        ${sub("Self-Regulation", c.assessmentFindings.selfRegulation)}
-        ${sub("Play and Functional Skills", c.assessmentFindings.playFunctional)}
-
-        ${(() => {
-          // Functional Review — render only if at least one subsection
-          // has content. `sub()` already skips empty inputs, but we
-          // also suppress the heading itself when everything is blank
-          // (e.g. older reports without this section).
-          const fr = c.functionalReview;
-          if (!fr) return "";
-          const parts = [
-            sub("Feeding and Eating", fr.feedingAndEating ?? ""),
-            sub("Personal Care and Dressing", fr.personalCareAndDressing ?? ""),
-            sub("Toileting", fr.toileting ?? ""),
-            sub("Sleep", fr.sleep ?? ""),
-            sub("School", fr.school ?? ""),
-            sub("Any Other Concerns", fr.otherConcerns ?? ""),
-            sub("Discussion with Parent/Carer", fr.discussionWithParent ?? ""),
-          ];
-          if (parts.every((p) => !p)) return "";
-          return `${heading("Functional Review")}${parts.join("")}`;
-        })()}
-
-        ${heading("Interventions Used")}
-        <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#444;">${nl(c.interventionsUsed)}</p>
-
-        ${heading("Response to Intervention")}
-        <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#444;">${nl(c.responseToIntervention)}</p>
-
-        ${heading("Clinical Impressions and Summary")}
-        <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#444;">${nl(c.clinicalImpressions)}</p>
-
-        ${heading("Recommendations")}
-        <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#444;">${nl(c.recommendations)}</p>
-
-        ${heading("Goals and Next Steps")}
-        ${sub("Short-Term Goals", c.goals.shortTerm)}
-        ${sub("Long-Term Goals", c.goals.longTerm)}
-        ${sub("Next Session Plan", c.goals.nextSessionPlan)}
-
-        ${heading("Home Programme Suggestions")}
-        <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#444;">${nl(c.homeProgrammeSuggestions)}</p>
+        ${resolveSectionOrder(c.sectionOrder)
+          .map((k) => sectionEmailHtml(c, k, heading, sub, nl))
+          .join("")}
 
         <!-- Therapist Footer -->
         <div style="border-top:1px solid #e5e7eb;margin:24px 0 0;padding:16px 0 0;">
@@ -207,6 +157,84 @@ function buildReportSection(content: ReportContent): string {
         </div>
       </div>
     </div>`;
+}
+
+/**
+ * Render one body section as inline-styled HTML for the email
+ * template. The section order is decided by the caller against the
+ * therapist's saved sectionOrder.
+ *
+ * `heading()` returns the styled `<h2>` for a top-level title,
+ * `sub()` returns a styled `<h3>` + `<p>` pair while skipping
+ * fields that are empty (so a half-filled Functional Review or
+ * Observations section never shows blank subheadings to the parent).
+ */
+function sectionEmailHtml(
+  c: ReportContent,
+  key: ReportSectionKey,
+  heading: (t: string) => string,
+  sub: (t: string, text: string) => string,
+  nl: (s: string) => string,
+): string {
+  const p = (text: string) =>
+    `<p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#444;">${nl(text)}</p>`;
+  switch (key) {
+    case "reasonForReferral":
+      return heading(REPORT_SECTION_TITLES.reasonForReferral) + p(c.reasonForReferral);
+    case "sessionOverview":
+      return heading(REPORT_SECTION_TITLES.sessionOverview) + p(c.sessionOverview);
+    case "observations":
+      return (
+        heading(REPORT_SECTION_TITLES.observations) +
+        sub("Sensory Responses", c.observations.sensoryResponses) +
+        sub("Engagement and Participation", c.observations.engagementParticipation) +
+        sub("Communication and Social Interaction", c.observations.communicationSocial) +
+        sub("Emotional Regulation and Behaviour", c.observations.emotionalRegulation)
+      );
+    case "assessmentFindings":
+      return (
+        heading(REPORT_SECTION_TITLES.assessmentFindings) +
+        sub("Sensory Processing", c.assessmentFindings.sensoryProcessing) +
+        sub("Fine Motor Skills", c.assessmentFindings.fineMotor) +
+        sub("Gross Motor Skills", c.assessmentFindings.grossMotor) +
+        sub("Self-Regulation", c.assessmentFindings.selfRegulation) +
+        sub("Play and Functional Skills", c.assessmentFindings.playFunctional)
+      );
+    case "functionalReview": {
+      const fr = c.functionalReview;
+      if (!fr) return "";
+      const parts = [
+        sub("Feeding and Eating", fr.feedingAndEating ?? ""),
+        sub("Personal Care and Dressing", fr.personalCareAndDressing ?? ""),
+        sub("Toileting", fr.toileting ?? ""),
+        sub("Sleep", fr.sleep ?? ""),
+        sub("School", fr.school ?? ""),
+        sub("Any Other Concerns", fr.otherConcerns ?? ""),
+        sub("Discussion with Parent/Carer", fr.discussionWithParent ?? ""),
+      ];
+      if (parts.every((s) => !s)) return "";
+      return heading(REPORT_SECTION_TITLES.functionalReview) + parts.join("");
+    }
+    case "interventionsUsed":
+      return heading(REPORT_SECTION_TITLES.interventionsUsed) + p(c.interventionsUsed);
+    case "responseToIntervention":
+      return heading(REPORT_SECTION_TITLES.responseToIntervention) + p(c.responseToIntervention);
+    case "clinicalImpressions":
+      return heading(REPORT_SECTION_TITLES.clinicalImpressions) + p(c.clinicalImpressions);
+    case "recommendations":
+      return heading(REPORT_SECTION_TITLES.recommendations) + p(c.recommendations);
+    case "goals":
+      return (
+        heading(REPORT_SECTION_TITLES.goals) +
+        sub("Short-Term Goals", c.goals.shortTerm) +
+        sub("Long-Term Goals", c.goals.longTerm) +
+        sub("Next Session Plan", c.goals.nextSessionPlan)
+      );
+    case "homeProgramme":
+      return heading(REPORT_SECTION_TITLES.homeProgramme) + p(c.homeProgrammeSuggestions);
+    default:
+      return "";
+  }
 }
 
 function buildEmailHtml(params: EmailParams): string {

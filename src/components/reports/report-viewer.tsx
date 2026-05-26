@@ -1,6 +1,13 @@
 "use client";
 
-import { ReportContent } from "@/types/report";
+import { useMemo, useState } from "react";
+import { GripVertical } from "lucide-react";
+import {
+  REPORT_SECTION_TITLES,
+  resolveSectionOrder,
+  type ReportContent,
+  type ReportSectionKey,
+} from "@/types/report";
 import { HomeProgrammeEditor } from "@/components/reports/home-programme-editor";
 
 interface ReportViewerProps {
@@ -86,6 +93,73 @@ function Section({
   );
 }
 
+/**
+ * Section wrapper that wires up HTML5 drag-and-drop while in edit
+ * mode. Renders identically to <Section> when not draggable, so the
+ * read-only / printed / exported view is unaffected by this control.
+ */
+function DraggableSection({
+  sectionKey,
+  title,
+  id,
+  draggable,
+  isDragging,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+  children,
+}: {
+  sectionKey: ReportSectionKey;
+  title: string;
+  id?: string;
+  draggable: boolean;
+  isDragging: boolean;
+  onDragStart: () => void;
+  onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
+  onDragEnd: () => void;
+  children: React.ReactNode;
+}) {
+  if (!draggable) {
+    return (
+      <Section title={title} id={id}>
+        {children}
+      </Section>
+    );
+  }
+
+  return (
+    <div
+      id={id}
+      draggable
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragEnd={onDragEnd}
+      data-section-key={sectionKey}
+      className={`mb-6 rounded-md border border-transparent transition-all ${
+        isDragging
+          ? "opacity-50 ring-2 ring-primary"
+          : "hover:border-border hover:bg-muted/20"
+      }`}
+    >
+      <div className="flex items-center gap-2 border-b py-1 pl-1 pr-2">
+        <span
+          className="cursor-grab text-muted-foreground/60 transition-colors hover:text-foreground"
+          title="Drag to reorder"
+          aria-label="Drag handle"
+        >
+          <GripVertical className="h-4 w-4" />
+        </span>
+        <h2 className="flex-1 pb-1 text-lg font-semibold text-foreground">
+          {title}
+        </h2>
+      </div>
+      <div className="text-sm leading-relaxed text-muted-foreground">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function SubSection({
   title,
   text,
@@ -142,6 +216,120 @@ export function ReportViewer({ content, editing = false, onChange }: ReportViewe
     onChange(setAtPath(c, path, v));
   };
 
+  /* ───────────── Section ordering ───────────── */
+  // Resolved order = saved order ∪ canonical (handles legacy reports
+  // and any future keys we add).
+  const orderedKeys = useMemo(
+    () => resolveSectionOrder(c.sectionOrder),
+    [c.sectionOrder],
+  );
+
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+
+  function handleDragStart(i: number) {
+    if (!editing) return;
+    setDragIndex(i);
+  }
+
+  function handleDragOver(
+    e: React.DragEvent<HTMLDivElement>,
+    overIndex: number,
+  ) {
+    if (!editing) return;
+    e.preventDefault();
+    if (dragIndex === null || dragIndex === overIndex) return;
+    const next = [...orderedKeys];
+    const [moved] = next.splice(dragIndex, 1);
+    next.splice(overIndex, 0, moved);
+    // Persist into content.sectionOrder via the existing onChange
+    // plumbing — the parent's draftContent picks it up and the
+    // user's eventual Save call writes it to the DB.
+    if (onChange) {
+      onChange({ ...c, sectionOrder: next });
+    }
+    setDragIndex(overIndex);
+  }
+
+  function handleDragEnd() {
+    setDragIndex(null);
+  }
+
+  /**
+   * Render the body of a section by key. Returns null when the
+   * section is unknown (defensive — shouldn't happen given
+   * resolveSectionOrder's whitelist, but keeps render safe).
+   */
+  function renderSectionBody(key: ReportSectionKey): React.ReactNode {
+    switch (key) {
+      case "reasonForReferral":
+        return (
+          <Prose value={c.reasonForReferral} editing={editing} onChange={set("reasonForReferral")} />
+        );
+      case "sessionOverview":
+        return (
+          <Prose value={c.sessionOverview} editing={editing} onChange={set("sessionOverview")} />
+        );
+      case "observations":
+        return (
+          <>
+            <SubSection title="Sensory Responses" text={c.observations.sensoryResponses} editing={editing} onChange={set("observations.sensoryResponses")} />
+            <SubSection title="Engagement and Participation" text={c.observations.engagementParticipation} editing={editing} onChange={set("observations.engagementParticipation")} />
+            <SubSection title="Communication and Social Interaction" text={c.observations.communicationSocial} editing={editing} onChange={set("observations.communicationSocial")} />
+            <SubSection title="Emotional Regulation and Behaviour" text={c.observations.emotionalRegulation} editing={editing} onChange={set("observations.emotionalRegulation")} />
+          </>
+        );
+      case "assessmentFindings":
+        return (
+          <>
+            <SubSection title="Sensory Processing" text={c.assessmentFindings.sensoryProcessing} editing={editing} onChange={set("assessmentFindings.sensoryProcessing")} />
+            <SubSection title="Fine Motor Skills" text={c.assessmentFindings.fineMotor} editing={editing} onChange={set("assessmentFindings.fineMotor")} />
+            <SubSection title="Gross Motor Skills" text={c.assessmentFindings.grossMotor} editing={editing} onChange={set("assessmentFindings.grossMotor")} />
+            <SubSection title="Self-Regulation" text={c.assessmentFindings.selfRegulation} editing={editing} onChange={set("assessmentFindings.selfRegulation")} />
+            <SubSection title="Play and Functional Skills" text={c.assessmentFindings.playFunctional} editing={editing} onChange={set("assessmentFindings.playFunctional")} />
+          </>
+        );
+      case "functionalReview":
+        return (
+          <>
+            <SubSection title="Feeding and Eating" text={c.functionalReview?.feedingAndEating ?? ""} editing={editing} onChange={set("functionalReview.feedingAndEating")} />
+            <SubSection title="Personal Care and Dressing" text={c.functionalReview?.personalCareAndDressing ?? ""} editing={editing} onChange={set("functionalReview.personalCareAndDressing")} />
+            <SubSection title="Toileting" text={c.functionalReview?.toileting ?? ""} editing={editing} onChange={set("functionalReview.toileting")} />
+            <SubSection title="Sleep" text={c.functionalReview?.sleep ?? ""} editing={editing} onChange={set("functionalReview.sleep")} />
+            <SubSection title="School" text={c.functionalReview?.school ?? ""} editing={editing} onChange={set("functionalReview.school")} />
+            <SubSection title="Any Other Concerns" text={c.functionalReview?.otherConcerns ?? ""} editing={editing} onChange={set("functionalReview.otherConcerns")} />
+            <SubSection title="Discussion with Parent/Carer" text={c.functionalReview?.discussionWithParent ?? ""} editing={editing} onChange={set("functionalReview.discussionWithParent")} />
+          </>
+        );
+      case "interventionsUsed":
+        return <Prose value={c.interventionsUsed} editing={editing} onChange={set("interventionsUsed")} />;
+      case "responseToIntervention":
+        return <Prose value={c.responseToIntervention} editing={editing} onChange={set("responseToIntervention")} />;
+      case "clinicalImpressions":
+        return <Prose value={c.clinicalImpressions} editing={editing} onChange={set("clinicalImpressions")} />;
+      case "recommendations":
+        return <Prose value={c.recommendations} editing={editing} onChange={set("recommendations")} />;
+      case "goals":
+        return (
+          <>
+            <SubSection title="Short-Term Goals" text={c.goals.shortTerm} editing={editing} onChange={set("goals.shortTerm")} />
+            <SubSection title="Long-Term Goals" text={c.goals.longTerm} editing={editing} onChange={set("goals.longTerm")} />
+            <SubSection title="Next Session Plan" text={c.goals.nextSessionPlan} editing={editing} onChange={set("goals.nextSessionPlan")} />
+          </>
+        );
+      case "homeProgramme":
+        return editing ? (
+          <HomeProgrammeEditor
+            value={c.homeProgrammeSuggestions}
+            onChange={(v) => set("homeProgrammeSuggestions")(v)}
+          />
+        ) : (
+          <Prose value={c.homeProgrammeSuggestions} editing={false} />
+        );
+      default:
+        return null;
+    }
+  }
+
   return (
     <div className="report-content mx-auto max-w-4xl rounded-lg bg-card p-8 shadow print:shadow-none">
       <div className="mb-8 text-center">
@@ -191,78 +379,28 @@ export function ReportViewer({ content, editing = false, onChange }: ReportViewe
         </table>
       </div>
 
-      <Section title="Reason for Referral">
-        <Prose value={c.reasonForReferral} editing={editing} onChange={set("reasonForReferral")} />
-      </Section>
-
-      <Section title="Session Overview">
-        <Prose value={c.sessionOverview} editing={editing} onChange={set("sessionOverview")} />
-      </Section>
-
-      <Section title="Observations and Behaviours">
-        <SubSection title="Sensory Responses" text={c.observations.sensoryResponses} editing={editing} onChange={set("observations.sensoryResponses")} />
-        <SubSection title="Engagement and Participation" text={c.observations.engagementParticipation} editing={editing} onChange={set("observations.engagementParticipation")} />
-        <SubSection title="Communication and Social Interaction" text={c.observations.communicationSocial} editing={editing} onChange={set("observations.communicationSocial")} />
-        <SubSection title="Emotional Regulation and Behaviour" text={c.observations.emotionalRegulation} editing={editing} onChange={set("observations.emotionalRegulation")} />
-      </Section>
-
-      <Section title="Assessment Findings">
-        <SubSection title="Sensory Processing" text={c.assessmentFindings.sensoryProcessing} editing={editing} onChange={set("assessmentFindings.sensoryProcessing")} />
-        <SubSection title="Fine Motor Skills" text={c.assessmentFindings.fineMotor} editing={editing} onChange={set("assessmentFindings.fineMotor")} />
-        <SubSection title="Gross Motor Skills" text={c.assessmentFindings.grossMotor} editing={editing} onChange={set("assessmentFindings.grossMotor")} />
-        <SubSection title="Self-Regulation" text={c.assessmentFindings.selfRegulation} editing={editing} onChange={set("assessmentFindings.selfRegulation")} />
-        <SubSection title="Play and Functional Skills" text={c.assessmentFindings.playFunctional} editing={editing} onChange={set("assessmentFindings.playFunctional")} />
-      </Section>
-
-      {/* ─── Functional Review — daily-life prompts the OT works through */}
-      {/* during an assessment. Empty subsections are hidden in view mode */}
-      {/* (handled by SubSection) so older reports without this data stay tidy */}
-      <Section title="Functional Review" id="functional-review">
-        <SubSection title="Feeding and Eating" text={c.functionalReview?.feedingAndEating ?? ""} editing={editing} onChange={set("functionalReview.feedingAndEating")} />
-        <SubSection title="Personal Care and Dressing" text={c.functionalReview?.personalCareAndDressing ?? ""} editing={editing} onChange={set("functionalReview.personalCareAndDressing")} />
-        <SubSection title="Toileting" text={c.functionalReview?.toileting ?? ""} editing={editing} onChange={set("functionalReview.toileting")} />
-        <SubSection title="Sleep" text={c.functionalReview?.sleep ?? ""} editing={editing} onChange={set("functionalReview.sleep")} />
-        <SubSection title="School" text={c.functionalReview?.school ?? ""} editing={editing} onChange={set("functionalReview.school")} />
-        <SubSection title="Any Other Concerns" text={c.functionalReview?.otherConcerns ?? ""} editing={editing} onChange={set("functionalReview.otherConcerns")} />
-        <SubSection title="Discussion with Parent/Carer" text={c.functionalReview?.discussionWithParent ?? ""} editing={editing} onChange={set("functionalReview.discussionWithParent")} />
-      </Section>
-
-      <Section title="Interventions Used">
-        <Prose value={c.interventionsUsed} editing={editing} onChange={set("interventionsUsed")} />
-      </Section>
-
-      <Section title="Response to Intervention">
-        <Prose value={c.responseToIntervention} editing={editing} onChange={set("responseToIntervention")} />
-      </Section>
-
-      <Section title="Clinical Impressions and Summary">
-        <Prose value={c.clinicalImpressions} editing={editing} onChange={set("clinicalImpressions")} />
-      </Section>
-
-      <Section title="Recommendations">
-        <Prose value={c.recommendations} editing={editing} onChange={set("recommendations")} />
-      </Section>
-
-      <Section title="Goals and Next Steps">
-        <SubSection title="Short-Term Goals" text={c.goals.shortTerm} editing={editing} onChange={set("goals.shortTerm")} />
-        <SubSection title="Long-Term Goals" text={c.goals.longTerm} editing={editing} onChange={set("goals.longTerm")} />
-        <SubSection title="Next Session Plan" text={c.goals.nextSessionPlan} editing={editing} onChange={set("goals.nextSessionPlan")} />
-      </Section>
-
-      <Section title="Home Programme Suggestions" id="home-programme">
-        {editing ? (
-          // Custom editor with Insert template / Insert activity
-          // pickers above the textarea, so Patrick can drop a
-          // pre-built programme or activity into the field and then
-          // personalise it for the client.
-          <HomeProgrammeEditor
-            value={c.homeProgrammeSuggestions}
-            onChange={(v) => set("homeProgrammeSuggestions")(v)}
-          />
-        ) : (
-          <Prose value={c.homeProgrammeSuggestions} editing={false} />
-        )}
-      </Section>
+      {orderedKeys.map((key, index) => {
+        const title = REPORT_SECTION_TITLES[key];
+        const body = renderSectionBody(key);
+        if (body === null) return null;
+        return (
+          <DraggableSection
+            key={key}
+            sectionKey={key}
+            title={title}
+            // home-programme anchor is used by the "Edit programme"
+            // deep-link from the client page.
+            id={key === "homeProgramme" ? "home-programme" : undefined}
+            draggable={editing}
+            isDragging={dragIndex === index}
+            onDragStart={() => handleDragStart(index)}
+            onDragOver={(e) => handleDragOver(e, index)}
+            onDragEnd={handleDragEnd}
+          >
+            {body}
+          </DraggableSection>
+        );
+      })}
 
       {/* Footer — therapist details + dates. Editable in edit mode. */}
       <div className="mt-8 border-t pt-4 text-sm text-muted-foreground">

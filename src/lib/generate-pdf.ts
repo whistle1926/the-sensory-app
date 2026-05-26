@@ -1,4 +1,61 @@
-import { ReportContent } from "@/types/report";
+import {
+  REPORT_SECTION_TITLES,
+  resolveSectionOrder,
+  type ReportContent,
+  type ReportSectionKey,
+} from "@/types/report";
+
+/**
+ * Render a single body section by key. The section order itself is
+ * resolved by the caller against the user's saved sectionOrder.
+ * Functional Review is suppressed entirely when it has no content
+ * (avoid printing an empty heading on older reports).
+ */
+function sectionHtml(
+  c: ReportContent,
+  key: ReportSectionKey,
+  nl: (s: string) => string,
+): string {
+  const heading = (label: string) => `<h2>${label}</h2>`;
+  switch (key) {
+    case "reasonForReferral":
+      return `${heading(REPORT_SECTION_TITLES.reasonForReferral)}<p>${nl(c.reasonForReferral)}</p>`;
+    case "sessionOverview":
+      return `${heading(REPORT_SECTION_TITLES.sessionOverview)}<p>${nl(c.sessionOverview)}</p>`;
+    case "observations":
+      return `${heading(REPORT_SECTION_TITLES.observations)}
+        <h3>Sensory Responses</h3><p>${nl(c.observations.sensoryResponses)}</p>
+        <h3>Engagement and Participation</h3><p>${nl(c.observations.engagementParticipation)}</p>
+        <h3>Communication and Social Interaction</h3><p>${nl(c.observations.communicationSocial)}</p>
+        <h3>Emotional Regulation and Behaviour</h3><p>${nl(c.observations.emotionalRegulation)}</p>`;
+    case "assessmentFindings":
+      return `${heading(REPORT_SECTION_TITLES.assessmentFindings)}
+        <h3>Sensory Processing</h3><p>${nl(c.assessmentFindings.sensoryProcessing)}</p>
+        <h3>Fine Motor Skills</h3><p>${nl(c.assessmentFindings.fineMotor)}</p>
+        <h3>Gross Motor Skills</h3><p>${nl(c.assessmentFindings.grossMotor)}</p>
+        <h3>Self-Regulation</h3><p>${nl(c.assessmentFindings.selfRegulation)}</p>
+        <h3>Play and Functional Skills</h3><p>${nl(c.assessmentFindings.playFunctional)}</p>`;
+    case "functionalReview":
+      return functionalReviewHtml(c, nl);
+    case "interventionsUsed":
+      return `${heading(REPORT_SECTION_TITLES.interventionsUsed)}<p>${nl(c.interventionsUsed)}</p>`;
+    case "responseToIntervention":
+      return `${heading(REPORT_SECTION_TITLES.responseToIntervention)}<p>${nl(c.responseToIntervention)}</p>`;
+    case "clinicalImpressions":
+      return `${heading(REPORT_SECTION_TITLES.clinicalImpressions)}<p>${nl(c.clinicalImpressions)}</p>`;
+    case "recommendations":
+      return `${heading(REPORT_SECTION_TITLES.recommendations)}<p>${nl(c.recommendations)}</p>`;
+    case "goals":
+      return `${heading(REPORT_SECTION_TITLES.goals)}
+        <h3>Short-Term Goals</h3><p>${nl(c.goals.shortTerm)}</p>
+        <h3>Long-Term Goals</h3><p>${nl(c.goals.longTerm)}</p>
+        <h3>Next Session Plan</h3><p>${nl(c.goals.nextSessionPlan)}</p>`;
+    case "homeProgramme":
+      return `${heading(REPORT_SECTION_TITLES.homeProgramme)}<p>${nl(c.homeProgrammeSuggestions)}</p>`;
+    default:
+      return "";
+  }
+}
 
 /**
  * Render the optional Functional Review section. Subsections with no
@@ -70,46 +127,7 @@ export function generateReportHtml(content: ReportContent): string {
     <tr><td class="label">Parent/Carer Present</td><td>${c.clientInfo.parentCarer}</td></tr>
   </table>
 
-  <h2>Reason for Referral</h2>
-  <p>${nl(c.reasonForReferral)}</p>
-
-  <h2>Session Overview</h2>
-  <p>${nl(c.sessionOverview)}</p>
-
-  <h2>Observations and Behaviours</h2>
-  <h3>Sensory Responses</h3><p>${nl(c.observations.sensoryResponses)}</p>
-  <h3>Engagement and Participation</h3><p>${nl(c.observations.engagementParticipation)}</p>
-  <h3>Communication and Social Interaction</h3><p>${nl(c.observations.communicationSocial)}</p>
-  <h3>Emotional Regulation and Behaviour</h3><p>${nl(c.observations.emotionalRegulation)}</p>
-
-  <h2>Assessment Findings</h2>
-  <h3>Sensory Processing</h3><p>${nl(c.assessmentFindings.sensoryProcessing)}</p>
-  <h3>Fine Motor Skills</h3><p>${nl(c.assessmentFindings.fineMotor)}</p>
-  <h3>Gross Motor Skills</h3><p>${nl(c.assessmentFindings.grossMotor)}</p>
-  <h3>Self-Regulation</h3><p>${nl(c.assessmentFindings.selfRegulation)}</p>
-  <h3>Play and Functional Skills</h3><p>${nl(c.assessmentFindings.playFunctional)}</p>
-
-  ${functionalReviewHtml(c, nl)}
-
-  <h2>Interventions Used</h2>
-  <p>${nl(c.interventionsUsed)}</p>
-
-  <h2>Response to Intervention</h2>
-  <p>${nl(c.responseToIntervention)}</p>
-
-  <h2>Clinical Impressions and Summary</h2>
-  <p>${nl(c.clinicalImpressions)}</p>
-
-  <h2>Recommendations</h2>
-  <p>${nl(c.recommendations)}</p>
-
-  <h2>Goals and Next Steps</h2>
-  <h3>Short-Term Goals</h3><p>${nl(c.goals.shortTerm)}</p>
-  <h3>Long-Term Goals</h3><p>${nl(c.goals.longTerm)}</p>
-  <h3>Next Session Plan</h3><p>${nl(c.goals.nextSessionPlan)}</p>
-
-  <h2>Home Programme Suggestions</h2>
-  <p>${nl(c.homeProgrammeSuggestions)}</p>
+  ${resolveSectionOrder(c.sectionOrder).map((k) => sectionHtml(c, k, nl)).join("\n")}
 
   <div class="footer">
     <p><strong>Report prepared by:</strong> ${c.therapistName}</p>

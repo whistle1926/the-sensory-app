@@ -14,11 +14,75 @@ import {
   Footer,
   PageNumber,
 } from "docx";
-import { ReportContent } from "@/types/report";
+import {
+  REPORT_SECTION_TITLES,
+  resolveSectionOrder,
+  type ReportContent,
+  type ReportSectionKey,
+} from "@/types/report";
 
 const border = { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" };
 const borders = { top: border, bottom: border, left: border, right: border };
 const cellMargins = { top: 80, bottom: 80, left: 120, right: 120 };
+
+/**
+ * Build one body section's paragraphs. The section order itself is
+ * driven by the caller against the user's saved sectionOrder.
+ * Style helpers (heading, subheading, multiLineText) are threaded
+ * in so they pick up the typography defined in the main builder.
+ */
+function sectionParas(
+  c: ReportContent,
+  key: ReportSectionKey,
+  heading: (t: string) => Paragraph,
+  subheading: (t: string) => Paragraph,
+  multiLineText: (t: string) => Paragraph[],
+): Paragraph[] {
+  switch (key) {
+    case "reasonForReferral":
+      return [heading(REPORT_SECTION_TITLES.reasonForReferral), ...multiLineText(c.reasonForReferral)];
+    case "sessionOverview":
+      return [heading(REPORT_SECTION_TITLES.sessionOverview), ...multiLineText(c.sessionOverview)];
+    case "observations":
+      return [
+        heading(REPORT_SECTION_TITLES.observations),
+        subheading("Sensory Responses"), ...multiLineText(c.observations.sensoryResponses),
+        subheading("Engagement and Participation"), ...multiLineText(c.observations.engagementParticipation),
+        subheading("Communication and Social Interaction"), ...multiLineText(c.observations.communicationSocial),
+        subheading("Emotional Regulation and Behaviour"), ...multiLineText(c.observations.emotionalRegulation),
+      ];
+    case "assessmentFindings":
+      return [
+        heading(REPORT_SECTION_TITLES.assessmentFindings),
+        subheading("Sensory Processing"), ...multiLineText(c.assessmentFindings.sensoryProcessing),
+        subheading("Fine Motor Skills"), ...multiLineText(c.assessmentFindings.fineMotor),
+        subheading("Gross Motor Skills"), ...multiLineText(c.assessmentFindings.grossMotor),
+        subheading("Self-Regulation"), ...multiLineText(c.assessmentFindings.selfRegulation),
+        subheading("Play and Functional Skills"), ...multiLineText(c.assessmentFindings.playFunctional),
+      ];
+    case "functionalReview":
+      return functionalReviewParas(c, heading, subheading, multiLineText);
+    case "interventionsUsed":
+      return [heading(REPORT_SECTION_TITLES.interventionsUsed), ...multiLineText(c.interventionsUsed)];
+    case "responseToIntervention":
+      return [heading(REPORT_SECTION_TITLES.responseToIntervention), ...multiLineText(c.responseToIntervention)];
+    case "clinicalImpressions":
+      return [heading(REPORT_SECTION_TITLES.clinicalImpressions), ...multiLineText(c.clinicalImpressions)];
+    case "recommendations":
+      return [heading(REPORT_SECTION_TITLES.recommendations), ...multiLineText(c.recommendations)];
+    case "goals":
+      return [
+        heading(REPORT_SECTION_TITLES.goals),
+        subheading("Short-Term Goals"), ...multiLineText(c.goals.shortTerm),
+        subheading("Long-Term Goals"), ...multiLineText(c.goals.longTerm),
+        subheading("Next Session Plan"), ...multiLineText(c.goals.nextSessionPlan),
+      ];
+    case "homeProgramme":
+      return [heading(REPORT_SECTION_TITLES.homeProgramme), ...multiLineText(c.homeProgrammeSuggestions)];
+    default:
+      return [];
+  }
+}
 
 /**
  * Build the Functional Review section's paragraphs. Empty subsections
@@ -154,61 +218,14 @@ export async function generateDocx(content: ReportContent): Promise<Buffer> {
             ],
           }),
 
-          heading("Reason for Referral"),
-          ...multiLineText(c.reasonForReferral),
-
-          heading("Session Overview"),
-          ...multiLineText(c.sessionOverview),
-
-          heading("Observations and Behaviours"),
-          subheading("Sensory Responses"),
-          ...multiLineText(c.observations.sensoryResponses),
-          subheading("Engagement and Participation"),
-          ...multiLineText(c.observations.engagementParticipation),
-          subheading("Communication and Social Interaction"),
-          ...multiLineText(c.observations.communicationSocial),
-          subheading("Emotional Regulation and Behaviour"),
-          ...multiLineText(c.observations.emotionalRegulation),
-
-          heading("Assessment Findings"),
-          subheading("Sensory Processing"),
-          ...multiLineText(c.assessmentFindings.sensoryProcessing),
-          subheading("Fine Motor Skills"),
-          ...multiLineText(c.assessmentFindings.fineMotor),
-          subheading("Gross Motor Skills"),
-          ...multiLineText(c.assessmentFindings.grossMotor),
-          subheading("Self-Regulation"),
-          ...multiLineText(c.assessmentFindings.selfRegulation),
-          subheading("Play and Functional Skills"),
-          ...multiLineText(c.assessmentFindings.playFunctional),
-
-          // Functional Review — only render subsections that have
-          // content. Whole section is omitted if every entry is empty
-          // (e.g. older reports written before this section existed).
-          ...functionalReviewParas(c, heading, subheading, multiLineText),
-
-          heading("Interventions Used"),
-          ...multiLineText(c.interventionsUsed),
-
-          heading("Response to Intervention"),
-          ...multiLineText(c.responseToIntervention),
-
-          heading("Clinical Impressions and Summary"),
-          ...multiLineText(c.clinicalImpressions),
-
-          heading("Recommendations"),
-          ...multiLineText(c.recommendations),
-
-          heading("Goals and Next Steps"),
-          subheading("Short-Term Goals"),
-          ...multiLineText(c.goals.shortTerm),
-          subheading("Long-Term Goals"),
-          ...multiLineText(c.goals.longTerm),
-          subheading("Next Session Plan"),
-          ...multiLineText(c.goals.nextSessionPlan),
-
-          heading("Home Programme Suggestions"),
-          ...multiLineText(c.homeProgrammeSuggestions),
+          // Body sections — order follows the therapist's saved
+          // sectionOrder (with canonical fallback for older reports
+          // that don't have one). All sections including Reason
+          // for Referral + Session Overview are part of the
+          // reorderable set.
+          ...resolveSectionOrder(c.sectionOrder).flatMap((k) =>
+            sectionParas(c, k, heading, subheading, multiLineText),
+          ),
 
           // Footer info
           new Paragraph({ spacing: { before: 400 }, border: { top: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC", space: 8 } }, children: [] }),
