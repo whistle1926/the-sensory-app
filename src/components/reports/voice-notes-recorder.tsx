@@ -62,13 +62,43 @@ interface SpeechRecognition extends EventTarget {
 }
 type SpeechRecognitionCtor = new () => SpeechRecognition;
 
-function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
-  if (typeof window === "undefined") return null;
+/**
+ * Detect support without retaining a reference to the constructor.
+ *
+ * Some browser extensions (MetaMask et al.) install SES /
+ * "lockdown" which wraps DOM constructors with proxies. Stashing
+ * one of those proxies in React state strips its [[Construct]]
+ * slot, and `new Ctor()` later throws "this DOM object constructor
+ * cannot be called as a function". Solution: only ever construct
+ * via `window.<Name>` at the moment we need it.
+ */
+function isSpeechRecognitionSupported(): boolean {
+  if (typeof window === "undefined") return false;
+  const w = window as unknown as {
+    SpeechRecognition?: unknown;
+    webkitSpeechRecognition?: unknown;
+  };
+  return !!(w.SpeechRecognition || w.webkitSpeechRecognition);
+}
+
+/**
+ * Construct a SpeechRecognition instance. We deliberately read off
+ * `window` again here (rather than from a cached reference) so
+ * SES-wrapped proxies stay functional. `Reflect.construct` is a
+ * second-line defence — some wrappers still break plain `new`.
+ */
+function createSpeechRecognition(): SpeechRecognition {
   const w = window as unknown as {
     SpeechRecognition?: SpeechRecognitionCtor;
     webkitSpeechRecognition?: SpeechRecognitionCtor;
   };
-  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+  const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+  if (!Ctor) throw new Error("SpeechRecognition not supported");
+  try {
+    return new Ctor();
+  } catch {
+    return Reflect.construct(Ctor, []) as SpeechRecognition;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -76,9 +106,11 @@ function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
 /* ------------------------------------------------------------------ */
 
 export function VoiceNotesRecorder({ value, onChange }: Props) {
-  // Resolve constructor once on mount so SSR doesn't poke at `window`.
-  const [Ctor, setCtor] = useState<SpeechRecognitionCtor | null>(null);
-  useEffect(() => setCtor(getSpeechRecognitionCtor()), []);
+  // Boolean only — never stash the constructor itself (see note on
+  // isSpeechRecognitionSupported above). `null` = not yet checked
+  // (during SSR / first paint), so the component renders nothing.
+  const [supported, setSupported] = useState<boolean | null>(null);
+  useEffect(() => setSupported(isSpeechRecognitionSupported()), []);
 
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -104,13 +136,19 @@ export function VoiceNotesRecorder({ value, onChange }: Props) {
   useEffect(() => () => stop(), [stop]);
 
   function start() {
-    if (!Ctor) return;
+    if (!supported) return;
     setError(null);
     setFinalised("");
     setInterim("");
     setElapsed(0);
 
-    const r = new Ctor();
+    let r: SpeechRecognition;
+    try {
+      r = createSpeechRecognition();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't start the mic.");
+      return;
+    }
     r.lang = "en-GB";
     r.continuous = true;
     r.interimResults = true;
@@ -185,19 +223,17 @@ export function VoiceNotesRecorder({ value, onChange }: Props) {
     return `${m}:${s.toString().padStart(2, "0")}`;
   }, [elapsed]);
 
-  // SSR / unsupported browser → render nothing rather than a dead button.
-  if (Ctor === null) {
-    // After mount on an unsupported browser, Ctor is also null —
-    // show a tiny note so the OT knows the feature exists elsewhere.
-    if (typeof window !== "undefined") {
-      return (
-        <p className="text-xs text-muted-foreground">
-          Voice notes aren&apos;t supported in this browser. Try Chrome, Edge,
-          or Safari to use this feature.
-        </p>
-      );
-    }
-    return null;
+  // null = first paint hasn't checked yet → render nothing to avoid
+  // hydration mismatch. false = checked + unsupported → show a hint
+  // so the OT knows the feature exists in other browsers.
+  if (supported === null) return null;
+  if (supported === false) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        Voice notes aren&apos;t supported in this browser. Try Chrome, Edge,
+        or Safari to use this feature.
+      </p>
+    );
   }
 
   return (
