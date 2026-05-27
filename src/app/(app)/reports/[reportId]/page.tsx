@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ArrowLeft, Pencil, Save, X, Loader2 } from "lucide-react";
+import { ArrowLeft, Pencil, Save, Sparkles, X, Loader2 } from "lucide-react";
+import { TidyReviewDialog } from "@/components/reports/tidy-review-dialog";
 import Link from "next/link";
 import { ReportViewer } from "@/components/reports/report-viewer";
 import { ReportActions } from "@/components/reports/report-actions";
@@ -43,6 +44,50 @@ export default function ReportDetailPage() {
   const [draftContent, setDraftContent] = useState<ReportContent | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  /* ───────────── AI tidy state ───────────── */
+  const [tidyOpen, setTidyOpen] = useState(false);
+  const [tidyLoading, setTidyLoading] = useState(false);
+  const [tidyError, setTidyError] = useState<string | null>(null);
+  const [tidyBefore, setTidyBefore] = useState<ReportContent | null>(null);
+  const [tidyAfter, setTidyAfter] = useState<ReportContent | null>(null);
+
+  async function runTidy() {
+    if (!draftContent) return;
+    setTidyOpen(true);
+    setTidyLoading(true);
+    setTidyError(null);
+    setTidyBefore(JSON.parse(JSON.stringify(draftContent)));
+    setTidyAfter(null);
+    try {
+      const res = await fetch(`/api/reports/${reportId}/tidy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: draftContent }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? `Tidy failed (${res.status})`);
+      }
+      const { content } = (await res.json()) as { content: ReportContent };
+      setTidyAfter(content);
+    } catch (e) {
+      setTidyError(e instanceof Error ? e.message : "Tidy failed");
+    } finally {
+      setTidyLoading(false);
+    }
+  }
+
+  function applyTidy() {
+    if (tidyAfter) setDraftContent(tidyAfter);
+    closeTidy();
+  }
+  function closeTidy() {
+    setTidyOpen(false);
+    setTidyAfter(null);
+    setTidyBefore(null);
+    setTidyError(null);
+  }
 
   const isAdmin =
     session?.user?.role === "SUPER_ADMIN" ||
@@ -171,10 +216,28 @@ export default function ReportDetailPage() {
                     variant="outline"
                     size="sm"
                     onClick={cancelEdit}
-                    disabled={saving}
+                    disabled={saving || tidyLoading}
                   >
                     <X className="mr-2 h-4 w-4" />
                     Cancel
+                  </Button>
+                  {/* AI tidy — runs Claude over the current draft
+                      to fix grammar / tone, opens side-by-side review
+                      modal. Apply replaces draftContent; the OT then
+                      hits Save to persist as normal. */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={runTidy}
+                    disabled={saving || tidyLoading}
+                    title="Ask Claude to tidy grammar + tone without changing clinical content"
+                  >
+                    {tidyLoading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-2 h-4 w-4" />
+                    )}
+                    {tidyLoading ? "Tidying…" : "Tidy with AI"}
                   </Button>
                   <Button size="sm" onClick={saveEdit} disabled={saving}>
                     {saving ? (
@@ -215,6 +278,17 @@ export default function ReportDetailPage() {
         content={editing && draftContent ? draftContent : report.content}
         editing={editing}
         onChange={(next) => setDraftContent(next)}
+      />
+
+      {/* AI tidy review — opens when "Tidy with AI" is clicked. */}
+      <TidyReviewDialog
+        open={tidyOpen}
+        loading={tidyLoading}
+        error={tidyError}
+        before={tidyBefore}
+        after={tidyAfter}
+        onApply={applyTidy}
+        onDiscard={closeTidy}
       />
     </div>
   );
