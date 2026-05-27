@@ -5,11 +5,36 @@ const COOKIE_NAME = "private_unlocked";
 const UNLOCK_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 function getPin(): string {
-  return process.env.PRIVATE_PIN || "1968";
+  const pin = process.env.PRIVATE_PIN;
+  if (!pin) {
+    // In production a missing PIN should refuse to unlock at all
+    // (the previous hardcoded "1968" fallback turned this into a
+    // 4-digit brute-force in under a minute). Returning an
+    // unguessable random value here makes verifyPin() always fail
+    // until the env var is set.
+    if (process.env.NODE_ENV === "production") {
+      return `__unset_${Math.random().toString(36).slice(2)}_${Date.now()}__`;
+    }
+    return "1968";
+  }
+  return pin;
 }
 
 function getSecret(): string {
-  return process.env.AUTH_SECRET || "dev-secret-do-not-use-in-prod";
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) {
+    // Same reasoning as getPin — a hardcoded fallback would let
+    // anyone forge the unlock cookie. Throwing at use time (not
+    // module load) keeps tests / build steps that don't touch
+    // private-pin unaffected.
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "AUTH_SECRET must be set in production for private-pin signing",
+      );
+    }
+    return "dev-secret-do-not-use-in-prod";
+  }
+  return secret;
 }
 
 function sign(value: string): string {

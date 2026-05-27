@@ -5,12 +5,16 @@ import { prisma } from "@/lib/prisma";
 
 const MAX_BYTES = 20 * 1024 * 1024; // 20 MB — comfortable for PDFs and phone photos
 
-// Prefixes we allow. `text/html` and `application/javascript` etc. never land.
+// Prefixes we allow on anonymous public form uploads. Tight on
+// purpose: any document format that supports macros (Word .doc,
+// Excel .xls) is a classic phishing payload — we don't want a public
+// upload turning the blob bucket into a malware host. PDFs are
+// readable but inert; legacy Office formats are excluded; modern
+// Office (.docx / .xlsx) is left out too to keep the surface small
+// (parents on phones submit photos / PDFs in practice, not Word).
 const ALLOWED_PREFIXES = [
   "image/",
   "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument",
   "text/plain",
   "video/",
 ];

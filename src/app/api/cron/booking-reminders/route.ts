@@ -21,6 +21,7 @@
  * will pick the booking up again.
  */
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendTransactionalEmail } from "@/lib/email";
 import {
@@ -45,7 +46,14 @@ interface BookingForReminder {
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization") ?? "";
   const expected = `Bearer ${process.env.CRON_SECRET ?? ""}`;
-  if (!process.env.CRON_SECRET || authHeader !== expected) {
+  // Timing-safe compare so we don't leak partial-match info to anyone
+  // brute-forcing the cron token. Length mismatch short-circuits.
+  if (!process.env.CRON_SECRET) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const a = Buffer.from(authHeader);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

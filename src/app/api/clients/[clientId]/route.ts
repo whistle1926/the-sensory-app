@@ -35,6 +35,20 @@ export async function PATCH(
   if (session.user.role === "CLIENT") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { clientId } = await params;
+
+  // Cross-tenant guard — without this any TEAM_MANAGER could
+  // mutate any other manager's client (including reassigning the
+  // parent email, which then creates / links a CLIENT account and
+  // grants that parent portal access). Load first, check, then update.
+  const existing = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { managerId: true, parentId: true },
+  });
+  if (!existing) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+  if (!canAccessClient(session.user.role, session.user.id, existing)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const body = await req.json();
   const parsed = clientSchema.partial().safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { FireBuddy } from "@/lib/firebuddy";
 import { ensureParentAccount } from "@/lib/parent-account";
@@ -163,7 +164,17 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  // Admin-only: list all bookings (for future calendar management)
+  // Staff-only: list all bookings (for future calendar management).
+  // Previously this had a doc comment saying "Admin-only" but no
+  // auth check — and since /api/* is excluded from the global
+  // middleware, anyone hitting the URL got client names, emails,
+  // phone numbers and notes for every booking. Now gated.
+  const session = await auth();
+  if (!session?.user)
+    return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  if (session.user.role === "CLIENT")
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
   const bookings = await prisma.booking.findMany({
     orderBy: { date: "asc" },
     where: { status: { not: "cancelled" } },

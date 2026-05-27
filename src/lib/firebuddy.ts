@@ -157,7 +157,18 @@ export class FireBuddy {
     const expected = Array.from(new Uint8Array(sig))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
-    if (signature !== expected) throw new Error("Invalid webhook signature");
+    // Timing-safe compare — `===` on the hex strings leaks a few bits
+    // per request and is exactly the side-channel HMAC verification is
+    // meant to defeat. Length check first so the constant-time loop
+    // doesn't reveal which buffer is longer.
+    if (signature.length !== expected.length) {
+      throw new Error("Invalid webhook signature");
+    }
+    let diff = 0;
+    for (let i = 0; i < signature.length; i++) {
+      diff |= signature.charCodeAt(i) ^ expected.charCodeAt(i);
+    }
+    if (diff !== 0) throw new Error("Invalid webhook signature");
     return JSON.parse(rawBody) as FireBuddyEvent;
   }
 }

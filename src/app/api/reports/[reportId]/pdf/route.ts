@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { canAccessClient } from "@/lib/auth-guard";
 import { generateReportHtml } from "@/lib/generate-pdf";
 import { ReportContent } from "@/types/report";
 
@@ -18,6 +19,12 @@ export async function GET(
   });
 
   if (!report) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // Cross-tenant guard — without this, any logged-in user could
+  // download any other client's report PDF by changing the id.
+  if (!canAccessClient(session.user.role, session.user.id, report.client)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const content = report.content as unknown as ReportContent;
   const html = generateReportHtml(content);

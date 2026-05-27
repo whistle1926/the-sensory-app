@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { canAccessClient } from "@/lib/auth-guard";
 import { updateReportSchema } from "@/lib/validators";
 
 export async function GET(
@@ -18,6 +19,13 @@ export async function GET(
 
   if (!report) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // Cross-tenant guard — without this, any logged-in CLIENT or
+  // TEAM_MANAGER could fetch *any* report by changing the id in the
+  // URL. canAccessClient walks the client's managerId / parentId.
+  if (!canAccessClient(session.user.role, session.user.id, report.client)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   return NextResponse.json(report);
 }
 
@@ -33,6 +41,18 @@ export async function PATCH(
   const body = await req.json();
   const parsed = updateReportSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+
+  // Cross-tenant guard before mutating — load the existing report's
+  // client and confirm the requester is allowed to touch it. Without
+  // this a TEAM_MANAGER could overwrite any other manager's report.
+  const existing = await prisma.report.findUnique({
+    where: { id: reportId },
+    include: { client: true },
+  });
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!canAccessClient(session.user.role, session.user.id, existing.client)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const updateData: Record<string, unknown> = {};
   if (parsed.data.content) updateData.content = parsed.data.content;
@@ -66,10 +86,14 @@ export async function DELETE(
   const { reportId } = await params;
   const report = await prisma.report.findUnique({
     where: { id: reportId },
-    select: { sessionId: true },
+    select: { sessionId: true, client: true },
   });
   if (!report)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // Cross-tenant guard on destructive action.
+  if (!canAccessClient(session.user.role, session.user.id, report.client)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   // Order matters — TherapySession is referenced by Report.sessionId,
   // and the relation defaults to RESTRICT. Delete the report first,
