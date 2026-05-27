@@ -19,19 +19,43 @@ function isStaff(role: string | undefined): boolean {
 
 /** Google Calendar secret URLs look like:
  *    https://calendar.google.com/calendar/ical/<id>/private-<token>/basic.ics
- *  We accept that exact prefix to make it harder to paste the wrong
- *  thing (e.g. the calendar.google.com web URL). */
-function isValidGoogleIcsUrl(url: string): boolean {
+ *
+ * We specifically reject the "/public/basic.ics" variant — that's
+ * the public-share URL Google shows right above the secret one in
+ * the Integrate Calendar panel, and it only works if the calendar
+ * is actually published publicly. Most personal calendars aren't,
+ * so accepting it would lead to silent 404s on every refresh (which
+ * is exactly what Patrick hit on his first connect attempt).
+ */
+function isValidGoogleIcsUrl(url: string): { ok: true } | { ok: false; reason: string } {
+  let u: URL;
   try {
-    const u = new URL(url);
-    if (u.protocol !== "https:") return false;
-    if (u.hostname !== "calendar.google.com") return false;
-    if (!u.pathname.startsWith("/calendar/ical/")) return false;
-    if (!u.pathname.endsWith(".ics")) return false;
-    return true;
+    u = new URL(url);
   } catch {
-    return false;
+    return { ok: false, reason: "Not a valid URL." };
   }
+  if (u.protocol !== "https:") return { ok: false, reason: "Must be https." };
+  if (u.hostname !== "calendar.google.com")
+    return { ok: false, reason: "Must be a calendar.google.com URL." };
+  if (!u.pathname.startsWith("/calendar/ical/"))
+    return { ok: false, reason: "Must be a /calendar/ical/ path." };
+  if (!u.pathname.endsWith(".ics"))
+    return { ok: false, reason: "Must end in .ics." };
+  if (u.pathname.includes("/public/")) {
+    return {
+      ok: false,
+      reason:
+        "That's the PUBLIC iCal URL — only works for publicly shared calendars. You need the SECRET URL further down the same Google page (look for 'Secret address in iCal format' with the red warning). It contains 'private-…' in the path.",
+    };
+  }
+  if (!/\/private-[A-Za-z0-9_-]+\//.test(u.pathname)) {
+    return {
+      ok: false,
+      reason:
+        "URL must contain a /private-…/ segment. Copy the 'Secret address in iCal format' from Google Calendar (not 'Public address').",
+    };
+  }
+  return { ok: true };
 }
 
 export async function GET() {
@@ -66,14 +90,9 @@ export async function PATCH(req: NextRequest) {
     if (body.icsUrl === null || body.icsUrl === "") {
       data.calendarIcsUrl = null;
     } else if (typeof body.icsUrl === "string") {
-      if (!isValidGoogleIcsUrl(body.icsUrl)) {
-        return NextResponse.json(
-          {
-            error:
-              "That doesn't look like a Google Calendar secret iCal URL. It should start with https://calendar.google.com/calendar/ical/ and end with .ics — find it in Google Calendar → Settings → your calendar → 'Secret address in iCal format'.",
-          },
-          { status: 400 },
-        );
+      const check = isValidGoogleIcsUrl(body.icsUrl);
+      if (!check.ok) {
+        return NextResponse.json({ error: check.reason }, { status: 400 });
       }
       data.calendarIcsUrl = body.icsUrl;
     }
