@@ -25,6 +25,7 @@ import {
   PaintBucket,
 } from "lucide-react";
 import { Toolbar } from "@/components/ds";
+import { CalendarSettingsSection } from "@/components/settings/calendar-settings-section";
 import { ClientStagesSection } from "@/components/settings/client-stages-section";
 import { DashTemplatesSection } from "@/components/settings/dash-templates-section";
 import { TaxSettingsSection } from "@/components/settings/tax-settings-section";
@@ -68,6 +69,7 @@ interface PaymentConfig {
 
 const tabs = [
   { key: "profile", label: "Profile", icon: User, adminOnly: false },
+  { key: "calendar", label: "Calendar", icon: CalendarDays, adminOnly: false },
   { key: "stages", label: "Client Stages", icon: Milestone, adminOnly: true },
   { key: "templates", label: "Templates", icon: LayoutDashboard, adminOnly: true },
   { key: "email", label: "Email", icon: Mail, adminOnly: true },
@@ -332,6 +334,10 @@ export default function SettingsPage() {
             </a>
           </div>
         </div>
+      </div>
+
+      <div style={{ display: activeTab === "calendar" ? "block" : "none" }}>
+        <CalendarSettingsSection />
       </div>
 
       {isAdmin && (

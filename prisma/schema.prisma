@@ -72,6 +72,16 @@ model User {
   notes           Note[]         @relation("UserNotes")
   liveRoomsHosted LiveRoom[]     @relation("LiveRoomsHosted")
   auditEntries    AuditLog[]     @relation("AuditEntries")
+
+  // ── Calendar integration (per-user) ──────────────────────────────
+  // Each staff member can paste their Google Calendar's "Secret
+  // address in iCal format" URL so their events appear on the team
+  // calendar view. Read-only — Patrick decided ICS was the right
+  // MVP over full OAuth (zero Google Cloud setup, ~15-min freshness
+  // is fine for ops planning). Colour is a hex string for the chip
+  // shown next to each person's events on the agenda.
+  calendarIcsUrl  String?
+  calendarColour  String? // e.g. "#3b82f6" — defaults applied at render
 }
 
 model PasswordSetupToken {
