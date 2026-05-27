@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { VoiceNotesRecorder } from "@/components/reports/voice-notes-recorder";
 import { cn } from "@/lib/utils";
 import type { TaskPriority } from "@/lib/tasks";
 
@@ -145,14 +146,17 @@ export function NewTaskDialog({ open, onOpenChange, onCreated }: Props) {
             />
           </div>
 
-          <div>
+          <div className="space-y-2">
             <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               Description <span className="text-muted-foreground/60">(optional)</span>
             </label>
+            {/* Same recorder used on session notes + progress notes —
+                handy for dictating context that's faster spoken than typed. */}
+            <VoiceNotesRecorder value={description} onChange={setDescription} />
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Add any details or context…"
+              placeholder="Add any details or context, or use the recorder above to dictate…"
               rows={3}
               className="w-full resize-y rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
             />
