@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { recordAudit } from "@/lib/audit";
 
 export async function GET(
   _req: NextRequest,
@@ -135,11 +136,30 @@ export async function PATCH(
     include: { items: true, client: true },
   });
 
+  // Status transitions are worth recording — cancel is the main one
+  // (it's the soft-delete on a sent invoice and underpins the
+  // accountant's view). Paid transitions come from the FireBuddy
+  // webhook and are recorded there.
+  if (data.status === "cancelled" && existing.status !== "cancelled") {
+    await recordAudit({
+      actorId: session.user.id,
+      actorLabel: `${session.user.name ?? "?"} <${session.user.email ?? "?"}>`,
+      action: "invoice.cancel",
+      targetType: "invoice",
+      targetId: invoiceId,
+      meta: {
+        invoiceNumber: existing.invoiceNumber,
+        previousStatus: existing.status,
+      },
+      req,
+    });
+  }
+
   return NextResponse.json(invoice);
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ invoiceId: string }> }
 ) {
   const session = await auth();
@@ -158,6 +178,22 @@ export async function DELETE(
   }
 
   await prisma.invoice.delete({ where: { id: invoiceId } });
+
+  await recordAudit({
+    actorId: session.user.id,
+    actorLabel: `${session.user.name ?? "?"} <${session.user.email ?? "?"}>`,
+    action: "invoice.delete",
+    targetType: "invoice",
+    targetId: invoiceId,
+    meta: {
+      invoiceNumber: existing.invoiceNumber,
+      total: existing.total,
+      currency: existing.currency,
+      clientId: existing.clientId,
+      previousStatus: existing.status,
+    },
+    req,
+  });
 
   return NextResponse.json({ success: true });
 }

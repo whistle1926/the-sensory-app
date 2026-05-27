@@ -1,15 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   CalendarPlus,
+  Loader2,
   Mail,
   Plus,
   Search,
+  Trash2,
   UserPlus,
   Users,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -43,11 +47,37 @@ interface Client {
  * doesn't scale past 4-5 options).
  */
 export default function ClientsPage() {
+  const { data: session } = useSession();
+  const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
   const [clients, setClients] = useState<Client[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("all");
+
+  // GDPR erasure inline-confirm state — only the SUPER_ADMIN ever
+  // sees the trash icon, so state never matters for non-admins.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function deleteClient(id: string) {
+    setDeleteError(null);
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/clients/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? `Delete failed (${res.status})`);
+      }
+      setClients((prev) => prev.filter((c) => c.id !== id));
+      setConfirmDeleteId(null);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   useEffect(() => {
     Promise.all([
@@ -356,55 +386,149 @@ export default function ClientsPage() {
                         <th>DOB</th>
                         <th>Parent / Carer</th>
                         <th>Stage</th>
+                        {isSuperAdmin && <th aria-label="Erase" />}
                       </tr>
                     </thead>
                     <tbody>
-                      {filtered.map((c) => (
-                        <tr
-                          key={c.id}
-                          onClick={(e) => {
-                            // Ignore clicks on the stage dropdown
-                            if ((e.target as HTMLElement).closest("select")) return;
-                            window.location.href = `/clients/${c.id}`;
-                          }}
-                        >
-                          <td style={{ fontWeight: 600 }}>
-                            {c.firstName} {c.lastName}
-                          </td>
-                          <td style={{ color: "var(--muted-foreground)" }}>
-                            {c.diagnosis || "—"}
-                          </td>
-                          <td
-                            className="ds-tabular"
-                            style={{
-                              color: "var(--muted-foreground)",
-                              whiteSpace: "nowrap",
+                      {filtered.map((c) => {
+                        const isConfirming = confirmDeleteId === c.id;
+                        const isDeleting = deletingId === c.id;
+
+                        if (isConfirming) {
+                          // GDPR-erasure inline confirm — spans the
+                          // whole row so the language can be unambiguous.
+                          return (
+                            <tr
+                              key={c.id}
+                              style={{ background: "rgba(239,68,68,0.04)" }}
+                            >
+                              <td colSpan={isSuperAdmin ? 6 : 5}>
+                                <div className="flex flex-wrap items-center justify-between gap-3 px-1 py-1">
+                                  <span className="text-sm">
+                                    Permanently erase{" "}
+                                    <strong>
+                                      {c.firstName} {c.lastName}
+                                    </strong>
+                                    ? All sessions, reports, notes, goals and
+                                    intake items will be deleted. Invoices stay
+                                    on the books (unlinked) for accounting.
+                                    This action is recorded in the audit log
+                                    and cannot be undone.
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    {deleteError && (
+                                      <span className="text-xs text-red-600">
+                                        {deleteError}
+                                      </span>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setConfirmDeleteId(null);
+                                        setDeleteError(null);
+                                      }}
+                                      disabled={isDeleting}
+                                      className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium hover:bg-muted/50 disabled:opacity-50"
+                                    >
+                                      <X className="h-3 w-3" />
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteClient(c.id);
+                                      }}
+                                      disabled={isDeleting}
+                                      className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-60"
+                                    >
+                                      {isDeleting ? (
+                                        <>
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                          Erasing…
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Trash2 className="h-3 w-3" />
+                                          Confirm erasure
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        return (
+                          <tr
+                            key={c.id}
+                            onClick={(e) => {
+                              // Ignore clicks on the stage dropdown
+                              if ((e.target as HTMLElement).closest("select")) return;
+                              // Or on the trash icon
+                              if ((e.target as HTMLElement).closest("[data-row-action]")) return;
+                              window.location.href = `/clients/${c.id}`;
                             }}
                           >
-                            {new Date(c.dateOfBirth).toLocaleDateString("en-GB")}
-                          </td>
-                          <td style={{ color: "var(--muted-foreground)" }}>
-                            {c.parentCarerName || "—"}
-                          </td>
-                          <td>
-                            <select
-                              value={c.stageId ?? ""}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) =>
-                                moveClient(c.id, e.target.value || null)
-                              }
-                              className="rounded-lg border border-border bg-background px-2 py-1 text-xs outline-none transition-colors focus:border-primary/50"
+                            <td style={{ fontWeight: 600 }}>
+                              {c.firstName} {c.lastName}
+                            </td>
+                            <td style={{ color: "var(--muted-foreground)" }}>
+                              {c.diagnosis || "—"}
+                            </td>
+                            <td
+                              className="ds-tabular"
+                              style={{
+                                color: "var(--muted-foreground)",
+                                whiteSpace: "nowrap",
+                              }}
                             >
-                              <option value="">Uncategorised</option>
-                              {sortedStages.map((s) => (
-                                <option key={s.id} value={s.id}>
-                                  {s.label}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                        </tr>
-                      ))}
+                              {new Date(c.dateOfBirth).toLocaleDateString("en-GB")}
+                            </td>
+                            <td style={{ color: "var(--muted-foreground)" }}>
+                              {c.parentCarerName || "—"}
+                            </td>
+                            <td>
+                              <select
+                                value={c.stageId ?? ""}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) =>
+                                  moveClient(c.id, e.target.value || null)
+                                }
+                                className="rounded-lg border border-border bg-background px-2 py-1 text-xs outline-none transition-colors focus:border-primary/50"
+                              >
+                                <option value="">Uncategorised</option>
+                                {sortedStages.map((s) => (
+                                  <option key={s.id} value={s.id}>
+                                    {s.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            {isSuperAdmin && (
+                              <td style={{ textAlign: "right" }}>
+                                <button
+                                  type="button"
+                                  data-row-action
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setConfirmDeleteId(c.id);
+                                    setDeleteError(null);
+                                  }}
+                                  title="Erase client (GDPR)"
+                                  aria-label="Erase client"
+                                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateReportSchema } from "@/lib/validators";
 import { generateReport } from "@/lib/claude";
+import { rateLimitOrReject } from "@/lib/rate-limit";
 import { format } from "date-fns";
 
 // The Anthropic call now reliably takes 25-35s after the prompt
@@ -17,6 +18,16 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   if (session.user.role === "CLIENT") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  // Rate limit — Claude calls are slow (25-35s) and metered. A
+  // compromised staff cookie shouldn't be able to rack up large
+  // bills or DoS legitimate report generation. Five per five minutes
+  // per user keeps legitimate flow unimpeded but caps abuse hard.
+  const blocked = rateLimitOrReject("report.generate", session.user.id, {
+    max: 5,
+    windowMs: 5 * 60_000,
+  });
+  if (blocked) return blocked;
 
   const body = await req.json();
   const parsed = generateReportSchema.safeParse(body);

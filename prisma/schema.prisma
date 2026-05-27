@@ -71,6 +71,7 @@ model User {
   leafletsCreated Leaflet[]      @relation("LeafletsCreated")
   notes           Note[]         @relation("UserNotes")
   liveRoomsHosted LiveRoom[]     @relation("LiveRoomsHosted")
+  auditEntries    AuditLog[]     @relation("AuditEntries")
 }
 
 model PasswordSetupToken {
@@ -763,6 +764,41 @@ model ClientGoal {
   updatedAt   DateTime  @updatedAt
 
   @@index([clientId])
+}
+
+// ─── Audit log ──────────────────────────────────────────────────────
+//
+// Append-only record of sensitive admin actions. Underpins the
+// incident-response runbook (docs/incident-response.md):
+// "Why it took as long as it did to detect / contain" needs a clear
+// timeline that doesn't depend on memory. Writes are best-effort and
+// must NEVER block the originating action from completing.
+//
+// Actor is nullable because we want to keep entries even after a
+// User row is deleted (SetNull) — the action still happened.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation("AuditEntries", fields: [actorId], references: [id], onDelete: SetNull)
+  /// Snapshot of actor identity at the moment of the action, so the
+  /// record reads correctly even if the User row is later renamed or
+  /// deleted. e.g. "Grace Magennis <patrick@thesensorysubmarine.com>".
+  actorLabel String
+  action     String                // "invoice.send" | "report.delete" | "client.delete" | "impersonate.start" | …
+  targetType String                // "invoice" | "report" | "client" | "user" | …
+  targetId   String?               // FK-less string — survives target deletion
+  /// Free-form JSON payload — descriptive metadata only, never
+  /// secrets/tokens/passwords. Examples: { invoiceNumber, total } for
+  /// an invoice send; { clientName, recordCounts } for a client delete.
+  meta       Json     @default("{}")
+  ip         String?               // request IP (best effort, may be proxy)
+  userAgent  String?               // truncated
+  createdAt  DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
 
 // ─── Services (billing catalogue) ───────────────────────────────────

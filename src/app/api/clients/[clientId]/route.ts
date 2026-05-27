@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccessClient } from "@/lib/auth-guard";
+import { recordAudit } from "@/lib/audit";
 import { clientSchema } from "@/lib/validators";
 import { ensureParentAccount } from "@/lib/parent-account";
 
@@ -91,4 +92,105 @@ export async function PATCH(
   });
 
   return NextResponse.json({ ...client, parentAccountCreated });
+}
+
+/**
+ * GDPR Article 17 (right to erasure) — hard delete of a client and
+ * everything tied to that child. SUPER_ADMIN only because it's
+ * destructive AND because under GDPR the decision to erase is the
+ * controller's responsibility, not a managing therapist's.
+ *
+ * What gets removed (all in a transaction):
+ *   - TherapySession rows (RESTRICTed by Report → delete reports first)
+ *   - Report rows
+ *   - ProgressNote / ClientGoal / ClientIntakeItem (cascade via FK)
+ *
+ * What stays (deliberately):
+ *   - Invoice rows — SetNull on clientId. Accounting / tax records
+ *     keep their clientName snapshot; the link to the deleted child
+ *     is severed. Required for HMRC retention, not personal-data
+ *     identifying the child.
+ *   - FormInvite rows — SetNull. Submission audit survives without
+ *     the client linkage.
+ *   - Parent User account — only this child's link goes away. If
+ *     the parent has other children in care they keep portal access.
+ *
+ * Every deletion is recorded in audit_logs so a regulator can see
+ * who erased what when.
+ */
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ clientId: string }> },
+) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  if (session.user.role !== "SUPER_ADMIN") {
+    return NextResponse.json(
+      { error: "Only the practice owner can erase a client record." },
+      { status: 403 },
+    );
+  }
+
+  const { clientId } = await params;
+
+  // Load with counts so the audit row records the scale of the
+  // erasure. Done before the transaction so we don't burden the
+  // critical section with extra queries.
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      _count: {
+        select: {
+          sessions: true,
+          reports: true,
+          progressNotes: true,
+          goals: true,
+          intakeItems: true,
+          invoices: true,
+          formInvites: true,
+        },
+      },
+    },
+  });
+  if (!client) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Order matters: Report references TherapySession (RESTRICT),
+      // so reports must go before sessions. ProgressNote, ClientGoal,
+      // ClientIntakeItem cascade automatically. Invoice + FormInvite
+      // SetNull.
+      await tx.report.deleteMany({ where: { clientId } });
+      await tx.therapySession.deleteMany({ where: { clientId } });
+      await tx.client.delete({ where: { id: clientId } });
+    });
+  } catch (err) {
+    console.error("[clients/DELETE] erasure failed:", err);
+    return NextResponse.json(
+      {
+        error:
+          "Erasure failed — likely a record we don't yet cascade. Contact support.",
+      },
+      { status: 500 },
+    );
+  }
+
+  await recordAudit({
+    actorId: session.user.id,
+    actorLabel: `${session.user.name ?? "?"} <${session.user.email ?? "?"}>`,
+    action: "client.delete",
+    targetType: "client",
+    targetId: clientId,
+    meta: {
+      clientName: `${client.firstName} ${client.lastName}`,
+      recordCounts: client._count,
+      reason: "gdpr_erasure",
+    },
+    req,
+  });
+
+  return NextResponse.json({ ok: true });
 }

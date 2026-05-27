@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccessClient } from "@/lib/auth-guard";
+import { recordAudit } from "@/lib/audit";
 import { updateReportSchema } from "@/lib/validators";
 
 export async function GET(
@@ -74,7 +75,7 @@ export async function PATCH(
  * clean up test runs.
  */
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ reportId: string }> },
 ) {
   const session = await auth();
@@ -86,7 +87,7 @@ export async function DELETE(
   const { reportId } = await params;
   const report = await prisma.report.findUnique({
     where: { id: reportId },
-    select: { sessionId: true, client: true },
+    select: { sessionId: true, client: true, reportDate: true },
   });
   if (!report)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -99,6 +100,19 @@ export async function DELETE(
   // and the relation defaults to RESTRICT. Delete the report first,
   // then the session it pointed at.
   await prisma.report.delete({ where: { id: reportId } });
+  await recordAudit({
+    actorId: session.user.id,
+    actorLabel: `${session.user.name ?? "?"} <${session.user.email ?? "?"}>`,
+    action: "report.delete",
+    targetType: "report",
+    targetId: reportId,
+    meta: {
+      clientId: report.client.id,
+      clientName: `${report.client.firstName} ${report.client.lastName}`,
+      reportDate: report.reportDate.toISOString(),
+    },
+    req,
+  });
   await prisma.therapySession
     .delete({ where: { id: report.sessionId } })
     .catch((err) => {

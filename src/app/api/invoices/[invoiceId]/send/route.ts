@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { recordAudit } from "@/lib/audit";
+import { rateLimitOrReject } from "@/lib/rate-limit";
 import { FireBuddy } from "@/lib/firebuddy";
 import { sendMail } from "@/lib/mailer";
 
@@ -11,6 +13,15 @@ export async function POST(
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   if (session.user.role === "CLIENT") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  // Cap invoice sends per user — a compromised staff cookie shouldn't
+  // be able to spam parents with payment links or rack up Mailcub
+  // sends. 5/minute is well above any plausible legit pace.
+  const blocked = rateLimitOrReject("invoice.send", session.user.id, {
+    max: 5,
+    windowMs: 60_000,
+  });
+  if (blocked) return blocked;
 
   const { invoiceId } = await params;
 
@@ -138,6 +149,22 @@ export async function POST(
       { status: 502 },
     );
   }
+
+  await recordAudit({
+    actorId: session.user.id,
+    actorLabel: `${session.user.name ?? "?"} <${session.user.email ?? "?"}>`,
+    action: "invoice.send",
+    targetType: "invoice",
+    targetId: invoiceId,
+    meta: {
+      invoiceNumber: invoice.invoiceNumber,
+      to: customTo || invoice.clientEmail,
+      cc: cc || undefined,
+      total: invoice.total,
+      currency: invoice.currency,
+    },
+    req,
+  });
 
   return NextResponse.json({
     success: true,

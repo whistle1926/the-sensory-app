@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { auth } from "@/lib/auth";
+import { rateLimitOrReject } from "@/lib/rate-limit";
 import { runFluxSchnell } from "@/lib/replicate";
 import { rehostToBlob } from "@/lib/blob-upload";
 
@@ -55,6 +56,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   if (!isStaff(session.user.role))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  // Same protection as report.generate — Claude + Replicate are both
+  // metered. Five per five minutes per user is plenty for legit use.
+  const blocked = rateLimitOrReject("leaflet.generate", session.user.id, {
+    max: 5,
+    windowMs: 5 * 60_000,
+  });
+  if (blocked) return blocked;
 
   if (!process.env.ANTHROPIC_API_KEY)
     return NextResponse.json(
