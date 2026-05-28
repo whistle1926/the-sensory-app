@@ -72,8 +72,12 @@ export function ReportSummaryDialog({
   // Load the user's saved signatures + note presets once the dialog
   // opens. We do this on open (not on mount) so the pickers reflect
   // any edits the user made in Settings while the page was open.
+  // Also clear any leftover "Sent" state from the previous session
+  // so re-opening the dialog isn't pre-stuck on the success screen.
   useEffect(() => {
     if (!open) return;
+    setSent(false);
+    setError(null);
     fetch("/api/settings/signatures")
       .then((r) => r.json())
       .then((data: { signatures: Array<{ id: string; label: string; body: string }> }) => {
@@ -153,13 +157,10 @@ export function ReportSummaryDialog({
         const data = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(data.error ?? `Send failed (${res.status})`);
       }
+      // Show a sticky confirmation — Patrick flagged that the
+      // previous auto-close fired before he could see it. The user
+      // dismisses with Done; we reset state when the dialog reopens.
       setSent(true);
-      setTimeout(() => {
-        onOpenChange(false);
-        // Reset for next time the dialog opens
-        setSent(false);
-        setSummary("");
-      }, 1800);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Send failed");
     } finally {
@@ -176,9 +177,54 @@ export function ReportSummaryDialog({
     <Dialog open={open} onOpenChange={(o) => !o && close()}>
       <DialogContent className="!max-w-none !w-[96vw] sm:!w-[88vw] sm:!max-w-none max-h-[92vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create &amp; send summary</DialogTitle>
+          <DialogTitle>
+            {sent ? "Summary sent" : "Create & send summary"}
+          </DialogTitle>
         </DialogHeader>
 
+        {sent ? (
+          // Full-card success screen — visible until the OT clicks
+          // Done. Spells out recipient + cc so there's no doubt the
+          // email went to the right address.
+          <div className="py-10 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-950/40">
+              <CheckCircle2 className="h-9 w-9 text-green-600 dark:text-green-400" />
+            </div>
+            <h3 className="mt-4 text-lg font-semibold">Email sent successfully</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Summary delivered to <strong className="text-foreground">{to}</strong>
+              {cc.trim() && (
+                <>
+                  {" "}with a copy to{" "}
+                  <strong className="text-foreground">{cc}</strong>
+                </>
+              )}
+              .
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Sent from <span className="font-mono">info@mail.thesensorysubmarine.com</span>
+              {" · "}Subject: <em>{subject}</em>
+            </p>
+            <div className="mt-6 flex items-center justify-center gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Done
+              </Button>
+              <Button
+                onClick={() => {
+                  // Reset to compose a second summary (e.g. a parent
+                  // version after sending a clinical one) without
+                  // having to close + reopen the dialog.
+                  setSent(false);
+                  setSummary("");
+                  setPersonalNote("");
+                }}
+              >
+                <Send className="mr-2 h-4 w-4" />
+                Send another
+              </Button>
+            </div>
+          </div>
+        ) : (
         <div className="grid gap-4 lg:grid-cols-[1.1fr_1fr]">
           {/* ── Left: audience + summary editor ── */}
           <div className="space-y-4">
@@ -401,45 +447,37 @@ export function ReportSummaryDialog({
                 {error}
               </div>
             )}
-            {sent && (
-              <div className="rounded-md bg-green-50 p-3 text-sm text-green-700 dark:bg-green-950/30 dark:text-green-400">
-                <CheckCircle2 className="mr-1 inline h-4 w-4" />
-                Sent.
-              </div>
-            )}
           </div>
         </div>
+        )}
 
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={sending || generating}
-          >
-            Close
-          </Button>
-          <Button
-            onClick={send}
-            disabled={sending || generating || !summary.trim() || !to.trim() || sent}
-          >
-            {sending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Sending…
-              </>
-            ) : sent ? (
-              <>
-                <CheckCircle2 className="mr-2 h-4 w-4" />
-                Sent
-              </>
-            ) : (
-              <>
-                <Send className="mr-2 h-4 w-4" />
-                Send summary
-              </>
-            )}
-          </Button>
-        </DialogFooter>
+        {!sent && (
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={sending || generating}
+            >
+              Close
+            </Button>
+            <Button
+              onClick={send}
+              disabled={sending || generating || !summary.trim() || !to.trim()}
+            >
+              {sending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending…
+                </>
+              ) : (
+                <>
+                  <Send className="mr-2 h-4 w-4" />
+                  Send summary
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
