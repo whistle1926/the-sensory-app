@@ -34,12 +34,17 @@ function buildHtml(opts: {
   body: string;
   clientName: string;
 }): string {
+  // Order matters: escape the user-supplied text FIRST so any
+  // literal < or > in their content is encoded, THEN convert real
+  // newlines into <br/>. The previous order escaped our own <br/>
+  // tags after inserting them, which is why Patrick saw "<br/>"
+  // appear as visible text in the email body.
   const paragraphs = opts.body
     .split(/\n{2,}/)
-    .map((p) => p.replace(/\n/g, "<br/>"))
+    .map((p) => escapeHtml(p).replace(/\n/g, "<br/>"))
     .map(
       (p) =>
-        `<p style="margin:0 0 14px;font-size:14px;line-height:1.65;color:#333;">${escapeHtml(p)}</p>`,
+        `<p style="margin:0 0 14px;font-size:14px;line-height:1.65;color:#333;">${p}</p>`,
     )
     .join("");
   return `<!DOCTYPE html>
