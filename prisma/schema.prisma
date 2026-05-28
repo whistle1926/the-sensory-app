@@ -90,6 +90,14 @@ model User {
   // The signature picker on the report-summary dialog lists these by
   // `label`; the chosen `body` is appended to the email when sending.
   emailSignatures Json    @default("[]")
+
+  // ── Personal-note presets ───────────────────────────────────────
+  // Same shape as signatures: Array<{ id, label, body }>. Used to
+  // pre-fill the "Personal note" field on the report-summary dialog
+  // for high-volume admins (up to 100 reports/month). Supports a
+  // single template token, `{{clientName}}`, substituted at apply
+  // time so one preset works across many clients.
+  personalNotePresets Json @default("[]")
 }
 
 model PasswordSetupToken {

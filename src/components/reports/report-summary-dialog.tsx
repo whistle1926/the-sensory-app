@@ -65,12 +65,13 @@ export function ReportSummaryDialog({
   const [personalNote, setPersonalNote] = useState("");
   const [signatures, setSignatures] = useState<Array<{ id: string; label: string; body: string }>>([]);
   const [signatureId, setSignatureId] = useState<string>("");
+  const [notePresets, setNotePresets] = useState<Array<{ id: string; label: string; body: string }>>([]);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
 
-  // Load the user's saved signatures once the dialog opens. We do
-  // this on open (not on mount) so the picker reflects any edits the
-  // user made in Settings while the page was open.
+  // Load the user's saved signatures + note presets once the dialog
+  // opens. We do this on open (not on mount) so the pickers reflect
+  // any edits the user made in Settings while the page was open.
   useEffect(() => {
     if (!open) return;
     fetch("/api/settings/signatures")
@@ -82,7 +83,23 @@ export function ReportSummaryDialog({
         setSignatureId((prev) => prev || list[0]?.id || "");
       })
       .catch(() => setSignatures([]));
+    fetch("/api/settings/note-presets")
+      .then((r) => r.json())
+      .then((data: { presets: Array<{ id: string; label: string; body: string }> }) =>
+        setNotePresets(Array.isArray(data.presets) ? data.presets : []),
+      )
+      .catch(() => setNotePresets([]));
   }, [open]);
+
+  /** Apply a preset to the personal-note field, with {{clientName}}
+   *  substituted for the child's first name. */
+  function applyPreset(id: string) {
+    if (!id) return;
+    const p = notePresets.find((x) => x.id === id);
+    if (!p) return;
+    const firstName = clientName.split(" ")[0] || clientName;
+    setPersonalNote(p.body.replace(/\{\{\s*clientName\s*\}\}/g, firstName));
+  }
 
   async function generate() {
     setError(null);
@@ -248,12 +265,45 @@ export function ReportSummaryDialog({
           {/* ── Right: email fields + preview hint ── */}
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="summary-note">
-                Personal note{" "}
-                <span className="font-normal text-muted-foreground">
-                  (optional, appears above the summary)
-                </span>
-              </Label>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Label htmlFor="summary-note">
+                  Personal note{" "}
+                  <span className="font-normal text-muted-foreground">
+                    (optional, appears above the summary)
+                  </span>
+                </Label>
+                {notePresets.length > 0 ? (
+                  // Quick-apply picker — chooses, substitutes
+                  // {{clientName}}, drops the result into the textarea.
+                  // Resets back to placeholder after applying so a
+                  // second pick re-applies cleanly.
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      applyPreset(e.target.value);
+                      e.target.value = "";
+                    }}
+                    className="h-7 rounded-md border border-input bg-background px-2 text-xs"
+                    disabled={sending}
+                  >
+                    <option value="">Use preset…</option>
+                    {notePresets.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <a
+                    href="/settings?tab=profile"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary underline"
+                  >
+                    Add presets →
+                  </a>
+                )}
+              </div>
               <Textarea
                 id="summary-note"
                 value={personalNote}
