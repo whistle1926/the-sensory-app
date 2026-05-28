@@ -103,7 +103,7 @@ export function TidyReviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onDiscard()}>
-      <DialogContent className="max-h-[92vh] w-[96vw] max-w-none overflow-y-auto sm:w-[96vw]">
+      <DialogContent className="!max-w-none !w-[96vw] sm:!w-[96vw] sm:!max-w-none max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>AI tidy — review changes</DialogTitle>
         </DialogHeader>
