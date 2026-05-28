@@ -82,6 +82,14 @@ model User {
   // shown next to each person's events on the agenda.
   calendarIcsUrl  String?
   calendarColour  String? // e.g. "#3b82f6" — defaults applied at render
+
+  // ── Email signatures (multi) ────────────────────────────────────
+  // Stored inline as JSON rather than a separate table because
+  // signatures are short, per-user, and only ever read with the user.
+  // Shape: Array<{ id: string; label: string; body: string }>.
+  // The signature picker on the report-summary dialog lists these by
+  // `label`; the chosen `body` is appended to the email when sending.
+  emailSignatures Json    @default("[]")
 }
 
 model PasswordSetupToken {

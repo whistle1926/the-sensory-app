@@ -27,6 +27,7 @@ import {
 import { Toolbar } from "@/components/ds";
 import { CalendarSettingsSection } from "@/components/settings/calendar-settings-section";
 import { ClientStagesSection } from "@/components/settings/client-stages-section";
+import { EmailSignaturesSection } from "@/components/settings/email-signatures-section";
 import { DashTemplatesSection } from "@/components/settings/dash-templates-section";
 import { TaxSettingsSection } from "@/components/settings/tax-settings-section";
 import { TrackingSettingsSection } from "@/components/settings/tracking-settings-section";
@@ -267,7 +268,7 @@ export default function SettingsPage() {
       </div>
 
       {/* All panels always mounted, toggled via display:none */}
-      <div style={{ display: activeTab === "profile" ? "block" : "none" }}>
+      <div className="space-y-4" style={{ display: activeTab === "profile" ? "block" : "none" }}>
         <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
           <h2 className="text-base font-semibold">Profile</h2>
           <div className="mt-4 space-y-4 text-sm">
@@ -334,6 +335,8 @@ export default function SettingsPage() {
             </a>
           </div>
         </div>
+
+        <EmailSignaturesSection />
       </div>
 
       <div style={{ display: activeTab === "calendar" ? "block" : "none" }}>

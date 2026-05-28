@@ -94,17 +94,28 @@ export async function POST(
     cc?: string;
     subject?: string;
     body?: string;
+    personalNote?: string;
+    signature?: string;
   };
   const to = (body.to ?? "").trim();
   const cc = (body.cc ?? "").trim();
   const subject = (body.subject ?? "").trim();
-  const text = (body.body ?? "").trim();
+  const summary = (body.body ?? "").trim();
+  const personalNote = (body.personalNote ?? "").trim();
+  const signature = (body.signature ?? "").trim();
   if (!to) return NextResponse.json({ error: "To is required." }, { status: 400 });
   if (!subject) return NextResponse.json({ error: "Subject is required." }, { status: 400 });
-  if (!text) return NextResponse.json({ error: "Summary body is required." }, { status: 400 });
+  if (!summary) return NextResponse.json({ error: "Summary body is required." }, { status: 400 });
+
+  // Assemble the final body in plain text form, blank-line separated.
+  // The HTML builder handles paragraph-level formatting from these
+  // blocks. Order is: greeting → summary → sign-off.
+  const assembled = [personalNote, summary, signature]
+    .filter((s) => s.length > 0)
+    .join("\n\n");
 
   const html = buildHtml({
-    body: text,
+    body: assembled,
     clientName: `${report.client.firstName} ${report.client.lastName}`,
   });
 
@@ -113,7 +124,7 @@ export async function POST(
     cc: cc || undefined,
     subject,
     html,
-    text,
+    text: assembled,
   });
 
   if (!emailSent) {
@@ -139,7 +150,9 @@ export async function POST(
       subject,
       clientId: report.clientId,
       clientName: `${report.client.firstName} ${report.client.lastName}`,
-      length: text.length,
+      length: assembled.length,
+      hasPersonalNote: personalNote.length > 0,
+      hasSignature: signature.length > 0,
     },
     req,
   });

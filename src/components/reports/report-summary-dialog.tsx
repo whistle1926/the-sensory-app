@@ -13,7 +13,7 @@
  * Single dialog handles all of it so the OT never has to context-
  * switch between "generate" and "send" — match the invoice send UX.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CheckCircle2,
   Loader2,
@@ -62,8 +62,27 @@ export function ReportSummaryDialog({
   const [to, setTo] = useState(defaultTo ?? "");
   const [cc, setCc] = useState("");
   const [subject, setSubject] = useState(`Summary — ${clientName} (OT)`);
+  const [personalNote, setPersonalNote] = useState("");
+  const [signatures, setSignatures] = useState<Array<{ id: string; label: string; body: string }>>([]);
+  const [signatureId, setSignatureId] = useState<string>("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+
+  // Load the user's saved signatures once the dialog opens. We do
+  // this on open (not on mount) so the picker reflects any edits the
+  // user made in Settings while the page was open.
+  useEffect(() => {
+    if (!open) return;
+    fetch("/api/settings/signatures")
+      .then((r) => r.json())
+      .then((data: { signatures: Array<{ id: string; label: string; body: string }> }) => {
+        const list = Array.isArray(data.signatures) ? data.signatures : [];
+        setSignatures(list);
+        // Default to the first saved signature if the user hasn't picked one yet.
+        setSignatureId((prev) => prev || list[0]?.id || "");
+      })
+      .catch(() => setSignatures([]));
+  }, [open]);
 
   async function generate() {
     setError(null);
@@ -100,10 +119,18 @@ export function ReportSummaryDialog({
     }
     setSending(true);
     try {
+      const chosenSig = signatures.find((s) => s.id === signatureId);
       const res = await fetch(`/api/reports/${reportId}/email-summary`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to, cc, subject, body: summary }),
+        body: JSON.stringify({
+          to,
+          cc,
+          subject,
+          body: summary,
+          personalNote: personalNote.trim() || undefined,
+          signature: chosenSig?.body || undefined,
+        }),
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
@@ -220,6 +247,57 @@ export function ReportSummaryDialog({
 
           {/* ── Right: email fields + preview hint ── */}
           <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="summary-note">
+                Personal note{" "}
+                <span className="font-normal text-muted-foreground">
+                  (optional, appears above the summary)
+                </span>
+              </Label>
+              <Textarea
+                id="summary-note"
+                value={personalNote}
+                onChange={(e) => setPersonalNote(e.target.value)}
+                rows={3}
+                placeholder="Hi Sarah, hope you're well. Sending across a quick summary of Cara's session today…"
+                className="font-sans text-sm leading-relaxed"
+                disabled={sending}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="summary-sig">Sign off with</Label>
+              {signatures.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No signatures saved yet.{" "}
+                  <a
+                    href="/settings?tab=profile"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline"
+                  >
+                    Add one in Settings → Profile
+                  </a>{" "}
+                  and it will appear here.
+                </p>
+              ) : (
+                <select
+                  id="summary-sig"
+                  value={signatureId}
+                  onChange={(e) => setSignatureId(e.target.value)}
+                  className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  disabled={sending}
+                >
+                  <option value="">No signature</option>
+                  {signatures.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="summary-to">To</Label>
               <Input
