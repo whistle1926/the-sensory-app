@@ -40,6 +40,64 @@ WHAT YOU MAY DO:
 OUTPUT FORMAT:
 Return ONLY the JSON object. No commentary, no markdown code fences, no preamble.`;
 
+/**
+ * Summary prompts — one per audience. Used by the "Create Summary"
+ * dialog on the report page. The summary is shown editable in the
+ * compose modal before sending, so a slightly imperfect draft is
+ * fine — the OT can tweak before clicking Send.
+ */
+const SUMMARY_PROMPTS: Record<"clinical" | "parent", string> = {
+  clinical: `You are a paediatric OT writing a brief professional summary of a session report. The audience is the referring GP / school SENCO / fellow clinician — someone who needs the key findings + next steps without reading the full report.
+
+Constraints:
+- Plain text. No markdown headings, no asterisks, no bullets — just flowing paragraphs.
+- ~180 words, max 250.
+- UK English.
+- Professional clinical tone. Use clinical terms but add a brief parenthetical plain-English gloss when the term is uncommon.
+- Cover, in this order: (1) child's first name + age + reason for referral, (2) the most relevant findings, (3) the top 2-3 recommendations / next steps.
+- Do NOT invent facts. Only summarise what's in the report.
+- Sign off with the therapist's name from the report.
+
+Return ONLY the summary text — no preamble, no commentary.`,
+
+  parent: `You are a paediatric OT writing a warm summary of a session report for the child's parent or carer. The audience already knows their child — they need a digestible recap they can read on their phone.
+
+Constraints:
+- Plain text. No markdown headings, no asterisks, no bullets — just flowing paragraphs.
+- ~180 words, max 250.
+- UK English.
+- Warm, plain English. Avoid jargon. When a clinical term is genuinely needed, briefly explain in everyday words.
+- Use "your child" or the child's first name. Use "you" and "your".
+- Cover, in this order: (1) what we worked on in the session, (2) what we found / saw, (3) what to try at home and what comes next.
+- Do NOT invent facts. Only summarise what's in the report.
+- End with a short warm note inviting them to ask questions.
+
+Return ONLY the summary text — no preamble, no commentary.`,
+};
+
+export async function summariseReport(
+  content: ReportContent,
+  audience: "clinical" | "parent",
+): Promise<string> {
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const message = await anthropic.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 1024,
+    system: SUMMARY_PROMPTS[audience],
+    messages: [
+      {
+        role: "user",
+        content: `Summarise this report. Return plain text only:\n\n${JSON.stringify(content)}`,
+      },
+    ],
+  });
+  const textBlock = message.content.find((b) => b.type === "text");
+  if (!textBlock || textBlock.type !== "text") {
+    throw new Error("No text response from Claude");
+  }
+  return textBlock.text.trim();
+}
+
 export async function tidyReport(content: ReportContent): Promise<ReportContent> {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const message = await anthropic.messages.create({

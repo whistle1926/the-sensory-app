@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ArrowLeft, Pencil, Save, Sparkles, X, Loader2 } from "lucide-react";
+import { ArrowLeft, Pencil, Save, Send, Sparkles, X, Loader2 } from "lucide-react";
 import { TidyReviewDialog } from "@/components/reports/tidy-review-dialog";
+import { ReportSummaryDialog } from "@/components/reports/report-summary-dialog";
 import Link from "next/link";
 import { ReportViewer } from "@/components/reports/report-viewer";
 import { ReportActions } from "@/components/reports/report-actions";
@@ -44,6 +45,9 @@ export default function ReportDetailPage() {
   const [draftContent, setDraftContent] = useState<ReportContent | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  /* ───────────── Summary dialog state ───────────── */
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   /* ───────────── AI tidy state ───────────── */
   const [tidyOpen, setTidyOpen] = useState(false);
@@ -256,6 +260,17 @@ export default function ReportDetailPage() {
                       Edit
                     </Button>
                   )}
+                  {isAdmin && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSummaryOpen(true)}
+                      title="Generate an AI summary of this report and email it to someone"
+                    >
+                      <Send className="mr-2 h-4 w-4" />
+                      Summary
+                    </Button>
+                  )}
                   <ReportActions
                     reportId={report.id}
                     status={report.status}
@@ -289,6 +304,15 @@ export default function ReportDetailPage() {
         after={tidyAfter}
         onApply={applyTidy}
         onDiscard={closeTidy}
+      />
+
+      {/* AI summary + email — opens via the Summary button. */}
+      <ReportSummaryDialog
+        open={summaryOpen}
+        onOpenChange={setSummaryOpen}
+        reportId={report.id}
+        clientName={`${report.client.firstName} ${report.client.lastName}`}
+        defaultTo={report.client.parentCarerEmail ?? ""}
       />
     </div>
   );
