@@ -103,7 +103,7 @@ export function TidyReviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onDiscard()}>
-      <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
+      <DialogContent className="max-h-[92vh] w-[96vw] max-w-none overflow-y-auto sm:w-[96vw]">
         <DialogHeader>
           <DialogTitle>AI tidy — review changes</DialogTitle>
         </DialogHeader>
@@ -145,20 +145,20 @@ export function TidyReviewDialog({
                   <div className="border-b border-border bg-muted/30 px-3 py-1.5 text-xs font-semibold">
                     {d.label}
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-x md:divide-y-0 divide-border">
-                    <div className="p-3">
-                      <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-x sm:divide-y-0 divide-border">
+                    <div className="p-4">
+                      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                         Before
                       </p>
-                      <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed text-foreground/80">
+                      <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground/80">
                         {d.before || "(empty)"}
                       </pre>
                     </div>
-                    <div className="bg-primary/5 p-3">
-                      <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-primary">
+                    <div className="bg-primary/5 p-4">
+                      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-primary">
                         After
                       </p>
-                      <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed text-foreground">
+                      <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
                         {d.after || "(empty)"}
                       </pre>
                     </div>
