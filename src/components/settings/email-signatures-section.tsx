@@ -13,6 +13,7 @@
  * a single round-trip per Save is plenty fast.
  */
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { Loader2, Plus, Save, Signature, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,8 @@ function makeBlank(): Sig {
 const MAX = 6;
 
 export function EmailSignaturesSection() {
+  const { data: session } = useSession();
+  const userName = session?.user?.name ?? "Your name";
   const [list, setList] = useState<Sig[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -63,6 +66,30 @@ export function EmailSignaturesSection() {
   function add() {
     if (list.length >= MAX) return;
     setList((prev) => [...prev, makeBlank()]);
+  }
+
+  /** Seed the list with three ready-to-edit signatures. The user's
+   *  name is dropped in automatically; qualifications + phone are
+   *  left as obvious placeholders the OT can swap in seconds. */
+  function seedDefaults() {
+    setList((prev) => [
+      ...prev,
+      {
+        id: makeBlank().id,
+        label: "Formal · referrer",
+        body: `Kind regards,\n\n${userName}\nBSc (Hons) Occupational Therapy, HCPC Registered\nThe Sensory Submarine\ninfo@thesensorysubmarine.com\nwww.thesensorysubmarine.com`,
+      },
+      {
+        id: makeBlank().id,
+        label: "Warm · parent",
+        body: `Warm regards,\n\n${userName}\nThe Sensory Submarine\nAny questions, just give me a shout.`,
+      },
+      {
+        id: makeBlank().id,
+        label: "Brief",
+        body: `Thanks,\n${userName}\nThe Sensory Submarine`,
+      },
+    ]);
   }
 
   async function save() {
@@ -118,23 +145,36 @@ export function EmailSignaturesSection() {
             summary or invoice email.
           </p>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={add}
-          disabled={list.length >= MAX || saving}
-        >
-          <Plus className="mr-1 h-3.5 w-3.5" />
-          Add signature
-        </Button>
+        <div className="flex items-center gap-2">
+          {list.length === 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={seedDefaults}
+              disabled={saving}
+            >
+              Use starter set
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={add}
+            disabled={list.length >= MAX || saving}
+          >
+            <Plus className="mr-1 h-3.5 w-3.5" />
+            Add signature
+          </Button>
+        </div>
       </div>
 
       {list.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          No signatures yet. Click <strong>Add signature</strong> to start —
-          you might keep a formal one for referrers and a warmer one for
-          parents.
+          No signatures yet. Click <strong>Use starter set</strong> for three
+          ready-to-edit templates (formal, warm, brief) with your name
+          pre-filled — just tweak the qualifications and contact details.
         </div>
       ) : (
         <div className="space-y-4">
