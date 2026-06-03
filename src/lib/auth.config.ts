@@ -93,7 +93,14 @@ export const authConfig: NextAuthConfig = {
       const isLoggedIn = !!auth?.user;
       const role = auth?.user?.role as "SUPER_ADMIN" | "TEAM_MANAGER" | "CLIENT" | undefined;
 
-      const isLoginPage = pathname === "/login" || pathname === "/admin/login";
+      // Pages where an unauthenticated visitor is expected and we
+      // must NOT bounce them to /login. /register is the public
+      // self-serve sign-up flow for parents/carers; the two /login
+      // pages are the existing parent + staff entry points.
+      const isLoginPage =
+        pathname === "/login" ||
+        pathname === "/admin/login" ||
+        pathname === "/register";
       const isApiAuth = pathname.startsWith("/api/auth");
       // Home page is public (marketing landing with course shelf). Signed-in
       // users get a server-side redirect to their actual home — we just need

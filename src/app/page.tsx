@@ -359,6 +359,9 @@ export default async function Home() {
             <Link href="/login" className="hover:text-foreground">
               Sign in
             </Link>
+            <Link href="/register" className="hover:text-foreground">
+              Create account
+            </Link>
           </div>
         </div>
       </footer>

@@ -1,60 +1,84 @@
 "use client";
 
-import { Suspense, useState } from "react";
+/**
+ * Public sign-up page for parents and carers.
+ *
+ *   - Calls /api/auth/register to create a CLIENT-role user.
+ *   - On 201, immediately calls signIn() so the family lands
+ *     straight on /portal without a "now please log in" hop.
+ *   - On 409 (email taken) we suggest the /login page instead.
+ *
+ * Layout mirrors /login so both pages feel the same on mobile.
+ * Marketing reassurance (value prop + trust strip) sits next to the
+ * form on wide screens to lower the "is this safe?" friction.
+ */
+import { useState } from "react";
 import Link from "next/link";
-import { signIn, getSession } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Award, BookOpen, Heart, Sparkles, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-/**
- * Public sign-in page for parents, carers and learners.
- *
- *   - On success, role decides destination: CLIENT → /portal, staff
- *     → /dashboard.
- *   - Banner messages drive off query flags:
- *       ?fromSetup=1   → from the password-setup flow
- *       ?registered=1  → just created an account but auto-signin
- *                        didn't fire (fall-through path from /register)
- *   - Layout mirrors /register so the two pages feel like a pair.
- */
-function LoginInner() {
-  const searchParams = useSearchParams();
-  const fromSetup = searchParams.get("fromSetup") === "1";
-  const justRegistered = searchParams.get("registered") === "1";
+export default function RegisterPage() {
+  const router = useRouter();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
+
+    const form = new FormData(e.currentTarget);
+    const name = String(form.get("name") ?? "").trim();
+    const email = String(form.get("email") ?? "").trim();
+    const password = String(form.get("password") ?? "");
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
     setLoading(true);
-
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
-
     try {
-      const result = await signIn("credentials", {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      if (res.status === 409) {
+        setError(
+          "An account with that email already exists. Try signing in instead.",
+        );
+        return;
+      }
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        setError(
+          data.error ??
+            "We couldn't create your account just now. Please try again in a moment.",
+        );
+        return;
+      }
+
+      // Account created — drop them straight into the portal.
+      const signin = await signIn("credentials", {
         email,
         password,
         redirect: false,
       });
-
-      if (result?.error) {
-        setError("Invalid email or password");
-        setLoading(false);
+      if (signin?.error) {
+        // The account exists but auto-sign-in didn't take — push
+        // them to /login with a friendly nudge.
+        router.push("/login?registered=1");
         return;
       }
-      if (result?.ok) {
-        const session = await getSession();
-        const role = session?.user?.role;
-        window.location.href = role === "CLIENT" ? "/portal" : "/dashboard";
-      }
+      window.location.href = "/portal";
     } catch {
       setError("Something went wrong. Please try again.");
+    } finally {
       setLoading(false);
     }
   }
@@ -80,30 +104,38 @@ function LoginInner() {
               </svg>
             </div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-              Welcome back
+              Create your account
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Sign in to access your courses, bookings and home programmes.
+              Free to set up. Start with a course, book a 1:1, or save a home
+              programme — all from one place.
             </p>
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-            {fromSetup && (
-              <div className="mb-4 rounded-xl bg-green-50 p-3 text-sm font-medium text-green-700 dark:bg-green-950/50 dark:text-green-400">
-                Password set. Sign in to continue.
-              </div>
-            )}
-            {justRegistered && (
-              <div className="mb-4 rounded-xl bg-green-50 p-3 text-sm font-medium text-green-700 dark:bg-green-950/50 dark:text-green-400">
-                Account created. Sign in to continue.
-              </div>
-            )}
             <form onSubmit={handleSubmit} className="space-y-5">
               {error && (
                 <div className="rounded-xl bg-red-50 p-3 text-sm font-medium text-red-600 dark:bg-red-950/50 dark:text-red-400">
                   {error}
                 </div>
               )}
+              <div className="space-y-2">
+                <Label
+                  htmlFor="name"
+                  className="text-sm font-medium text-foreground/80"
+                >
+                  Your name
+                </Label>
+                <Input
+                  id="name"
+                  name="name"
+                  type="text"
+                  required
+                  autoComplete="name"
+                  placeholder="Jane Smith"
+                  className="h-11 rounded-xl"
+                />
+              </div>
               <div className="space-y-2">
                 <Label
                   htmlFor="email"
@@ -133,48 +165,38 @@ function LoginInner() {
                   name="password"
                   type="password"
                   required
-                  autoComplete="current-password"
-                  placeholder="Enter your password"
+                  minLength={8}
+                  autoComplete="new-password"
+                  placeholder="At least 8 characters"
                   className="h-11 rounded-xl"
                 />
+                <p className="text-[11px] text-muted-foreground">
+                  Use a mix of letters, numbers, or a passphrase you can
+                  remember.
+                </p>
               </div>
               <Button
                 type="submit"
                 disabled={loading}
                 className="h-11 w-full rounded-xl bg-primary text-sm font-semibold text-white transition-colors hover:bg-primary/80"
               >
-                {loading ? "Signing in…" : "Sign in"}
+                {loading ? "Creating your account…" : "Create account"}
               </Button>
+
+              <p className="text-center text-[11px] text-muted-foreground">
+                By creating an account you agree to our terms of use and the
+                handling of your data as set out in our privacy notice.
+              </p>
             </form>
           </div>
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
-            New to The Sensory Submarine?{" "}
+            Already have an account?{" "}
             <Link
-              href="/register"
+              href="/login"
               className="font-medium text-primary hover:underline"
             >
-              Create an account
-            </Link>
-          </div>
-
-          <div className="mt-3 text-center text-sm text-muted-foreground">
-            Or{" "}
-            <Link
-              href="/book"
-              className="font-medium text-primary hover:underline"
-            >
-              book your first session
-            </Link>{" "}
-            without signing up.
-          </div>
-
-          <div className="mt-10 text-center">
-            <Link
-              href="/admin/login"
-              className="text-xs text-muted-foreground hover:text-foreground"
-            >
-              Staff login
+              Sign in
             </Link>
           </div>
         </div>
@@ -188,11 +210,11 @@ function LoginInner() {
               The Sensory Submarine
             </div>
             <h2 className="mt-3 text-xl font-bold tracking-tight">
-              Everything for your child in one place
+              One account, three ways to get going
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Your courses, bookings and home programmes are saved across
-              devices. Sign in to pick up exactly where you left off.
+              Built by paediatric OT Grace Magennis. Free to join — start with
+              a small course or a 1:1 session and add more as you go.
             </p>
 
             <ul className="mt-5 space-y-4">
@@ -201,9 +223,9 @@ function LoginInner() {
                   <BookOpen className="h-4 w-4" />
                 </span>
                 <div>
-                  <p className="text-sm font-semibold">Courses</p>
+                  <p className="text-sm font-semibold">Online courses</p>
                   <p className="text-xs text-muted-foreground">
-                    Resume modules, re-watch sessions, download handouts.
+                    Short, practical lessons you can do at your own pace.
                   </p>
                 </div>
               </li>
@@ -212,9 +234,10 @@ function LoginInner() {
                   <Video className="h-4 w-4" />
                 </span>
                 <div>
-                  <p className="text-sm font-semibold">Bookings</p>
+                  <p className="text-sm font-semibold">1:1 sessions</p>
                   <p className="text-xs text-muted-foreground">
-                    See upcoming sessions, manage rescheduling and notes.
+                    Book a video or in-person visit with Grace, see notes in
+                    one tap.
                   </p>
                 </div>
               </li>
@@ -225,7 +248,8 @@ function LoginInner() {
                 <div>
                   <p className="text-sm font-semibold">Home programmes</p>
                   <p className="text-xs text-muted-foreground">
-                    Your personalised plan, kept up to date by Grace.
+                    Personalised at-home routines and activity ideas built
+                    around your child.
                   </p>
                 </div>
               </li>
@@ -242,13 +266,5 @@ function LoginInner() {
         </aside>
       </div>
     </div>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense fallback={null}>
-      <LoginInner />
-    </Suspense>
   );
 }

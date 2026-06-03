@@ -75,16 +75,24 @@ export function StorefrontHeader() {
               </Link>
             );
           })}
-          <div className="ml-2">
+          <div className="ml-2 flex items-center gap-2">
             {signedIn ? (
               <AccountMenu />
             ) : (
-              <Link
-                href="/login"
-                className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-1.5 text-sm font-semibold hover:bg-muted"
-              >
-                Sign in
-              </Link>
+              <>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-1.5 text-sm font-semibold hover:bg-muted"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  href="/register"
+                  className="hidden items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground transition-colors hover:brightness-110 sm:inline-flex"
+                >
+                  Create account
+                </Link>
+              </>
             )}
           </div>
         </nav>
