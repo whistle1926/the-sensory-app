@@ -51,6 +51,13 @@ function buildHtml(opts: {
 <html><head><meta charset="UTF-8"/></head>
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,Helvetica,sans-serif;">
   <div style="max-width:640px;margin:0 auto;padding:24px;">
+    <!-- Brand band: Cara's submarine logo above the title card. -->
+    <div style="text-align:center;padding:0 0 12px;">
+      <img src="https://portal.thesensorysubmarine.com/brand/logo.jpg"
+           alt="The Sensory Submarine"
+           width="120" height="120"
+           style="display:inline-block;width:120px;height:auto;border:0;outline:none;" />
+    </div>
     <div style="background:#1a1a2e;color:#fff;padding:24px 32px;border-radius:12px 12px 0 0;text-align:center;">
       <h1 style="margin:0;font-size:20px;font-weight:700;">The Sensory Submarine</h1>
       <p style="margin:6px 0 0;font-size:12px;opacity:0.7;">Occupational Therapy Services</p>

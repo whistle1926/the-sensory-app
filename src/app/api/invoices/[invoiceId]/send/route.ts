@@ -319,6 +319,14 @@ function buildInvoiceEmail(params: {
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,Helvetica,sans-serif;">
   <div style="max-width:600px;margin:0 auto;padding:24px;">
 
+    <!-- Brand band: Cara's submarine logo above the title card. -->
+    <div style="text-align:center;padding:0 0 12px;">
+      <img src="https://portal.thesensorysubmarine.com/brand/logo.jpg"
+           alt="The Sensory Submarine"
+           width="120" height="120"
+           style="display:inline-block;width:120px;height:auto;border:0;outline:none;" />
+    </div>
+
     <!-- Header -->
     <div style="background:#1a1a2e;color:#fff;padding:24px 32px;border-radius:12px 12px 0 0;text-align:center;">
       <h1 style="margin:0;font-size:22px;font-weight:700;">The Sensory Submarine</h1>

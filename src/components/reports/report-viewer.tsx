@@ -412,6 +412,17 @@ export function ReportViewer({ content, editing = false, onChange }: ReportViewe
   return (
     <div className="report-content mx-auto max-w-4xl rounded-lg bg-card p-8 shadow print:shadow-none">
       <div className="mb-8 text-center">
+        {/* Brand mark above the title — Cara's submarine logo. Capped
+            at 160px wide so it stays a header element rather than
+            dominating the page. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/brand/logo.jpg"
+          alt="The Sensory Submarine"
+          width={160}
+          height={160}
+          className="mx-auto mb-3 h-auto w-40"
+        />
         <h1 className="text-2xl font-bold text-foreground">
           Occupational Therapy Session Report
         </h1>

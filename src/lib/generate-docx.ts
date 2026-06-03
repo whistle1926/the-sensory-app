@@ -3,6 +3,7 @@ import {
   Packer,
   Paragraph,
   TextRun,
+  ImageRun,
   Table,
   TableRow,
   TableCell,
@@ -14,6 +15,8 @@ import {
   Footer,
   PageNumber,
 } from "docx";
+import { promises as fs } from "fs";
+import path from "path";
 import {
   REPORT_SECTION_TITLES,
   resolveSectionOrder,
@@ -162,8 +165,44 @@ function multiLineText(text: string): Paragraph[] {
   return text.split("\n").filter(Boolean).map((line) => bodyText(line.trim()));
 }
 
+/**
+ * Load the brand logo at runtime from the public folder. Cached
+ * across calls so we don't re-read the JPG on every export.
+ * Best-effort: if the file is missing for any reason, fall back to
+ * a logo-less document rather than failing the whole export.
+ */
+let _logoCache: Buffer | null = null;
+async function loadLogoBuffer(): Promise<Buffer | null> {
+  if (_logoCache) return _logoCache;
+  try {
+    const file = path.join(process.cwd(), "public", "brand", "logo.jpg");
+    _logoCache = await fs.readFile(file);
+    return _logoCache;
+  } catch (err) {
+    console.warn("[generate-docx] logo not loadable:", err);
+    return null;
+  }
+}
+
 export async function generateDocx(content: ReportContent): Promise<Buffer> {
   const c = content;
+
+  const logoBuffer = await loadLogoBuffer();
+  // 140pt-wide image, square aspect ratio — matches the viewer
+  // size. Centered above the title.
+  const headerLogoPara = logoBuffer
+    ? new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 200 },
+        children: [
+          new ImageRun({
+            data: logoBuffer,
+            transformation: { width: 140, height: 140 },
+            type: "jpg",
+          }),
+        ],
+      })
+    : null;
 
   const doc = new Document({
     styles: {
@@ -191,6 +230,8 @@ export async function generateDocx(content: ReportContent): Promise<Buffer> {
           }),
         },
         children: [
+          // Brand mark sits above the title when the file loaded.
+          ...(headerLogoPara ? [headerLogoPara] : []),
           new Paragraph({
             alignment: AlignmentType.CENTER,
             spacing: { after: 100 },

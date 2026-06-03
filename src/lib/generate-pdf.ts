@@ -100,6 +100,7 @@ export function generateReportHtml(content: ReportContent): string {
   <title>OT Report - ${c.clientInfo.clientName}</title>
   <style>
     body { font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #333; max-width: 800px; margin: 0 auto; padding: 40px; }
+    .brand-logo { display: block; margin: 0 auto 12px; width: 140px; height: auto; }
     h1 { text-align: center; font-size: 18pt; margin-bottom: 4px; }
     .subtitle { text-align: center; color: #666; margin-bottom: 24px; }
     h2 { font-size: 13pt; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 20px; }
@@ -113,6 +114,7 @@ export function generateReportHtml(content: ReportContent): string {
   </style>
 </head>
 <body>
+  <img src="/brand/logo.jpg" alt="The Sensory Submarine" class="brand-logo" />
   <h1>Occupational Therapy Session Report</h1>
   <p class="subtitle">The Sensory Submarine</p>
 
