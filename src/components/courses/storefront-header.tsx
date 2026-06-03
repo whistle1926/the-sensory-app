@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
  * something hides is if the admin explicitly turns it off.
  */
 interface Visibility {
+  showHomeNav: boolean;
   showCoursesNav: boolean;
   showSignIn: boolean;
   showCreateAccount: boolean;
@@ -36,6 +37,7 @@ export function StorefrontHeader() {
   // sees the Sign-in / Create-account chips anyway (the AccountMenu
   // replaces them), so the flicker only ever affects unauth pages.
   const [vis, setVis] = useState<Visibility>({
+    showHomeNav: true,
     showCoursesNav: true,
     showSignIn: true,
     showCreateAccount: true,
@@ -47,6 +49,7 @@ export function StorefrontHeader() {
       .then((data: Partial<Visibility>) => {
         if (cancelled) return;
         setVis({
+          showHomeNav: data.showHomeNav ?? true,
           showCoursesNav: data.showCoursesNav ?? true,
           showSignIn: data.showSignIn ?? true,
           showCreateAccount: data.showCreateAccount ?? true,
@@ -62,7 +65,7 @@ export function StorefrontHeader() {
   }, []);
 
   const links: { href: string; label: string; match: (p: string) => boolean; show: boolean }[] = [
-    { href: "/", label: "Home", match: (p) => p === "/", show: true },
+    { href: "/", label: "Home", match: (p) => p === "/", show: vis.showHomeNav },
     { href: "/courses", label: "Courses", match: (p) => p.startsWith("/courses"), show: vis.showCoursesNav },
     { href: "/book", label: "Book a session", match: (p) => p.startsWith("/book"), show: true },
   ];

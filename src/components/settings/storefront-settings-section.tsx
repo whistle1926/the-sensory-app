@@ -30,6 +30,7 @@ interface State {
   tagline: string;
   heroTitle: string;
   heroBlurb: string;
+  showHomeNav: boolean;
   showCoursesNav: boolean;
   showSignIn: boolean;
   showCreateAccount: boolean;
@@ -46,6 +47,7 @@ export function StorefrontSettingsSection() {
     tagline: "",
     heroTitle: "",
     heroBlurb: "",
+    showHomeNav: true,
     showCoursesNav: true,
     showSignIn: true,
     showCreateAccount: true,
@@ -65,6 +67,7 @@ export function StorefrontSettingsSection() {
           tagline: data.tagline ?? "",
           heroTitle: data.heroTitle ?? "",
           heroBlurb: data.heroBlurb ?? "",
+          showHomeNav: data.showHomeNav ?? true,
           showCoursesNav: data.showCoursesNav ?? true,
           showSignIn: data.showSignIn ?? true,
           showCreateAccount: data.showCreateAccount ?? true,
@@ -126,9 +129,14 @@ export function StorefrontSettingsSection() {
         <ul className="mt-5 space-y-3">
           {[
             {
+              key: "showHomeNav" as const,
+              label: "Home link",
+              hint: "Header link to the marketing landing. Hide to leave just Book a session in the public nav.",
+            },
+            {
               key: "showCoursesNav" as const,
-              label: "Courses link",
-              hint: "Header + footer link to /courses. The page still exists and works directly.",
+              label: "Courses (link + hero section)",
+              hint: "Hides the Courses nav link AND every courses-related CTA + the featured-courses shelf on the landing page. The /courses page itself stays reachable directly.",
             },
             {
               key: "showSignIn" as const,

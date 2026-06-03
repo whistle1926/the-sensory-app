@@ -1142,9 +1142,15 @@ model StorefrontConfig {
   heroTitle String?  @map("hero_title")
   /// Supporting paragraph under the title.
   heroBlurb String?  @map("hero_blurb") @db.Text
-  /// Show the "Courses" link in the public header + footer.
-  /// Defaults true so existing installs are unchanged; flip off to
-  /// hide the link during course-content rebuilds, etc.
+  /// Show the "Home" link in the public header. Hiding it doesn't
+  /// disable the landing page — it just removes the explicit nav
+  /// link, leaving only Book a session (plus any others kept on).
+  showHomeNav        Boolean  @default(true) @map("show_home_nav")
+  /// Show the "Courses" link in the public header + footer AND the
+  /// course-related sections on the landing page (Browse courses
+  /// hero button, Online courses card, featured courses shelf,
+  /// See all courses CTA, footer link). Single switch for the
+  /// whole courses surface so Patrick can take it dark in one tap.
   showCoursesNav     Boolean  @default(true) @map("show_courses_nav")
   /// Show the "Sign in" button in the public header + footer link.
   /// Hiding it doesn't disable the /login page — it just stops

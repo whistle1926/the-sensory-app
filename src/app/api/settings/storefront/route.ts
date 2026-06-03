@@ -33,6 +33,7 @@ export async function GET() {
     // null-coalescing branch). All-visible matches the original
     // behaviour, so a misconfigured row never hides links by
     // accident.
+    showHomeNav: row?.showHomeNav ?? true,
     showCoursesNav: row?.showCoursesNav ?? true,
     showSignIn: row?.showSignIn ?? true,
     showCreateAccount: row?.showCreateAccount ?? true,
@@ -48,6 +49,7 @@ export async function POST(req: NextRequest) {
     tagline?: string;
     heroTitle?: string;
     heroBlurb?: string;
+    showHomeNav?: boolean;
     showCoursesNav?: boolean;
     showSignIn?: boolean;
     showCreateAccount?: boolean;
@@ -59,6 +61,8 @@ export async function POST(req: NextRequest) {
 
   // Coerce only proper booleans — anything else falls back to the
   // existing value (or to visible-by-default on create).
+  const showHomeNav =
+    typeof body.showHomeNav === "boolean" ? body.showHomeNav : undefined;
   const showCoursesNav =
     typeof body.showCoursesNav === "boolean" ? body.showCoursesNav : undefined;
   const showSignIn =
@@ -72,6 +76,7 @@ export async function POST(req: NextRequest) {
       tagline,
       heroTitle,
       heroBlurb,
+      ...(showHomeNav !== undefined && { showHomeNav }),
       ...(showCoursesNav !== undefined && { showCoursesNav }),
       ...(showSignIn !== undefined && { showSignIn }),
       ...(showCreateAccount !== undefined && { showCreateAccount }),
@@ -81,6 +86,7 @@ export async function POST(req: NextRequest) {
       tagline,
       heroTitle,
       heroBlurb,
+      showHomeNav: showHomeNav ?? true,
       showCoursesNav: showCoursesNav ?? true,
       showSignIn: showSignIn ?? true,
       showCreateAccount: showCreateAccount ?? true,
@@ -91,6 +97,7 @@ export async function POST(req: NextRequest) {
     tagline: row.tagline ?? "",
     heroTitle: row.heroTitle ?? "",
     heroBlurb: row.heroBlurb ?? "",
+    showHomeNav: row.showHomeNav,
     showCoursesNav: row.showCoursesNav,
     showSignIn: row.showSignIn,
     showCreateAccount: row.showCreateAccount,

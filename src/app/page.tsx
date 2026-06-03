@@ -37,11 +37,16 @@ export default async function Home() {
   }
 
   // Admin-controlled visibility for the public Courses link + the
-  // Sign in / Create account footer links. Read once on render so
-  // the server-rendered HTML matches what the header shows.
+  // Sign in / Create account footer links + every courses-related
+  // section on this landing page. Read once on render so the
+  // server-rendered HTML matches what the header shows.
   const storefrontConfig = await prisma.storefrontConfig.findUnique({
     where: { id: "default" },
-    select: { showCoursesNav: true, showSignIn: true, showCreateAccount: true },
+    select: {
+      showCoursesNav: true,
+      showSignIn: true,
+      showCreateAccount: true,
+    },
   });
   const showCoursesNav = storefrontConfig?.showCoursesNav ?? true;
   const showSignIn = storefrontConfig?.showSignIn ?? true;
@@ -106,16 +111,25 @@ export default async function Home() {
               today.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Link
-                href="#courses"
-                className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-sm)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)] hover:brightness-110"
-              >
-                <BookOpen className="h-4 w-4" />
-                Browse courses
-              </Link>
+              {showCoursesNav && (
+                <Link
+                  href="#courses"
+                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-sm)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)] hover:brightness-110"
+                >
+                  <BookOpen className="h-4 w-4" />
+                  Browse courses
+                </Link>
+              )}
               <Link
                 href="/book"
-                className="inline-flex items-center gap-2 rounded-xl border border-border bg-white px-5 py-3 text-sm font-semibold transition-colors hover:bg-muted"
+                className={`inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-colors ${
+                  showCoursesNav
+                    ? "border border-border bg-white hover:bg-muted"
+                    : // When Courses is hidden, promote Book a session
+                      // to primary styling so the hero still has a
+                      // clear CTA instead of an orphaned outline button.
+                      "bg-primary text-primary-foreground shadow-[var(--shadow-sm)] hover:brightness-110"
+                }`}
               >
                 <Video className="h-4 w-4" />
                 Book a 1:1 session
@@ -177,10 +191,14 @@ export default async function Home() {
             How we can help
           </p>
           <h2 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">
-            Three ways to work with us
+            {showCoursesNav ? "Three ways to work with us" : "How we work with families"}
           </h2>
         </div>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div
+          className={`grid gap-4 ${
+            showCoursesNav ? "sm:grid-cols-3" : "sm:grid-cols-2"
+          }`}
+        >
           {[
             {
               icon: Video,
@@ -188,6 +206,7 @@ export default async function Home() {
               body: "Video consultations and in-person visits for assessment, support, and personalised recommendations.",
               cta: "Book a session",
               href: "/book",
+              show: true,
             },
             {
               icon: BookOpen,
@@ -195,6 +214,7 @@ export default async function Home() {
               body: "Short, practical courses for parents, teachers and practitioners. Learn at your own pace.",
               cta: "Browse courses",
               href: "#courses",
+              show: showCoursesNav,
             },
             {
               icon: Heart,
@@ -202,8 +222,9 @@ export default async function Home() {
               body: "Structured at-home routines, tailored activities, and troubleshooting built around your child's day.",
               cta: "Talk to us",
               href: "/book",
+              show: true,
             },
-          ].map((card) => {
+          ].filter((c) => c.show).map((card) => {
             const Icon = card.icon;
             return (
               <div
@@ -233,6 +254,7 @@ export default async function Home() {
       </section>
 
       {/* ── Featured courses ───────────────────────────────────────── */}
+      {showCoursesNav && (
       <section
         id="courses"
         className="mx-auto max-w-6xl scroll-mt-20 px-5 py-14"
@@ -283,6 +305,7 @@ export default async function Home() {
           </div>
         )}
       </section>
+      )}
 
       {/* ── Simple pull quote (if we ever swap to real data, easy) ─── */}
       <section className="mx-auto max-w-4xl px-5 py-14">
@@ -345,13 +368,15 @@ export default async function Home() {
               <Video className="h-4 w-4" />
               Book a session
             </Link>
-            <Link
-              href="/courses"
-              className="inline-flex items-center gap-2 rounded-xl border border-border bg-white px-5 py-3 text-sm font-semibold transition-colors hover:bg-muted"
-            >
-              <Users className="h-4 w-4" />
-              See all courses
-            </Link>
+            {showCoursesNav && (
+              <Link
+                href="/courses"
+                className="inline-flex items-center gap-2 rounded-xl border border-border bg-white px-5 py-3 text-sm font-semibold transition-colors hover:bg-muted"
+              >
+                <Users className="h-4 w-4" />
+                See all courses
+              </Link>
+            )}
           </div>
         </div>
       </section>
