@@ -85,8 +85,8 @@ export default async function WebsiteUsersPage() {
   return (
     <div className="space-y-6">
       <Toolbar
-        title="Website Users"
-        subtitle="People who signed up via the public site — course buyers, free learners, programme parents."
+        title="Parents / Carers"
+        subtitle="Portal accounts for parents and carers — course buyers, free learners, home-programme families."
       />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-4">

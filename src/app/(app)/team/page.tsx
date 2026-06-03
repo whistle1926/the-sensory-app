@@ -50,25 +50,19 @@ const businessLabel: Record<string, string> = {
 };
 
 /**
- * Tabbed split between staff (admins + team managers) and the
- * parent / carer / client accounts. Grace asked for these to be
- * separated so the staff view isn't drowned by client accounts
- * once we onboard more families. Same data, same fetch, just two
- * filtered slices behind a tab switch.
+ * Team page — staff only (admins + team managers).
+ *
+ * Parent / carer accounts live on their own sidebar page (/website-users,
+ * labelled "Parents / Carers") so the staff view stays clean. The Add
+ * User dialog here still defaults to TEAM_MANAGER but accepts the other
+ * roles in case a Super Admin needs to create a parent account ad hoc.
  */
-type TeamTab = "staff" | "clients";
-
 export default function TeamPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [templates, setTemplates] = useState<DashTemplate[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<TeamTab>("staff");
-  // The Add-User dialog defaults to the role that matches the
-  // currently-active tab so the OT doesn't have to switch the
-  // role dropdown after they pick Add User from the Clients tab.
-  const [defaultRole, setDefaultRole] = useState<string>("TEAM_MANAGER");
 
   useEffect(() => {
     fetch("/api/users").then((r) => r.json()).then(setUsers);
@@ -128,37 +122,29 @@ export default function TeamPage() {
     }
   }
 
+  // Staff = admins + team managers. CLIENT-role users live on the
+  // separate /website-users "Parents / Carers" page, so we filter
+  // them out of the cards grid here. KPIs still reflect the full
+  // user table so Patrick can see at a glance whether there are
+  // any parent accounts to manage on the other page.
   const staffUsers = users.filter(
     (u) => u.role === "SUPER_ADMIN" || u.role === "TEAM_MANAGER",
   );
-  const clientUsers = users.filter((u) => u.role === "CLIENT");
   const staff = staffUsers.length;
-  const clients = clientUsers.length;
+  const clients = users.filter((u) => u.role === "CLIENT").length;
   const admins = users.filter((u) => u.role === "SUPER_ADMIN").length;
-  const visibleUsers = tab === "staff" ? staffUsers : clientUsers;
+  const visibleUsers = staffUsers;
 
   return (
     <div className="space-y-6">
       <Toolbar
         title="Team"
-        subtitle={`${users.length} team member${users.length === 1 ? "" : "s"}`}
+        subtitle={`${staff} team member${staff === 1 ? "" : "s"}`}
         actions={
           <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger
-              render={
-                <Button
-                  onClick={() => {
-                    // Preselect the role that matches whichever tab
-                    // we're currently on, so "Add" from Clients
-                    // creates a parent and "Add" from Staff creates
-                    // a team manager.
-                    setDefaultRole(tab === "clients" ? "CLIENT" : "TEAM_MANAGER");
-                  }}
-                />
-              }
-            >
+            <DialogTrigger render={<Button />}>
               <Plus className="mr-2 h-4 w-4" />
-              {tab === "clients" ? "Add parent / carer" : "Add team member"}
+              Add team member
             </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -186,12 +172,12 @@ export default function TeamPage() {
                   id="role"
                   name="role"
                   required
-                  defaultValue={defaultRole}
+                  defaultValue="TEAM_MANAGER"
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
-                  <option value="CLIENT">Parent / Carer</option>
                   <option value="TEAM_MANAGER">Team Manager</option>
                   <option value="SUPER_ADMIN">Super Admin</option>
+                  <option value="CLIENT">Parent / Carer</option>
                 </select>
               </div>
               <div className="space-y-2">
@@ -216,32 +202,27 @@ export default function TeamPage() {
         }
       />
 
-      {/* KPI row */}
-      {users.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* KPI row — staff only. Parent/carer counts live on the
+          separate Parents/Carers page reachable from the sidebar. */}
+      {staff > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {[
             {
-              label: "Total members",
-              value: String(users.length),
-              helper: `${staff} staff · ${clients} clients`,
-              icon: Users,
-            },
-            {
-              label: "Staff",
+              label: "Team members",
               value: String(staff),
               helper: "Admins + managers",
-              icon: ShieldCheck,
+              icon: Users,
             },
             {
               label: "Admins",
               value: String(admins),
               helper: "Super Admin role",
-              icon: LayoutDashboard,
+              icon: ShieldCheck,
             },
             {
-              label: "Clients",
+              label: "Parents / carers",
               value: String(clients),
-              helper: "Portal accounts",
+              helper: "Portal accounts (see sidebar)",
               icon: Mail,
             },
           ].map((k) => {
@@ -263,37 +244,6 @@ export default function TeamPage() {
           })}
         </div>
       )}
-
-      {/* Tab strip: staff vs parents/carers. Counts are shown
-          inline so the OT can see at a glance which slice they're
-          looking at and the size of the other slice. */}
-      <div className="inline-flex rounded-xl border border-border bg-card p-1 text-sm">
-        {(
-          [
-            { id: "staff", label: "My team", count: staff, helper: "Admins + associates" },
-            { id: "clients", label: "Parents / carers", count: clients, helper: "Portal accounts" },
-          ] as const
-        ).map((t) => {
-          const active = tab === t.id;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              className={`rounded-lg px-3 py-1.5 transition-colors ${
-                active
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-              aria-pressed={active}
-              title={t.helper}
-            >
-              <span className="font-semibold">{t.label}</span>
-              <span className="ml-2 tabular-nums opacity-80">{t.count}</span>
-            </button>
-          );
-        })}
-      </div>
 
       {/* Profile Card Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -407,9 +357,7 @@ export default function TeamPage() {
       {visibleUsers.length === 0 && (
         <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-[var(--shadow-sm)]">
           <p className="text-muted-foreground">
-            {tab === "staff"
-              ? "No team members yet. Click “Add team member” above to invite an admin or associate."
-              : "No parent / carer accounts yet. Click “Add parent / carer” above to invite a family."}
+            No team members yet. Click “Add team member” above to invite an admin or associate.
           </p>
         </div>
       )}
