@@ -136,6 +136,12 @@ export default function InvoiceDetailPage() {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailNote, setEmailNote] = useState("");
   const [emailSending, setEmailSending] = useState(false);
+  // Sticky success after a successful send — same pattern as the
+  // report-summary dialog. Reset on every entry to compose mode.
+  const [emailSentTo, setEmailSentTo] = useState<{
+    to: string;
+    cc: string;
+  } | null>(null);
 
   // ?compose=1 auto-opens the composer on load — used by the Save &
   // Review Email flow on /invoices/new so the user lands here ready
@@ -286,6 +292,7 @@ export default function InvoiceDetailPage() {
   /* ---- start compose ---- */
   function startCompose() {
     if (!invoice) return;
+    setEmailSentTo(null); // wipe any "Sent" state from a previous send
     setEmailTo(invoice.clientEmail);
     setEmailCc("");
     setEmailSubject(
@@ -336,7 +343,13 @@ export default function InvoiceDetailPage() {
 
       const data = await res.json();
       setInvoice(data.invoice);
-      setComposing(false);
+      // Don't close the composer — flip to a sticky success card
+      // so Patrick has unambiguous confirmation the email went out
+      // (and to which addresses). User dismisses with Done.
+      setEmailSentTo({
+        to: opts?.to || invoice?.clientEmail || "",
+        cc: opts?.cc || "",
+      });
     } catch {
       setError("Something went wrong. Please try again.");
     }
@@ -711,6 +724,75 @@ export default function InvoiceDetailPage() {
   if (composing && invoice) {
     const curSymbols: Record<string, string> = { GBP: "\u00a3", EUR: "\u20ac", USD: "$" };
     const sym = curSymbols[invoice.currency] || "\u00a3";
+
+    // Sticky success view \u2014 shown after the user confirms send.
+    // Stays until they click Done or Send another. Same shape as
+    // the report-summary dialog's success state.
+    if (emailSentTo) {
+      return (
+        <div className="mx-auto max-w-2xl">
+          <div className="mb-6 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setComposing(false);
+                setEmailSentTo(null);
+              }}
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to invoice
+            </button>
+          </div>
+
+          <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-[var(--shadow-sm)]">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-950/40">
+              <CheckCircle2 className="h-9 w-9 text-green-600 dark:text-green-400" />
+            </div>
+            <h2 className="mt-4 text-lg font-semibold">Invoice email sent successfully</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              <strong className="text-foreground">{invoice.invoiceNumber}</strong>{" "}
+              delivered to{" "}
+              <strong className="text-foreground">{emailSentTo.to}</strong>
+              {emailSentTo.cc && (
+                <>
+                  {" "}with a copy to{" "}
+                  <strong className="text-foreground">{emailSentTo.cc}</strong>
+                </>
+              )}
+              .
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Sent from <span className="font-mono">info@mail.thesensorysubmarine.com</span>
+              {" \u00b7 "}Pay-now link included
+            </p>
+            <div className="mt-6 flex items-center justify-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setComposing(false);
+                  setEmailSentTo(null);
+                }}
+              >
+                Done
+              </Button>
+              <Button
+                onClick={() => {
+                  // Re-enter compose mode for a follow-up send
+                  // (e.g. to a school SENCO with a CC to a parent).
+                  // startCompose() resets all fields including the
+                  // success state.
+                  startCompose();
+                }}
+              >
+                <Mail className="mr-2 h-4 w-4" />
+                Send another
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="mx-auto max-w-4xl">
