@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import {
   AlertCircle,
+  Banknote,
   CheckCircle2,
   ChevronRight,
   Clock,
@@ -123,6 +124,37 @@ export default function InvoicesPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Manual mark-as-paid — for when the FireBuddy webhook didn't
+  // fire and you've confirmed payment some other way (bank
+  // transfer, cash, FireBuddy dashboard).
+  const [confirmPaidId, setConfirmPaidId] = useState<string | null>(null);
+  const [markingId, setMarkingId] = useState<string | null>(null);
+  const [markError, setMarkError] = useState<string | null>(null);
+
+  async function markPaid(id: string) {
+    setMarkError(null);
+    setMarkingId(id);
+    try {
+      const res = await fetch(`/api/invoices/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "paid" }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? `Mark paid failed (${res.status})`);
+      }
+      // Update in place so the row's chip + filter counts react.
+      const updated = (await res.json()) as Invoice;
+      setInvoices((prev) => prev.map((i) => (i.id === id ? updated : i)));
+      setConfirmPaidId(null);
+    } catch (err) {
+      setMarkError(err instanceof Error ? err.message : "Mark paid failed");
+    } finally {
+      setMarkingId(null);
+    }
+  }
 
   async function deleteInvoice(id: string) {
     setDeleteError(null);
@@ -356,10 +388,80 @@ export default function InvoicesPage() {
                         const overdue = isOverdue(inv.dueDate, inv.status);
                         const isConfirming = confirmDeleteId === inv.id;
                         const isDeleting = deletingId === inv.id;
+                        const isConfirmingPaid = confirmPaidId === inv.id;
+                        const isMarking = markingId === inv.id;
                         // Paid invoices can't be deleted server-side
                         // (see API); hide the trash button to avoid
                         // a confusing rejected request.
                         const canDelete = inv.status !== "paid";
+                        // Mark-paid is the manual fallback for when
+                        // FireBuddy's webhook didn't fire. Only show
+                        // for active billing states.
+                        const canMarkPaid =
+                          inv.status === "sent" || inv.status === "overdue";
+
+                        if (isConfirmingPaid) {
+                          return (
+                            <tr
+                              key={inv.id}
+                              style={{ background: "rgba(34,197,94,0.05)" }}
+                            >
+                              <td colSpan={7}>
+                                <div className="flex flex-wrap items-center justify-between gap-3 px-1 py-1">
+                                  <span className="text-sm">
+                                    Mark <strong>{inv.invoiceNumber}</strong> for{" "}
+                                    <strong>{inv.clientName}</strong>{" "}
+                                    ({formatCurrency(inv.total, inv.currency)}) as
+                                    paid? Use this if FireBuddy didn&apos;t fire
+                                    the webhook but you&apos;ve confirmed payment
+                                    received.
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    {markError && (
+                                      <span className="text-xs text-red-600">
+                                        {markError}
+                                      </span>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setConfirmPaidId(null);
+                                        setMarkError(null);
+                                      }}
+                                      disabled={isMarking}
+                                      className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium hover:bg-muted/50 disabled:opacity-50"
+                                    >
+                                      <X className="h-3 w-3" />
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        markPaid(inv.id);
+                                      }}
+                                      disabled={isMarking}
+                                      className="inline-flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1 text-xs font-bold text-white hover:bg-green-700 disabled:opacity-60"
+                                    >
+                                      {isMarking ? (
+                                        <>
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                          Marking…
+                                        </>
+                                      ) : (
+                                        <>
+                                          <CheckCircle2 className="h-3 w-3" />
+                                          Confirm paid
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        }
 
                         if (isConfirming) {
                           return (
@@ -489,6 +591,21 @@ export default function InvoicesPage() {
                             </td>
                             <td style={{ textAlign: "right" }}>
                               <div className="inline-flex items-center gap-1">
+                                {canMarkPaid && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setConfirmPaidId(inv.id);
+                                      setMarkError(null);
+                                    }}
+                                    title="Mark as paid (webhook fallback)"
+                                    aria-label="Mark as paid"
+                                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-green-50 hover:text-green-700 dark:hover:bg-green-950/30"
+                                  >
+                                    <Banknote className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
                                 {canDelete && (
                                   <button
                                     type="button"

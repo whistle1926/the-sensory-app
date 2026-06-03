@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/audit";
+import { FireBuddy } from "@/lib/firebuddy";
 
 export async function GET(
   _req: NextRequest,
@@ -136,10 +137,7 @@ export async function PATCH(
     include: { items: true, client: true },
   });
 
-  // Status transitions are worth recording — cancel is the main one
-  // (it's the soft-delete on a sent invoice and underpins the
-  // accountant's view). Paid transitions come from the FireBuddy
-  // webhook and are recorded there.
+  // Status transitions are worth recording.
   if (data.status === "cancelled" && existing.status !== "cancelled") {
     await recordAudit({
       actorId: session.user.id,
@@ -150,6 +148,69 @@ export async function PATCH(
       meta: {
         invoiceNumber: existing.invoiceNumber,
         previousStatus: existing.status,
+      },
+      req,
+    });
+  }
+
+  // ── Manual mark-as-paid: do everything the FireBuddy webhook
+  //    would have done if it had fired. Patrick added this fallback
+  //    after seeing a paid invoice that the webhook hadn't picked
+  //    up. Mirrors src/app/api/webhooks/firebuddy/route.ts so the
+  //    two paths produce the same final state.
+  if (data.status === "paid" && existing.status !== "paid") {
+    // 1. Credit the private income tracker (idempotent on source+ref).
+    if (invoice.total > 0) {
+      try {
+        await prisma.incomeEntry.upsert({
+          where: { source_reference: { source: "INVOICE", reference: invoice.id } },
+          update: {
+            amount: invoice.total,
+            description: `${invoice.invoiceNumber} — ${invoice.clientName}`,
+          },
+          create: {
+            amount: invoice.total,
+            source: "INVOICE",
+            reference: invoice.id,
+            description: `${invoice.invoiceNumber} — ${invoice.clientName}`,
+            occurredAt: new Date(),
+          },
+        });
+      } catch (err) {
+        console.error("[invoice/PATCH] income tracker credit failed:", err);
+      }
+    }
+
+    // 2. Mirror the paid status to FireBuddy Accounting (if we
+    //    created an invoice there at send-time). Best-effort —
+    //    payment is already recorded locally.
+    if (invoice.firebuddyInvoiceId) {
+      try {
+        const settings = await prisma.paymentSettings.findUnique({
+          where: { id: "default" },
+        });
+        if (settings?.apiKey) {
+          const fb = new FireBuddy(settings.apiKey);
+          await fb.updateInvoice(invoice.firebuddyInvoiceId, { status: "paid" });
+        }
+      } catch (err) {
+        console.error("[invoice/PATCH] FireBuddy mirror update failed:", err);
+      }
+    }
+
+    // 3. Audit so we can tell apart webhook vs manual marks.
+    await recordAudit({
+      actorId: session.user.id,
+      actorLabel: `${session.user.name ?? "?"} <${session.user.email ?? "?"}>`,
+      action: "invoice.send", // closest existing verb; "mark.paid" specific verb is overkill for v1
+      targetType: "invoice",
+      targetId: invoiceId,
+      meta: {
+        action: "mark.paid.manual",
+        invoiceNumber: existing.invoiceNumber,
+        previousStatus: existing.status,
+        total: invoice.total,
+        currency: invoice.currency,
       },
       req,
     });
