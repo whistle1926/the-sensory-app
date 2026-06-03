@@ -16,6 +16,7 @@
 import { useEffect, useState } from "react";
 import {
   CheckCircle2,
+  Eye,
   ExternalLink,
   Loader2,
   PaintBucket,
@@ -29,6 +30,9 @@ interface State {
   tagline: string;
   heroTitle: string;
   heroBlurb: string;
+  showCoursesNav: boolean;
+  showSignIn: boolean;
+  showCreateAccount: boolean;
 }
 
 const DEFAULT_TAGLINE = "Where expert knowledge meets playful, child-centred practice";
@@ -42,6 +46,9 @@ export function StorefrontSettingsSection() {
     tagline: "",
     heroTitle: "",
     heroBlurb: "",
+    showCoursesNav: true,
+    showSignIn: true,
+    showCreateAccount: true,
   });
   const [original, setOriginal] = useState<State | null>(null);
   const [saving, setSaving] = useState(false);
@@ -51,9 +58,19 @@ export function StorefrontSettingsSection() {
   useEffect(() => {
     fetch("/api/settings/storefront")
       .then((r) => r.json())
-      .then((data: State) => {
-        setState(data);
-        setOriginal(data);
+      .then((data: Partial<State>) => {
+        // Fill any missing fields with safe defaults so a stale row
+        // doesn't leave a checkbox in undefined-land.
+        const next: State = {
+          tagline: data.tagline ?? "",
+          heroTitle: data.heroTitle ?? "",
+          heroBlurb: data.heroBlurb ?? "",
+          showCoursesNav: data.showCoursesNav ?? true,
+          showSignIn: data.showSignIn ?? true,
+          showCreateAccount: data.showCreateAccount ?? true,
+        };
+        setState(next);
+        setOriginal(next);
       })
       .catch((e: unknown) =>
         setError(e instanceof Error ? e.message : "Couldn't load storefront copy"),
@@ -88,6 +105,72 @@ export function StorefrontSettingsSection() {
 
   return (
     <div className="space-y-4">
+      {/* Public-header visibility toggles. Keeps the hero edit form
+          underneath unchanged — these are a separate concern (what's
+          *shown* vs what *copy* is shown). */}
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <Eye className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold">Public navigation</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Hide individual nav items on the public site without changing the
+              underlying pages. Useful when you want to pause sign-ups or hide
+              courses while you tidy content — flip back on when ready.
+            </p>
+          </div>
+        </div>
+
+        <ul className="mt-5 space-y-3">
+          {[
+            {
+              key: "showCoursesNav" as const,
+              label: "Courses link",
+              hint: "Header + footer link to /courses. The page still exists and works directly.",
+            },
+            {
+              key: "showSignIn" as const,
+              label: "Sign in button",
+              hint: "Hides the Sign in chip on the public header + footer. /login stays reachable.",
+            },
+            {
+              key: "showCreateAccount" as const,
+              label: "Create account button",
+              hint: "Pauses new self-serve sign-ups in the public UI. /register stays reachable directly.",
+            },
+          ].map((row) => (
+            <li
+              key={row.key}
+              className="flex items-start justify-between gap-3 rounded-xl border border-border/70 bg-background/40 p-3"
+            >
+              <div>
+                <p className="text-sm font-medium">{row.label}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {row.hint}
+                </p>
+              </div>
+              <label className="relative inline-flex shrink-0 cursor-pointer items-center">
+                <input
+                  type="checkbox"
+                  className="peer sr-only"
+                  checked={state[row.key]}
+                  onChange={(e) =>
+                    setState((s) => ({ ...s, [row.key]: e.target.checked }))
+                  }
+                />
+                <span className="h-6 w-11 rounded-full bg-muted transition-colors peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring/40" />
+                <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-background shadow-sm transition-transform peer-checked:translate-x-5" />
+                <span className="sr-only">
+                  {state[row.key] ? "Visible" : "Hidden"}
+                </span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      </div>
+
       <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">

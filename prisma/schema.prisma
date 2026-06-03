@@ -1142,6 +1142,18 @@ model StorefrontConfig {
   heroTitle String?  @map("hero_title")
   /// Supporting paragraph under the title.
   heroBlurb String?  @map("hero_blurb") @db.Text
+  /// Show the "Courses" link in the public header + footer.
+  /// Defaults true so existing installs are unchanged; flip off to
+  /// hide the link during course-content rebuilds, etc.
+  showCoursesNav     Boolean  @default(true) @map("show_courses_nav")
+  /// Show the "Sign in" button in the public header + footer link.
+  /// Hiding it doesn't disable the /login page — it just stops
+  /// advertising it.
+  showSignIn         Boolean  @default(true) @map("show_sign_in")
+  /// Show the "Create account" CTA + register link in the public
+  /// header + footer. Disabling pauses new self-serve sign-ups
+  /// without changing the /register endpoint itself.
+  showCreateAccount  Boolean  @default(true) @map("show_create_account")
   updatedAt DateTime @updatedAt @map("updated_at")
   @@map("storefront_config")
 }

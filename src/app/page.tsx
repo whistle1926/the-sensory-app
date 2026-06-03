@@ -36,6 +36,17 @@ export default async function Home() {
     redirect("/dashboard");
   }
 
+  // Admin-controlled visibility for the public Courses link + the
+  // Sign in / Create account footer links. Read once on render so
+  // the server-rendered HTML matches what the header shows.
+  const storefrontConfig = await prisma.storefrontConfig.findUnique({
+    where: { id: "default" },
+    select: { showCoursesNav: true, showSignIn: true, showCreateAccount: true },
+  });
+  const showCoursesNav = storefrontConfig?.showCoursesNav ?? true;
+  const showSignIn = storefrontConfig?.showSignIn ?? true;
+  const showCreateAccount = storefrontConfig?.showCreateAccount ?? true;
+
   // Pull just enough for the public shelf: featured first, then others.
   const allCourses = await prisma.course.findMany({
     where: { status: "AVAILABLE" },
@@ -350,18 +361,24 @@ export default async function Home() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 text-sm text-muted-foreground">
           <p>© {new Date().getFullYear()} The Sensory Submarine</p>
           <div className="flex items-center gap-5">
-            <Link href="/courses" className="hover:text-foreground">
-              Courses
-            </Link>
+            {showCoursesNav && (
+              <Link href="/courses" className="hover:text-foreground">
+                Courses
+              </Link>
+            )}
             <Link href="/book" className="hover:text-foreground">
               Book a session
             </Link>
-            <Link href="/login" className="hover:text-foreground">
-              Sign in
-            </Link>
-            <Link href="/register" className="hover:text-foreground">
-              Create account
-            </Link>
+            {showSignIn && (
+              <Link href="/login" className="hover:text-foreground">
+                Sign in
+              </Link>
+            )}
+            {showCreateAccount && (
+              <Link href="/register" className="hover:text-foreground">
+                Create account
+              </Link>
+            )}
           </div>
         </div>
       </footer>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -14,16 +15,56 @@ import { cn } from "@/lib/utils";
  *
  * When signed in, the Sign-in chip is replaced with the AccountMenu so
  * staff and clients can reach their proper home from any public page.
+ *
+ * Visibility of Courses / Sign in / Create account is admin-toggleable
+ * via Settings → Storefront. Defaults are all-visible; the only time
+ * something hides is if the admin explicitly turns it off.
  */
+interface Visibility {
+  showCoursesNav: boolean;
+  showSignIn: boolean;
+  showCreateAccount: boolean;
+}
+
 export function StorefrontHeader() {
   const { data: session } = useSession();
   const pathname = usePathname();
   const signedIn = !!session?.user;
 
-  const links: { href: string; label: string; match: (p: string) => boolean }[] = [
-    { href: "/", label: "Home", match: (p) => p === "/" },
-    { href: "/courses", label: "Courses", match: (p) => p.startsWith("/courses") },
-    { href: "/book", label: "Book a session", match: (p) => p.startsWith("/book") },
+  // Optimistic default: everything visible. Once the fetch returns
+  // we apply the admin's saved preferences. A signed-in user never
+  // sees the Sign-in / Create-account chips anyway (the AccountMenu
+  // replaces them), so the flicker only ever affects unauth pages.
+  const [vis, setVis] = useState<Visibility>({
+    showCoursesNav: true,
+    showSignIn: true,
+    showCreateAccount: true,
+  });
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/settings/storefront", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data: Partial<Visibility>) => {
+        if (cancelled) return;
+        setVis({
+          showCoursesNav: data.showCoursesNav ?? true,
+          showSignIn: data.showSignIn ?? true,
+          showCreateAccount: data.showCreateAccount ?? true,
+        });
+      })
+      .catch(() => {
+        // Network blip → leave defaults in place; never accidentally
+        // hide links because we couldn't reach the API.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const links: { href: string; label: string; match: (p: string) => boolean; show: boolean }[] = [
+    { href: "/", label: "Home", match: (p) => p === "/", show: true },
+    { href: "/courses", label: "Courses", match: (p) => p.startsWith("/courses"), show: vis.showCoursesNav },
+    { href: "/book", label: "Book a session", match: (p) => p.startsWith("/book"), show: true },
   ];
 
   return (
@@ -54,44 +95,50 @@ export function StorefrontHeader() {
         </Link>
 
         <nav className="flex items-center gap-1 text-sm font-medium">
-          {links.map((l) => {
-            const active = l.match(pathname);
-            return (
-              <Link
-                key={l.href}
-                href={l.href}
-                className={cn(
-                  "rounded-lg px-3 py-1.5 transition-colors",
-                  active
-                    ? "bg-primary/10 text-primary font-semibold"
-                    : "text-foreground/80 hover:bg-muted hover:text-foreground",
-                  // On narrow viewports: always show Home + Courses; Book a
-                  // session tucks away behind a breakpoint.
-                  l.href === "/book" ? "hidden md:inline-flex" : "",
-                )}
-                aria-current={active ? "page" : undefined}
-              >
-                {l.label}
-              </Link>
-            );
-          })}
+          {links
+            .filter((l) => l.show)
+            .map((l) => {
+              const active = l.match(pathname);
+              return (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className={cn(
+                    "rounded-lg px-3 py-1.5 transition-colors",
+                    active
+                      ? "bg-primary/10 text-primary font-semibold"
+                      : "text-foreground/80 hover:bg-muted hover:text-foreground",
+                    // On narrow viewports: always show Home + Courses; Book a
+                    // session tucks away behind a breakpoint.
+                    l.href === "/book" ? "hidden md:inline-flex" : "",
+                  )}
+                  aria-current={active ? "page" : undefined}
+                >
+                  {l.label}
+                </Link>
+              );
+            })}
           <div className="ml-2 flex items-center gap-2">
             {signedIn ? (
               <AccountMenu />
             ) : (
               <>
-                <Link
-                  href="/login"
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-1.5 text-sm font-semibold hover:bg-muted"
-                >
-                  Sign in
-                </Link>
-                <Link
-                  href="/register"
-                  className="hidden items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground transition-colors hover:brightness-110 sm:inline-flex"
-                >
-                  Create account
-                </Link>
+                {vis.showSignIn && (
+                  <Link
+                    href="/login"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-1.5 text-sm font-semibold hover:bg-muted"
+                  >
+                    Sign in
+                  </Link>
+                )}
+                {vis.showCreateAccount && (
+                  <Link
+                    href="/register"
+                    className="hidden items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground transition-colors hover:brightness-110 sm:inline-flex"
+                  >
+                    Create account
+                  </Link>
+                )}
               </>
             )}
           </div>
