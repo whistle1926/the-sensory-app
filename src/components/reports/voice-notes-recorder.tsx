@@ -130,6 +130,14 @@ export function VoiceNotesRecorder({ value, onChange, mode = "plain" }: Props) {
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Counter of consecutive `network` errors so we can auto-retry
+   * once silently — the Web Speech API regularly throws a single
+   * `network` error at session start on flaky connections, then
+   * works fine on the second attempt. We only surface the error to
+   * the user if a retry also fails.
+   */
+  const networkRetriesRef = useRef(0);
   /** Transcript locked in by `isFinal` results; survives across pauses. */
   const [finalised, setFinalised] = useState("");
   /** Latest interim chunk — shown live, replaced with each `onresult`. */
@@ -153,9 +161,14 @@ export function VoiceNotesRecorder({ value, onChange, mode = "plain" }: Props) {
   function start() {
     if (!supported) return;
     setError(null);
-    setFinalised("");
-    setInterim("");
-    setElapsed(0);
+    // Don't wipe transcript / elapsed if this is an automatic retry
+    // after a `network` error — the OT shouldn't lose what they've
+    // already said. We detect "retry" by a non-zero retry counter.
+    if (networkRetriesRef.current === 0) {
+      setFinalised("");
+      setInterim("");
+      setElapsed(0);
+    }
 
     let r: SpeechRecognition;
     try {
@@ -184,16 +197,47 @@ export function VoiceNotesRecorder({ value, onChange, mode = "plain" }: Props) {
         setFinalised((prev) => prev + nextFinal);
       }
       setInterim(nextInterim);
+      // Any successful result resets the network-retry budget so a
+      // long recording with one flaky moment can still auto-recover.
+      networkRetriesRef.current = 0;
     };
 
     r.onerror = (ev) => {
-      setError(
+      // 'network' is by far the noisiest error code on the Web
+      // Speech API — Chrome / Edge / Safari all use Google's
+      // speech servers behind the scenes, and any transient
+      // network blip surfaces as this. Auto-retry once before
+      // bothering the OT with a banner.
+      if (ev.error === "network" && networkRetriesRef.current < 1) {
+        networkRetriesRef.current += 1;
+        // Tear down this recognition object and try a fresh one.
+        // Small delay so the network state has a chance to recover.
+        try {
+          r.abort();
+        } catch {
+          // ignore — some browsers throw if already stopped
+        }
+        if (tickRef.current) {
+          clearInterval(tickRef.current);
+          tickRef.current = null;
+        }
+        setTimeout(() => start(), 600);
+        return;
+      }
+
+      const msg =
         ev.error === "not-allowed"
           ? "Mic access was denied. Allow microphone permission in your browser and try again."
           : ev.error === "no-speech"
             ? "No speech detected — try again and speak a bit louder."
-            : `Speech recognition error: ${ev.error}`,
-      );
+            : ev.error === "network"
+              ? "Couldn't reach the speech-recognition service. The browser uses Google's servers for transcription, and the request didn't go through. Check your internet connection (or try a different network / browser) and click Record again."
+              : ev.error === "service-not-allowed"
+                ? "Speech recognition is blocked on this device or network. Try a different browser, or check that your organisation isn't blocking Google's speech service."
+                : ev.error === "audio-capture"
+                  ? "No microphone detected. Check your audio input device is connected and selected."
+                  : `Speech recognition error: ${ev.error}`;
+      setError(msg);
       stop();
     };
 
@@ -264,7 +308,12 @@ export function VoiceNotesRecorder({ value, onChange, mode = "plain" }: Props) {
         {!recording ? (
           <button
             type="button"
-            onClick={start}
+            onClick={() => {
+              // Fresh user click: reset the retry budget so a new
+              // recording always gets its full quota of auto-retries.
+              networkRetriesRef.current = 0;
+              start();
+            }}
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
           >
             <Mic className="h-4 w-4" />
