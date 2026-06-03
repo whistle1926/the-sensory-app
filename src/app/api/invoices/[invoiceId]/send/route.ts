@@ -402,7 +402,7 @@ function buildInvoiceEmail(params: {
       <div style="text-align:center;margin:0 0 12px;">
         <a href="${escapeHtml(paymentUrl)}"
            style="display:inline-block;background:#1a1a2e;color:#ffffff;text-decoration:none;padding:18px 56px;border-radius:12px;font-weight:700;font-size:18px;letter-spacing:0.2px;box-shadow:0 4px 12px rgba(26,26,46,0.18);">
-          Pay ${formatPence(invoice.total)} now &rarr;
+          Pay&nbsp;${formatPence(invoice.total)}&nbsp;now&nbsp;&rarr;
         </a>
       </div>
       <p style="text-align:center;margin:0 0 28px;font-size:12px;color:#888;">

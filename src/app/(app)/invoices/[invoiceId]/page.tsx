@@ -932,7 +932,7 @@ export default function InvoiceDetailPage() {
                       sees here is what the recipient gets. */}
                   <div className="py-2 text-center">
                     <div className="inline-block rounded-xl bg-[#1a1a2e] px-10 py-3.5 text-sm font-bold text-white shadow-md">
-                      Pay {sym}{(invoice.total / 100).toFixed(2)} now &rarr;
+                      Pay&nbsp;{sym}{(invoice.total / 100).toFixed(2)}&nbsp;now&nbsp;→
                     </div>
                     <p className="mt-2 text-[11px] text-muted-foreground">
                       Secure payment via FireBuddy
