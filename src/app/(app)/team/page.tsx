@@ -49,12 +49,26 @@ const businessLabel: Record<string, string> = {
   SENSORY_EATERS: "Sensory Eaters Programme",
 };
 
+/**
+ * Tabbed split between staff (admins + team managers) and the
+ * parent / carer / client accounts. Grace asked for these to be
+ * separated so the staff view isn't drowned by client accounts
+ * once we onboard more families. Same data, same fetch, just two
+ * filtered slices behind a tab switch.
+ */
+type TeamTab = "staff" | "clients";
+
 export default function TeamPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [templates, setTemplates] = useState<DashTemplate[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [tab, setTab] = useState<TeamTab>("staff");
+  // The Add-User dialog defaults to the role that matches the
+  // currently-active tab so the OT doesn't have to switch the
+  // role dropdown after they pick Add User from the Clients tab.
+  const [defaultRole, setDefaultRole] = useState<string>("TEAM_MANAGER");
 
   useEffect(() => {
     fetch("/api/users").then((r) => r.json()).then(setUsers);
@@ -114,11 +128,14 @@ export default function TeamPage() {
     }
   }
 
-  const staff = users.filter(
+  const staffUsers = users.filter(
     (u) => u.role === "SUPER_ADMIN" || u.role === "TEAM_MANAGER",
-  ).length;
-  const clients = users.filter((u) => u.role === "CLIENT").length;
+  );
+  const clientUsers = users.filter((u) => u.role === "CLIENT");
+  const staff = staffUsers.length;
+  const clients = clientUsers.length;
   const admins = users.filter((u) => u.role === "SUPER_ADMIN").length;
+  const visibleUsers = tab === "staff" ? staffUsers : clientUsers;
 
   return (
     <div className="space-y-6">
@@ -127,9 +144,21 @@ export default function TeamPage() {
         subtitle={`${users.length} team member${users.length === 1 ? "" : "s"}`}
         actions={
           <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger render={<Button />}>
+            <DialogTrigger
+              render={
+                <Button
+                  onClick={() => {
+                    // Preselect the role that matches whichever tab
+                    // we're currently on, so "Add" from Clients
+                    // creates a parent and "Add" from Staff creates
+                    // a team manager.
+                    setDefaultRole(tab === "clients" ? "CLIENT" : "TEAM_MANAGER");
+                  }}
+                />
+              }
+            >
               <Plus className="mr-2 h-4 w-4" />
-              Add User
+              {tab === "clients" ? "Add parent / carer" : "Add team member"}
             </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -157,9 +186,10 @@ export default function TeamPage() {
                   id="role"
                   name="role"
                   required
+                  defaultValue={defaultRole}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
-                  <option value="CLIENT">Client (Parent)</option>
+                  <option value="CLIENT">Parent / Carer</option>
                   <option value="TEAM_MANAGER">Team Manager</option>
                   <option value="SUPER_ADMIN">Super Admin</option>
                 </select>
@@ -234,9 +264,40 @@ export default function TeamPage() {
         </div>
       )}
 
+      {/* Tab strip: staff vs parents/carers. Counts are shown
+          inline so the OT can see at a glance which slice they're
+          looking at and the size of the other slice. */}
+      <div className="inline-flex rounded-xl border border-border bg-card p-1 text-sm">
+        {(
+          [
+            { id: "staff", label: "My team", count: staff, helper: "Admins + associates" },
+            { id: "clients", label: "Parents / carers", count: clients, helper: "Portal accounts" },
+          ] as const
+        ).map((t) => {
+          const active = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={`rounded-lg px-3 py-1.5 transition-colors ${
+                active
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+              aria-pressed={active}
+              title={t.helper}
+            >
+              <span className="font-semibold">{t.label}</span>
+              <span className="ml-2 tabular-nums opacity-80">{t.count}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Profile Card Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {users.map((user) => {
+        {visibleUsers.map((user) => {
           const initials = user.name
             .split(" ")
             .map((n) => n[0])
@@ -343,9 +404,13 @@ export default function TeamPage() {
         })}
       </div>
 
-      {users.length === 0 && (
+      {visibleUsers.length === 0 && (
         <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-[var(--shadow-sm)]">
-          <p className="text-muted-foreground">No team members yet. Add your first user above.</p>
+          <p className="text-muted-foreground">
+            {tab === "staff"
+              ? "No team members yet. Click “Add team member” above to invite an admin or associate."
+              : "No parent / carer accounts yet. Click “Add parent / carer” above to invite a family."}
+          </p>
         </div>
       )}
     </div>
