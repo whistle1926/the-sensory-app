@@ -3,6 +3,7 @@ import { GraduationCap, Mail } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Toolbar, Panel, Chip } from "@/components/ds";
+import { AddParentDialog } from "@/components/parents/add-parent-dialog";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +88,7 @@ export default async function WebsiteUsersPage() {
       <Toolbar
         title="Parents / Carers"
         subtitle="Portal accounts for parents and carers — course buyers, free learners, home-programme families."
+        actions={<AddParentDialog />}
       />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-4">

@@ -20,11 +20,24 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-  if (session.user.role !== "SUPER_ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
   const parsed = createUserSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+
+  // Role gating:
+  //   SUPER_ADMIN — can create any role (staff or client).
+  //   TEAM_MANAGER — can create CLIENT-role users only (so they can
+  //                  onboard parents/carers from /website-users) but
+  //                  cannot escalate by minting other staff accounts.
+  //   Anyone else — Forbidden.
+  const actorRole = session.user.role;
+  const requestedRole = parsed.data.role;
+  if (actorRole !== "SUPER_ADMIN") {
+    if (actorRole !== "TEAM_MANAGER" || requestedRole !== "CLIENT") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
 
   const existing = await prisma.user.findUnique({ where: { email: parsed.data.email } });
   if (existing) return NextResponse.json({ error: "Email already in use" }, { status: 409 });
