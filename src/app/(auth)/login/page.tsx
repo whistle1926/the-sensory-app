@@ -61,7 +61,7 @@ function LoginInner() {
 
   return (
     <div className="w-full max-w-5xl">
-      <div className="grid items-start gap-10 md:grid-cols-[1.05fr_1fr]">
+      <div className="grid items-center gap-10 md:grid-cols-[1.05fr_1fr]">
         {/* Form column */}
         <div>
           <div className="mb-8">
