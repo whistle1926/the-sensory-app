@@ -10,17 +10,21 @@
  * Public lookups against this table power /book and /book/[slug].
  */
 import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import {
   AlertCircle,
   Check,
   CheckCircle2,
   Copy,
   ExternalLink,
+  Globe,
   Loader2,
+  MapPin,
   Pencil,
   Plus,
   Search,
   Trash2,
+  User,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -40,10 +44,22 @@ interface ServiceRow {
   depositPence: number;
   isActive: boolean;
   order: number;
+  ownerId: string | null;
+  ownerName: string | null;
+  mode: string;
+  locationLabel: string | null;
+}
+
+interface StaffOption {
+  id: string;
+  name: string;
 }
 
 export function ServicesSection() {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "SUPER_ADMIN";
   const [rows, setRows] = useState<ServiceRow[] | null>(null);
+  const [staff, setStaff] = useState<StaffOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -65,6 +81,22 @@ export function ServicesSection() {
   useEffect(() => {
     refresh();
   }, []);
+
+  // Owner assignment is admin-only, so only admins need the staff list
+  // for the dropdown. /api/users is SUPER_ADMIN-gated anyway.
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetch("/api/users")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((users: Array<{ id: string; name: string; role: string }>) => {
+        setStaff(
+          users
+            .filter((u) => u.role === "SUPER_ADMIN" || u.role === "TEAM_MANAGER")
+            .map((u) => ({ id: u.id, name: u.name })),
+        );
+      })
+      .catch(() => {});
+  }, [isAdmin]);
 
   const filtered = useMemo(() => {
     if (!rows) return [];
@@ -233,6 +265,8 @@ export function ServicesSection() {
               <EditorPanel
                 key={svc.id}
                 service={svc}
+                staff={staff}
+                isAdmin={isAdmin}
                 onCancel={() => setEditingId(null)}
                 onSave={async (next) => {
                   await patchService(svc.id, next);
@@ -304,6 +338,29 @@ function ListRow({
             {service.depositPence > 0 && (
               <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
                 £{service.depositPence / 100} deposit
+              </span>
+            )}
+            {service.mode === "online" && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                <Globe className="h-2.5 w-2.5" />
+                Online
+              </span>
+            )}
+            {service.mode === "home" && (
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Home visit
+              </span>
+            )}
+            {service.locationLabel && service.mode !== "online" && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <MapPin className="h-2.5 w-2.5" />
+                {service.locationLabel}
+              </span>
+            )}
+            {service.ownerName && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+                <User className="h-2.5 w-2.5" />
+                {service.ownerName}
               </span>
             )}
           </div>
@@ -390,11 +447,15 @@ function ListRow({
  * /api/booking-services/[id] PATCH on click. */
 function EditorPanel({
   service,
+  staff,
+  isAdmin,
   onCancel,
   onSave,
   busy,
 }: {
   service: ServiceRow;
+  staff: StaffOption[];
+  isAdmin: boolean;
   onCancel: () => void;
   onSave: (next: Record<string, unknown>) => Promise<void>;
   busy: boolean;
@@ -410,6 +471,9 @@ function EditorPanel({
     service.durationMinutes,
   );
   const [isActive, setIsActive] = useState(service.isActive);
+  const [ownerId, setOwnerId] = useState<string>(service.ownerId ?? "");
+  const [mode, setMode] = useState(service.mode || "in_person");
+  const [locationLabel, setLocationLabel] = useState(service.locationLabel ?? "");
 
   return (
     <div className="rounded-2xl border-2 border-primary/40 bg-card p-5 shadow-[var(--shadow-sm)]">
@@ -520,6 +584,61 @@ function EditorPanel({
             Used by the calendar for slot math.
           </p>
         </div>
+
+        {/* Owner — admin only. Drives whose calendar the bookings hit
+            and who can self-serve this service's availability. */}
+        {isAdmin && (
+          <div className="space-y-2">
+            <Label htmlFor={`owner-${service.id}`}>Run by</Label>
+            <select
+              id={`owner-${service.id}`}
+              value={ownerId}
+              onChange={(e) => setOwnerId(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <option value="">The practice (default calendar)</option>
+              {staff.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              The associate who runs this. They manage its availability and
+              get its bookings.
+            </p>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <Label htmlFor={`mode-${service.id}`}>Delivery</Label>
+          <select
+            id={`mode-${service.id}`}
+            value={mode}
+            onChange={(e) => setMode(e.target.value)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <option value="in_person">In person (clinic)</option>
+            <option value="online">Online (video)</option>
+            <option value="home">Home visit</option>
+          </select>
+        </div>
+
+        {mode !== "online" && (
+          <div className="space-y-2">
+            <Label htmlFor={`loc-${service.id}`}>Location</Label>
+            <Input
+              id={`loc-${service.id}`}
+              value={locationLabel}
+              onChange={(e) => setLocationLabel(e.target.value)}
+              placeholder="Armagh, Antrim, Ballymoney…"
+            />
+            <p className="text-xs text-muted-foreground">
+              Shown as a badge on the booking card.
+            </p>
+          </div>
+        )}
+
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor={`desc-${service.id}`}>Description</Label>
           <textarea
@@ -569,6 +688,11 @@ function EditorPanel({
               durationLabel,
               durationMinutes,
               isActive,
+              mode,
+              locationLabel: locationLabel.trim() || null,
+              // Only admins may change ownership; omit otherwise so the
+              // API's admin-only guard isn't tripped by associates.
+              ...(isAdmin ? { ownerId: ownerId || null } : {}),
             })
           }
           disabled={busy}

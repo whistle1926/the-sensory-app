@@ -63,6 +63,49 @@ export async function PATCH(
   if (typeof body.order === "number" && Number.isFinite(body.order))
     data.order = Math.floor(body.order);
 
+  // Delivery mode — drives location/online wording. Any staff may set it.
+  if (typeof body.mode === "string") {
+    const m = body.mode.trim();
+    if (!["in_person", "online", "home"].includes(m)) {
+      return NextResponse.json(
+        { error: "Mode must be in_person, online, or home." },
+        { status: 400 },
+      );
+    }
+    data.mode = m;
+  }
+  if ("locationLabel" in body) {
+    if (body.locationLabel === null) data.locationLabel = null;
+    else if (typeof body.locationLabel === "string")
+      data.locationLabel = body.locationLabel.trim().slice(0, 120) || null;
+  }
+
+  // Owner assignment is SUPER_ADMIN-only — associates manage availability,
+  // not who a service belongs to. Validate the target is a staff member.
+  if ("ownerId" in body) {
+    if (session.user.role !== "SUPER_ADMIN") {
+      return NextResponse.json(
+        { error: "Only an admin can assign a service owner." },
+        { status: 403 },
+      );
+    }
+    if (body.ownerId === null || body.ownerId === "") {
+      data.ownerId = null;
+    } else if (typeof body.ownerId === "string") {
+      const owner = await prisma.user.findUnique({
+        where: { id: body.ownerId },
+        select: { role: true },
+      });
+      if (!owner || owner.role === "CLIENT") {
+        return NextResponse.json(
+          { error: "Owner must be a staff member." },
+          { status: 400 },
+        );
+      }
+      data.ownerId = body.ownerId;
+    }
+  }
+
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
   }

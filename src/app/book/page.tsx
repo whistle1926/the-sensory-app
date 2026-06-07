@@ -18,6 +18,7 @@ import {
   Loader2,
   AlertCircle,
   ArrowLeft,
+  MapPin,
 } from "lucide-react";
 import { StorefrontHeader } from "@/components/courses/storefront-header";
 import { DEPOSIT_SERVICES, type TermsClause } from "@/lib/booking-terms";
@@ -37,6 +38,12 @@ interface ServiceCatalogueRow {
   priceLabel: string;
   description: string;
   category: string;
+  /** "in_person" | "online" | "home" \u2014 drives the badge wording. */
+  mode: string;
+  /** Town/venue for in-person services (e.g. "Armagh"). */
+  locationLabel: string | null;
+  /** Display name of the associate who runs this service, if any. */
+  ownerName: string | null;
   /** Picked at render time \u2014 every card gets a consistent icon based on
    * a stable hash of the slug so it doesn't change between visits. */
   icon: typeof Video;
@@ -71,6 +78,9 @@ function adaptService(
     pricePence: number;
     durationLabel: string;
     durationMinutes: number;
+    mode?: string;
+    locationLabel?: string | null;
+    ownerName?: string | null;
   },
 ): ServiceCatalogueRow {
   const h = hashCode(row.slug);
@@ -83,6 +93,9 @@ function adaptService(
     priceLabel: row.pricePence === 0 ? "Free" : `\u00a3${row.pricePence / 100}`,
     description: row.description || row.tagline || "",
     category: row.category || "",
+    mode: row.mode || "in_person",
+    locationLabel: row.locationLabel ?? null,
+    ownerName: row.ownerName ?? null,
     icon: ICON_PALETTE[h % ICON_PALETTE.length],
     colour: COLOUR_PALETTE[h % COLOUR_PALETTE.length],
   };
@@ -251,12 +264,20 @@ function BookingPageInner() {
     [weekStart]
   );
 
-  // Fetch computed availability for the visible week
+  // Fetch computed availability for the visible week, scoped to the
+  // chosen service so parents only see that service's days/times (e.g.
+  // online consults on Wed/Fri, clinics on Tue/Thu, a monthly Armagh
+  // clinic on its specific dates).
   const fetchSlots = useCallback(async () => {
     const from = weekDays[0].toISOString().split("T")[0];
     const to = weekDays[6].toISOString().split("T")[0];
+    const serviceParam = selectedService
+      ? `&service=${encodeURIComponent(selectedService)}`
+      : "";
     try {
-      const res = await fetch(`/api/availability?from=${from}&to=${to}`);
+      const res = await fetch(
+        `/api/availability?from=${from}&to=${to}${serviceParam}`,
+      );
       if (res.ok) {
         const data = await res.json();
         setComputedSlots((prev) => ({ ...prev, ...data }));
@@ -265,11 +286,19 @@ function BookingPageInner() {
     } catch {
       // silent
     }
-  }, [weekDays]);
+  }, [weekDays, selectedService]);
 
   useEffect(() => {
     fetchSlots();
   }, [fetchSlots]);
+
+  // Slots differ per service — wipe the cache when the chosen service
+  // changes so stale slots from a previously-viewed service can't leak
+  // into the new one's calendar.
+  useEffect(() => {
+    setComputedSlots({});
+    setSlotsLoaded(false);
+  }, [selectedService]);
 
   // Get available times for a selected date
   function getAvailableTimes(date: Date) {
@@ -992,6 +1021,37 @@ function ServicePicker({
                           {s.priceLabel}
                         </span>
                       </div>
+                      {/* Mode / location / associate badges so a parent
+                          can tell an online consult from an Armagh clinic
+                          at a glance, and see who they'll be seeing. */}
+                      {(s.mode === "online" ||
+                        s.locationLabel ||
+                        s.ownerName) && (
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          {s.mode === "online" && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                              <Globe className="h-3 w-3" />
+                              Online
+                            </span>
+                          )}
+                          {s.mode === "home" && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                              Home visit
+                            </span>
+                          )}
+                          {s.locationLabel && s.mode !== "online" && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                              <MapPin className="h-3 w-3" />
+                              {s.locationLabel}
+                            </span>
+                          )}
+                          {s.ownerName && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                              with {s.ownerName}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-muted-foreground line-clamp-4">
                         {s.description}
                       </p>

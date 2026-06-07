@@ -59,12 +59,24 @@ export async function POST(req: NextRequest) {
 
   const normalisedEmail = clientEmail.toLowerCase().trim();
 
-  // Check for duplicate booking at the same date/time
+  // Resolve the service so we can attribute the booking to its owning
+  // associate (or the practice when unassigned). ownerId is snapshotted
+  // onto the booking for the per-owner double-book check + admin views.
+  const svc = await prisma.bookingService.findUnique({
+    where: { slug: service },
+    select: { ownerId: true },
+  });
+  const ownerId = svc?.ownerId ?? null;
+
+  // Check for a clash on the SAME owner's calendar. Two different
+  // associates can hold the same date/time; one associate cannot be
+  // booked twice. Owner null = the practice's shared calendar.
   const bookingDate = new Date(date);
   const existing = await prisma.booking.findFirst({
     where: {
       date: bookingDate,
       time,
+      ownerId,
       status: { not: "cancelled" },
     },
   });
@@ -80,6 +92,7 @@ export async function POST(req: NextRequest) {
   const booking = await prisma.booking.create({
     data: {
       service,
+      ownerId,
       date: bookingDate,
       time,
       duration: duration || "",
@@ -94,6 +107,19 @@ export async function POST(req: NextRequest) {
       depositAmount: depositPolicy?.amountPence ?? 0,
     },
   });
+
+  // Notify the owning associate (best-effort) that they have a new
+  // booking. Routed to the service owner's email; falls back to silence
+  // for unassigned/practice services (Grace already gets the calendar
+  // view). Never blocks the booking.
+  void notifyOwnerOfBooking({
+    ownerId,
+    clientName,
+    clientEmail: normalisedEmail,
+    service,
+    date: bookingDate,
+    time,
+  }).catch((err) => console.error("Owner booking notification failed:", err));
 
   // Auto-create CLIENT user account (+ password setup token + email)
   let accountCreated = false;
@@ -175,12 +201,64 @@ export async function GET() {
   if (session.user.role === "CLIENT")
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+  // Associates (TEAM_MANAGER) see only the bookings for services they
+  // own; SUPER_ADMIN sees everything. Legacy/practice bookings (owner
+  // null) stay with the admins.
+  const ownerScope =
+    session.user.role === "SUPER_ADMIN"
+      ? {}
+      : { ownerId: session.user.id };
+
   const bookings = await prisma.booking.findMany({
     orderBy: { date: "asc" },
-    where: { status: { not: "cancelled" } },
+    where: { status: { not: "cancelled" }, ...ownerScope },
   });
 
   return NextResponse.json(bookings);
+}
+
+/** Email the owning associate a short heads-up about a new booking.
+ *  Best-effort: returns quietly if the service is unassigned or the
+ *  owner has no email on file. */
+async function notifyOwnerOfBooking(args: {
+  ownerId: string | null;
+  clientName: string;
+  clientEmail: string;
+  service: string;
+  date: Date;
+  time: string;
+}) {
+  if (!args.ownerId) return;
+  const owner = await prisma.user.findUnique({
+    where: { id: args.ownerId },
+    select: { email: true, name: true },
+  });
+  if (!owner?.email) return;
+
+  const svc = await prisma.bookingService.findUnique({
+    where: { slug: args.service },
+    select: { title: true },
+  });
+  const serviceTitle = svc?.title ?? args.service;
+  const dateLabel = args.date.toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+
+  await sendTransactionalEmail({
+    to: owner.email,
+    subject: `New booking: ${serviceTitle} — ${dateLabel} at ${args.time}`,
+    html: `<p>Hi ${owner.name?.split(" ")[0] ?? "there"},</p>
+<p>You have a new booking for <strong>${serviceTitle}</strong>.</p>
+<ul>
+  <li><strong>When:</strong> ${dateLabel} at ${args.time}</li>
+  <li><strong>Client:</strong> ${args.clientName} (${args.clientEmail})</li>
+</ul>
+<p>It's on your bookings page in the portal.</p>`,
+  });
 }
 
 /** Render-and-send the booking confirmation email using the

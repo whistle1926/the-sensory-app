@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import {
   CalendarDays,
@@ -57,6 +58,15 @@ interface BookingRecord {
   clientEmail: string;
   status: string;
   paymentStatus: string;
+}
+
+/** Minimal service shape needed for the availability service picker. */
+interface ManageableService {
+  id: string;
+  slug: string;
+  title: string;
+  ownerId: string | null;
+  ownerName: string | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -157,9 +167,22 @@ type Tab =
 
 export default function BookingsPage() {
   const today = useMemo(() => new Date(), []);
+  const { data: session } = useSession();
+  const role = session?.user?.role;
+  const myId = session?.user?.id;
+  const isAdmin = role === "SUPER_ADMIN";
 
   const [tab, setTab] = useState<Tab>("calendar");
   const [copied, setCopied] = useState(false);
+
+  // ── Availability service scope ──────────────────────────────────
+  // Availability is now per-service. Admins also get a "Default"
+  // option (the global calendar that unassigned services inherit);
+  // associates only ever see/edit their own services. `availService`
+  // is the slug being edited, or null for the admin Default calendar.
+  const [manageableServices, setManageableServices] = useState<ManageableService[]>([]);
+  const [availService, setAvailService] = useState<string | null>(null);
+  const [availServiceReady, setAvailServiceReady] = useState(false);
 
   // Calendar state
   const [weekStart, setWeekStart] = useState(() => getWeekStart(today));
@@ -200,21 +223,29 @@ export default function BookingsPage() {
     setLoadingBookings(false);
   }, []);
 
+  // Query-string fragment scoping availability calls to the chosen
+  // service (empty = the admin Default calendar).
+  const availServiceQ = availService
+    ? `?service=${encodeURIComponent(availService)}`
+    : "";
+
   const fetchSchedule = useCallback(async () => {
     setLoadingSchedule(true);
     try {
-      const res = await fetch("/api/availability/schedule");
+      const q = availService ? `?service=${encodeURIComponent(availService)}` : "";
+      const res = await fetch(`/api/availability/schedule${q}`);
       if (res.ok) setSchedule(await res.json());
     } catch { /* silent */ }
     setLoadingSchedule(false);
-  }, []);
+  }, [availService]);
 
   const fetchOverrides = useCallback(async () => {
     try {
-      const res = await fetch("/api/availability/overrides");
+      const q = availService ? `?service=${encodeURIComponent(availService)}` : "";
+      const res = await fetch(`/api/availability/overrides${q}`);
       if (res.ok) setOverrides(await res.json());
     } catch { /* silent */ }
-  }, []);
+  }, [availService]);
 
   const fetchComputedSlots = useCallback(async () => {
     const from = weekDays[0].toISOString().split("T")[0];
@@ -225,11 +256,60 @@ export default function BookingsPage() {
     } catch { /* silent */ }
   }, [weekDays]);
 
+  // Load the services this user may manage, and pick a sensible default
+  // selection (admins → Default calendar; associates → their first
+  // service). Runs once the session is known.
+  useEffect(() => {
+    if (!role) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/booking-services?all=1");
+        if (!res.ok) return;
+        const rows = (await res.json()) as Array<{
+          id: string;
+          slug: string;
+          title: string;
+          ownerId: string | null;
+          ownerName: string | null;
+        }>;
+        if (cancelled) return;
+        const mine = isAdmin ? rows : rows.filter((r) => r.ownerId === myId);
+        setManageableServices(
+          mine.map((r) => ({
+            id: r.id,
+            slug: r.slug,
+            title: r.title,
+            ownerId: r.ownerId,
+            ownerName: r.ownerName,
+          })),
+        );
+        // Initial selection: admins start on the Default calendar (null);
+        // associates start on their first owned service.
+        setAvailService(isAdmin ? null : (mine[0]?.slug ?? null));
+        setAvailServiceReady(true);
+      } catch {
+        setAvailServiceReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [role, isAdmin, myId]);
+
   useEffect(() => {
     fetchBookings();
+  }, [fetchBookings]);
+
+  // (Re)load schedule + overrides whenever the chosen service changes.
+  // Skip for associates who have no service selected yet (they'd hit a
+  // 403 on the Default calendar).
+  useEffect(() => {
+    if (!availServiceReady) return;
+    if (!isAdmin && !availService) return;
     fetchSchedule();
     fetchOverrides();
-  }, [fetchBookings, fetchSchedule, fetchOverrides]);
+  }, [availServiceReady, isAdmin, availService, fetchSchedule, fetchOverrides]);
 
   useEffect(() => {
     fetchComputedSlots();
@@ -294,7 +374,7 @@ export default function BookingsPage() {
   async function saveSchedule() {
     setSavingSchedule(true);
     try {
-      const res = await fetch("/api/availability/schedule", {
+      const res = await fetch(`/api/availability/schedule${availServiceQ}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(schedule),
@@ -312,7 +392,7 @@ export default function BookingsPage() {
   async function addOverride() {
     if (!newOverrideDate) return;
     try {
-      const res = await fetch("/api/availability/overrides", {
+      const res = await fetch(`/api/availability/overrides${availServiceQ}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -574,8 +654,47 @@ export default function BookingsPage() {
       {/* ================================================================ */}
       {/*  AVAILABILITY TAB — CALENDLY STYLE                                */}
       {/* ================================================================ */}
-      {tab === "availability" && (
+      {tab === "availability" && !isAdmin && manageableServices.length === 0 && availServiceReady && (
+        <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-[var(--shadow-sm)]">
+          <Settings2 className="mx-auto h-8 w-8 text-muted-foreground/50" />
+          <p className="mt-3 font-semibold">No services assigned to you yet</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Once an admin links a service to you (e.g. your assessment clinic),
+            you&apos;ll set its days and times here.
+          </p>
+        </div>
+      )}
+
+      {tab === "availability" &&
+        (isAdmin || manageableServices.length > 0) && (
         <div className="space-y-6">
+          {/* Service picker — which calendar are we editing? */}
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
+            <label className="text-sm font-semibold">
+              Which service&apos;s availability?
+            </label>
+            <p className="mb-3 mt-1 text-xs text-muted-foreground">
+              Each service has its own days and times. Pick one to edit, then
+              set the hours below. Monthly clinics can use date-specific
+              overrides instead of weekly hours.
+            </p>
+            <select
+              value={availService ?? ""}
+              onChange={(e) => setAvailService(e.target.value || null)}
+              className="h-10 w-full max-w-md rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              {isAdmin && (
+                <option value="">Default (unassigned services)</option>
+              )}
+              {manageableServices.map((s) => (
+                <option key={s.id} value={s.slug}>
+                  {s.title}
+                  {isAdmin && s.ownerName ? ` — ${s.ownerName}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Weekly Hours */}
           <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
             <div className="flex items-center justify-between mb-1">

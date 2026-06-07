@@ -41,8 +41,15 @@ export async function GET(req: NextRequest) {
   const rows = await prisma.bookingService.findMany({
     where: showInactive ? {} : { isActive: true },
     orderBy: [{ order: "asc" }, { createdAt: "asc" }],
+    include: { owner: { select: { id: true, name: true } } },
   });
-  return NextResponse.json(rows);
+  // Flatten the owner relation to a name for convenient display on the
+  // public cards + admin list, while keeping ownerId for the editor.
+  const shaped = rows.map(({ owner, ...svc }) => ({
+    ...svc,
+    ownerName: owner?.name ?? null,
+  }));
+  return NextResponse.json(shaped);
 }
 
 export async function POST(req: NextRequest) {

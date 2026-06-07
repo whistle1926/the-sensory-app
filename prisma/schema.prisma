@@ -72,6 +72,8 @@ model User {
   notes           Note[]         @relation("UserNotes")
   liveRoomsHosted LiveRoom[]     @relation("LiveRoomsHosted")
   auditEntries    AuditLog[]     @relation("AuditEntries")
+  // Booking services this associate runs (self-serve availability).
+  ownedBookingServices BookingService[] @relation("BookingServiceOwner")
 
   // ── Calendar integration (per-user) ──────────────────────────────
   // Each staff member can paste their Google Calendar's "Secret
@@ -420,24 +422,36 @@ model ProgrammeTemplate {
 
 model WeeklyHours {
   id        String   @id @default(cuid())
+  // Soft FK to BookingService.id. NULL = the legacy "default" schedule
+  // used by any service that hasn't set its own hours yet (back-compat
+  // with the original single-calendar model). A service with at least
+  // one row of its own uses those instead of the default.
+  serviceId String?  @map("service_id")
   dayOfWeek Int      // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
   enabled   Boolean  @default(false)
   intervals Json     // [{"start":"09:00","end":"17:00"}]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([dayOfWeek])
+  // One row per (service, day). serviceId NULL rows are the global default.
+  @@unique([serviceId, dayOfWeek])
+  @@index([serviceId])
 }
 
 model DateOverride {
   id        String   @id @default(cuid())
+  // Soft FK to BookingService.id. NULL = applies to the default schedule.
+  // Per-service overrides are how monthly assessment clinics are modelled
+  // (specific dates rather than a recurring weekly day).
+  serviceId String?  @map("service_id")
   date      DateTime @db.Date
   available Boolean  @default(false)
   intervals Json?    // null if unavailable, otherwise [{"start":"10:00","end":"14:00"}]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([date])
+  @@unique([serviceId, date])
+  @@index([serviceId])
 }
 
 /// Admin-editable catalogue of booking services. Replaces the
@@ -480,16 +494,39 @@ model BookingService {
   iconKey         String?
   /// Optional accent colour for the card stripe.
   accentColor     String?
+
+  /// The associate who runs this service. NULL = the practice
+  /// (Grace/Patrick) — unassigned services book against the default
+  /// calendar and notify the practice inbox. When set, the service's
+  /// availability is managed by this user (self-serve) and bookings
+  /// are attributed to them.
+  ownerId         String?  @map("owner_id")
+  owner           User?    @relation("BookingServiceOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  /// Delivery mode — drives the location/online wording shown to
+  /// parents and in reminder emails. "in_person" | "online" | "home".
+  mode            String   @default("in_person")
+  /// Human-readable location for in-person services (e.g. "Armagh",
+  /// "Antrim", "Ballymoney"). Shown as a badge on the booking card.
+  /// Ignored for online services.
+  locationLabel   String?  @map("location_label")
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   @@index([isActive, order])
+  @@index([ownerId])
   @@map("booking_services")
 }
 
 model Booking {
   id            String   @id @default(cuid())
   service       String
+  // Snapshot of the owning associate (BookingService.ownerId) at booking
+  // time. Soft FK to User.id; denormalised so reassigning a service later
+  // doesn't move historical bookings, and so availability generation can
+  // cheaply find all of an owner's booked slots to prevent double-booking
+  // the same person across their different services. NULL = the practice.
+  ownerId       String?  @map("owner_id")
   date          DateTime
   time          String
   duration      String
