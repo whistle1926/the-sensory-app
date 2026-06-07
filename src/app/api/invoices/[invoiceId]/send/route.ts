@@ -181,6 +181,7 @@ export async function POST(
 interface InvoiceWithItems {
   invoiceNumber: string;
   clientName: string;
+  clientAddress?: string | null;
   currency: string;
   dueDate: Date;
   createdAt: Date;
@@ -361,6 +362,17 @@ function buildInvoiceEmail(params: {
           </tr>
         </table>
       </div>
+
+      ${
+        invoice.clientAddress
+          ? `<!-- Bill to -->
+      <div style="margin:0 0 24px;">
+        <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#888;">Bill to</p>
+        <p style="margin:0;font-size:14px;font-weight:700;color:#222;">${escapeHtml(invoice.clientName)}</p>
+        <p style="margin:2px 0 0;font-size:13px;line-height:1.5;color:#555;">${escapeHtml(invoice.clientAddress).replace(/\n/g, "<br/>")}</p>
+      </div>`
+          : ""
+      }
 
       <!-- Items table -->
       <table style="width:100%;border-collapse:collapse;margin:0 0 24px;" cellpadding="0" cellspacing="0">

@@ -41,6 +41,7 @@ interface Invoice {
   clientId: string | null;
   clientName: string;
   clientEmail: string;
+  clientAddress: string | null;
   currency: string;
   status: "draft" | "sent" | "paid" | "overdue" | "cancelled";
   dueDate: string;
@@ -124,6 +125,7 @@ export default function InvoiceDetailPage() {
   const [editing, setEditing] = useState(false);
   const [editClientName, setEditClientName] = useState("");
   const [editClientEmail, setEditClientEmail] = useState("");
+  const [editClientAddress, setEditClientAddress] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editItems, setEditItems] = useState<EditableItem[]>([]);
@@ -179,6 +181,7 @@ export default function InvoiceDetailPage() {
     if (!invoice) return;
     setEditClientName(invoice.clientName);
     setEditClientEmail(invoice.clientEmail);
+    setEditClientAddress(invoice.clientAddress || "");
     setEditDueDate(new Date(invoice.dueDate).toISOString().split("T")[0]);
     setEditNotes(invoice.notes || "");
     setEditItems(
@@ -257,6 +260,7 @@ export default function InvoiceDetailPage() {
       const body = {
         clientName: editClientName.trim(),
         clientEmail: editClientEmail.trim().toLowerCase(),
+        clientAddress: editClientAddress.trim() || null,
         dueDate: new Date(editDueDate + "T00:00:00.000Z").toISOString(),
         notes: editNotes.trim() || null,
         items: editItems.map((item) => ({
@@ -558,6 +562,17 @@ export default function InvoiceDetailPage() {
                 type="email"
                 value={editClientEmail}
                 onChange={(e) => setEditClientEmail(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="editClientAddress">Client Address</Label>
+              <textarea
+                id="editClientAddress"
+                value={editClientAddress}
+                onChange={(e) => setEditClientAddress(e.target.value)}
+                rows={3}
+                placeholder={"12 Main Street\nArmagh\nBT60 1AA"}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
           </div>
@@ -971,6 +986,18 @@ export default function InvoiceDetailPage() {
                     Please find your invoice below.
                   </p>
 
+                  {invoice.clientAddress && (
+                    <div className="text-sm">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Bill to
+                      </p>
+                      <p className="mt-1 font-semibold">{invoice.clientName}</p>
+                      <p className="whitespace-pre-line text-muted-foreground">
+                        {invoice.clientAddress}
+                      </p>
+                    </div>
+                  )}
+
                   {/* Invoice summary */}
                   <div className="rounded-xl bg-muted/30 p-4">
                     <div className="flex justify-between text-sm">
@@ -1088,6 +1115,11 @@ export default function InvoiceDetailPage() {
             {invoice.clientEmail}
           </a>
         </p>
+        {invoice.clientAddress && (
+          <p className="mt-2 whitespace-pre-line text-sm text-muted-foreground">
+            {invoice.clientAddress}
+          </p>
+        )}
       </div>
 
       {/* ---- Invoice Details ---- */}

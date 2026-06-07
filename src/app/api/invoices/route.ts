@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
   if (session.user.role === "CLIENT") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const { clientId, clientName, clientEmail, currency, dueDate, notes, items, taxLabel: taxLabelRaw, taxRate: taxRateRaw } = body;
+  const { clientId, clientName, clientEmail, clientAddress, currency, dueDate, notes, items, taxLabel: taxLabelRaw, taxRate: taxRateRaw } = body;
   // Validate currency against the enabled list in payment settings.
   const paymentSettings = await prisma.paymentSettings.findUnique({
     where: { id: "default" },
@@ -120,17 +120,22 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Generate invoice number: INV-0001, INV-0002, etc.
+  // Generate invoice number: INV-0110, INV-0111, etc.
+  // Grace asked us to start the sequence at 110, so we floor the next
+  // number at 110 — the first real invoice is INV-0110 and it just
+  // increments from there. (Existing low-numbered test invoices don't
+  // affect this; the floor is idempotent.)
+  const INVOICE_START = 110;
   const lastInvoice = await prisma.invoice.findFirst({
     orderBy: { invoiceNumber: "desc" },
     select: { invoiceNumber: true },
   });
 
-  let nextNum = 1;
+  let nextNum = INVOICE_START;
   if (lastInvoice) {
     const match = lastInvoice.invoiceNumber.match(/^INV-(\d+)$/);
     if (match) {
-      nextNum = parseInt(match[1], 10) + 1;
+      nextNum = Math.max(parseInt(match[1], 10) + 1, INVOICE_START);
     }
   }
   const invoiceNumber = `INV-${String(nextNum).padStart(4, "0")}`;
@@ -145,18 +150,13 @@ export async function POST(req: NextRequest) {
 
   const subtotal = calculatedItems.reduce((sum: number, item: { amount: number }) => sum + item.amount, 0);
 
-  // Tax: prefer the rate explicitly picked on the form.
-  // Fall back to the first enabled rate for the currency when none sent.
+  // Tax: only apply a rate the form explicitly picked. No tax is the
+  // default now (Grace's request) — we no longer auto-apply the highest
+  // enabled rate when none is sent, so an omitted/zero rate = no tax.
   let tax = 0;
   let selectedRate = 0;
   if (typeof taxRateRaw === "number" && taxRateRaw > 0) {
     selectedRate = taxRateRaw;
-  } else if (typeof taxRateRaw === "undefined") {
-    const fallback = await prisma.taxRate.findFirst({
-      where: { currency: invoiceCurrency, enabled: true, rate: { gt: 0 } },
-      orderBy: { rate: "desc" },
-    });
-    if (fallback) selectedRate = fallback.rate;
   }
   if (selectedRate > 0) {
     tax = Math.round((subtotal * selectedRate) / 100);
@@ -171,7 +171,12 @@ export async function POST(req: NextRequest) {
   void appliedTaxLabel;
   const total = subtotal + tax;
 
-  // Create invoice + items in a transaction
+  const addressSnapshot =
+    typeof clientAddress === "string" && clientAddress.trim()
+      ? clientAddress.trim()
+      : null;
+
+  // Create invoice + items in a transaction.
   const invoice = await prisma.$transaction(async (tx) => {
     const inv = await tx.invoice.create({
       data: {
@@ -179,6 +184,7 @@ export async function POST(req: NextRequest) {
         clientId: clientId || null,
         clientName: clientName.trim(),
         clientEmail: clientEmail.toLowerCase().trim(),
+        clientAddress: addressSnapshot,
         currency: invoiceCurrency,
         dueDate: new Date(dueDate),
         notes: notes || null,
@@ -191,6 +197,15 @@ export async function POST(req: NextRequest) {
       },
       include: { items: true },
     });
+    // Remember the address on the client so the next invoice pre-fills
+    // it. Only write when we have both a linked client and an address —
+    // never blank out a saved address with an empty field.
+    if (clientId && addressSnapshot) {
+      await tx.client.update({
+        where: { id: clientId },
+        data: { address: addressSnapshot },
+      });
+    }
     return inv;
   });
 

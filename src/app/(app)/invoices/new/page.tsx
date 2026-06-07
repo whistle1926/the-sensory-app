@@ -21,6 +21,7 @@ interface Client {
   lastName: string;
   parentCarerEmail: string | null;
   parentCarerName: string | null;
+  address: string | null;
   currency: string;
 }
 
@@ -80,6 +81,7 @@ export default function NewInvoicePage() {
   /* ---- form fields ---- */
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
+  const [clientAddress, setClientAddress] = useState("");
   const [currency, setCurrency] = useState("GBP");
   const [dueDate, setDueDate] = useState(defaultDueDate);
   const [notes, setNotes] = useState("");
@@ -147,17 +149,14 @@ export default function NewInvoicePage() {
     (r) => r.currency === currency && r.enabled,
   );
 
-  /* ---- reset selection when currency changes (pick default: highest rate) */
+  /* ---- reset tax selection when currency changes ----
+   * Default is now "No tax" (Grace's request). We only clear an
+   * invalid selection (e.g. a rate that doesn't exist for the new
+   * currency); we never auto-pick a rate. The service picker can still
+   * set a specific rate explicitly when a service has a default. */
   useEffect(() => {
-    if (taxOptions.length === 0) {
-      setSelectedTaxId("");
-      return;
-    }
-    // Keep current if still valid
     if (taxOptions.some((o) => o.id === selectedTaxId)) return;
-    // Default to the highest rate (typically the standard rate)
-    const best = [...taxOptions].sort((a, b) => b.rate - a.rate)[0];
-    setSelectedTaxId(best.id);
+    setSelectedTaxId(""); // "" = No tax
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currency, availableTaxRates]);
 
@@ -181,6 +180,7 @@ export default function NewInvoicePage() {
     setSelectedClientId(c.id);
     setClientName(`${c.firstName} ${c.lastName}`);
     setClientEmail(c.parentCarerEmail || "");
+    setClientAddress(c.address || "");
     setCurrency(c.currency || "GBP");
     setClientSearch(`${c.firstName} ${c.lastName}`);
     setShowDropdown(false);
@@ -191,6 +191,7 @@ export default function NewInvoicePage() {
     setSelectedClientId(null);
     setClientName("");
     setClientEmail("");
+    setClientAddress("");
     setClientSearch("");
     setCurrency("GBP");
   }
@@ -254,6 +255,7 @@ export default function NewInvoicePage() {
         clientId: selectedClientId || undefined,
         clientName: clientName.trim(),
         clientEmail: clientEmail.trim().toLowerCase(),
+        clientAddress: clientAddress.trim() || undefined,
         currency,
         dueDate: new Date(dueDate + "T00:00:00.000Z").toISOString(),
         notes: notes.trim() || undefined,
@@ -421,6 +423,21 @@ export default function NewInvoicePage() {
                     placeholder="e.g. claire@example.com"
                     required
                   />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="clientAddress">Client Address</Label>
+                  <textarea
+                    id="clientAddress"
+                    value={clientAddress}
+                    onChange={(e) => setClientAddress(e.target.value)}
+                    rows={3}
+                    placeholder={"e.g.\n12 Main Street\nArmagh\nBT60 1AA"}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Shown on the invoice. Pre-filled from the client and saved
+                    back to them for next time.
+                  </p>
                 </div>
               </div>
             </CardContent>

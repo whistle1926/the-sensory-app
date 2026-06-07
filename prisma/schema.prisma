@@ -154,6 +154,8 @@ model Client {
   referrer           String?
   parentCarerName    String?
   parentCarerEmail   String?
+  // Billing address used to pre-fill invoices. Free-text, multi-line.
+  address            String?  @db.Text
   currency           String   @default("GBP") // GBP | EUR | USD
   business           Business @default(SENSORY_SUBMARINE)
   active             Boolean  @default(true)
@@ -903,6 +905,9 @@ model Invoice {
   client        Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
   clientName    String                       // snapshot — always filled even if no clientId
   clientEmail   String
+  // Snapshot of the client's billing address at invoice time, so editing
+  // the client later doesn't rewrite history. Free-text, multi-line.
+  clientAddress String?   @db.Text
   currency      String    @default("GBP")    // GBP | EUR | USD
   status        String    @default("draft")  // "draft" | "sent" | "paid" | "overdue" | "cancelled"
   dueDate       DateTime
