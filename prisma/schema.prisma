@@ -1151,6 +1151,19 @@ model TenantFeatureAccess {
   @@map("tenant_feature_access")
 }
 
+/// Misc practice-wide settings. Singleton (id="default"). Holds small
+/// admin-editable values that don't warrant their own model.
+model PracticeSettings {
+  id         String   @id @default("default")
+  /// The standard Sensory Processing Measure (SPM) assessment link
+  /// (WPS Hub). Pre-fills the "Add SPM" dialog on a client record so
+  /// the OT doesn't retype it for every client. URL only — no
+  /// credentials are ever stored here.
+  spmLinkUrl String?  @map("spm_link_url")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  @@map("practice_settings")
+}
+
 /// Tracking + analytics integrations. Singleton today (id="default")
 /// for parity with EmailSettings/PaymentSettings; will become per-
 /// tenant in Phase 1c of the white-label plan.

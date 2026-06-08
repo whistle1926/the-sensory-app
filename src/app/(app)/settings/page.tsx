@@ -23,6 +23,7 @@ import {
   CalendarDays,
   Activity,
   PaintBucket,
+  ClipboardList,
 } from "lucide-react";
 import { Toolbar } from "@/components/ds";
 import { CalendarSettingsSection } from "@/components/settings/calendar-settings-section";
@@ -33,6 +34,7 @@ import { DashTemplatesSection } from "@/components/settings/dash-templates-secti
 import { TaxSettingsSection } from "@/components/settings/tax-settings-section";
 import { TrackingSettingsSection } from "@/components/settings/tracking-settings-section";
 import { StorefrontSettingsSection } from "@/components/settings/storefront-settings-section";
+import { SpmSettingsSection } from "@/components/settings/spm-settings-section";
 import {
   CORE_CURRENCIES,
   KNOWN_CURRENCIES,
@@ -73,6 +75,7 @@ const tabs = [
   { key: "profile", label: "Profile", icon: User, adminOnly: false },
   { key: "calendar", label: "Calendar", icon: CalendarDays, adminOnly: false },
   { key: "stages", label: "Client Stages", icon: Milestone, adminOnly: true },
+  { key: "assessments", label: "Assessments", icon: ClipboardList, adminOnly: true },
   { key: "templates", label: "Templates", icon: LayoutDashboard, adminOnly: true },
   { key: "email", label: "Email", icon: Mail, adminOnly: true },
   { key: "ai", label: "AI", icon: Bot, adminOnly: true },
@@ -348,6 +351,12 @@ export default function SettingsPage() {
       {isAdmin && (
         <div style={{ display: activeTab === "stages" ? "block" : "none" }}>
           <ClientStagesSection />
+        </div>
+      )}
+
+      {isAdmin && (
+        <div style={{ display: activeTab === "assessments" ? "block" : "none" }}>
+          <SpmSettingsSection />
         </div>
       )}
 

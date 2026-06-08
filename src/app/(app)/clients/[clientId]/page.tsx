@@ -19,6 +19,7 @@ import { ClientProfileEditor } from "@/components/clients/client-profile-editor"
 import { ViewAsButton } from "@/components/impersonate/view-as-button";
 import { ProgressNotesSection } from "@/components/clients/progress-notes-section";
 import { GoalsSection } from "@/components/clients/goals-section";
+import { ClientAssessmentsSection } from "@/components/clients/client-assessments-section";
 import { Toolbar, Panel, Chip, Empty } from "@/components/ds";
 
 /**
@@ -117,38 +118,40 @@ export default async function ClientDetailPage({
     (reportWithProgramme?.content as { homeProgrammeSuggestions?: string } | null)
       ?.homeProgrammeSuggestions?.trim() ?? "";
 
-  // ─── Unified "Forms & assessments" feed ─────────────────────────
-  // Intake items + form invites in a single list, newest first, so
-  // Patrick can scan a single timeline rather than two separate ones.
-  type FeedRow = {
-    id: string;
-    kind: "intake" | "form";
-    label: string;
-    status: "completed" | "submitted" | "sent" | "opened" | "pending";
-    when: Date;
-    href?: string;
-  };
-  const feed: FeedRow[] = [
-    ...client.intakeItems.map<FeedRow>((i) => ({
-      id: `intake-${i.id}`,
-      kind: "intake",
-      label: i.label,
-      status: i.status === "completed" ? "completed" : i.status === "sent" ? "sent" : "pending",
-      when: i.completedAt ?? i.sentAt ?? i.createdAt,
-      href: i.fileUrl || i.url || undefined,
-    })),
-    ...client.formInvites.map<FeedRow>((inv) => {
+  // ─── Assessments & forms ────────────────────────────────────────
+  // Intake items (SPM etc.) are managed interactively client-side; form
+  // invites built in /forms are shown read-only beneath them.
+  const practice = await prisma.practiceSettings.findUnique({
+    where: { id: "default" },
+    select: { spmLinkUrl: true },
+  });
+  const spmLinkUrl = practice?.spmLinkUrl ?? "";
+
+  const intakeForClient = client.intakeItems.map((i) => ({
+    id: i.id,
+    type: i.type,
+    label: i.label,
+    url: i.url,
+    fileUrl: i.fileUrl,
+    status: i.status,
+    createdAt: i.createdAt.toISOString(),
+    sentAt: i.sentAt ? i.sentAt.toISOString() : null,
+    completedAt: i.completedAt ? i.completedAt.toISOString() : null,
+  }));
+
+  const formRows = client.formInvites
+    .map((inv) => {
       const submitted = inv.submissions[0];
+      const when = submitted?.submittedAt ?? inv.openedAt ?? inv.sentAt;
       return {
-        id: `form-${inv.id}`,
-        kind: "form",
+        id: inv.id,
         label: inv.form.title,
         status: submitted ? "submitted" : inv.openedAt ? "opened" : "sent",
-        when: submitted?.submittedAt ?? inv.openedAt ?? inv.sentAt,
+        when: when.toISOString(),
         href: `/forms/${inv.form.id}`,
       };
-    }),
-  ].sort((a, b) => b.when.getTime() - a.when.getTime());
+    })
+    .sort((a, b) => b.when.localeCompare(a.when));
 
   return (
     <div className="space-y-6">
@@ -451,69 +454,13 @@ export default async function ClientDetailPage({
 
       {/* ─── Forms & assessments — unified intake + form-invite feed */}
       {adminCanEdit && (
-        <Panel
-          title={
-            <span className="inline-flex items-center gap-2">
-              <ClipboardList className="h-4 w-4 text-primary" />
-              Forms & assessments
-            </span>
-          }
-          subtitle={
-            feed.length === 0
-              ? undefined
-              : `${feed.length} item${feed.length === 1 ? "" : "s"}`
-          }
-        >
-          {feed.length === 0 ? (
-            <Empty>
-              No intake items or form invites for {client.firstName} yet.
-            </Empty>
-          ) : (
-            <div className="divide-y divide-border">
-              {feed.map((row) => {
-                const tone: "success" | "warn" | "info" | "neutral" =
-                  row.status === "completed" || row.status === "submitted"
-                    ? "success"
-                    : row.status === "opened"
-                      ? "info"
-                      : row.status === "sent"
-                        ? "warn"
-                        : "neutral";
-                const rowBody = (
-                  <div className="flex items-center justify-between gap-3 px-5 py-4">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
-                        {row.label}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {row.kind === "intake" ? "Intake" : "Form"} ·{" "}
-                        {row.when.toLocaleDateString("en-GB")}
-                      </p>
-                    </div>
-                    <Chip tone={tone}>{row.status}</Chip>
-                  </div>
-                );
-                return row.href ? (
-                  <Link
-                    key={row.id}
-                    href={row.href}
-                    className="block transition-colors hover:bg-muted/20"
-                    target={row.href.startsWith("http") ? "_blank" : undefined}
-                    rel={
-                      row.href.startsWith("http")
-                        ? "noopener noreferrer"
-                        : undefined
-                    }
-                  >
-                    {rowBody}
-                  </Link>
-                ) : (
-                  <div key={row.id}>{rowBody}</div>
-                );
-              })}
-            </div>
-          )}
-        </Panel>
+        <ClientAssessmentsSection
+          clientId={client.id}
+          clientFirstName={client.firstName}
+          initialItems={intakeForClient}
+          formRows={formRows}
+          spmLinkUrl={spmLinkUrl}
+        />
       )}
 
       {/* ─── Home programme — pulled from the latest report on file ── */}

@@ -51,13 +51,33 @@ export async function POST(
     return NextResponse.json({ error: "Label is required" }, { status: 400 });
   }
 
+  // Optional initial status (e.g. add an SPM that's already "completed"
+  // when the result is uploaded at the same time). Defaults to pending.
+  const validStatuses = ["pending", "sent", "completed"];
+  const status =
+    typeof body.status === "string" && validStatuses.includes(body.status)
+      ? body.status
+      : "pending";
+
+  const fileUrl =
+    typeof body.fileUrl === "string" && body.fileUrl.trim()
+      ? body.fileUrl.trim()
+      : null;
+
   const item = await prisma.clientIntakeItem.create({
     data: {
       clientId,
       type: typeof body.type === "string" ? body.type : "custom",
       label: body.label.trim(),
       url: typeof body.url === "string" && body.url.trim() ? body.url.trim() : null,
-      status: "pending",
+      fileUrl,
+      notes:
+        typeof body.notes === "string" && body.notes.trim()
+          ? body.notes.trim()
+          : null,
+      status,
+      sentAt: status === "sent" || status === "completed" ? new Date() : null,
+      completedAt: status === "completed" ? new Date() : null,
     },
   });
   return NextResponse.json(item, { status: 201 });
