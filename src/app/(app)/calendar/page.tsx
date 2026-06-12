@@ -23,6 +23,7 @@ import {
   Loader2,
   MapPin,
   RotateCcw,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { Toolbar, Panel, Empty } from "@/components/ds";
@@ -83,14 +84,24 @@ export default function CalendarPage() {
 
   // Month view anchor (first of the displayed month).
   const [monthAnchor, setMonthAnchor] = useState<Date>(() => startOfMonth(new Date()));
-  // Agenda view start (today by default).
+  // Agenda view start + span (days). Quick buttons set these to today
+  // (1 day) or this week (7 days); the plain Agenda toggle uses 14.
   const [agendaFrom, setAgendaFrom] = useState<Date>(today);
+  const [agendaSpan, setAgendaSpan] = useState<number>(14);
 
   const [events, setEvents] = useState<TeamEvent[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [hiddenMemberIds, setHiddenMemberIds] = useState<Set<string>>(new Set());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<TeamEvent | null>(null);
+
+  /** Jump to a focused agenda window. */
+  function showAgenda(span: number, from: Date) {
+    setView("agenda");
+    setAgendaFrom(from);
+    setAgendaSpan(span);
+  }
 
   // The 42-cell month grid (6 weeks) covering the anchored month.
   const gridStart = useMemo(() => startOfWeekSun(startOfMonth(monthAnchor)), [monthAnchor]);
@@ -102,8 +113,8 @@ export default function CalendarPage() {
   // The fetch window depends on the active view.
   const [windowFrom, windowTo] = useMemo<[Date, Date]>(() => {
     if (view === "month") return [gridStart, addDays(gridStart, 42)];
-    return [agendaFrom, addDays(agendaFrom, 14)];
-  }, [view, gridStart, agendaFrom]);
+    return [agendaFrom, addDays(agendaFrom, agendaSpan)];
+  }, [view, gridStart, agendaFrom, agendaSpan]);
 
   useEffect(() => {
     setLoading(true);
@@ -243,6 +254,46 @@ export default function CalendarPage() {
         }
       />
 
+      {/* Quick-view buttons — fast jumps without hunting the nav. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => showAgenda(1, today)}
+          className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+            view === "agenda" && agendaSpan === 1
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border bg-card hover:bg-muted/50"
+          }`}
+        >
+          Today&apos;s agenda
+        </button>
+        <button
+          type="button"
+          onClick={() => showAgenda(7, startOfWeekSun(today))}
+          className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+            view === "agenda" && agendaSpan === 7
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border bg-card hover:bg-muted/50"
+          }`}
+        >
+          This week&apos;s agenda
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setView("month");
+            setMonthAnchor(startOfMonth(new Date()));
+          }}
+          className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+            view === "month"
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border bg-card hover:bg-muted/50"
+          }`}
+        >
+          Month view
+        </button>
+      </div>
+
       {/* Member chips */}
       {members.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-3 shadow-[var(--shadow-sm)]">
@@ -323,11 +374,18 @@ export default function CalendarPage() {
                 const shown = dayEvents.slice(0, 3);
                 const extra = dayEvents.length - shown.length;
                 return (
-                  <button
+                  <div
                     key={key}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setSelectedDay(key)}
-                    className={`min-h-[96px] border-b border-r border-border/60 p-1.5 text-left align-top transition-colors hover:bg-muted/30 ${
+                    onKeyDown={(ev) => {
+                      if (ev.key === "Enter" || ev.key === " ") {
+                        ev.preventDefault();
+                        setSelectedDay(key);
+                      }
+                    }}
+                    className={`min-h-[96px] cursor-pointer border-b border-r border-border/60 p-1.5 text-left align-top transition-colors hover:bg-muted/30 ${
                       inMonth ? "bg-card" : "bg-muted/20"
                     } ${selectedDay === key ? "ring-2 ring-inset ring-primary/40" : ""}`}
                   >
@@ -346,9 +404,14 @@ export default function CalendarPage() {
                     </div>
                     <div className="space-y-1">
                       {shown.map((e) => (
-                        <div
+                        <button
                           key={`${e.userId}:${e.uid}`}
-                          className="flex items-center gap-1 truncate rounded border-l-2 px-1.5 py-0.5 text-[11px] font-medium text-foreground"
+                          type="button"
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            setSelectedEvent(e);
+                          }}
+                          className="flex w-full items-center gap-1 truncate rounded border-l-2 px-1.5 py-0.5 text-left text-[11px] font-medium text-foreground hover:brightness-95"
                           style={{
                             // Light tint for identity, with a solid colour
                             // stripe — but the TEXT stays dark so any member
@@ -366,15 +429,22 @@ export default function CalendarPage() {
                             )}
                             {e.title || "(untitled)"}
                           </span>
-                        </div>
+                        </button>
                       ))}
                       {extra > 0 && (
-                        <div className="px-1 text-[11px] font-medium text-muted-foreground">
+                        <button
+                          type="button"
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            setSelectedDay(key);
+                          }}
+                          className="px-1 text-[11px] font-medium text-primary hover:underline"
+                        >
                           +{extra} more
-                        </div>
+                        </button>
                       )}
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -393,7 +463,7 @@ export default function CalendarPage() {
               ) : (
                 <div className="divide-y divide-border">
                   {selectedDayEvents.map((e) => (
-                    <EventRow key={`${e.userId}:${e.uid}`} event={e} />
+                    <EventRow key={`${e.userId}:${e.uid}`} event={e} onClick={() => setSelectedEvent(e)} />
                   ))}
                 </div>
               )}
@@ -433,7 +503,7 @@ export default function CalendarPage() {
               >
                 <div className="divide-y divide-border">
                   {dayEvents.map((e) => (
-                    <EventRow key={`${e.userId}:${e.uid}`} event={e} />
+                    <EventRow key={`${e.userId}:${e.uid}`} event={e} onClick={() => setSelectedEvent(e)} />
                   ))}
                 </div>
               </Panel>
@@ -441,13 +511,95 @@ export default function CalendarPage() {
           })}
         </div>
       )}
+
+      {/* Event detail modal — opened by clicking any event chip / row. */}
+      {selectedEvent && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setSelectedEvent(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-xl)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2">
+                <span
+                  className="mt-1 h-3 w-3 shrink-0 rounded-full"
+                  style={{ background: selectedEvent.userColour }}
+                />
+                <h3 className="text-base font-bold leading-snug">
+                  {selectedEvent.title || "(untitled event)"}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedEvent(null)}
+                className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-2.5 text-sm">
+              <div className="flex items-start gap-2 text-muted-foreground">
+                <CalendarDays className="mt-0.5 h-4 w-4 shrink-0" />
+                <span className="text-foreground">
+                  {new Date(selectedEvent.startAt).toLocaleDateString("en-GB", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </span>
+              </div>
+              <div className="flex items-start gap-2 text-muted-foreground">
+                <Clock className="mt-0.5 h-4 w-4 shrink-0" />
+                <span className="text-foreground">
+                  {selectedEvent.allDay
+                    ? "All day"
+                    : `${formatTime(selectedEvent.startAt)} – ${formatTime(selectedEvent.endAt)}`}
+                </span>
+              </div>
+              {selectedEvent.location && (
+                <div className="flex items-start gap-2 text-muted-foreground">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span className="text-foreground">{selectedEvent.location}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2 pt-1">
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium text-foreground"
+                  style={{ background: `${selectedEvent.userColour}1f` }}
+                >
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ background: selectedEvent.userColour }}
+                  />
+                  {selectedEvent.userName}
+                </span>
+              </div>
+              {selectedEvent.description && (
+                <div className="mt-2 max-h-60 overflow-y-auto whitespace-pre-line rounded-lg bg-muted/40 p-3 text-sm leading-relaxed text-foreground">
+                  {selectedEvent.description}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function EventRow({ event: e }: { event: TeamEvent }) {
+function EventRow({ event: e, onClick }: { event: TeamEvent; onClick?: () => void }) {
   return (
-    <div className="flex items-start gap-3 px-5 py-3">
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-start gap-3 px-5 py-3 text-left transition-colors hover:bg-muted/20"
+    >
       <div
         className="mt-1 h-10 w-1 shrink-0 rounded-full"
         style={{ background: e.userColour }}
@@ -486,6 +638,6 @@ function EventRow({ event: e }: { event: TeamEvent }) {
         )}
       </div>
       <LinkIcon className="mt-1 h-3 w-3 shrink-0 text-muted-foreground/30" />
-    </div>
+    </button>
   );
 }
