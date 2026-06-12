@@ -348,17 +348,19 @@ export default function CalendarPage() {
                       {shown.map((e) => (
                         <div
                           key={`${e.userId}:${e.uid}`}
-                          className="flex items-center gap-1 truncate rounded px-1 py-0.5 text-[11px] font-medium"
-                          style={{ background: `${e.userColour}22`, color: e.userColour }}
+                          className="flex items-center gap-1 truncate rounded border-l-2 px-1.5 py-0.5 text-[11px] font-medium text-foreground"
+                          style={{
+                            // Light tint for identity, with a solid colour
+                            // stripe — but the TEXT stays dark so any member
+                            // colour (incl. amber/yellow) is readable.
+                            background: `${e.userColour}1f`,
+                            borderColor: e.userColour,
+                          }}
                           title={`${e.title} — ${e.userName}`}
                         >
-                          <span
-                            className="h-1.5 w-1.5 shrink-0 rounded-full"
-                            style={{ background: e.userColour }}
-                          />
                           <span className="truncate">
                             {!e.allDay && (
-                              <span className="tabular-nums opacity-80">
+                              <span className="tabular-nums text-muted-foreground">
                                 {formatTime(e.startAt)}{" "}
                               </span>
                             )}
@@ -467,9 +469,13 @@ function EventRow({ event: e }: { event: TeamEvent }) {
             </span>
           )}
           <span
-            className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
-            style={{ background: `${e.userColour}1f`, color: e.userColour }}
+            className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium text-foreground"
+            style={{ background: `${e.userColour}1f` }}
           >
+            <span
+              className="h-1.5 w-1.5 rounded-full"
+              style={{ background: e.userColour }}
+            />
             {e.userName}
           </span>
         </div>
