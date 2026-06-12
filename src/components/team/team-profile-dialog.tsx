@@ -48,6 +48,8 @@ interface Props {
   onClose: () => void;
   /** Called after a successful password set so the card can update its status. */
   onPasswordSet: (memberId: string) => void;
+  /** Called after name/email is saved so the card reflects the change. */
+  onDetailsSaved: (memberId: string, next: { name: string; email: string }) => void;
 }
 
 /** A readable-over-the-phone password (no 0/O, 1/l/I confusion). */
@@ -66,13 +68,56 @@ export function TeamProfileDialog({
   roleLabel,
   onClose,
   onPasswordSet,
+  onDetailsSaved,
 }: Props) {
   const [password, setPassword] = useState(() => suggestPassword());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
 
-  const firstName = member.name.split(" ")[0] || member.name;
+  // Editable details (name + login email).
+  const [name, setName] = useState(member.name);
+  const [email, setEmail] = useState(member.email);
+  const [savingDetails, setSavingDetails] = useState(false);
+  const [detailsError, setDetailsError] = useState("");
+  const [detailsSaved, setDetailsSaved] = useState(false);
+  const detailsDirty =
+    name.trim() !== member.name || email.trim().toLowerCase() !== member.email;
+
+  const firstName = (name || member.name).split(" ")[0] || member.name;
+
+  async function saveDetails() {
+    if (!name.trim()) {
+      setDetailsError("Name can't be empty.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setDetailsError("That doesn't look like a valid email.");
+      return;
+    }
+    setSavingDetails(true);
+    setDetailsError("");
+    try {
+      const res = await fetch(`/api/users/${member.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), email: email.trim().toLowerCase() }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? "Couldn't save the details.");
+      }
+      setDetailsSaved(true);
+      onDetailsSaved(member.id, {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+      });
+    } catch (e) {
+      setDetailsError(e instanceof Error ? e.message : "Couldn't save the details.");
+    } finally {
+      setSavingDetails(false);
+    }
+  }
 
   async function setNewPassword() {
     if (password.length < 8) {
@@ -108,15 +153,11 @@ export function TeamProfileDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Profile summary */}
+          {/* Read-only summary: role, business, login status */}
           <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-3 text-sm">
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-muted-foreground" />
               <span className="font-medium">{roleLabel}</span>
-            </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Mail className="h-4 w-4 shrink-0" />
-              <span className="truncate">{member.email}</span>
             </div>
             {member.business && (
               <div className="flex items-center gap-2 text-muted-foreground">
@@ -138,6 +179,60 @@ export function TeamProfileDialog({
               </span>
             </div>
           </div>
+
+          {/* Editable details: name + login email */}
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="member-name">Name</Label>
+              <Input
+                id="member-name"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setDetailsSaved(false);
+                }}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="member-email" className="flex items-center gap-1.5">
+                <Mail className="h-3.5 w-3.5" />
+                Login email
+              </Label>
+              <Input
+                id="member-email"
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setDetailsSaved(false);
+                }}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                This is the address {firstName} signs in with.
+              </p>
+            </div>
+            {detailsError && (
+              <p className="text-xs text-red-600 dark:text-red-400">{detailsError}</p>
+            )}
+            <div className="flex items-center justify-end gap-2">
+              {detailsSaved && !detailsDirty && (
+                <span className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Saved
+                </span>
+              )}
+              <Button
+                variant="outline"
+                onClick={saveDetails}
+                disabled={!detailsDirty || savingDetails}
+                className="rounded-xl"
+              >
+                {savingDetails ? "Saving…" : "Save details"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="border-t border-border" />
 
           {/* Password reset */}
           {done ? (

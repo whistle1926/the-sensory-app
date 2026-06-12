@@ -384,6 +384,12 @@ export default function TeamPage() {
               prev.map((u) => (u.id === id ? { ...u, hasPassword: true } : u)),
             )
           }
+          onDetailsSaved={(id, next) => {
+            setUsers((prev) =>
+              prev.map((u) => (u.id === id ? { ...u, ...next } : u)),
+            );
+            setProfileUser((p) => (p && p.id === id ? { ...p, ...next } : p));
+          }}
         />
       )}
     </div>

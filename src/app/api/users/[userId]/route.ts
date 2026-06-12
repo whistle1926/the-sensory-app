@@ -69,6 +69,35 @@ export async function PATCH(
     passwordWasReset = true;
   }
 
+  // Display name.
+  if ("name" in body) {
+    if (typeof body.name !== "string" || !body.name.trim()) {
+      return NextResponse.json({ error: "Name can't be empty." }, { status: 400 });
+    }
+    data.name = body.name.trim().slice(0, 120);
+  }
+
+  // Login email — validate format + uniqueness (it's the sign-in id).
+  let emailChanged = false;
+  if ("email" in body) {
+    if (typeof body.email !== "string") {
+      return NextResponse.json({ error: "Invalid email." }, { status: 400 });
+    }
+    const email = body.email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ error: "That doesn't look like a valid email." }, { status: 400 });
+    }
+    const clash = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+    if (clash && clash.id !== userId) {
+      return NextResponse.json(
+        { error: "Another account already uses that email." },
+        { status: 409 },
+      );
+    }
+    data.email = email;
+    emailChanged = true;
+  }
+
   if ("dashTemplateId" in body) {
     if (body.dashTemplateId !== null && typeof body.dashTemplateId !== "string") {
       return NextResponse.json(
@@ -110,6 +139,18 @@ export async function PATCH(
       targetType: "user",
       targetId: userId,
       meta: { targetEmail: user.email, targetRole: user.role },
+      req,
+    });
+  }
+  // Email is the login identity — worth recording when it changes.
+  if (emailChanged) {
+    await recordAudit({
+      actorId: session.user.id,
+      actorLabel: `${session.user.name ?? "?"} <${session.user.email ?? "?"}>`,
+      action: "user.update",
+      targetType: "user",
+      targetId: userId,
+      meta: { field: "email", newEmail: user.email },
       req,
     });
   }
