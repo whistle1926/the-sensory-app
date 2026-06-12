@@ -72,6 +72,7 @@ interface PaymentConfig {
   bankAccountName: string;
   bankSortCode: string;
   bankAccountNumber: string;
+  bankEurAccountName: string;
   bankIban: string;
   bankBic: string;
   bankTransferInstructions: string;
@@ -124,6 +125,7 @@ export default function SettingsPage() {
     bankAccountName: "",
     bankSortCode: "",
     bankAccountNumber: "",
+    bankEurAccountName: "",
     bankIban: "",
     bankBic: "",
     bankTransferInstructions: "",
@@ -708,87 +710,116 @@ export default function SettingsPage() {
                 <p className="mt-1 text-xs text-muted-foreground">
                   Shown on an invoice when you tick “Offer bank transfer” —
                   e.g. for schools / Education Authority finance who pay by
-                  BACS. The invoice number is used as the payment reference.
+                  BACS. The invoice shows the account matching its currency
+                  (£ invoices → Sterling account, € invoices → Euro account),
+                  with the invoice number as the payment reference.
                 </p>
 
-                <div className="mt-4 space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="bankAccountName">Account name</Label>
-                    <Input
-                      id="bankAccountName"
-                      placeholder="e.g. The Sensory Submarine"
-                      value={paymentConfig.bankAccountName}
-                      onChange={(e) =>
-                        setPaymentConfig({ ...paymentConfig, bankAccountName: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
+                {/* Sterling (GBP) account */}
+                <div className="mt-4 rounded-xl border border-border bg-muted/20 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Sterling account (£ invoices)
+                  </p>
+                  <div className="mt-3 space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="bankSortCode">Sort code</Label>
+                      <Label htmlFor="bankAccountName">Account name</Label>
                       <Input
-                        id="bankSortCode"
-                        placeholder="e.g. 95-01-21"
-                        value={paymentConfig.bankSortCode}
+                        id="bankAccountName"
+                        placeholder="e.g. The Sensory Submarine"
+                        value={paymentConfig.bankAccountName}
                         onChange={(e) =>
-                          setPaymentConfig({ ...paymentConfig, bankSortCode: e.target.value })
+                          setPaymentConfig({ ...paymentConfig, bankAccountName: e.target.value })
                         }
                       />
                     </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="bankSortCode">Sort code</Label>
+                        <Input
+                          id="bankSortCode"
+                          placeholder="e.g. 95-01-21"
+                          value={paymentConfig.bankSortCode}
+                          onChange={(e) =>
+                            setPaymentConfig({ ...paymentConfig, bankSortCode: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="bankAccountNumber">Account number</Label>
+                        <Input
+                          id="bankAccountNumber"
+                          placeholder="e.g. 12345678"
+                          value={paymentConfig.bankAccountNumber}
+                          onChange={(e) =>
+                            setPaymentConfig({ ...paymentConfig, bankAccountNumber: e.target.value })
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Euro (EUR) account */}
+                <div className="mt-4 rounded-xl border border-border bg-muted/20 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Euro account (€ invoices)
+                  </p>
+                  <div className="mt-3 space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="bankAccountNumber">Account number</Label>
+                      <Label htmlFor="bankEurAccountName">Account name</Label>
                       <Input
-                        id="bankAccountNumber"
-                        placeholder="e.g. 12345678"
-                        value={paymentConfig.bankAccountNumber}
+                        id="bankEurAccountName"
+                        placeholder="Leave blank to reuse the Sterling account name"
+                        value={paymentConfig.bankEurAccountName}
                         onChange={(e) =>
-                          setPaymentConfig({ ...paymentConfig, bankAccountNumber: e.target.value })
+                          setPaymentConfig({ ...paymentConfig, bankEurAccountName: e.target.value })
                         }
                       />
                     </div>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="bankIban">IBAN (optional)</Label>
-                      <Input
-                        id="bankIban"
-                        placeholder="for EUR / cross-border"
-                        value={paymentConfig.bankIban}
-                        onChange={(e) =>
-                          setPaymentConfig({ ...paymentConfig, bankIban: e.target.value })
-                        }
-                      />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="bankIban">IBAN</Label>
+                        <Input
+                          id="bankIban"
+                          placeholder="e.g. IE29 AIBK 9311 5212 3456 78"
+                          value={paymentConfig.bankIban}
+                          onChange={(e) =>
+                            setPaymentConfig({ ...paymentConfig, bankIban: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="bankBic">BIC / SWIFT</Label>
+                        <Input
+                          id="bankBic"
+                          placeholder="e.g. AIBKIE2D"
+                          value={paymentConfig.bankBic}
+                          onChange={(e) =>
+                            setPaymentConfig({ ...paymentConfig, bankBic: e.target.value })
+                          }
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="bankBic">BIC / SWIFT (optional)</Label>
-                      <Input
-                        id="bankBic"
-                        placeholder="for EUR / cross-border"
-                        value={paymentConfig.bankBic}
-                        onChange={(e) =>
-                          setPaymentConfig({ ...paymentConfig, bankBic: e.target.value })
-                        }
-                      />
-                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="bankTransferInstructions">
-                      Instructions (optional)
-                    </Label>
-                    <textarea
-                      id="bankTransferInstructions"
-                      rows={2}
-                      placeholder="e.g. Please quote the invoice number as the payment reference."
-                      value={paymentConfig.bankTransferInstructions}
-                      onChange={(e) =>
-                        setPaymentConfig({
-                          ...paymentConfig,
-                          bankTransferInstructions: e.target.value,
-                        })
-                      }
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    />
-                  </div>
+                </div>
+
+                <div className="mt-4 space-y-2">
+                  <Label htmlFor="bankTransferInstructions">
+                    Instructions (optional, shown on both)
+                  </Label>
+                  <textarea
+                    id="bankTransferInstructions"
+                    rows={2}
+                    placeholder="e.g. Please quote the invoice number as the payment reference."
+                    value={paymentConfig.bankTransferInstructions}
+                    onChange={(e) =>
+                      setPaymentConfig({
+                        ...paymentConfig,
+                        bankTransferInstructions: e.target.value,
+                      })
+                    }
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
                 </div>
               </div>
 

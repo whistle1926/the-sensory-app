@@ -398,16 +398,20 @@ model PaymentSettings {
   // Accepted currencies — always contains GBP and EUR (enforced in API).
   currencies     String[] @default(["GBP", "EUR"])
 
-  // ── Bank transfer (BACS) details ────────────────────────────────
-  // Shown on an invoice when its `bankTransfer` flag is on — e.g. for
-  // schools / Education Authority finance who pay by transfer rather
-  // than the card link. All optional; the block only renders when the
-  // relevant fields are filled.
-  bankAccountName          String? @map("bank_account_name")
+  // ── Bank transfer details (two accounts) ────────────────────────
+  // Shown on an invoice when its `bankTransfer` flag is on. The block
+  // shown depends on the invoice currency: GBP invoices show the
+  // Sterling account, EUR invoices show the Euro account.
+  //
+  // Sterling (GBP) account:
+  bankAccountName          String? @map("bank_account_name")     // account holder name
   bankSortCode             String? @map("bank_sort_code")
   bankAccountNumber        String? @map("bank_account_number")
+  // Euro (EUR) account:
+  bankEurAccountName       String? @map("bank_eur_account_name") // falls back to bankAccountName when blank
   bankIban                 String? @map("bank_iban")
   bankBic                  String? @map("bank_bic")
+  // Shared instructions line (both accounts):
   bankTransferInstructions String? @db.Text @map("bank_transfer_instructions")
 
   createdAt      DateTime @default(now())

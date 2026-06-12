@@ -40,6 +40,7 @@ function bankFields(s: {
   bankAccountName: string | null;
   bankSortCode: string | null;
   bankAccountNumber: string | null;
+  bankEurAccountName: string | null;
   bankIban: string | null;
   bankBic: string | null;
   bankTransferInstructions: string | null;
@@ -48,6 +49,7 @@ function bankFields(s: {
     bankAccountName: s.bankAccountName ?? "",
     bankSortCode: s.bankSortCode ?? "",
     bankAccountNumber: s.bankAccountNumber ?? "",
+    bankEurAccountName: s.bankEurAccountName ?? "",
     bankIban: s.bankIban ?? "",
     bankBic: s.bankBic ?? "",
     bankTransferInstructions: s.bankTransferInstructions ?? "",
@@ -59,6 +61,7 @@ function emptyBank() {
     bankAccountName: "",
     bankSortCode: "",
     bankAccountNumber: "",
+    bankEurAccountName: "",
     bankIban: "",
     bankBic: "",
     bankTransferInstructions: "",
@@ -80,6 +83,7 @@ export async function POST(req: NextRequest) {
     bankAccountName,
     bankSortCode,
     bankAccountNumber,
+    bankEurAccountName,
     bankIban,
     bankBic,
     bankTransferInstructions,
@@ -101,6 +105,7 @@ export async function POST(req: NextRequest) {
   setBank("bankAccountName", bankAccountName);
   setBank("bankSortCode", bankSortCode);
   setBank("bankAccountNumber", bankAccountNumber);
+  setBank("bankEurAccountName", bankEurAccountName);
   setBank("bankIban", bankIban);
   setBank("bankBic", bankBic);
   setBank("bankTransferInstructions", bankTransferInstructions);

@@ -118,6 +118,7 @@ export async function POST(
       accountName: settings.bankAccountName,
       sortCode: settings.bankSortCode,
       accountNumber: settings.bankAccountNumber,
+      eurAccountName: settings.bankEurAccountName,
       iban: settings.bankIban,
       bic: settings.bankBic,
       instructions: settings.bankTransferInstructions,
@@ -209,34 +210,48 @@ interface BankDetails {
   accountName: string | null;
   sortCode: string | null;
   accountNumber: string | null;
+  eurAccountName: string | null;
   iban: string | null;
   bic: string | null;
   instructions: string | null;
 }
 
 /** Build the "Pay by bank transfer" HTML block, or "" if the invoice
- *  isn't flagged for it / no bank details are configured. The invoice
- *  number is shown as the payment reference. */
+ *  isn't flagged for it / no matching account is configured. The block
+ *  shown depends on the invoice currency: EUR invoices show the Euro
+ *  account (IBAN/BIC), everything else shows the Sterling account
+ *  (sort code/account number). The invoice number is the reference. */
 function bankTransferBlock(
   invoice: InvoiceWithItems,
   bank: BankDetails | undefined,
 ): string {
   if (!invoice.bankTransfer || !bank) return "";
-  const hasAny =
-    bank.accountName || bank.sortCode || bank.accountNumber || bank.iban || bank.bic;
-  if (!hasAny) return "";
+
   const row = (label: string, value: string | null) =>
     value
       ? `<tr><td style="padding:3px 0;font-size:13px;color:#555;font-weight:700;width:140px;">${label}</td><td style="padding:3px 0;font-size:13px;color:#222;">${escapeHtml(value)}</td></tr>`
       : "";
+
+  const isEur = invoice.currency === "EUR";
+  let rows = "";
+  if (isEur) {
+    if (!bank.iban && !bank.bic) return ""; // no Euro account configured
+    rows =
+      row("Account name", bank.eurAccountName || bank.accountName) +
+      row("IBAN", bank.iban) +
+      row("BIC / SWIFT", bank.bic);
+  } else {
+    if (!bank.sortCode && !bank.accountNumber) return ""; // no Sterling account
+    rows =
+      row("Account name", bank.accountName) +
+      row("Sort code", bank.sortCode) +
+      row("Account number", bank.accountNumber);
+  }
+
   return `<div style="background:#f0f7ff;border:1px solid #cfe2ff;border-radius:8px;padding:16px 20px;margin:0 0 24px;">
     <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#1d4ed8;">Pay by bank transfer</p>
     <table style="border-collapse:collapse;">
-      ${row("Account name", bank.accountName)}
-      ${row("Sort code", bank.sortCode)}
-      ${row("Account number", bank.accountNumber)}
-      ${row("IBAN", bank.iban)}
-      ${row("BIC / SWIFT", bank.bic)}
+      ${rows}
       ${row("Reference", invoice.invoiceNumber)}
     </table>
     ${bank.instructions ? `<p style="margin:10px 0 0;font-size:12px;line-height:1.5;color:#555;">${escapeHtml(bank.instructions).replace(/\n/g, "<br/>")}</p>` : ""}

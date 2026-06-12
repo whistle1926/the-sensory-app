@@ -183,6 +183,7 @@ export default function InvoiceDetailPage() {
     bankAccountName: string;
     bankSortCode: string;
     bankAccountNumber: string;
+    bankEurAccountName: string;
     bankIban: string;
     bankBic: string;
     bankTransferInstructions: string;
@@ -1074,32 +1075,58 @@ export default function InvoiceDetailPage() {
                   {/* Pay by bank transfer block — shows when this
                       invoice has the option enabled and bank details
                       are configured. Reference = invoice number. */}
-                  {invoice.bankTransfer &&
-                    bankSettings &&
-                    (bankSettings.bankAccountName ||
-                      bankSettings.bankSortCode ||
-                      bankSettings.bankAccountNumber ||
-                      bankSettings.bankIban ||
-                      bankSettings.bankBic) && (
+                  {(() => {
+                    if (!invoice.bankTransfer || !bankSettings) return null;
+                    const isEur = invoice.currency === "EUR";
+                    const hasAccount = isEur
+                      ? bankSettings.bankIban || bankSettings.bankBic
+                      : bankSettings.bankSortCode || bankSettings.bankAccountNumber;
+                    if (!hasAccount) {
+                      return (
+                        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+                          Bank transfer is on, but no {isEur ? "Euro" : "Sterling"}{" "}
+                          account is set yet — add it in Settings → Payments so it
+                          appears on this {isEur ? "€" : "£"} invoice.
+                        </div>
+                      );
+                    }
+                    return (
                       <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm dark:border-blue-900 dark:bg-blue-950/30">
                         <p className="text-[11px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300">
                           Pay by bank transfer
                         </p>
                         <div className="mt-2 space-y-1">
-                          {bankSettings.bankAccountName && (
-                            <Row k="Account name" v={bankSettings.bankAccountName} />
-                          )}
-                          {bankSettings.bankSortCode && (
-                            <Row k="Sort code" v={bankSettings.bankSortCode} />
-                          )}
-                          {bankSettings.bankAccountNumber && (
-                            <Row k="Account number" v={bankSettings.bankAccountNumber} />
-                          )}
-                          {bankSettings.bankIban && (
-                            <Row k="IBAN" v={bankSettings.bankIban} />
-                          )}
-                          {bankSettings.bankBic && (
-                            <Row k="BIC / SWIFT" v={bankSettings.bankBic} />
+                          {isEur ? (
+                            <>
+                              {(bankSettings.bankEurAccountName ||
+                                bankSettings.bankAccountName) && (
+                                <Row
+                                  k="Account name"
+                                  v={
+                                    bankSettings.bankEurAccountName ||
+                                    bankSettings.bankAccountName
+                                  }
+                                />
+                              )}
+                              {bankSettings.bankIban && (
+                                <Row k="IBAN" v={bankSettings.bankIban} />
+                              )}
+                              {bankSettings.bankBic && (
+                                <Row k="BIC / SWIFT" v={bankSettings.bankBic} />
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              {bankSettings.bankAccountName && (
+                                <Row k="Account name" v={bankSettings.bankAccountName} />
+                              )}
+                              {bankSettings.bankSortCode && (
+                                <Row k="Sort code" v={bankSettings.bankSortCode} />
+                              )}
+                              {bankSettings.bankAccountNumber && (
+                                <Row k="Account number" v={bankSettings.bankAccountNumber} />
+                              )}
+                            </>
                           )}
                           <Row k="Reference" v={invoice.invoiceNumber} />
                         </div>
@@ -1109,15 +1136,8 @@ export default function InvoiceDetailPage() {
                           </p>
                         )}
                       </div>
-                    )}
-
-                  {invoice.bankTransfer && !bankSettings?.bankAccountName && !bankSettings?.bankIban && (
-                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
-                      Bank transfer is enabled, but no bank details are set yet —
-                      add them in Settings → Payments so they appear on the
-                      invoice.
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Pay Now button preview — kept visually in step
                       with the actual email template so what Patrick
