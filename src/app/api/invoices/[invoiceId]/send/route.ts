@@ -249,7 +249,12 @@ function bankTransferBlock(
   }
 
   return `<div style="background:#f0f7ff;border:1px solid #cfe2ff;border-radius:8px;padding:16px 20px;margin:0 0 24px;">
-    <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#1d4ed8;">Pay by bank transfer</p>
+    <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#1d4ed8;">Pay by bank transfer</p>
+    <p style="margin:0 0 10px;font-size:12px;line-height:1.5;color:#444;">
+      If you&rsquo;d prefer to pay directly into our bank account &mdash; or if
+      you have any issues paying online with FireBuddy &mdash; you can use the
+      details below.
+    </p>
     <table style="border-collapse:collapse;">
       ${rows}
       ${row("Reference", invoice.invoiceNumber)}
@@ -383,15 +388,8 @@ function buildInvoiceEmail(params: {
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,Helvetica,sans-serif;">
   <div style="max-width:600px;margin:0 auto;padding:24px;">
 
-    <!-- Brand band: Cara's submarine logo above the title card. -->
-    <div style="text-align:center;padding:0 0 12px;">
-      <img src="https://portal.thesensorysubmarine.com/brand/logo.jpg"
-           alt="The Sensory Submarine"
-           width="120" height="120"
-           style="display:inline-block;width:120px;height:auto;border:0;outline:none;" />
-    </div>
-
-    <!-- Header -->
+    <!-- Header (text only — the logo image was dropped because most
+         email clients block remote images by default). -->
     <div style="background:#1a1a2e;color:#fff;padding:24px 32px;border-radius:12px 12px 0 0;text-align:center;">
       <h1 style="margin:0;font-size:22px;font-weight:700;">The Sensory Submarine</h1>
       <p style="margin:6px 0 0;font-size:13px;opacity:0.7;">Occupational Therapy Services</p>
@@ -478,8 +476,6 @@ function buildInvoiceEmail(params: {
         </tfoot>
       </table>
 
-      ${bankTransferBlock(invoice, bank)}
-
       <!-- Pay Now button — primary CTA, includes amount so the
            parent sees exactly what they're paying without having to
            re-scan the table. Bullet-proof inline styles for the
@@ -490,7 +486,7 @@ function buildInvoiceEmail(params: {
           Pay&nbsp;${formatPence(invoice.total)}&nbsp;now&nbsp;&rarr;
         </a>
       </div>
-      <p style="text-align:center;margin:0 0 28px;font-size:12px;color:#888;">
+      <p style="text-align:center;margin:0 0 12px;font-size:12px;color:#888;">
         Secure payment via FireBuddy
       </p>
 
@@ -500,6 +496,9 @@ function buildInvoiceEmail(params: {
       <p style="margin:0 0 24px;font-size:12px;color:#1a1a2e;word-break:break-all;">
         ${escapeHtml(paymentUrl)}
       </p>
+
+      <!-- Bank transfer — placed below the pay button as a fallback. -->
+      ${bankTransferBlock(invoice, bank)}
 
       <!-- Footer -->
       <hr style="border:none;border-top:1px solid #eee;margin:24px 0;"/>

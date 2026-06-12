@@ -1072,9 +1072,20 @@ export default function InvoiceDetailPage() {
                     </div>
                   </div>
 
-                  {/* Pay by bank transfer block — shows when this
-                      invoice has the option enabled and bank details
-                      are configured. Reference = invoice number. */}
+                  {/* Pay Now button preview — kept visually in step
+                      with the actual email template so what Patrick
+                      sees here is what the recipient gets. */}
+                  <div className="py-2 text-center">
+                    <div className="inline-block rounded-xl bg-[#1a1a2e] px-10 py-3.5 text-sm font-bold text-white shadow-md">
+                      Pay&nbsp;{sym}{(invoice.total / 100).toFixed(2)}&nbsp;now&nbsp;→
+                    </div>
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                      Secure payment via FireBuddy
+                    </p>
+                  </div>
+
+                  {/* Pay by bank transfer — fallback below the pay button.
+                      Shows the account matching the invoice currency. */}
                   {(() => {
                     if (!invoice.bankTransfer || !bankSettings) return null;
                     const isEur = invoice.currency === "EUR";
@@ -1094,6 +1105,11 @@ export default function InvoiceDetailPage() {
                       <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm dark:border-blue-900 dark:bg-blue-950/30">
                         <p className="text-[11px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300">
                           Pay by bank transfer
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          If you&apos;d prefer to pay directly into our bank account
+                          — or if you have any issues paying online with FireBuddy —
+                          you can use the details below.
                         </p>
                         <div className="mt-2 space-y-1">
                           {isEur ? (
@@ -1138,18 +1154,6 @@ export default function InvoiceDetailPage() {
                       </div>
                     );
                   })()}
-
-                  {/* Pay Now button preview — kept visually in step
-                      with the actual email template so what Patrick
-                      sees here is what the recipient gets. */}
-                  <div className="py-2 text-center">
-                    <div className="inline-block rounded-xl bg-[#1a1a2e] px-10 py-3.5 text-sm font-bold text-white shadow-md">
-                      Pay&nbsp;{sym}{(invoice.total / 100).toFixed(2)}&nbsp;now&nbsp;→
-                    </div>
-                    <p className="mt-2 text-[11px] text-muted-foreground">
-                      Secure payment via FireBuddy
-                    </p>
-                  </div>
 
                   <p className="text-xs text-muted-foreground">
                     If you have any questions, please don&apos;t hesitate to get in touch.
