@@ -37,6 +37,9 @@ export function CalendarSettingsSection() {
   const [icsUrl, setIcsUrl] = useState("");
   const [colour, setColour] = useState<string>("#3b82f6");
   const [savedUrl, setSavedUrl] = useState<string | null>(null);
+  // Track the saved colour too, so changing only the colour still
+  // enables the Save button (it used to watch the URL alone).
+  const [savedColour, setSavedColour] = useState<string>("#3b82f6");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +51,10 @@ export function CalendarSettingsSection() {
       .then((data: { icsUrl: string | null; colour: string | null }) => {
         setSavedUrl(data.icsUrl);
         setIcsUrl(data.icsUrl ?? "");
-        if (data.colour) setColour(data.colour);
+        if (data.colour) {
+          setColour(data.colour);
+          setSavedColour(data.colour);
+        }
       })
       .finally(() => setLoading(false));
   }, []);
@@ -68,6 +74,7 @@ export function CalendarSettingsSection() {
         throw new Error(data.error ?? `Save failed (${res.status})`);
       }
       setSavedUrl(icsUrl.trim() || null);
+      setSavedColour(colour);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2500);
     } catch (e) {
@@ -254,7 +261,13 @@ export function CalendarSettingsSection() {
           )}
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button onClick={save} disabled={saving || icsUrl === (savedUrl ?? "")}>
+            <Button
+              onClick={save}
+              disabled={
+                saving ||
+                (icsUrl.trim() === (savedUrl ?? "") && colour === savedColour)
+              }
+            >
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               {savedUrl ? "Update connection" : "Connect calendar"}
             </Button>
@@ -267,6 +280,17 @@ export function CalendarSettingsSection() {
                 Disconnect
               </Button>
             )}
+            {/* When the connection is saved and there are no pending edits,
+                say so — the disabled Save button otherwise reads as "stuck". */}
+            {savedUrl &&
+              icsUrl.trim() === savedUrl &&
+              colour === savedColour &&
+              !saving && (
+                <span className="inline-flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
+                  <Check className="h-4 w-4" />
+                  Connected — no changes to save
+                </span>
+              )}
           </div>
         </div>
       </div>
