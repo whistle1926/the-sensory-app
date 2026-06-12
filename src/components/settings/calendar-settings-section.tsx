@@ -9,7 +9,15 @@
  * /api/settings/calendar for validation + storage.
  */
 import { useEffect, useState } from "react";
-import { CalendarDays, Check, ExternalLink, Loader2, X } from "lucide-react";
+import {
+  CalendarDays,
+  Check,
+  ChevronDown,
+  ExternalLink,
+  HelpCircle,
+  Loader2,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -140,6 +148,76 @@ export function CalendarSettingsSection() {
               <em>&ldquo;Secret address in iCal format&rdquo;</em> → copy.
               Don&apos;t share this URL — anyone with it can see your events.
             </p>
+
+            {/* Expandable, plain-English walkthrough — added because the
+                Google steps trip people up (especially on mobile). */}
+            <details className="group rounded-xl border border-border bg-muted/30 px-4 py-3">
+              <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium">
+                <HelpCircle className="h-4 w-4 text-primary" />
+                Step-by-step: how to find your calendar link
+                <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+              </summary>
+
+              <div className="mt-3 space-y-3 text-sm text-muted-foreground">
+                <p className="rounded-lg bg-amber-50 px-3 py-2 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                  ⚠️ Do this on a <strong>computer</strong>. The Google
+                  Calendar phone app doesn&apos;t show this setting — that&apos;s
+                  what trips most people up.
+                </p>
+
+                <div>
+                  <p className="font-semibold text-foreground">
+                    1. Copy the link from Google
+                  </p>
+                  <ol className="mt-1 list-decimal space-y-1 pl-5">
+                    <li>
+                      On a computer, go to{" "}
+                      <strong>calendar.google.com</strong> and sign in.
+                    </li>
+                    <li>
+                      On the left under <em>&ldquo;My calendars&rdquo;</em>,
+                      hover over your calendar&apos;s name — three dots
+                      (<strong>⋮</strong>) appear. Click them.
+                    </li>
+                    <li>
+                      Click <strong>&ldquo;Settings and sharing&rdquo;</strong>.
+                    </li>
+                    <li>
+                      Scroll down to the{" "}
+                      <strong>&ldquo;Integrate calendar&rdquo;</strong> section.
+                    </li>
+                    <li>
+                      Find{" "}
+                      <strong>&ldquo;Secret address in iCal format&rdquo;</strong>{" "}
+                      and click the copy button. The link ends in{" "}
+                      <code className="rounded bg-muted px-1">.ics</code>.
+                    </li>
+                  </ol>
+                </div>
+
+                <div>
+                  <p className="font-semibold text-foreground">
+                    2. Paste it here
+                  </p>
+                  <ol className="mt-1 list-decimal space-y-1 pl-5">
+                    <li>Paste the link into the box above.</li>
+                    <li>Pick a colour for your events on the team calendar.</li>
+                    <li>
+                      Click <strong>&ldquo;Update connection&rdquo;</strong>. Done.
+                    </li>
+                  </ol>
+                </div>
+
+                <p className="text-xs">
+                  Your events can take 15 minutes to a few hours to first appear,
+                  and Google refreshes every few hours — so it&apos;s not live to
+                  the second. On a phone? Open{" "}
+                  <strong>calendar.google.com</strong> in your browser (not the
+                  app), turn on <em>&ldquo;Desktop site&rdquo;</em>, then follow
+                  the steps — but it&apos;s much easier on a computer.
+                </p>
+              </div>
+            </details>
           </div>
 
           <div className="space-y-2">
