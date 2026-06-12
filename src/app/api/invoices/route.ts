@@ -60,6 +60,17 @@ export async function GET() {
     }
   }
 
+  // Flat per-status counts the list page reads directly (it was
+  // reading stats.countPaid etc. which didn't exist → "undefined
+  // invoices" / "NaN outstanding" on the KPI cards). countAll is the
+  // total across every status.
+  const countDraft = countsByStatus.draft ?? 0;
+  const countSent = countsByStatus.sent ?? 0;
+  const countPaid = countsByStatus.paid ?? 0;
+  const countOverdue = countsByStatus.overdue ?? 0;
+  const countCancelled = countsByStatus.cancelled ?? 0;
+  const countAll = Object.values(countsByStatus).reduce((a, b) => a + b, 0);
+
   return NextResponse.json({
     invoices,
     stats: {
@@ -68,6 +79,12 @@ export async function GET() {
       totalUnpaid,
       totalOverdue,
       countsByStatus,
+      countAll,
+      countDraft,
+      countSent,
+      countPaid,
+      countOverdue,
+      countCancelled,
     },
   });
 }

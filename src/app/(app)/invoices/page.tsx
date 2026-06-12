@@ -12,6 +12,7 @@ import {
   Loader2,
   Plus,
   PoundSterling,
+  RefreshCw,
   Search,
   Trash2,
   X,
@@ -174,16 +175,58 @@ export default function InvoicesPage() {
     }
   }
 
+  async function loadInvoices() {
+    try {
+      const r = await fetch("/api/invoices");
+      const data = await r.json();
+      setInvoices(Array.isArray(data.invoices) ? data.invoices : []);
+      setStats(data.stats ?? null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
-    fetch("/api/invoices")
-      .then((r) => r.json())
-      .then((data) => {
-        setInvoices(Array.isArray(data.invoices) ? data.invoices : []);
-        setStats(data.stats ?? null);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    loadInvoices();
   }, []);
+
+  // "Sync with FireBuddy" — pulls payment status for unpaid invoices and
+  // marks the completed ones paid (the webhook is unreliable, so we pull).
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  async function syncWithFireBuddy() {
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      const res = await fetch("/api/invoices/reconcile", { method: "POST" });
+      const data = (await res.json().catch(() => ({}))) as {
+        synced?: { invoiceNumber: string }[];
+        checked?: number;
+        error?: string;
+      };
+      if (!res.ok) {
+        setSyncMsg(data.error ?? "Sync failed — please try again.");
+        return;
+      }
+      const n = data.synced?.length ?? 0;
+      if (n > 0) {
+        await loadInvoices();
+        setSyncMsg(
+          `Updated ${n} invoice${n === 1 ? "" : "s"} to Paid: ${data.synced!
+            .map((s) => s.invoiceNumber)
+            .join(", ")}.`,
+        );
+      } else {
+        setSyncMsg(
+          `All up to date — nothing new marked paid (checked ${data.checked ?? 0}).`,
+        );
+      }
+    } catch {
+      setSyncMsg("Sync failed — please try again.");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   const filtered = useMemo(() => {
     let list = invoices;
@@ -253,15 +296,42 @@ export default function InvoicesPage() {
         title="Invoices"
         subtitle="Manage and track all invoices"
         actions={
-          <Link
-            href="/invoices/new"
-            className={buttonVariants({ className: "rounded-xl" })}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Create Invoice
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={syncWithFireBuddy}
+              disabled={syncing}
+              className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold transition-colors hover:bg-muted disabled:opacity-60"
+              title="Check FireBuddy for any invoices that have been paid and update them here"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+              {syncing ? "Syncing…" : "Sync with FireBuddy"}
+            </button>
+            <Link
+              href="/invoices/new"
+              className={buttonVariants({ className: "rounded-xl" })}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create Invoice
+            </Link>
+          </div>
         }
       />
+
+      {syncMsg && (
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm">
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />
+          <span className="flex-1">{syncMsg}</span>
+          <button
+            type="button"
+            onClick={() => setSyncMsg(null)}
+            className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+            aria-label="Dismiss"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <Panel>
