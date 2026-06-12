@@ -208,9 +208,12 @@ export default function InvoicesPage() {
         setSyncMsg(data.error ?? "Sync failed — please try again.");
         return;
       }
+      // Always refresh the list so it reflects the current saved state —
+      // even when *this* run marked nothing new, the displayed list may
+      // be out of date with paid statuses applied by an earlier sync.
+      await loadInvoices();
       const n = data.synced?.length ?? 0;
       if (n > 0) {
-        await loadInvoices();
         setSyncMsg(
           `Updated ${n} invoice${n === 1 ? "" : "s"} to Paid: ${data.synced!
             .map((s) => s.invoiceNumber)
