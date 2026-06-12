@@ -20,6 +20,7 @@ export async function GET() {
       webhookSecret: "",
       enabled: false,
       currencies: ensureCore([]),
+      ...emptyBank(),
     });
   }
 
@@ -29,7 +30,39 @@ export async function GET() {
     webhookSecret: settings.webhookSecret ? maskKey(settings.webhookSecret) : "",
     enabled: settings.enabled,
     currencies: ensureCore(settings.currencies ?? []),
+    ...bankFields(settings),
   });
+}
+
+/** Bank details are NOT secret (they're printed on invoices), so they
+ *  are returned unmasked. */
+function bankFields(s: {
+  bankAccountName: string | null;
+  bankSortCode: string | null;
+  bankAccountNumber: string | null;
+  bankIban: string | null;
+  bankBic: string | null;
+  bankTransferInstructions: string | null;
+}) {
+  return {
+    bankAccountName: s.bankAccountName ?? "",
+    bankSortCode: s.bankSortCode ?? "",
+    bankAccountNumber: s.bankAccountNumber ?? "",
+    bankIban: s.bankIban ?? "",
+    bankBic: s.bankBic ?? "",
+    bankTransferInstructions: s.bankTransferInstructions ?? "",
+  };
+}
+
+function emptyBank() {
+  return {
+    bankAccountName: "",
+    bankSortCode: "",
+    bankAccountNumber: "",
+    bankIban: "",
+    bankBic: "",
+    bankTransferInstructions: "",
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -39,7 +72,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const { apiKey, webhookSecret, enabled, currencies } = body;
+  const {
+    apiKey,
+    webhookSecret,
+    enabled,
+    currencies,
+    bankAccountName,
+    bankSortCode,
+    bankAccountNumber,
+    bankIban,
+    bankBic,
+    bankTransferInstructions,
+  } = body;
 
   const existing = await prisma.paymentSettings.findUnique({
     where: { id: "default" },
@@ -49,6 +93,17 @@ export async function POST(req: NextRequest) {
   if (apiKey !== undefined && !apiKey.includes("\u2022")) data.apiKey = apiKey;
   if (webhookSecret !== undefined && !webhookSecret.includes("\u2022")) data.webhookSecret = webhookSecret;
   if (enabled !== undefined) data.enabled = enabled;
+
+  // Bank transfer details \u2014 trimmed; empty string clears the field.
+  const setBank = (key: string, value: unknown) => {
+    if (typeof value === "string") data[key] = value.trim() || null;
+  };
+  setBank("bankAccountName", bankAccountName);
+  setBank("bankSortCode", bankSortCode);
+  setBank("bankAccountNumber", bankAccountNumber);
+  setBank("bankIban", bankIban);
+  setBank("bankBic", bankBic);
+  setBank("bankTransferInstructions", bankTransferInstructions);
 
   if (Array.isArray(currencies)) {
     // Keep only known codes, enforce that GBP & EUR are present.
@@ -85,6 +140,7 @@ export async function POST(req: NextRequest) {
     webhookSecret: settings.webhookSecret ? maskKey(settings.webhookSecret) : "",
     enabled: settings.enabled,
     currencies: ensureCore(settings.currencies ?? []),
+    ...bankFields(settings),
   });
 }
 

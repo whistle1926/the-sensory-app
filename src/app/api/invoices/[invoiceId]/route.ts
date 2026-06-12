@@ -45,7 +45,7 @@ export async function PATCH(
   }
 
   const body = await req.json();
-  const { clientName, clientEmail, clientAddress, clientId, dueDate, notes, status, items } = body;
+  const { clientName, clientEmail, clientAddress, clientId, dueDate, notes, status, items, bankTransfer } = body;
 
   // Build the update payload
   const data: Record<string, unknown> = {};
@@ -56,6 +56,7 @@ export async function PATCH(
     data.clientAddress = typeof clientAddress === "string" && clientAddress.trim()
       ? clientAddress.trim()
       : null;
+  if (bankTransfer !== undefined) data.bankTransfer = bankTransfer === true;
   if (clientId !== undefined) data.clientId = clientId || null;
   if (dueDate !== undefined) data.dueDate = new Date(dueDate);
   if (notes !== undefined) data.notes = notes || null;

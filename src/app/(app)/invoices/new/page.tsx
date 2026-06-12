@@ -85,6 +85,7 @@ export default function NewInvoicePage() {
   const [currency, setCurrency] = useState("GBP");
   const [dueDate, setDueDate] = useState(defaultDueDate);
   const [notes, setNotes] = useState("");
+  const [bankTransfer, setBankTransfer] = useState(false);
   const [items, setItems] = useState<LineItem[]>([makeItem()]);
 
   /* ---- tax ---- */
@@ -259,6 +260,7 @@ export default function NewInvoicePage() {
         currency,
         dueDate: new Date(dueDate + "T00:00:00.000Z").toISOString(),
         notes: notes.trim() || undefined,
+        bankTransfer,
         // Explicitly selected tax — send the picked label/rate, API will use it.
         // Omit (or 0) for "No tax".
         taxLabel: taxEnabled ? taxLabel : undefined,
@@ -612,6 +614,28 @@ export default function NewInvoicePage() {
                   rows={3}
                 />
               </div>
+
+              {/* Bank transfer option — for schools / EA finance who pay
+                  by BACS rather than the card link. */}
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-muted/30 p-3">
+                <input
+                  type="checkbox"
+                  checked={bankTransfer}
+                  onChange={(e) => setBankTransfer(e.target.checked)}
+                  className="mt-0.5 h-5 w-5 rounded border-border text-primary focus:ring-primary"
+                />
+                <span>
+                  <span className="block text-sm font-medium">
+                    Offer bank transfer
+                  </span>
+                  <span className="block text-xs text-muted-foreground">
+                    Shows your bank details + this invoice number as the
+                    reference on the invoice and email. Ideal for schools /
+                    Education Authority finance. (Set your bank details in
+                    Settings → Payments.)
+                  </span>
+                </span>
+              </label>
             </CardContent>
           </Card>
 

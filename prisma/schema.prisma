@@ -397,6 +397,19 @@ model PaymentSettings {
   enabled        Boolean  @default(false)
   // Accepted currencies — always contains GBP and EUR (enforced in API).
   currencies     String[] @default(["GBP", "EUR"])
+
+  // ── Bank transfer (BACS) details ────────────────────────────────
+  // Shown on an invoice when its `bankTransfer` flag is on — e.g. for
+  // schools / Education Authority finance who pay by transfer rather
+  // than the card link. All optional; the block only renders when the
+  // relevant fields are filled.
+  bankAccountName          String? @map("bank_account_name")
+  bankSortCode             String? @map("bank_sort_code")
+  bankAccountNumber        String? @map("bank_account_number")
+  bankIban                 String? @map("bank_iban")
+  bankBic                  String? @map("bank_bic")
+  bankTransferInstructions String? @db.Text @map("bank_transfer_instructions")
+
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
@@ -921,6 +934,10 @@ model Invoice {
   // the client later doesn't rewrite history. Free-text, multi-line.
   clientAddress String?   @db.Text
   currency      String    @default("GBP")    // GBP | EUR | USD
+  // When true, the invoice shows a "Pay by bank transfer" block with the
+  // practice bank details (PaymentSettings) + this invoice number as the
+  // reference. Used for schools / EA finance who pay by BACS.
+  bankTransfer  Boolean   @default(false)    @map("bank_transfer")
   status        String    @default("draft")  // "draft" | "sent" | "paid" | "overdue" | "cancelled"
   dueDate       DateTime
   notes         String?   @db.Text

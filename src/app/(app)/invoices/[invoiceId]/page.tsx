@@ -42,6 +42,7 @@ interface Invoice {
   clientName: string;
   clientEmail: string;
   clientAddress: string | null;
+  bankTransfer: boolean;
   currency: string;
   status: "draft" | "sent" | "paid" | "overdue" | "cancelled";
   dueDate: string;
@@ -126,6 +127,7 @@ export default function InvoiceDetailPage() {
   const [editClientName, setEditClientName] = useState("");
   const [editClientEmail, setEditClientEmail] = useState("");
   const [editClientAddress, setEditClientAddress] = useState("");
+  const [editBankTransfer, setEditBankTransfer] = useState(false);
   const [editDueDate, setEditDueDate] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editItems, setEditItems] = useState<EditableItem[]>([]);
@@ -176,12 +178,29 @@ export default function InvoiceDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoiceId]);
 
+  // Bank details (for the "Pay by bank transfer" block in the preview).
+  const [bankSettings, setBankSettings] = useState<{
+    bankAccountName: string;
+    bankSortCode: string;
+    bankAccountNumber: string;
+    bankIban: string;
+    bankBic: string;
+    bankTransferInstructions: string;
+  } | null>(null);
+  useEffect(() => {
+    fetch("/api/settings/bank")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setBankSettings(d))
+      .catch(() => {});
+  }, []);
+
   /* ---- enter edit mode ---- */
   function enterEditMode() {
     if (!invoice) return;
     setEditClientName(invoice.clientName);
     setEditClientEmail(invoice.clientEmail);
     setEditClientAddress(invoice.clientAddress || "");
+    setEditBankTransfer(invoice.bankTransfer);
     setEditDueDate(new Date(invoice.dueDate).toISOString().split("T")[0]);
     setEditNotes(invoice.notes || "");
     setEditItems(
@@ -261,6 +280,7 @@ export default function InvoiceDetailPage() {
         clientName: editClientName.trim(),
         clientEmail: editClientEmail.trim().toLowerCase(),
         clientAddress: editClientAddress.trim() || null,
+        bankTransfer: editBankTransfer,
         dueDate: new Date(editDueDate + "T00:00:00.000Z").toISOString(),
         notes: editNotes.trim() || null,
         items: editItems.map((item) => ({
@@ -575,6 +595,21 @@ export default function InvoiceDetailPage() {
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-muted/30 p-3 sm:col-span-2">
+              <input
+                type="checkbox"
+                checked={editBankTransfer}
+                onChange={(e) => setEditBankTransfer(e.target.checked)}
+                className="mt-0.5 h-5 w-5 rounded border-border text-primary focus:ring-primary"
+              />
+              <span>
+                <span className="block text-sm font-medium">Offer bank transfer</span>
+                <span className="block text-xs text-muted-foreground">
+                  Shows your bank details + this invoice number as the
+                  reference (for schools / EA finance paying by BACS).
+                </span>
+              </span>
+            </label>
           </div>
         </div>
 
@@ -1036,6 +1071,54 @@ export default function InvoiceDetailPage() {
                     </div>
                   </div>
 
+                  {/* Pay by bank transfer block — shows when this
+                      invoice has the option enabled and bank details
+                      are configured. Reference = invoice number. */}
+                  {invoice.bankTransfer &&
+                    bankSettings &&
+                    (bankSettings.bankAccountName ||
+                      bankSettings.bankSortCode ||
+                      bankSettings.bankAccountNumber ||
+                      bankSettings.bankIban ||
+                      bankSettings.bankBic) && (
+                      <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm dark:border-blue-900 dark:bg-blue-950/30">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300">
+                          Pay by bank transfer
+                        </p>
+                        <div className="mt-2 space-y-1">
+                          {bankSettings.bankAccountName && (
+                            <Row k="Account name" v={bankSettings.bankAccountName} />
+                          )}
+                          {bankSettings.bankSortCode && (
+                            <Row k="Sort code" v={bankSettings.bankSortCode} />
+                          )}
+                          {bankSettings.bankAccountNumber && (
+                            <Row k="Account number" v={bankSettings.bankAccountNumber} />
+                          )}
+                          {bankSettings.bankIban && (
+                            <Row k="IBAN" v={bankSettings.bankIban} />
+                          )}
+                          {bankSettings.bankBic && (
+                            <Row k="BIC / SWIFT" v={bankSettings.bankBic} />
+                          )}
+                          <Row k="Reference" v={invoice.invoiceNumber} />
+                        </div>
+                        {bankSettings.bankTransferInstructions && (
+                          <p className="mt-2 whitespace-pre-line text-xs text-muted-foreground">
+                            {bankSettings.bankTransferInstructions}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                  {invoice.bankTransfer && !bankSettings?.bankAccountName && !bankSettings?.bankIban && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+                      Bank transfer is enabled, but no bank details are set yet —
+                      add them in Settings → Payments so they appear on the
+                      invoice.
+                    </div>
+                  )}
+
                   {/* Pay Now button preview — kept visually in step
                       with the actual email template so what Patrick
                       sees here is what the recipient gets. */}
@@ -1492,6 +1575,16 @@ export default function InvoiceDetailPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Small key/value row for the bank-transfer preview block. */
+function Row({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex justify-between gap-3">
+      <span className="text-muted-foreground">{k}</span>
+      <span className="font-medium">{v}</span>
     </div>
   );
 }

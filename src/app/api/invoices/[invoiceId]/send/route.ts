@@ -114,6 +114,14 @@ export async function POST(
     invoice: updatedInvoice,
     paymentUrl: result.paymentUrl,
     personalNote,
+    bank: {
+      accountName: settings.bankAccountName,
+      sortCode: settings.bankSortCode,
+      accountNumber: settings.bankAccountNumber,
+      iban: settings.bankIban,
+      bic: settings.bankBic,
+      instructions: settings.bankTransferInstructions,
+    },
   });
 
   // Honour caller-supplied To / Subject when present (the compose
@@ -183,6 +191,7 @@ interface InvoiceWithItems {
   clientName: string;
   clientAddress?: string | null;
   currency: string;
+  bankTransfer?: boolean;
   dueDate: Date;
   createdAt: Date;
   subtotal: number;
@@ -194,6 +203,44 @@ interface InvoiceWithItems {
     unitPrice: number;
     amount: number;
   }>;
+}
+
+interface BankDetails {
+  accountName: string | null;
+  sortCode: string | null;
+  accountNumber: string | null;
+  iban: string | null;
+  bic: string | null;
+  instructions: string | null;
+}
+
+/** Build the "Pay by bank transfer" HTML block, or "" if the invoice
+ *  isn't flagged for it / no bank details are configured. The invoice
+ *  number is shown as the payment reference. */
+function bankTransferBlock(
+  invoice: InvoiceWithItems,
+  bank: BankDetails | undefined,
+): string {
+  if (!invoice.bankTransfer || !bank) return "";
+  const hasAny =
+    bank.accountName || bank.sortCode || bank.accountNumber || bank.iban || bank.bic;
+  if (!hasAny) return "";
+  const row = (label: string, value: string | null) =>
+    value
+      ? `<tr><td style="padding:3px 0;font-size:13px;color:#555;font-weight:700;width:140px;">${label}</td><td style="padding:3px 0;font-size:13px;color:#222;">${escapeHtml(value)}</td></tr>`
+      : "";
+  return `<div style="background:#f0f7ff;border:1px solid #cfe2ff;border-radius:8px;padding:16px 20px;margin:0 0 24px;">
+    <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#1d4ed8;">Pay by bank transfer</p>
+    <table style="border-collapse:collapse;">
+      ${row("Account name", bank.accountName)}
+      ${row("Sort code", bank.sortCode)}
+      ${row("Account number", bank.accountNumber)}
+      ${row("IBAN", bank.iban)}
+      ${row("BIC / SWIFT", bank.bic)}
+      ${row("Reference", invoice.invoiceNumber)}
+    </table>
+    ${bank.instructions ? `<p style="margin:10px 0 0;font-size:12px;line-height:1.5;color:#555;">${escapeHtml(bank.instructions).replace(/\n/g, "<br/>")}</p>` : ""}
+  </div>`;
 }
 
 /**
@@ -278,8 +325,9 @@ function buildInvoiceEmail(params: {
   invoice: InvoiceWithItems;
   paymentUrl: string;
   personalNote?: string;
+  bank?: BankDetails;
 }): string {
-  const { invoice, paymentUrl, personalNote } = params;
+  const { invoice, paymentUrl, personalNote, bank } = params;
 
   const formatDate = (d: Date) =>
     new Date(d).toLocaleDateString("en-GB", {
@@ -414,6 +462,8 @@ function buildInvoiceEmail(params: {
           </tr>
         </tfoot>
       </table>
+
+      ${bankTransferBlock(invoice, bank)}
 
       <!-- Pay Now button — primary CTA, includes amount so the
            parent sees exactly what they're paying without having to
