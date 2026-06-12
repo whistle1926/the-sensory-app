@@ -21,6 +21,7 @@ import {
   Users,
 } from "lucide-react";
 import { Toolbar } from "@/components/ds";
+import { TeamProfileDialog } from "@/components/team/team-profile-dialog";
 
 interface DashTemplate {
   id: string;
@@ -34,6 +35,7 @@ interface User {
   role: string;
   business: string | null;
   dashTemplateId: string | null;
+  hasPassword?: boolean;
   createdAt: string;
 }
 
@@ -63,6 +65,8 @@ export default function TeamPage() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // The member whose "View Profile" dialog is open, if any.
+  const [profileUser, setProfileUser] = useState<User | null>(null);
 
   useEffect(() => {
     fetch("/api/users").then((r) => r.json()).then(setUsers);
@@ -345,7 +349,11 @@ export default function TeamPage() {
                 >
                   Message
                 </a>
-                <button className="flex-1 rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted">
+                <button
+                  type="button"
+                  onClick={() => setProfileUser(user)}
+                  className="flex-1 rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+                >
                   View Profile
                 </button>
               </div>
@@ -360,6 +368,23 @@ export default function TeamPage() {
             No team members yet. Click “Add team member” above to invite an admin or associate.
           </p>
         </div>
+      )}
+
+      {profileUser && (
+        <TeamProfileDialog
+          member={profileUser}
+          businessLabel={businessLabel}
+          roleLabel={profileUser.role
+            .replace(/_/g, " ")
+            .toLowerCase()
+            .replace(/\b\w/g, (l) => l.toUpperCase())}
+          onClose={() => setProfileUser(null)}
+          onPasswordSet={(id) =>
+            setUsers((prev) =>
+              prev.map((u) => (u.id === id ? { ...u, hasPassword: true } : u)),
+            )
+          }
+        />
       )}
     </div>
   );

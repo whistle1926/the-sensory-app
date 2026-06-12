@@ -48,6 +48,7 @@ export type AuditAction =
   | "client.update"
   | "client.delete"
   | "user.create"
+  | "user.password.reset"
   | "user.impersonate.start"
   | "user.impersonate.stop"
   | "settings.update";
