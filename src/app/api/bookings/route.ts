@@ -209,9 +209,25 @@ export async function GET() {
       ? {}
       : { ownerId: session.user.id };
 
+  // Bounded + column-scoped: only the fields the calendar/list render,
+  // and a hard cap so the payload can't grow without limit as bookings
+  // accumulate. 1000 covers well beyond a single practice's live load.
   const bookings = await prisma.booking.findMany({
     orderBy: { date: "asc" },
     where: { status: { not: "cancelled" }, ...ownerScope },
+    take: 1000,
+    select: {
+      id: true,
+      service: true,
+      date: true,
+      time: true,
+      duration: true,
+      price: true,
+      clientName: true,
+      clientEmail: true,
+      status: true,
+      paymentStatus: true,
+    },
   });
 
   return NextResponse.json(bookings);

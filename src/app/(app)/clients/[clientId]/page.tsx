@@ -38,7 +38,11 @@ export default async function ClientDetailPage({
 
   const { clientId } = await params;
 
-  const client = await prisma.client.findUnique({
+  // Fetch the client and the (independent) practice settings in
+  // parallel so the SPM-link lookup doesn't add a second sequential
+  // round-trip on top of the client load.
+  const [client, practice] = await Promise.all([
+    prisma.client.findUnique({
     where: { id: clientId },
     include: {
       reports: {
@@ -82,7 +86,12 @@ export default async function ClientDetailPage({
         },
       },
     },
-  });
+    }),
+    prisma.practiceSettings.findUnique({
+      where: { id: "default" },
+      select: { spmLinkUrl: true },
+    }),
+  ]);
 
   if (!client) notFound();
   if (!canAccessClient(session.user.role, session.user.id, client))
@@ -120,11 +129,8 @@ export default async function ClientDetailPage({
 
   // ─── Assessments & forms ────────────────────────────────────────
   // Intake items (SPM etc.) are managed interactively client-side; form
-  // invites built in /forms are shown read-only beneath them.
-  const practice = await prisma.practiceSettings.findUnique({
-    where: { id: "default" },
-    select: { spmLinkUrl: true },
-  });
+  // invites built in /forms are shown read-only beneath them. (practice
+  // settings were fetched in parallel with the client above.)
   const spmLinkUrl = practice?.spmLinkUrl ?? "";
 
   const intakeForClient = client.intakeItems.map((i) => ({

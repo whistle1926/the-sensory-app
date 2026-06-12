@@ -179,6 +179,8 @@ model Client {
   formInvites   FormInvite[]
 
   @@index([stageId])
+  // Dashboard filters active clients, often within a recent window.
+  @@index([active, createdAt])
 }
 
 model TherapySession {
@@ -210,6 +212,11 @@ model Report {
   content    Json
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  // Dashboard lists recent reports + filters by status.
+  @@index([createdAt])
+  @@index([status])
+  @@index([clientId])
 }
 
 model Activity {
@@ -559,6 +566,11 @@ model Booking {
   // reminder email fires successfully. Used as the idempotency key so the
   // hourly cron never sends the same reminder twice.
   reminderSentAt       DateTime? @map("reminder_sent_at")
+
+  // Availability + dashboard filter by date / owner / payment status.
+  @@index([date])
+  @@index([ownerId])
+  @@index([status])
 }
 
 /// User-editable email automations attached to bookings. Two are seeded
@@ -930,6 +942,9 @@ model Invoice {
 
   @@index([clientId])
   @@index([status])
+  // Dashboard revenue/outstanding aggregates filter on these.
+  @@index([paidAt])
+  @@index([dueDate])
 }
 
 model InvoiceItem {
