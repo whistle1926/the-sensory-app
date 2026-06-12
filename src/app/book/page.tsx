@@ -965,6 +965,18 @@ function ServicePicker({
   selectedService: string | null;
   onSelect: (id: string) => void;
 }) {
+  // Which cards are showing their full description. Parents asked to be
+  // able to read the whole thing (some services — e.g. School
+  // Observation — explain a lot) without it being clipped.
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const toggleExpanded = (id: string) =>
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
   // Preserve catalogue order within each category. "" sorts last.
   const grouped = new Map<string, ServiceCatalogueRow[]>();
   for (const s of services) {
@@ -987,12 +999,20 @@ function ServicePicker({
             {items.map((s) => {
               const Icon = s.icon;
               const isSelected = selectedService === s.id;
+              const isExpanded = expandedIds.has(s.id);
               return (
-                <button
+                <div
                   key={s.id}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => onSelect(s.id)}
-                  className={`group relative rounded-2xl border-2 bg-card p-5 text-left shadow-[var(--shadow-sm)] card-lift ${
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onSelect(s.id);
+                    }
+                  }}
+                  className={`group relative cursor-pointer rounded-2xl border-2 bg-card p-5 text-left shadow-[var(--shadow-sm)] card-lift ${
                     isSelected
                       ? "border-primary ring-2 ring-primary/20"
                       : "border-border"
@@ -1052,12 +1072,38 @@ function ServicePicker({
                           )}
                         </div>
                       )}
-                      <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-muted-foreground line-clamp-4">
+                      <p
+                        className={`mt-2 whitespace-pre-line text-sm leading-relaxed text-muted-foreground ${
+                          isExpanded ? "" : "line-clamp-4"
+                        }`}
+                      >
                         {s.description}
                       </p>
+                      {/* Only offer the toggle when there's enough text
+                          to actually be clipped, so short services don't
+                          get a pointless "See full details" link. */}
+                      {s.description.length > 180 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            // Don't let this select the service — it's
+                            // purely an expand/collapse control.
+                            e.stopPropagation();
+                            toggleExpanded(s.id);
+                          }}
+                          className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                        >
+                          {isExpanded ? "Show less" : "See full details"}
+                          <ChevronRight
+                            className={`h-3 w-3 transition-transform ${
+                              isExpanded ? "-rotate-90" : "rotate-90"
+                            }`}
+                          />
+                        </button>
+                      )}
                     </div>
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
