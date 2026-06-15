@@ -5,6 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Youtube from "@tiptap/extension-youtube";
 import Underline from "@tiptap/extension-underline";
+import Image from "@tiptap/extension-image";
 import { useEffect, useState } from "react";
 import {
   Bold,
@@ -392,6 +393,14 @@ export function RichTextEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [2, 3] } }),
       Underline,
+      // Demo-step photos (and any pasted images) are preserved as
+      // proper image nodes. StarterKit has no image node, so without
+      // this the <img> tags get dropped on insert.
+      Image.configure({
+        inline: false,
+        allowBase64: false,
+        HTMLAttributes: { class: "rounded-lg max-w-xs my-2" },
+      }),
       Link.configure({
         openOnClick: false,
         autolink: true,
