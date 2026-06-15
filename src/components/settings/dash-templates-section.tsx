@@ -59,6 +59,7 @@ const NAV_ITEMS: WidgetDef[] = [
   { key: "nav_dashboard", label: "Dashboard", description: "Main dashboard page" },
   { key: "nav_clients", label: "Clients", description: "Client list and profiles" },
   { key: "nav_reports", label: "Reports", description: "OT reports" },
+  { key: "nav_home_programmes", label: "Home Programmes", description: "Standalone home programmes — create and send without a report" },
   { key: "nav_activities", label: "Activities", description: "Activity bank" },
   { key: "nav_programmes", label: "Programmes", description: "Home programmes" },
   { key: "nav_bookings", label: "Bookings", description: "Session bookings" },

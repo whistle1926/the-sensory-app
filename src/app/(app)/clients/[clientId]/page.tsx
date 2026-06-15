@@ -177,13 +177,22 @@ export default async function ClientDetailPage({
         }`}
         actions={
           adminCanEdit && (
-            <Link
-              href={`/reports/new?clientId=${client.id}`}
-              className="inline-flex items-center rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/80"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              New Report
-            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href={`/home-programmes/new?clientId=${client.id}`}
+                className="inline-flex items-center rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold transition-colors hover:bg-muted/50"
+              >
+                <Home className="mr-2 h-4 w-4" />
+                New Home Programme
+              </Link>
+              <Link
+                href={`/reports/new?clientId=${client.id}`}
+                className="inline-flex items-center rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/80"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                New Report
+              </Link>
+            </div>
           )
         }
       />

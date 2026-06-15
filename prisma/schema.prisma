@@ -57,6 +57,7 @@ model User {
   managedClients  Client[]       @relation("ManagerClients")
   parentOfClients Client[]       @relation("ParentClients")
   reports         Report[]       @relation("AuthoredReports")
+  homeProgrammes  HomeProgramme[] @relation("AuthoredHomeProgrammes")
   sessions        TherapySession[] @relation("TherapistSessions")
   enrollments     Enrollment[]   @relation("UserEnrollments")
   setupTokens     PasswordSetupToken[]
@@ -172,6 +173,7 @@ model Client {
 
   sessions      TherapySession[]
   reports       Report[]
+  homeProgrammes HomeProgramme[]
   progressNotes ProgressNote[]
   goals         ClientGoal[]
   intakeItems   ClientIntakeItem[]
@@ -230,6 +232,35 @@ model Activity {
   business    Business @default(SENSORY_SUBMARINE)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+/// A standalone home programme — decoupled from reports. Grace often
+/// sends a home programme to a parent without writing a whole report
+/// (especially for long-standing clients), so these live on their own
+/// and can be created, edited, exported (PDF) and emailed directly.
+/// `body` is plain text in the exact same format the in-report
+/// HomeProgrammeEditor produces, so the template/activity/leaflet
+/// insert pickers and the export styling are reused unchanged.
+model HomeProgramme {
+  id        String    @id @default(cuid())
+  // Optional client link — a programme is usually tied to a child (so
+  // it appears on their profile and we can pre-fill the parent's
+  // email), but a one-off can be drafted without one. SetNull so
+  // deleting a client doesn't cascade-delete their programme history.
+  clientId  String?
+  client    Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  authorId  String?
+  author    User?     @relation("AuthoredHomeProgrammes", fields: [authorId], references: [id], onDelete: SetNull)
+  title     String    @default("Home Programme")
+  body      String    @db.Text @default("")
+  status    String    @default("draft") // draft | sent
+  sentAt    DateTime?
+  sentTo    String?   // email the most recent copy went to
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([clientId])
+  @@index([status, createdAt])
 }
 
 model Course {
