@@ -73,9 +73,12 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/json",
         "x-sh-key": settings.apiKey,
       },
+      // Mailcub's send_email schema uses `receiver` / `email_from`
+      // (NOT `to` / `from`) — see src/lib/mailer.ts. Wrong names get a
+      // 400 "email_from is required".
       body: JSON.stringify({
-        to,
-        from: settings.senderEmail,
+        receiver: to,
+        email_from: settings.senderEmail,
         subject,
         html: htmlBody,
         text: stripHtml(htmlBody),
