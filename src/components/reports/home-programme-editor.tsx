@@ -21,6 +21,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { BookOpen, FileStack, Plus, Search } from "lucide-react";
+import { sanitiseProgrammeSections } from "@/lib/programme-sections";
 
 interface ProgrammeTemplate {
   id: string;
@@ -58,31 +59,21 @@ function appendBlock(existing: string, block: string): string {
   return `${trimmed}\n\n${block}`;
 }
 
-/** Coerce ProgrammeTemplate.sections (JSON) into a strict shape we can render. */
-function readSections(
-  raw: unknown,
-): Array<{ title: string; items: string[] }> {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((s) => {
-      if (!s || typeof s !== "object") return null;
-      const obj = s as Record<string, unknown>;
-      const title = typeof obj.title === "string" ? obj.title : "";
-      const items = Array.isArray(obj.items)
-        ? obj.items.filter((i): i is string => typeof i === "string")
-        : [];
-      return { title, items };
-    })
-    .filter((s): s is { title: string; items: string[] } => s !== null);
-}
-
-/** Format a template as plain text the way Patrick would type it. */
+/**
+ * Format a template as plain text the way Patrick would type it.
+ *
+ * Uses the shared sanitiseProgrammeSections so BOTH item shapes carry
+ * across: legacy plain strings AND the current object items
+ * ({ text, demoSteps?, videoUrl? }). Previously this kept only string
+ * items, so newer templates (authored with the rich item shape) lost
+ * every item on insert — they came across as just a title.
+ */
 function formatTemplate(t: ProgrammeTemplate): string {
-  const sections = readSections(t.sections);
+  const sections = sanitiseProgrammeSections(t.sections);
   const head = `${t.title}`;
   const body = sections
     .map((s) => {
-      const items = s.items.map((i) => `- ${i}`).join("\n");
+      const items = s.items.map((i) => `- ${i.text}`).join("\n");
       return s.title ? `${s.title}:\n${items}` : items;
     })
     .filter(Boolean)
