@@ -9,7 +9,7 @@
  *
  * Public lookups against this table power /book and /book/[slug].
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
   AlertCircle,
@@ -25,6 +25,7 @@ import {
   Search,
   Trash2,
   User,
+  UserPlus,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -83,20 +84,30 @@ export function ServicesSection() {
   }, []);
 
   // Owner assignment is admin-only, so only admins need the staff list
-  // for the dropdown. /api/users is SUPER_ADMIN-gated anyway.
-  useEffect(() => {
+  // for the dropdown. /api/users is SUPER_ADMIN-gated anyway. Extracted
+  // so the editor can refresh it after adding a new therapist inline.
+  const loadStaff = useCallback(async () => {
     if (!isAdmin) return;
-    fetch("/api/users")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((users: Array<{ id: string; name: string; role: string }>) => {
-        setStaff(
-          users
-            .filter((u) => u.role === "SUPER_ADMIN" || u.role === "TEAM_MANAGER")
-            .map((u) => ({ id: u.id, name: u.name })),
-        );
-      })
-      .catch(() => {});
+    try {
+      const r = await fetch("/api/users");
+      const users = (r.ok ? await r.json() : []) as Array<{
+        id: string;
+        name: string;
+        role: string;
+      }>;
+      setStaff(
+        users
+          .filter((u) => u.role === "SUPER_ADMIN" || u.role === "TEAM_MANAGER")
+          .map((u) => ({ id: u.id, name: u.name })),
+      );
+    } catch {
+      /* non-fatal — dropdown just stays as-is */
+    }
   }, [isAdmin]);
+
+  useEffect(() => {
+    loadStaff();
+  }, [loadStaff]);
 
   const filtered = useMemo(() => {
     if (!rows) return [];
@@ -267,6 +278,7 @@ export function ServicesSection() {
                 service={svc}
                 staff={staff}
                 isAdmin={isAdmin}
+                reloadStaff={loadStaff}
                 onCancel={() => setEditingId(null)}
                 onSave={async (next) => {
                   await patchService(svc.id, next);
@@ -449,6 +461,7 @@ function EditorPanel({
   service,
   staff,
   isAdmin,
+  reloadStaff,
   onCancel,
   onSave,
   busy,
@@ -456,6 +469,7 @@ function EditorPanel({
   service: ServiceRow;
   staff: StaffOption[];
   isAdmin: boolean;
+  reloadStaff: () => Promise<void>;
   onCancel: () => void;
   onSave: (next: Record<string, unknown>) => Promise<void>;
   busy: boolean;
@@ -474,6 +488,59 @@ function EditorPanel({
   const [ownerId, setOwnerId] = useState<string>(service.ownerId ?? "");
   const [mode, setMode] = useState(service.mode || "in_person");
   const [locationLabel, setLocationLabel] = useState(service.locationLabel ?? "");
+
+  // ── Inline "Add a new therapist" ────────────────────────────────
+  // Lets an admin create a therapist's login (name + email) right here
+  // and have them assigned as this service's owner — no developer step.
+  // The therapist gets a "set your password" email; once they're the
+  // owner, ticking Active below takes the clinic live.
+  const [addingTherapist, setAddingTherapist] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [addBusy, setAddBusy] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [addNote, setAddNote] = useState<string | null>(null);
+
+  async function addTherapist() {
+    setAddError(null);
+    setAddNote(null);
+    setAddBusy(true);
+    try {
+      const res = await fetch(
+        `/api/booking-services/${service.id}/assign-owner`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: newName, email: newEmail }),
+        },
+      );
+      const data = (await res.json().catch(() => ({}))) as {
+        ownerId?: string;
+        ownerName?: string;
+        created?: boolean;
+        emailSent?: boolean;
+        error?: string;
+      };
+      if (!res.ok || !data.ownerId)
+        throw new Error(data.error ?? `Failed (${res.status})`);
+      await reloadStaff();
+      setOwnerId(data.ownerId);
+      setAddNote(
+        data.created
+          ? data.emailSent
+            ? `${data.ownerName} added and assigned. A “set your password” email has been sent to them.`
+            : `${data.ownerName} added and assigned. (Couldn't send the setup email — check email settings; they can use “Forgot password”.)`
+          : `${data.ownerName} was already a staff member — now assigned to this service.`,
+      );
+      setAddingTherapist(false);
+      setNewName("");
+      setNewEmail("");
+    } catch (e) {
+      setAddError(e instanceof Error ? e.message : "Couldn't add therapist");
+    } finally {
+      setAddBusy(false);
+    }
+  }
 
   return (
     <div className="rounded-2xl border-2 border-primary/40 bg-card p-5 shadow-[var(--shadow-sm)]">
@@ -607,6 +674,81 @@ function EditorPanel({
               The associate who runs this. They manage its availability and
               get its bookings.
             </p>
+
+            {/* Add-a-therapist inline creator */}
+            {!addingTherapist ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setAddingTherapist(true);
+                  setAddError(null);
+                  setAddNote(null);
+                }}
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                Add a new therapist…
+              </button>
+            ) : (
+              <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-3">
+                <p className="text-xs font-medium">
+                  Create a therapist&apos;s login and assign them here
+                </p>
+                <Input
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Full name (e.g. Catherine Feehan)"
+                  className="h-9"
+                />
+                <Input
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder="Email address"
+                  className="h-9"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  We&apos;ll email them a link to set their own password. Tick{" "}
+                  <strong>Active</strong> below once they&apos;re assigned to
+                  take the clinic live.
+                </p>
+                {addError && (
+                  <p className="text-xs text-red-600">{addError}</p>
+                )}
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    onClick={addTherapist}
+                    disabled={addBusy || !newName.trim() || !newEmail.trim()}
+                    className="h-8 rounded-lg text-xs"
+                  >
+                    {addBusy ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Check className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    Add &amp; assign
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setAddingTherapist(false);
+                      setAddError(null);
+                    }}
+                    disabled={addBusy}
+                    className="h-8 rounded-lg text-xs"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+            {addNote && (
+              <p className="rounded-lg bg-green-50 px-3 py-2 text-xs text-green-700 dark:bg-green-950/30 dark:text-green-400">
+                {addNote}
+              </p>
+            )}
           </div>
         )}
 
