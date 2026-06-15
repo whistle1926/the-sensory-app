@@ -22,6 +22,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { BookOpen, FileStack, Plus, Search } from "lucide-react";
 import { sanitiseProgrammeSections } from "@/lib/programme-sections";
+import { VoiceNotesRecorder } from "@/components/reports/voice-notes-recorder";
 
 interface ProgrammeTemplate {
   id: string;
@@ -162,6 +163,11 @@ export function HomeProgrammeEditor({ value, onChange }: Props) {
           demo photos come through and show in the PDF &amp; email.
         </span>
       </div>
+
+      {/* Voice dictation — speak an intro paragraph or a few lines; the
+          transcript appends to the body, alongside any inserted
+          templates/activities. Same recorder used for session notes. */}
+      <VoiceNotesRecorder value={value} onChange={onChange} mode="plain" />
 
       {/* Plain textarea — identical styling to the other prose fields */}
       <textarea
