@@ -4,6 +4,7 @@ import {
   type ReportContent,
   type ReportSectionKey,
 } from "@/types/report";
+import { bodyToHtml as homeBodyToHtml } from "@/lib/home-programme";
 
 /**
  * Render a single body section by key. The section order itself is
@@ -51,7 +52,9 @@ function sectionHtml(
         <h3>Long-Term Goals</h3><p>${nl(c.goals.longTerm)}</p>
         <h3>Next Session Plan</h3><p>${nl(c.goals.nextSessionPlan)}</p>`;
     case "homeProgramme":
-      return `${heading(REPORT_SECTION_TITLES.homeProgramme)}<p>${nl(c.homeProgrammeSuggestions)}</p>`;
+      // Photo-aware: demo-step image URLs render as inline <img>, so the
+      // step illustrations travel into the printed report too.
+      return `${heading(REPORT_SECTION_TITLES.homeProgramme)}<div>${homeBodyToHtml(c.homeProgrammeSuggestions)}</div>`;
     default:
       return "";
   }

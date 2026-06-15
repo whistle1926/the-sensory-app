@@ -9,6 +9,7 @@ import {
   type ReportSectionKey,
 } from "@/types/report";
 import { HomeProgrammeEditor } from "@/components/reports/home-programme-editor";
+import { ProgrammeBodyView } from "@/components/reports/programme-body-view";
 
 interface ReportViewerProps {
   content: ReportContent;
@@ -402,7 +403,7 @@ export function ReportViewer({ content, editing = false, onChange }: ReportViewe
             onChange={(v) => set("homeProgrammeSuggestions")(v)}
           />
         ) : (
-          <Prose value={c.homeProgrammeSuggestions} editing={false} />
+          <ProgrammeBodyView body={c.homeProgrammeSuggestions} />
         );
       default:
         return null;

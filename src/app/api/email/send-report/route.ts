@@ -7,6 +7,7 @@ import {
   type ReportContent,
   type ReportSectionKey,
 } from "@/types/report";
+import { bodyToHtml as homeBodyToHtml } from "@/lib/home-programme";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -231,7 +232,12 @@ function sectionEmailHtml(
         sub("Next Session Plan", c.goals.nextSessionPlan)
       );
     case "homeProgramme":
-      return heading(REPORT_SECTION_TITLES.homeProgramme) + p(c.homeProgrammeSuggestions);
+      // Photo-aware: demo-step image URLs render as inline <img> so the
+      // step illustrations reach the parent's inbox too.
+      return (
+        heading(REPORT_SECTION_TITLES.homeProgramme) +
+        `<div style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#444;">${homeBodyToHtml(c.homeProgrammeSuggestions)}</div>`
+      );
     default:
       return "";
   }
