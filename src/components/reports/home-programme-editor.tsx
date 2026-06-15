@@ -73,7 +73,19 @@ function formatTemplate(t: ProgrammeTemplate): string {
   const head = `${t.title}`;
   const body = sections
     .map((s) => {
-      const items = s.items.map((i) => `- ${i.text}`).join("\n");
+      const items = s.items
+        .map((i) => {
+          let block = `- ${i.text}`;
+          // Carry the step-by-step demo photos too — caption then the
+          // image URL on its own line, which the PDF/email/preview
+          // renderer turns into an inline photo.
+          for (const step of i.demoSteps ?? []) {
+            if (step.caption) block += `\n  ${step.caption}`;
+            if (step.imageUrl) block += `\n  ${step.imageUrl}`;
+          }
+          return block;
+        })
+        .join("\n");
       return s.title ? `${s.title}:\n${items}` : items;
     })
     .filter(Boolean)
@@ -146,7 +158,8 @@ export function HomeProgrammeEditor({ value, onChange }: Props) {
           onPick={(l) => onChange(appendBlock(value, formatLeaflet(l)))}
         />
         <span className="text-xs text-muted-foreground">
-          Inserts append to the bottom — you can edit and reorder freely.
+          Inserts append to the bottom — you can edit and reorder freely. Any
+          demo photos come through and show in the PDF &amp; email.
         </span>
       </div>
 

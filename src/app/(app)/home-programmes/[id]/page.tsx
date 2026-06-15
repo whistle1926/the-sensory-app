@@ -12,6 +12,39 @@ import {
   X,
 } from "lucide-react";
 import { HomeProgrammeEditor } from "@/components/reports/home-programme-editor";
+import { isImageUrl } from "@/lib/home-programme";
+
+/**
+ * Render the plain-text programme body, turning demo-step image-URL
+ * lines into inline photos so the OT previews exactly what the parent
+ * receives in the PDF/email.
+ */
+function BodyView({ body }: { body: string }) {
+  return (
+    <div className="text-sm leading-relaxed text-foreground">
+      {body.split("\n").map((raw, i) => {
+        const t = raw.trim();
+        if (isImageUrl(t)) {
+          // eslint-disable-next-line @next/next/no-img-element
+          return (
+            <img
+              key={i}
+              src={t}
+              alt="Demo step"
+              className="my-2 max-w-xs rounded-lg border border-border"
+            />
+          );
+        }
+        if (!t) return <div key={i} className="h-2" aria-hidden />;
+        return (
+          <p key={i} className="whitespace-pre-wrap">
+            {raw}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
 
 interface ClientLite {
   id: string;
@@ -262,9 +295,7 @@ export default function HomeProgrammePage() {
               </p>
             </div>
             {programme.body.trim() ? (
-              <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-                {programme.body}
-              </div>
+              <BodyView body={programme.body} />
             ) : (
               <p className="text-sm italic text-muted-foreground">
                 This home programme is empty. Click <strong>Edit</strong> to add

@@ -20,18 +20,42 @@ export function escapeHtml(str: string): string {
 }
 
 /**
- * Escape, then turn bare URLs into clickable links and newlines into
- * <br/>. Leaflet inserts embed a raw URL on its own line, so this
- * keeps those links live in both the printed PDF and the email.
+ * A line that is solely an image URL — the demo-step photos carried
+ * over from a programme template (public Vercel Blob .webp/.png/etc.).
+ */
+const IMAGE_URL_RE =
+  /^(https?:\/\/[^\s"'<>]+\.(?:webp|png|jpe?g|gif|avif))(?:\?[^\s"'<>]*)?$/i;
+
+/** True when a (trimmed) line is just an image URL we should render as a photo. */
+export function isImageUrl(line: string): boolean {
+  return IMAGE_URL_RE.test(line.trim());
+}
+
+/**
+ * Render the plain-text body to HTML for print/email. Processed
+ * line-by-line so that:
+ *   - a line that is solely an image URL (a demo-step photo) becomes an
+ *     inline <img> figure,
+ *   - other URLs (e.g. leaflet links) stay clickable,
+ *   - everything else is escaped text.
+ * This is what lets the step-by-step demo photos travel with the
+ * programme into the PDF and the parent's email.
  */
 export function bodyToHtml(body: string): string {
-  const escaped = escapeHtml(body || "");
-  const linked = escaped.replace(
-    /(https?:\/\/[^\s<]+)/g,
-    (url) =>
-      `<a href="${url}" style="color:#2563eb;">${url}</a>`,
-  );
-  return linked.replace(/\n/g, "<br/>");
+  return (body || "")
+    .split("\n")
+    .map((raw) => {
+      const trimmed = raw.trim();
+      if (isImageUrl(trimmed)) {
+        return `<img src="${trimmed}" alt="Demo step" style="display:block;max-width:320px;width:100%;height:auto;border-radius:8px;margin:8px 0;border:1px solid #e5e7eb;" />`;
+      }
+      const escaped = escapeHtml(raw);
+      return escaped.replace(
+        /(https?:\/\/[^\s<]+)/g,
+        (url) => `<a href="${url}" style="color:#2563eb;">${url}</a>`,
+      );
+    })
+    .join("<br/>");
 }
 
 interface HomeProgrammeView {
