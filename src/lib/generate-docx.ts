@@ -81,7 +81,12 @@ function sectionParas(
         subheading("Next Session Plan"), ...multiLineText(c.goals.nextSessionPlan),
       ];
     case "homeProgramme":
-      return [heading(REPORT_SECTION_TITLES.homeProgramme), ...multiLineText(c.homeProgrammeSuggestions)];
+      // The home programme is now rich HTML — flatten to readable lines
+      // for Word (bullets kept as "- "; images noted as [photo]).
+      return [
+        heading(REPORT_SECTION_TITLES.homeProgramme),
+        ...multiLineText(homeProgrammeToPlain(c.homeProgrammeSuggestions)),
+      ];
     default:
       return [];
   }
@@ -163,6 +168,31 @@ function bodyText(text: string) {
 
 function multiLineText(text: string): Paragraph[] {
   return text.split("\n").filter(Boolean).map((line) => bodyText(line.trim()));
+}
+
+/**
+ * Flatten the rich-HTML home programme into readable plain-text lines
+ * for the Word export (which can't embed remote images). List items
+ * become "- " bullets, images a "[photo]" note, block tags newlines.
+ * Plain-text legacy bodies pass through unchanged.
+ */
+function homeProgrammeToPlain(body: string): string {
+  if (!body) return "";
+  const looksLikeHtml = /<[a-z][\s\S]*>/i.test(body);
+  if (!looksLikeHtml) return body;
+  return body
+    .replace(/<\s*img[^>]*>/gi, "[photo]\n")
+    .replace(/<\s*li[^>]*>/gi, "- ")
+    .replace(/<\s*\/\s*(li|p|h1|h2|h3|div|ul|ol|blockquote)\s*>/gi, "\n")
+    .replace(/<\s*br\s*\/?\s*>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 /**

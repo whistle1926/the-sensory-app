@@ -26,6 +26,7 @@ const ALLOWED_TAGS = [
   "ol",
   "li",
   "a",
+  "img",
   "iframe",
 ];
 
@@ -39,6 +40,7 @@ function toHtml(value: string): string {
     allowedTags: ALLOWED_TAGS,
     allowedAttributes: {
       a: ["href", "target", "rel"],
+      img: ["src", "alt", "style", "width", "height", "class"],
       iframe: [
         "src",
         "width",

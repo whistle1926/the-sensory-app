@@ -10,6 +10,7 @@
  *
  * Kept deliberately small: one escape, one linkify, two templates.
  */
+import sanitizeHtml from "sanitize-html";
 
 export function escapeHtml(str: string): string {
   return str
@@ -32,17 +33,48 @@ export function isImageUrl(line: string): boolean {
 }
 
 /**
- * Render the plain-text body to HTML for print/email. Processed
- * line-by-line so that:
- *   - a line that is solely an image URL (a demo-step photo) becomes an
- *     inline <img> figure,
- *   - other URLs (e.g. leaflet links) stay clickable,
- *   - everything else is escaped text.
- * This is what lets the step-by-step demo photos travel with the
- * programme into the PDF and the parent's email.
+ * Render the programme body to HTML for print/email.
+ *
+ * The body is now rich HTML from the editor (bold/underline/headings,
+ * bullet lists, and demo-step <img> photos). We sanitise it to a safe
+ * tag whitelist and inline the image sizing so it prints/emails tidily.
+ *
+ * Legacy programmes stored as PLAIN TEXT still render: detected by the
+ * absence of HTML tags, they fall back to the old line-by-line pass
+ * (image-URL lines → <img>, other URLs → links, newlines → <br/>).
  */
 export function bodyToHtml(body: string): string {
-  return (body || "")
+  if (!body) return "";
+  const looksLikeHtml = /<[a-z][\s\S]*>/i.test(body);
+  if (looksLikeHtml) {
+    return sanitizeHtml(body, {
+      allowedTags: [
+        "p", "br", "strong", "b", "em", "i", "u", "s", "code", "blockquote",
+        "h1", "h2", "h3", "ul", "ol", "li", "a", "img",
+      ],
+      allowedAttributes: {
+        a: ["href", "target", "rel"],
+        img: ["src", "alt", "style", "width", "height"],
+      },
+      allowedSchemes: ["http", "https", "mailto"],
+      transformTags: {
+        a: (tag, attribs) => ({
+          tagName: tag,
+          attribs: { ...attribs, style: "color:#2563eb;" },
+        }),
+        img: (tag, attribs) => ({
+          tagName: tag,
+          attribs: {
+            ...attribs,
+            style:
+              "display:block;max-width:320px;width:100%;height:auto;border-radius:8px;margin:8px 0;border:1px solid #e5e7eb;",
+          },
+        }),
+      },
+    });
+  }
+  // Legacy plain-text fallback.
+  return body
     .split("\n")
     .map((raw) => {
       const trimmed = raw.trim();

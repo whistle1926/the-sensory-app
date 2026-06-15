@@ -4,10 +4,12 @@ import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Youtube from "@tiptap/extension-youtube";
+import Underline from "@tiptap/extension-underline";
 import { useEffect, useState } from "react";
 import {
   Bold,
   Italic,
+  Underline as UnderlineIcon,
   List,
   ListOrdered,
   Link2,
@@ -274,6 +276,13 @@ function Toolbar({ editor }: { editor: Editor | null }) {
         <Italic className="h-3.5 w-3.5" />
       </ToolbarButton>
       <ToolbarButton
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+        active={editor.isActive("underline")}
+        title="Underline"
+      >
+        <UnderlineIcon className="h-3.5 w-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
         onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
         active={editor.isActive("heading", { level: 2 })}
         title="Heading"
@@ -382,6 +391,7 @@ export function RichTextEditor({
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [2, 3] } }),
+      Underline,
       Link.configure({
         openOnClick: false,
         autolink: true,

@@ -23,6 +23,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BookOpen, FileStack, Plus, Search } from "lucide-react";
 import { sanitiseProgrammeSections } from "@/lib/programme-sections";
 import { VoiceNotesRecorder } from "@/components/reports/voice-notes-recorder";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 interface ProgrammeTemplate {
   id: string;
@@ -53,69 +54,82 @@ interface Props {
   onChange: (next: string) => void;
 }
 
-/** Append `block` to `existing` with a blank line between (unless empty). */
+/** Escape text for safe inclusion in the HTML body. */
+function esc(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/** Append an HTML block to the existing HTML body. */
 function appendBlock(existing: string, block: string): string {
-  const trimmed = existing.trimEnd();
-  if (!trimmed) return block;
-  return `${trimmed}\n\n${block}`;
+  const trimmed = (existing || "").trim();
+  return trimmed ? `${trimmed}${block}` : block;
 }
 
 /**
- * Format a template as plain text the way Patrick would type it.
- *
- * Uses the shared sanitiseProgrammeSections so BOTH item shapes carry
- * across: legacy plain strings AND the current object items
- * ({ text, demoSteps?, videoUrl? }). Previously this kept only string
- * items, so newer templates (authored with the rich item shape) lost
- * every item on insert — they came across as just a title.
+ * Format a programme template as HTML (heading, bullet lists, and the
+ * step-by-step demo photos inline). Uses the shared
+ * sanitiseProgrammeSections so both item shapes carry across: legacy
+ * plain strings AND object items ({ text, demoSteps?, videoUrl? }).
  */
 function formatTemplate(t: ProgrammeTemplate): string {
   const sections = sanitiseProgrammeSections(t.sections);
-  const head = `${t.title}`;
-  const body = sections
-    .map((s) => {
-      const items = s.items
-        .map((i) => {
-          let block = `- ${i.text}`;
-          // Carry the step-by-step demo photos too — caption then the
-          // image URL on its own line, which the PDF/email/preview
-          // renderer turns into an inline photo.
-          for (const step of i.demoSteps ?? []) {
-            if (step.caption) block += `\n  ${step.caption}`;
-            if (step.imageUrl) block += `\n  ${step.imageUrl}`;
-          }
-          return block;
-        })
-        .join("\n");
-      return s.title ? `${s.title}:\n${items}` : items;
-    })
-    .filter(Boolean)
-    .join("\n\n");
-  return body ? `${head}\n\n${body}` : head;
+  let out = `<p><strong>${esc(t.title)}</strong></p>`;
+  for (const s of sections) {
+    if (s.title) out += `<p><strong>${esc(s.title)}</strong></p>`;
+    // Items without photos group into one bullet list; an item WITH
+    // demo photos renders as a line + caption + image so the picture
+    // sits right under the step it illustrates.
+    let listOpen = false;
+    for (const i of s.items) {
+      const demos = i.demoSteps ?? [];
+      if (demos.length === 0) {
+        if (!listOpen) {
+          out += "<ul>";
+          listOpen = true;
+        }
+        out += `<li>${esc(i.text)}</li>`;
+      } else {
+        if (listOpen) {
+          out += "</ul>";
+          listOpen = false;
+        }
+        out += `<p>${esc(i.text)}</p>`;
+        for (const step of demos) {
+          if (step.caption) out += `<p><em>${esc(step.caption)}</em></p>`;
+          if (step.imageUrl)
+            out += `<p><img src="${esc(step.imageUrl)}" alt="Demo step" style="max-width:320px;border-radius:8px;" /></p>`;
+        }
+      }
+    }
+    if (listOpen) out += "</ul>";
+  }
+  return out;
 }
 
-/** Format a single activity as a one-line bullet. */
+/** Format a single activity as an HTML paragraph. */
 function formatActivity(a: Activity): string {
   const desc = a.description?.trim();
-  return desc ? `- ${a.name} — ${desc}` : `- ${a.name}`;
+  return desc
+    ? `<p>${esc(a.name)} — ${esc(desc)}</p>`
+    : `<p>${esc(a.name)}</p>`;
 }
 
 /**
- * Format a leaflet as a referenced block that travels with the
- * report. For file/link leaflets we include the URL so it remains
- * clickable in the emailed HTML and printable in the PDF. For
- * authored "content" leaflets we just reference the title — the
- * full body lives in the library, and the OT can paste it in
- * manually if they want the text inline.
+ * Format a leaflet reference as an HTML block (title + optional
+ * description + a clickable link for file/link leaflets) so it travels
+ * with the programme into the email and PDF.
  */
 function formatLeaflet(l: Leaflet): string {
-  const lines = [`📄 Leaflet: ${l.title}`];
+  let out = `<p>📄 <strong>Leaflet:</strong> ${esc(l.title)}</p>`;
   const desc = l.description?.trim();
-  if (desc) lines.push(desc);
+  if (desc) out += `<p>${esc(desc)}</p>`;
   if ((l.kind === "file" || l.kind === "link") && l.fileUrl) {
-    lines.push(l.fileUrl);
+    out += `<p><a href="${esc(l.fileUrl)}">${esc(l.fileUrl)}</a></p>`;
   }
-  return lines.join("\n");
+  return out;
 }
 
 export function HomeProgrammeEditor({ value, onChange }: Props) {
@@ -138,10 +152,6 @@ export function HomeProgrammeEditor({ value, onChange }: Props) {
       .catch(() => setLeaflets([]));
   }, []);
 
-  // Auto-grow textarea (same heuristic as the report-viewer Prose
-  // editor, so the home-programme field feels identical to the others).
-  const rows = Math.max(6, value.split("\n").length + 1);
-
   return (
     <div className="space-y-3">
       {/* Insert pickers */}
@@ -159,22 +169,23 @@ export function HomeProgrammeEditor({ value, onChange }: Props) {
           onPick={(l) => onChange(appendBlock(value, formatLeaflet(l)))}
         />
         <span className="text-xs text-muted-foreground">
-          Inserts append to the bottom — you can edit and reorder freely. Any
-          demo photos come through and show in the PDF &amp; email.
+          Inserts append to the bottom — edit, format and reorder freely. Use
+          the toolbar to <strong>bold</strong> or underline titles. Demo photos
+          come through and show in the PDF &amp; email.
         </span>
       </div>
 
       {/* Voice dictation — speak an intro paragraph or a few lines; the
-          transcript appends to the body, alongside any inserted
-          templates/activities. Same recorder used for session notes. */}
-      <VoiceNotesRecorder value={value} onChange={onChange} mode="plain" />
+          transcript appends as a paragraph. Same recorder used for
+          session notes (html mode so it fits the rich-text body). */}
+      <VoiceNotesRecorder value={value} onChange={onChange} mode="html" />
 
-      {/* Plain textarea — identical styling to the other prose fields */}
-      <textarea
+      {/* Rich-text editor — bold, underline, headings, bullet/number lists. */}
+      <RichTextEditor
         value={value}
-        rows={rows}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed text-foreground outline-none focus:ring-2 focus:ring-primary/30"
+        onChange={onChange}
+        minHeight={240}
+        placeholder="Write the home programme… use the toolbar to bold or underline titles."
       />
     </div>
   );
