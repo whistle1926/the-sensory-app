@@ -62,7 +62,22 @@ interface InvoiceStats {
   countCancelled: number;
 }
 
-type StatusFilter = "all" | "draft" | "sent" | "paid" | "overdue" | "cancelled";
+type StatusFilter =
+  | "all"
+  | "unpaid"
+  | "draft"
+  | "sent"
+  | "paid"
+  | "overdue"
+  | "cancelled";
+
+/** Statuses that count as "unpaid" — owed money, not yet collected.
+ *  Mirrors the server's totalUnpaid (draft + sent + overdue). */
+const UNPAID_STATUSES: ReadonlyArray<Invoice["status"]> = [
+  "draft",
+  "sent",
+  "overdue",
+];
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -233,7 +248,9 @@ export default function InvoicesPage() {
 
   const filtered = useMemo(() => {
     let list = invoices;
-    if (activeFilter !== "all") {
+    if (activeFilter === "unpaid") {
+      list = list.filter((inv) => UNPAID_STATUSES.includes(inv.status));
+    } else if (activeFilter !== "all") {
       list = list.filter((inv) => inv.status === activeFilter);
     }
     if (searchQuery.trim()) {
@@ -251,6 +268,12 @@ export default function InvoicesPage() {
     stats
       ? [
           { key: "all", label: "All", count: stats.countAll },
+          {
+            key: "unpaid",
+            label: "Unpaid",
+            count:
+              stats.countDraft + stats.countSent + stats.countOverdue,
+          },
           { key: "draft", label: "Draft", count: stats.countDraft },
           { key: "sent", label: "Sent", count: stats.countSent },
           { key: "paid", label: "Paid", count: stats.countPaid },
