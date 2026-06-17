@@ -44,7 +44,19 @@ function plainTextFromHtml(html: string | null, chars = 120): string {
   if (!html) return "";
   return html
     .replace(/<[^>]+>/g, " ")
+    // Decode common HTML entities so the card preview reads as text
+    // ("Nail & Skin", curly quotes) rather than raw "&amp;" / "&rsquo;".
     .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&rsquo;|&lsquo;/g, "’")
+    .replace(/&ldquo;|&rdquo;/g, '"')
+    .replace(/&hellip;/g, "…")
+    .replace(/&mdash;/g, "—")
+    .replace(/&ndash;/g, "–")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, chars);
