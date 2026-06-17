@@ -388,8 +388,15 @@ function buildInvoiceEmail(params: {
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,Helvetica,sans-serif;">
   <div style="max-width:600px;margin:0 auto;padding:24px;">
 
-    <!-- Header (text only — the logo image was dropped because most
-         email clients block remote images by default). -->
+    <!-- Header — Sensory Submarine logo above the dark band. Absolute
+         URL so email clients fetch it; if a client blocks remote
+         images, the dark text band below still reads as the header. -->
+    <div style="text-align:center;padding:4px 0 12px;">
+      <img src="https://portal.thesensorysubmarine.com/brand/logo.jpg"
+           alt="The Sensory Submarine"
+           width="96" height="96"
+           style="display:inline-block;width:96px;height:auto;border:0;outline:none;" />
+    </div>
     <div style="background:#1a1a2e;color:#fff;padding:24px 32px;border-radius:12px 12px 0 0;text-align:center;">
       <h1 style="margin:0;font-size:22px;font-weight:700;">The Sensory Submarine</h1>
       <p style="margin:6px 0 0;font-size:13px;opacity:0.7;">Occupational Therapy Services</p>

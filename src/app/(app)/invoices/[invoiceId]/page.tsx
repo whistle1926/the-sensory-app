@@ -1001,7 +1001,16 @@ export default function InvoiceDetailPage() {
               </div>
 
               <div className="p-6">
-                {/* Preview header */}
+                {/* Preview header — logo above the dark band, mirroring
+                    the sent email. */}
+                <div className="mb-2 text-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/brand/logo.jpg"
+                    alt="The Sensory Submarine"
+                    className="mx-auto h-16 w-auto"
+                  />
+                </div>
                 <div className="rounded-xl bg-[#1a1a2e] p-5 text-center text-white">
                   <p className="text-lg font-bold">The Sensory Submarine</p>
                   <p className="mt-1 text-xs opacity-70">Occupational Therapy Services</p>
