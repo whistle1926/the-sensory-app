@@ -41,6 +41,10 @@ export default function FormsListPage() {
   const [loading, setLoading] = useState(true);
   const [sendFor, setSendFor] = useState<FormRow | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  // Which KPI card is acting as the active list filter (null = show all).
+  const [filter, setFilter] = useState<
+    null | "live" | "responses" | "sent" | "drafts"
+  >(null);
 
   async function copyLink(formId: string, url: string) {
     try {
@@ -68,35 +72,66 @@ export default function FormsListPage() {
     const invites = forms.reduce((s, f) => s + f._count.invites, 0);
     return [
       {
+        key: "live" as const,
         label: "Live forms",
         value: String(published),
         helper: `${drafts} draft${drafts === 1 ? "" : "s"}`,
         icon: Globe,
         accent: false,
+        clickable: published > 0,
       },
       {
+        key: "responses" as const,
         label: "Responses",
         value: String(submissions),
         helper: `${forms.length} form${forms.length === 1 ? "" : "s"} total`,
         icon: MessageSquare,
         accent: false,
+        clickable: submissions > 0,
       },
       {
+        key: "sent" as const,
         label: "Sent",
         value: String(invites),
         helper: "Personal invites",
         icon: Send,
         accent: false,
+        clickable: invites > 0,
       },
       {
+        key: "drafts" as const,
         label: "Drafts",
         value: String(drafts),
         helper: drafts === 0 ? "Nothing pending" : "Not published",
         icon: ClipboardList,
         accent: drafts > 0,
+        clickable: drafts > 0,
       },
     ];
   }, [forms]);
+
+  // Apply the active KPI filter to the list below.
+  const visibleForms = useMemo(() => {
+    switch (filter) {
+      case "live":
+        return forms.filter((f) => f.isPublished);
+      case "drafts":
+        return forms.filter((f) => !f.isPublished);
+      case "responses":
+        return forms.filter((f) => f._count.submissions > 0);
+      case "sent":
+        return forms.filter((f) => f._count.invites > 0);
+      default:
+        return forms;
+    }
+  }, [forms, filter]);
+
+  const filterLabel: Record<NonNullable<typeof filter>, string> = {
+    live: "live forms",
+    responses: "forms with responses",
+    sent: "forms with invites sent",
+    drafts: "draft forms",
+  };
 
   return (
     <div className="space-y-6">
@@ -141,14 +176,34 @@ export default function FormsListPage() {
         </Panel>
       ) : (
         <>
-          {/* KPI strip */}
+          {/* KPI strip — each card filters the list below when it has
+              something to show (e.g. click Responses to see the forms
+              that have responses, then open one to read them). */}
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {kpis.map((k) => {
               const Icon = k.icon;
+              const isActive = filter === k.key;
+              const isClickable = k.clickable;
               return (
-                <div
+                <button
                   key={k.label}
-                  className={`ds-kpi ${k.accent ? "accent" : ""}`}
+                  type="button"
+                  disabled={!isClickable}
+                  onClick={() =>
+                    setFilter((cur) => (cur === k.key ? null : k.key))
+                  }
+                  aria-pressed={isActive}
+                  className={`ds-kpi text-left transition-all ${
+                    k.accent ? "accent" : ""
+                  } ${
+                    isClickable
+                      ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)]"
+                      : "cursor-default"
+                  } ${
+                    isActive
+                      ? "ring-2 ring-primary ring-offset-1 ring-offset-background"
+                      : ""
+                  }`}
                 >
                   <div className="ds-kpi-head">
                     <span className="ds-kpi-label">{k.label}</span>
@@ -158,9 +213,15 @@ export default function FormsListPage() {
                   </div>
                   <span className="ds-kpi-value ds-tabular">{k.value}</span>
                   <div className="ds-kpi-foot">
-                    <span>{k.helper}</span>
+                    <span>
+                      {isActive
+                        ? "Filtering · tap to clear"
+                        : isClickable
+                          ? `${k.helper} · tap to view`
+                          : k.helper}
+                    </span>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -168,13 +229,26 @@ export default function FormsListPage() {
           {/* Form rows */}
           <Panel
             footer={
-              <span>
-                {forms.length} {forms.length === 1 ? "form" : "forms"}
-              </span>
+              filter ? (
+                <span className="inline-flex items-center gap-2">
+                  Showing {visibleForms.length} {filterLabel[filter]}
+                  <button
+                    type="button"
+                    onClick={() => setFilter(null)}
+                    className="text-primary hover:underline"
+                  >
+                    Clear filter
+                  </button>
+                </span>
+              ) : (
+                <span>
+                  {forms.length} {forms.length === 1 ? "form" : "forms"}
+                </span>
+              )
             }
           >
             <div className="divide-y divide-border">
-              {forms.map((form) => {
+              {visibleForms.map((form) => {
                 const url =
                   typeof window !== "undefined"
                     ? `${window.location.origin}/f/${form.slug}`
@@ -215,11 +289,21 @@ export default function FormsListPage() {
                           </p>
                         )}
                         <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                          <span className="inline-flex items-center gap-1">
-                            <MessageSquare className="h-3 w-3" />
-                            {form._count.submissions} response
-                            {form._count.submissions === 1 ? "" : "s"}
-                          </span>
+                          {form._count.submissions > 0 ? (
+                            <Link
+                              href={`/forms/${form.id}/entries`}
+                              className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                            >
+                              <MessageSquare className="h-3 w-3" />
+                              {form._count.submissions} response
+                              {form._count.submissions === 1 ? "" : "s"}
+                            </Link>
+                          ) : (
+                            <span className="inline-flex items-center gap-1">
+                              <MessageSquare className="h-3 w-3" />
+                              No responses yet
+                            </span>
+                          )}
                           {form._count.invites > 0 && (
                             <span className="inline-flex items-center gap-1">
                               <Send className="h-3 w-3" />
