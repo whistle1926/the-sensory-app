@@ -884,6 +884,36 @@ function SettingsTab({
         </CardContent>
       </Card>
 
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle className="text-base">Referral intake</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-4 transition-colors hover:bg-muted/40">
+            <input
+              type="checkbox"
+              checked={settings.createsClient ?? false}
+              onChange={(e) => update({ createsClient: e.target.checked })}
+              className="mt-0.5 h-5 w-5 rounded border-border text-primary focus:ring-primary"
+            />
+            <span>
+              <span className="block text-sm font-semibold">
+                Create a client when this form is submitted
+              </span>
+              <span className="mt-1 block text-xs text-muted-foreground">
+                For referral forms. Each submission auto-creates a client in
+                your <strong>New / Awaiting Assessment</strong> stage, mapping
+                the child&apos;s name &amp; date of birth, parent/carer name
+                &amp; email, and reason for referral. The completed form is
+                filed in the client&apos;s folder. A repeat submission from the
+                same parent &amp; child links to the existing client instead of
+                duplicating.
+              </span>
+            </span>
+          </label>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">After submission</CardTitle>

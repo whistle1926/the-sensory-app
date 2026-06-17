@@ -60,6 +60,10 @@ export interface FormSettings {
   // visitors are bounced to /login with a callback. Default false = anyone
   // with the link can submit.
   requireLogin?: boolean;
+  // When true, submitting this form auto-creates a Client (referral
+  // intake) in the default "new" stage, with the submission attached to
+  // the client's folder. Used for the OT Initial Referral Form.
+  createsClient?: boolean;
 }
 
 // ── Uploaded file shape (value of a `file` field) ───────────────────
@@ -229,6 +233,7 @@ export function sanitiseFormSettings(input: unknown): FormSettings {
     out.replyToEmail = raw.replyToEmail.trim();
 
   if (raw.requireLogin === true) out.requireLogin = true;
+  if (raw.createsClient === true) out.createsClient = true;
 
   if (Array.isArray(raw.notifyEmails)) {
     const emails = raw.notifyEmails

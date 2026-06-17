@@ -12,6 +12,7 @@ import {
   type UploadedFile,
 } from "@/lib/forms";
 import { sendTransactionalEmail, escapeHtml } from "@/lib/email";
+import { ingestReferralSubmission } from "@/lib/referral-intake";
 
 // Lightweight in-memory IP rate limit — good enough for a single Vercel
 // instance. Resets when the function cold-starts; if abuse becomes a real
@@ -177,6 +178,20 @@ export async function POST(
       ipHash: hashIp(ip),
     },
   });
+
+  // Referral intake — if this form is flagged to create a client, and
+  // the submission isn't already tied to an existing client (via an
+  // invite), auto-create/reuse the client and file the submission in
+  // their folder. Best-effort: never block the parent's submission.
+  if (settings.createsClient && !inviteId) {
+    await ingestReferralSubmission({
+      submissionId: submission.id,
+      formId: form.id,
+      fields,
+      data: clean as unknown as Record<string, unknown>,
+      origin: req.nextUrl.origin,
+    });
+  }
 
   // Email notifications — best-effort. Never roll back the DB write.
   // (`settings` is already sanitised earlier in the function.)
