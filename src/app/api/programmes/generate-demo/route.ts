@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { createMessageResilient } from "@/lib/ai-model";
 import { auth } from "@/lib/auth";
 import { runFluxSchnell } from "@/lib/replicate";
 import { rehostToBlob } from "@/lib/blob-upload";
@@ -76,8 +77,7 @@ export async function POST(req: NextRequest) {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   let steps: GenerateStep[] = [];
   try {
-    const msg = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
+    const { message: msg } = await createMessageResilient(anthropic, {
       thinking: { type: "disabled" },
       output_config: { effort: "low" },
       max_tokens: 800,

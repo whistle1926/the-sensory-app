@@ -24,6 +24,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendTransactionalEmail } from "@/lib/email";
+import { sendMail } from "@/lib/mailer";
+import { checkAiHealth, type AiHealth } from "@/lib/ai-model";
 import {
   getEnabledAutomation,
   renderTemplate,
@@ -55,6 +57,40 @@ export async function GET(req: NextRequest) {
   const b = Buffer.from(expected);
   if (a.length !== b.length || !timingSafeEqual(a, b)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // ── AI early-warning health check ──────────────────────────────────
+  // Piggy-backed onto this daily cron because Vercel's Hobby plan caps us
+  // at 2 crons. Pings Claude once; if the AI is down, OR the primary model
+  // was retired and we silently fell back, email an alert so the model
+  // list in src/lib/ai-model.ts gets refreshed before it ever bites a
+  // user. Entirely best-effort — wrapped so it can never break reminders.
+  let aiHealth: AiHealth | null = null;
+  try {
+    aiHealth = await checkAiHealth();
+    if (!aiHealth.ok || aiHealth.fellBack) {
+      const settings = await prisma.emailSettings.findUnique({
+        where: { id: "default" },
+      });
+      const to = settings?.senderEmail || "patrick@thesensorysubmarine.com";
+      const safeErr = (aiHealth.error || "unknown").replace(/</g, "&lt;");
+      const subject = aiHealth.ok
+        ? `⚠️ Sensory AI: primary model "${aiHealth.primary}" retired — running on backup`
+        : "🚨 Sensory AI is DOWN — report writing & AI features failing";
+      const html = aiHealth.ok
+        ? `<p>Heads up — Anthropic appears to have retired the primary AI model <strong>${aiHealth.primary}</strong>.</p>
+           <p>The app automatically switched to <strong>${aiHealth.modelUsed}</strong>, so report writing and the other AI features still work — there is <strong>no client impact</strong> right now.</p>
+           <p><strong>Action when convenient:</strong> update the model list at the top of <code>src/lib/ai-model.ts</code> so a current model is the primary again.</p>
+           <p style="color:#888;font-size:12px;">Automated daily AI health check · The Sensory Submarine</p>`
+        : `<p><strong>The AI features are currently failing.</strong> Report generation, AI tidy-up, summaries, leaflet generation and programme demo images will all error until this is fixed.</p>
+           <p>Primary model: <strong>${aiHealth.primary}</strong></p>
+           <p>Error: <code>${safeErr}</code></p>
+           <p><strong>Likely causes:</strong> the ANTHROPIC_API_KEY is missing or invalid, the Anthropic account is out of credit, or every configured model was retired at once. Check the key &amp; billing in the Anthropic console, or refresh the model list in <code>src/lib/ai-model.ts</code>.</p>
+           <p style="color:#888;font-size:12px;">Automated daily AI health check · The Sensory Submarine</p>`;
+      await sendMail({ to, subject, html });
+    }
+  } catch (err) {
+    console.error("[ai-health] check failed (non-fatal)", err);
   }
 
   const now = new Date();
@@ -117,6 +153,7 @@ export async function GET(req: NextRequest) {
     due: due.length,
     sent,
     failed,
+    ai: aiHealth,
   });
 }
 

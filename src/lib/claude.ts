@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { REPORT_SYSTEM_PROMPT, buildUserPrompt } from "./report-prompt";
 import { ReportContent } from "@/types/report";
+import { createMessageResilient } from "./ai-model";
 
 /**
  * Tidy prompt — distinct from the generation prompt. This is for
@@ -80,12 +81,10 @@ export async function summariseReport(
   audience: "clinical" | "parent",
 ): Promise<string> {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    // Sonnet 4.6 defaults to high effort, which pushed report generation
-    // past Vercel's 60s function limit (504). These are structured
-    // text/JSON generations, not reasoning tasks — disable thinking and
-    // run at low effort to restore Sonnet-4-like latency.
+  // Model + fallback chain live in ai-model.ts. Structured text/JSON
+  // generation (not reasoning) — disable thinking and run at low effort
+  // to stay well under the 60s function limit.
+  const { message } = await createMessageResilient(anthropic, {
     thinking: { type: "disabled" },
     output_config: { effort: "low" },
     max_tokens: 1024,
@@ -106,12 +105,10 @@ export async function summariseReport(
 
 export async function tidyReport(content: ReportContent): Promise<ReportContent> {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    // Sonnet 4.6 defaults to high effort, which pushed report generation
-    // past Vercel's 60s function limit (504). These are structured
-    // text/JSON generations, not reasoning tasks — disable thinking and
-    // run at low effort to restore Sonnet-4-like latency.
+  // Model + fallback chain live in ai-model.ts. Structured text/JSON
+  // generation (not reasoning) — disable thinking and run at low effort
+  // to stay well under the 60s function limit.
+  const { message } = await createMessageResilient(anthropic, {
     thinking: { type: "disabled" },
     output_config: { effort: "low" },
     max_tokens: 8192,
@@ -163,12 +160,10 @@ export async function generateReport(
     therapistName
   );
 
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    // Sonnet 4.6 defaults to high effort, which pushed report generation
-    // past Vercel's 60s function limit (504). These are structured
-    // text/JSON generations, not reasoning tasks — disable thinking and
-    // run at low effort to restore Sonnet-4-like latency.
+  // Model + fallback chain live in ai-model.ts. Structured text/JSON
+  // generation (not reasoning) — disable thinking and run at low effort
+  // to stay well under the 60s function limit.
+  const { message } = await createMessageResilient(anthropic, {
     thinking: { type: "disabled" },
     output_config: { effort: "low" },
     max_tokens: 4096,
