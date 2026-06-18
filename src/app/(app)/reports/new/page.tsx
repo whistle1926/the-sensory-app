@@ -1,19 +1,28 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, Check, Save, RotateCcw } from "lucide-react";
 import { VoiceNotesRecorder } from "@/components/reports/voice-notes-recorder";
 
 interface Client {
   id: string;
   firstName: string;
   lastName: string;
+}
+
+// Draft is saved to the browser (localStorage) so a failed generation,
+// timeout, accidental tab close, or crash can never lose typed notes —
+// the notes never leave the browser until the report generates OK.
+const DRAFT_KEY = "sensory:newReportDraft:v1";
+
+function todayStr(): string {
+  return new Date().toISOString().split("T")[0];
 }
 
 export default function NewReportPageWrapper() {
@@ -33,8 +42,20 @@ function NewReportPage() {
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
-  // Controlled so the voice recorder can append transcripts.
+  // All form fields controlled so we can auto-save the draft.
+  const [clientId, setClientId] = useState("");
+  const [sessionDate, setSessionDate] = useState("");
+  const [sessionNumber, setSessionNumber] = useState("1");
   const [rawNotes, setRawNotes] = useState("");
+
+  // ── Draft auto-save state ───────────────────────────────────────
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
+    "idle",
+  );
+  const [restored, setRestored] = useState(false);
+  // Skip the auto-save effect until after we've restored/seeded on mount.
+  const hydrated = useRef(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetch("/api/clients")
@@ -42,12 +63,105 @@ function NewReportPage() {
       .then(setClients);
   }, []);
 
+  // Restore an in-progress draft (or seed defaults) on first load.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const d = JSON.parse(raw) as {
+          clientId?: string;
+          sessionDate?: string;
+          sessionNumber?: string;
+          rawNotes?: string;
+        };
+        if (d && d.rawNotes?.trim()) {
+          setClientId(d.clientId || preselectedClientId || "");
+          setSessionDate(d.sessionDate || todayStr());
+          setSessionNumber(d.sessionNumber || "1");
+          setRawNotes(d.rawNotes);
+          setRestored(true);
+          setSaveState("saved");
+          hydrated.current = true;
+          return;
+        }
+      }
+    } catch {
+      /* ignore corrupt draft */
+    }
+    // No usable draft → seed defaults.
+    setSessionDate(todayStr());
+    if (preselectedClientId) setClientId(preselectedClientId);
+    hydrated.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-save the draft (debounced) whenever a field changes. Only once
+  // there's real content, so an untouched form doesn't write a draft.
+  useEffect(() => {
+    if (!hydrated.current) return;
+    // Only protect a draft once there are real notes to lose.
+    if (!rawNotes.trim()) return;
+    setSaveState("saving");
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          DRAFT_KEY,
+          JSON.stringify({
+            clientId,
+            sessionDate,
+            sessionNumber,
+            rawNotes,
+            savedAt: Date.now(),
+          }),
+        );
+        setSaveState("saved");
+      } catch {
+        setSaveState("idle");
+      }
+    }, 600);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, [clientId, sessionDate, sessionNumber, rawNotes]);
+
+  function saveDraftNow() {
+    try {
+      localStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({
+          clientId,
+          sessionDate,
+          sessionNumber,
+          rawNotes,
+          savedAt: Date.now(),
+        }),
+      );
+      setSaveState("saved");
+      setRestored(false);
+    } catch {
+      /* storage unavailable — ignore */
+    }
+  }
+
+  function discardDraft() {
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      /* ignore */
+    }
+    setRawNotes("");
+    setRestored(false);
+    setSaveState("idle");
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
+    // Belt-and-braces: make sure the latest draft is on disk before we
+    // hand off to the (slow, fallible) AI call.
+    saveDraftNow();
     setGenerating(true);
-
-    const form = new FormData(e.currentTarget);
 
     // Safety net: the server route is capped at 60s (Vercel's
     // maxDuration). Give the client 90s to receive the response,
@@ -61,11 +175,9 @@ function NewReportPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          clientId: form.get("clientId"),
-          sessionDate: form.get("sessionDate"),
-          sessionNumber: Number(form.get("sessionNumber")),
-          // rawNotes is controlled (so the voice recorder can append
-          // to it). Pull from state, not FormData.
+          clientId,
+          sessionDate,
+          sessionNumber: Number(sessionNumber),
           rawNotes,
         }),
         signal: ctrl.signal,
@@ -92,6 +204,13 @@ function NewReportPage() {
       }
 
       const { reportId } = await res.json();
+      // Report saved on the server — clear the local draft so the next
+      // report starts fresh.
+      try {
+        localStorage.removeItem(DRAFT_KEY);
+      } catch {
+        /* ignore */
+      }
       router.push(`/reports/${reportId}`);
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
@@ -116,15 +235,49 @@ function NewReportPage() {
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>Session Details</CardTitle>
-            <CardDescription>
-              Select a client, enter the session details, and paste your session notes. Claude will generate a structured OT report.
-            </CardDescription>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <CardTitle>Session Details</CardTitle>
+                <CardDescription>
+                  Select a client, enter the session details, and paste your session notes. Claude will generate a structured OT report.
+                </CardDescription>
+              </div>
+              {/* Live save status — reassures the OT their notes are safe. */}
+              <span className="shrink-0 whitespace-nowrap text-xs">
+                {saveState === "saving" ? (
+                  <span className="inline-flex items-center gap-1 text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Saving…
+                  </span>
+                ) : saveState === "saved" ? (
+                  <span className="inline-flex items-center gap-1 font-medium text-green-600">
+                    <Check className="h-3.5 w-3.5" /> Draft saved
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground/70">Auto-saves as you type</span>
+                )}
+              </span>
+            </div>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
                 <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">{error}</div>
+              )}
+
+              {restored && (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">
+                  <span className="inline-flex items-center gap-1.5">
+                    <RotateCcw className="h-4 w-4" />
+                    Restored your unsaved notes from last time.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={discardDraft}
+                    className="font-semibold underline underline-offset-2 hover:no-underline"
+                  >
+                    Discard &amp; start fresh
+                  </button>
+                </div>
               )}
 
               <div className="space-y-2">
@@ -133,7 +286,8 @@ function NewReportPage() {
                   id="clientId"
                   name="clientId"
                   required
-                  defaultValue={preselectedClientId}
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <option value="">Select a client...</option>
@@ -153,7 +307,8 @@ function NewReportPage() {
                     name="sessionDate"
                     type="date"
                     required
-                    defaultValue={new Date().toISOString().split("T")[0]}
+                    value={sessionDate}
+                    onChange={(e) => setSessionDate(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
@@ -164,7 +319,8 @@ function NewReportPage() {
                     type="number"
                     min="1"
                     required
-                    defaultValue="1"
+                    value={sessionNumber}
+                    onChange={(e) => setSessionNumber(e.target.value)}
                   />
                 </div>
               </div>
@@ -196,13 +352,27 @@ function NewReportPage() {
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-4">
+              <div className="flex flex-wrap items-center gap-3 pt-4">
                 <Button type="submit" disabled={loading}>
                   Generate Report
                 </Button>
-                <Button type="button" variant="outline" onClick={() => router.back()}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={saveDraftNow}
+                  title="Save your notes to this browser so nothing is lost"
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  Save draft
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => router.back()}>
                   Cancel
                 </Button>
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {saveState === "saved"
+                    ? "Your notes are saved on this device."
+                    : "Your notes auto-save as you type."}
+                </span>
               </div>
             </form>
           </CardContent>
