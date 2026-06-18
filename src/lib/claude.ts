@@ -82,6 +82,12 @@ export async function summariseReport(
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
+    // Sonnet 4.6 defaults to high effort, which pushed report generation
+    // past Vercel's 60s function limit (504). These are structured
+    // text/JSON generations, not reasoning tasks — disable thinking and
+    // run at low effort to restore Sonnet-4-like latency.
+    thinking: { type: "disabled" },
+    output_config: { effort: "low" },
     max_tokens: 1024,
     system: SUMMARY_PROMPTS[audience],
     messages: [
@@ -102,6 +108,12 @@ export async function tidyReport(content: ReportContent): Promise<ReportContent>
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
+    // Sonnet 4.6 defaults to high effort, which pushed report generation
+    // past Vercel's 60s function limit (504). These are structured
+    // text/JSON generations, not reasoning tasks — disable thinking and
+    // run at low effort to restore Sonnet-4-like latency.
+    thinking: { type: "disabled" },
+    output_config: { effort: "low" },
     max_tokens: 8192,
     system: TIDY_SYSTEM_PROMPT,
     messages: [
@@ -153,6 +165,12 @@ export async function generateReport(
 
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
+    // Sonnet 4.6 defaults to high effort, which pushed report generation
+    // past Vercel's 60s function limit (504). These are structured
+    // text/JSON generations, not reasoning tasks — disable thinking and
+    // run at low effort to restore Sonnet-4-like latency.
+    thinking: { type: "disabled" },
+    output_config: { effort: "low" },
     max_tokens: 4096,
     system: REPORT_SYSTEM_PROMPT,
     messages: [{ role: "user", content: userPrompt }],

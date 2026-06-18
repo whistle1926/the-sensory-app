@@ -91,6 +91,8 @@ export async function POST(req: NextRequest) {
   try {
     const msg = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
+      thinking: { type: "disabled" },
+      output_config: { effort: "low" },
       max_tokens: 2500,
       system: SYSTEM_PROMPT,
       messages: [
