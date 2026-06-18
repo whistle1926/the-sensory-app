@@ -16,7 +16,7 @@ export async function GET() {
     return NextResponse.json({
       provider: "anthropic",
       apiKey: "",
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       enabled: false,
     });
   }
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       data: {
         id: "default",
         apiKey: apiKey || null,
-        model: model || "claude-sonnet-4-20250514",
+        model: model || "claude-sonnet-4-6",
         enabled: enabled ?? false,
         ...data,
       },

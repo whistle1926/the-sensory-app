@@ -81,7 +81,7 @@ export async function summariseReport(
 ): Promise<string> {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 1024,
     system: SUMMARY_PROMPTS[audience],
     messages: [
@@ -101,7 +101,7 @@ export async function summariseReport(
 export async function tidyReport(content: ReportContent): Promise<ReportContent> {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 8192,
     system: TIDY_SYSTEM_PROMPT,
     messages: [
@@ -152,7 +152,7 @@ export async function generateReport(
   );
 
   const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 4096,
     system: REPORT_SYSTEM_PROMPT,
     messages: [{ role: "user", content: userPrompt }],

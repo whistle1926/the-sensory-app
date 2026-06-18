@@ -113,7 +113,7 @@ export default function SettingsPage() {
   const [aiConfig, setAiConfig] = useState<AiConfig>({
     provider: "anthropic",
     apiKey: "",
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     enabled: false,
   });
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>({
@@ -590,9 +590,9 @@ export default function SettingsPage() {
                   }
                   className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
-                  <option value="claude-sonnet-4-20250514">Claude Sonnet 4 — Fast, great for reports</option>
-                  <option value="claude-opus-4-20250514">Claude Opus 4 — Most capable</option>
-                  <option value="claude-haiku-4-20250506">Claude Haiku 4 — Fastest, lower cost</option>
+                  <option value="claude-sonnet-4-6">Claude Sonnet 4.6 — Fast, great for reports</option>
+                  <option value="claude-opus-4-8">Claude Opus 4.8 — Most capable</option>
+                  <option value="claude-haiku-4-5">Claude Haiku 4.5 — Fastest, lower cost</option>
                 </select>
                 <p className="text-xs text-muted-foreground">
                   Sonnet is recommended for most tasks — good balance of speed and quality
