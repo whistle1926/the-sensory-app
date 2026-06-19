@@ -163,10 +163,16 @@ export async function generateReport(
   // Model + fallback chain live in ai-model.ts. Structured text/JSON
   // generation (not reasoning) — disable thinking and run at low effort
   // to stay well under the 60s function limit.
+  //
+  // max_tokens must comfortably fit a FULL report: ~25 fields including
+  // the 7-field Functional Review and the home-programme block. At 4096
+  // a detailed session truncated the JSON mid-object, which then failed
+  // to parse ("Claude returned a response we couldn't parse"). 8192
+  // gives generous headroom; effort=low keeps it well under the limit.
   const { message } = await createMessageResilient(anthropic, {
     thinking: { type: "disabled" },
     output_config: { effort: "low" },
-    max_tokens: 4096,
+    max_tokens: 8192,
     system: REPORT_SYSTEM_PROMPT,
     messages: [{ role: "user", content: userPrompt }],
   });
@@ -176,6 +182,37 @@ export async function generateReport(
     throw new Error("No text response from Claude");
   }
 
-  const parsed = JSON.parse(textBlock.text) as ReportContent;
-  return parsed;
+  // If the model hit the token ceiling the JSON is incomplete — say so
+  // clearly rather than surfacing a cryptic parse error.
+  if (message.stop_reason === "max_tokens") {
+    throw new Error(
+      "The report was too long to finish in one go. Please shorten the session notes slightly and try again.",
+    );
+  }
+
+  return parseReportJson(textBlock.text);
+}
+
+/**
+ * Parse the model's JSON report defensively. We instruct it to return
+ * raw JSON, but models occasionally wrap it in a ```json code fence or
+ * add a stray line of preamble. Rather than fail the whole generation
+ * on that, strip a fence if present and, as a last resort, slice from
+ * the first "{" to the last "}" before parsing.
+ */
+function parseReportJson(raw: string): ReportContent {
+  let text = raw.trim();
+  if (text.startsWith("```")) {
+    text = text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+  }
+  try {
+    return JSON.parse(text) as ReportContent;
+  } catch {
+    const first = text.indexOf("{");
+    const last = text.lastIndexOf("}");
+    if (first !== -1 && last > first) {
+      return JSON.parse(text.slice(first, last + 1)) as ReportContent;
+    }
+    throw new Error("Claude returned a response we couldn't parse");
+  }
 }
