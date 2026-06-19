@@ -23,9 +23,10 @@ import { rateLimitOrReject } from "@/lib/rate-limit";
 import { tidyReport } from "@/lib/claude";
 import type { ReportContent } from "@/types/report";
 
-// Same as the generate route — Claude takes ~25-30s for a full
-// report; we cap at 60 (Vercel max on Hobby/Pro).
-export const maxDuration = 60;
+// Same as the generate route — a long report can take 60s+ to tidy
+// (this call has the largest token budget). Vercel Fluid Compute
+// lifts the cap to 300s, so give it headroom rather than risk a 504.
+export const maxDuration = 300;
 
 export async function POST(
   req: NextRequest,

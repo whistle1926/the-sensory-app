@@ -6,13 +6,13 @@ import { generateReport } from "@/lib/claude";
 import { rateLimitOrReject } from "@/lib/rate-limit";
 import { format } from "date-fns";
 
-// The Anthropic call now reliably takes 25-35s after the prompt
-// was expanded to auto-fill the Functional Review fields. Vercel's
-// default function timeout (10s on Hobby, 15s on Pro) was killing
-// the request and leaving the browser stuck on a spinner. 60s is
-// the maximum allowed on Hobby/Pro plans and gives comfortable
-// headroom over typical generation latency.
-export const maxDuration = 60;
+// The Anthropic call typically takes 30-50s, but a long, detailed
+// set of session notes can push generation past 60s — which was
+// surfacing as a 504 timeout in the UI. Vercel's Fluid Compute
+// (enabled on this project) lifts the cap to 300s, so we give the
+// route generous headroom rather than risk clipping a slow run.
+// The browser-side watchdog in reports/new sits at 180s.
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   const session = await auth();

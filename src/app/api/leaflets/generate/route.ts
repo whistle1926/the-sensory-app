@@ -6,8 +6,9 @@ import { rateLimitOrReject } from "@/lib/rate-limit";
 import { runFluxSchnell } from "@/lib/replicate";
 import { rehostToBlob } from "@/lib/blob-upload";
 
-// Cover + content generation can take 10–20s end to end.
-export const maxDuration = 60;
+// Cover + content generation can take 10–20s end to end, but give
+// headroom for cold starts / longer content (Fluid Compute → 300s).
+export const maxDuration = 120;
 
 const SYSTEM_PROMPT = `You are a paediatric occupational therapist writing parent-friendly handouts for The Sensory Submarine.
 

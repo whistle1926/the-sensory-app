@@ -163,12 +163,13 @@ function NewReportPage() {
     saveDraftNow();
     setGenerating(true);
 
-    // Safety net: the server route is capped at 60s (Vercel's
-    // maxDuration). Give the client 90s to receive the response,
-    // then abort and show a clear error instead of spinning
-    // indefinitely.
+    // Safety net: the server route allows up to 300s (Vercel Fluid
+    // Compute). A long, detailed set of notes can take 60-120s to
+    // generate. Give the client a generous 180s to receive the
+    // response, then abort and show a clear error instead of
+    // spinning indefinitely.
     const ctrl = new AbortController();
-    const watchdog = setTimeout(() => ctrl.abort(), 90_000);
+    const watchdog = setTimeout(() => ctrl.abort(), 180_000);
 
     try {
       const res = await fetch("/api/reports/generate", {
