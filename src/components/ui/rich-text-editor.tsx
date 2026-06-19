@@ -391,7 +391,14 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [2, 3] } }),
+      // StarterKit v3 bundles Link and Underline. We register our own
+      // configured versions below (Link needs openOnClick/target/rel),
+      // so disable the bundled ones to avoid duplicate-extension warnings.
+      StarterKit.configure({
+        heading: { levels: [2, 3] },
+        link: false,
+        underline: false,
+      }),
       Underline,
       // Demo-step photos (and any pasted images) are preserved as
       // proper image nodes. StarterKit has no image node, so without
