@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { RefreshCw, X } from "lucide-react";
 
 // How often to quietly check whether a newer version has been deployed.
@@ -23,6 +24,7 @@ export function UpdateBanner() {
   // Remember a version the user explicitly dismissed so we don't nag for
   // the same release; a yet-newer deploy will still surface.
   const [dismissed, setDismissed] = useState<string | null>(null);
+  const pathname = usePathname();
 
   const checkVersion = useCallback(async () => {
     // No meaningful version locally — nothing to compare against.
@@ -65,26 +67,49 @@ export function UpdateBanner() {
     };
   }, [loadedVersion]);
 
-  const updateAvailable =
-    latestVersion !== null &&
-    latestVersion !== loadedVersion &&
-    latestVersion !== dismissed;
+  // A newer build exists than the one this tab is running.
+  const newVersionExists =
+    latestVersion !== null && latestVersion !== loadedVersion;
 
-  if (!updateAvailable) return null;
+  // Silently full-reload at the next safe boundary — a route change — so
+  // non-technical users get the new code without knowing what "refresh"
+  // means. Navigation is a safe point: they're leaving the page anyway,
+  // and in-progress work (report drafts, edits) is preserved in
+  // localStorage. This runs even if the banner was dismissed, since a
+  // reload-on-navigation is seamless and never interrupts active typing.
+  const armedPath = useRef<string | null>(null);
+  useEffect(() => {
+    if (!newVersionExists) {
+      armedPath.current = null;
+      return;
+    }
+    if (armedPath.current === null) {
+      armedPath.current = pathname; // arm on the page where we noticed
+      return;
+    }
+    if (pathname !== armedPath.current) {
+      window.location.reload(); // they navigated → load fresh code
+    }
+  }, [newVersionExists, pathname]);
+
+  // Show the banner unless this exact release was dismissed.
+  const showBanner = newVersionExists && latestVersion !== dismissed;
+  if (!showBanner) return null;
 
   return (
     <div className="print:hidden">
       <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 bg-primary px-4 py-2 text-center text-sm font-medium text-primary-foreground shadow">
         <span className="inline-flex items-center gap-2">
           <RefreshCw className="h-4 w-4" />
-          A new version of The Sensory is available.
+          An update is ready — it will apply automatically as you move
+          around, or update now.
         </span>
         <button
           type="button"
           onClick={() => window.location.reload()}
           className="rounded-md bg-primary-foreground px-3 py-1 text-xs font-semibold text-primary transition hover:opacity-90"
         >
-          Refresh to update
+          Update now
         </button>
         <button
           type="button"
