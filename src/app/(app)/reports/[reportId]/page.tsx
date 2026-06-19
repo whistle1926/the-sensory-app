@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ArrowLeft, Pencil, Save, Send, Sparkles, X, Loader2 } from "lucide-react";
+import { ArrowLeft, Pencil, Save, Send, Sparkles, X, Loader2, Check } from "lucide-react";
 import { TidyReviewDialog } from "@/components/reports/tidy-review-dialog";
 import { ReportSummaryDialog } from "@/components/reports/report-summary-dialog";
 import Link from "next/link";
@@ -45,6 +45,25 @@ export default function ReportDetailPage() {
   const [draftContent, setDraftContent] = useState<ReportContent | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  /* ───────────── In-progress edit auto-save ─────────────
+   * The report itself is already a saved draft in the DB, so a user can
+   * always come back to it from the reports list. The risk we protect
+   * against here is losing *unsaved edits*: while editing, `draftContent`
+   * lives only in memory, so closing the tab before clicking Save would
+   * throw the work away. We debounce-mirror the working copy into
+   * localStorage (per report), offer to restore it when the user comes
+   * back to edit, and warn before leaving with unsaved changes. Same
+   * pattern as the New Report page so the experience is consistent. */
+  const EDIT_DRAFT_KEY = `sensory:reportEditDraft:${reportId}:v1`;
+  const [editSaveState, setEditSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  // Holds the timestamp of a recovered local draft so we can offer to
+  // restore it. Null = nothing to restore.
+  const [recoverableAt, setRecoverableAt] = useState<string | null>(null);
+  // Guards the auto-save effect from firing on the initial seed of
+  // draftContent (entering edit mode shouldn't count as an edit).
+  const editHydrated = useRef(false);
+  const editSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /* ───────────── Summary dialog state ───────────── */
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -109,11 +128,119 @@ export default function ReportDetailPage() {
         // page — startEdit() shows that prompt and a deep-link
         // shouldn't be interrupted.
         if (wantsEdit && data?.content) {
+          editHydrated.current = false;
           setDraftContent(JSON.parse(JSON.stringify(data.content)));
           setEditing(true);
+          detectRecoverableDraft(data.content);
         }
       });
   }, [reportId, wantsEdit]);
+
+  /* Auto-save the working copy to localStorage (debounced) while editing,
+   * so unsaved edits survive an accidental tab close or navigation. */
+  useEffect(() => {
+    if (!editing || !draftContent) return;
+    // Skip the very first run, which is just the initial seed.
+    if (!editHydrated.current) {
+      editHydrated.current = true;
+      return;
+    }
+    setEditSaveState("saving");
+    if (editSaveTimer.current) clearTimeout(editSaveTimer.current);
+    editSaveTimer.current = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          EDIT_DRAFT_KEY,
+          JSON.stringify({ content: draftContent, savedAt: new Date().toISOString() }),
+        );
+        setEditSaveState("saved");
+      } catch {
+        // Storage full / disabled — fail quietly; Save still works.
+      }
+    }, 600);
+    return () => {
+      if (editSaveTimer.current) clearTimeout(editSaveTimer.current);
+    };
+  }, [draftContent, editing, EDIT_DRAFT_KEY]);
+
+  /* Warn before leaving the page with unsaved edits. */
+  useEffect(() => {
+    if (!editing) return;
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      const dirty =
+        draftContent &&
+        report &&
+        JSON.stringify(draftContent) !== JSON.stringify(report.content);
+      if (dirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    }
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [editing, draftContent, report]);
+
+  // Look for a saved-but-not-committed local draft for this report and,
+  // if it's actually different from what's in the DB, surface a restore
+  // banner. Called when entering edit mode. `dbContent` is passed
+  // explicitly because the deep-link path runs before `report` state
+  // has settled.
+  function detectRecoverableDraft(dbContent: ReportContent) {
+    try {
+      const raw = localStorage.getItem(EDIT_DRAFT_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { content?: ReportContent; savedAt?: string };
+      if (
+        parsed?.content &&
+        JSON.stringify(parsed.content) !== JSON.stringify(dbContent)
+      ) {
+        setRecoverableAt(parsed.savedAt ?? null);
+      } else {
+        // Identical to the DB — nothing meaningful to recover; clear it.
+        localStorage.removeItem(EDIT_DRAFT_KEY);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function restoreLocalDraft() {
+    try {
+      const raw = localStorage.getItem(EDIT_DRAFT_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { content?: ReportContent };
+        if (parsed?.content) {
+          editHydrated.current = true; // don't re-trigger a save from the restore
+          setDraftContent(parsed.content);
+          setEditSaveState("saved");
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    setRecoverableAt(null);
+  }
+
+  function discardLocalDraft() {
+    try {
+      localStorage.removeItem(EDIT_DRAFT_KEY);
+    } catch {
+      /* ignore */
+    }
+    setRecoverableAt(null);
+  }
+
+  function clearEditDraft() {
+    if (editSaveTimer.current) clearTimeout(editSaveTimer.current);
+    try {
+      localStorage.removeItem(EDIT_DRAFT_KEY);
+    } catch {
+      /* ignore */
+    }
+    setEditSaveState("idle");
+    setRecoverableAt(null);
+    editHydrated.current = false;
+  }
 
   function startEdit() {
     if (!report) return;
@@ -125,15 +252,19 @@ export default function ReportDetailPage() {
       );
       if (!ok) return;
     }
+    editHydrated.current = false;
+    setEditSaveState("idle");
     setDraftContent(JSON.parse(JSON.stringify(report.content)));
     setEditing(true);
     setSaveError(null);
+    detectRecoverableDraft(report.content);
   }
 
   function cancelEdit() {
     setEditing(false);
     setDraftContent(null);
     setSaveError(null);
+    clearEditDraft();
   }
 
   async function saveEdit() {
@@ -155,6 +286,7 @@ export default function ReportDetailPage() {
       setReport({ ...report, content: draftContent });
       setEditing(false);
       setDraftContent(null);
+      clearEditDraft();
     } catch (e: unknown) {
       setSaveError(e instanceof Error ? e.message : "Save failed");
     } finally {
@@ -205,17 +337,45 @@ export default function ReportDetailPage() {
           title={`${report.client.firstName} ${report.client.lastName}`}
           subtitle={
             editing
-              ? "Editing — click Save to persist changes"
-              : `Report dated ${new Date(report.reportDate).toLocaleDateString(
-                  "en-GB",
-                  { day: "numeric", month: "long", year: "numeric" },
-                )}`
+              ? "Editing — your changes are kept on this device; click Save to store them"
+              : status === "draft"
+                ? `Draft saved — come back and finish it any time · dated ${new Date(
+                    report.reportDate,
+                  ).toLocaleDateString("en-GB", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}`
+                : `Report dated ${new Date(report.reportDate).toLocaleDateString(
+                    "en-GB",
+                    { day: "numeric", month: "long", year: "numeric" },
+                  )}`
           }
           actions={
             <div className="flex items-center gap-3">
               <Chip tone={tone}>{chipLabel}</Chip>
               {editing ? (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Auto-save status — reassures the OT their edits are
+                      being kept on this device even before they Save. */}
+                  {editSaveState !== "idle" && (
+                    <span
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+                      title="Your edits are kept on this device until you click Save"
+                    >
+                      {editSaveState === "saving" ? (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          Saving…
+                        </>
+                      ) : (
+                        <>
+                          <Check className="h-3 w-3 text-green-600" />
+                          Draft kept
+                        </>
+                      )}
+                    </span>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -288,6 +448,33 @@ export default function ReportDetailPage() {
           </p>
         )}
       </div>
+
+      {/* Restore prompt — appears when we find unsaved edits kept on
+          this device from a previous editing session for this report. */}
+      {editing && recoverableAt && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-700/60 dark:bg-amber-900/20 print:hidden">
+          <span className="text-amber-900 dark:text-amber-200">
+            We found unsaved edits from{" "}
+            <strong>
+              {new Date(recoverableAt).toLocaleString("en-GB", {
+                day: "numeric",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </strong>{" "}
+            kept on this device. Restore them?
+          </span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={discardLocalDraft}>
+              Discard
+            </Button>
+            <Button size="sm" onClick={restoreLocalDraft}>
+              Restore edits
+            </Button>
+          </div>
+        </div>
+      )}
 
       <ReportViewer
         content={editing && draftContent ? draftContent : report.content}
