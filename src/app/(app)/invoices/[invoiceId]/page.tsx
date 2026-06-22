@@ -4,6 +4,12 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,11 +60,19 @@ interface Invoice {
   paymentRef: string | null;
   paymentUrl: string | null;
   paidAt: string | null;
+  paidMethod: string | null;
   sentAt: string | null;
   createdAt: string;
   updatedAt: string;
   items: InvoiceItem[];
 }
+
+const PAID_METHOD_LABEL: Record<string, string> = {
+  fire: "Fire",
+  cash: "Cash",
+  bank_transfer: "Bank transfer",
+  other: "Other",
+};
 
 interface EditableItem {
   key: number;
@@ -120,6 +134,7 @@ export default function InvoiceDetailPage() {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [payMethodOpen, setPayMethodOpen] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -383,8 +398,8 @@ export default function InvoiceDetailPage() {
     setEmailSending(false);
   }
 
-  /* ---- mark as paid ---- */
-  async function markAsPaid() {
+  /* ---- mark as paid (pick how it was paid) ---- */
+  async function doMarkPaid(paidMethod: string) {
     setError("");
     setActionLoading("paid");
 
@@ -392,7 +407,7 @@ export default function InvoiceDetailPage() {
       const res = await fetch(`/api/invoices/${invoiceId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "paid" }),
+        body: JSON.stringify({ status: "paid", paidMethod }),
       });
 
       if (!res.ok) {
@@ -404,6 +419,7 @@ export default function InvoiceDetailPage() {
 
       const updated = await res.json();
       setInvoice(updated);
+      setPayMethodOpen(false);
     } catch {
       setError("Something went wrong. Please try again.");
     }
@@ -1539,7 +1555,7 @@ export default function InvoiceDetailPage() {
               Compose Email
             </Button>
             <Button
-              onClick={markAsPaid}
+              onClick={() => setPayMethodOpen(true)}
               disabled={actionLoading === "paid"}
             >
               {actionLoading === "paid" ? (
@@ -1596,7 +1612,7 @@ export default function InvoiceDetailPage() {
               Compose Email
             </Button>
             <Button
-              onClick={markAsPaid}
+              onClick={() => setPayMethodOpen(true)}
               disabled={actionLoading === "paid"}
             >
               {actionLoading === "paid" ? (
@@ -1637,6 +1653,11 @@ export default function InvoiceDetailPage() {
                 <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
                 <span className="text-sm font-medium text-green-600 dark:text-green-400">
                   Paid on {formatDate(invoice.paidAt)}
+                  {invoice.paidMethod === "fire"
+                    ? " · confirmed in Fire"
+                    : invoice.paidMethod
+                      ? ` · by ${PAID_METHOD_LABEL[invoice.paidMethod] ?? invoice.paidMethod}`
+                      : ""}
                 </span>
               </div>
             )}
@@ -1656,6 +1677,55 @@ export default function InvoiceDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Mark-paid method picker. Fire payments are confirmed via Sync;
+          this manual path is for off-Fire payments (cash/bank/other). */}
+      <Dialog open={payMethodOpen} onOpenChange={setPayMethodOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>How was this invoice paid?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Payments made through Fire are confirmed automatically by{" "}
+            <strong>Sync with FireBuddy</strong>. Use this only for payments
+            that won&apos;t show in Fire.
+          </p>
+          {error && (
+            <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+          )}
+          <div className="mt-1 grid gap-2">
+            {[
+              { key: "cash", label: "Cash", hint: "Paid in cash" },
+              {
+                key: "bank_transfer",
+                label: "Bank transfer",
+                hint: "BACS / standing order outside Fire",
+              },
+              { key: "other", label: "Other", hint: "Card, cheque, etc." },
+            ].map((m) => (
+              <button
+                key={m.key}
+                type="button"
+                onClick={() => doMarkPaid(m.key)}
+                disabled={actionLoading === "paid"}
+                className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3 text-left transition-colors hover:border-green-500/50 hover:bg-green-50 disabled:opacity-50 dark:hover:bg-green-950/20"
+              >
+                <span>
+                  <span className="block text-sm font-semibold">{m.label}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {m.hint}
+                  </span>
+                </span>
+                {actionLoading === "paid" ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                )}
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

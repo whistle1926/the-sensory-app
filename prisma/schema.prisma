@@ -987,6 +987,11 @@ model Invoice {
   /// settlement. Optional — older invoices won't have it.
   firebuddyInvoiceId String?
   paidAt        DateTime?
+  // How the payment was confirmed. "fire" = landed in the Fire account
+  // (the source of truth, set by sync/webhook). "cash" | "bank_transfer"
+  // | "other" = manually marked paid off-Fire, so it legitimately won't
+  // appear in Fire. Null on unpaid invoices.
+  paidMethod    String?
   sentAt        DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

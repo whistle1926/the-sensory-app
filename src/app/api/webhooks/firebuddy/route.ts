@@ -176,6 +176,8 @@ async function handleInvoicePayment(invoiceId: string, paymentId: string, amount
       status: "paid",
       paymentRef: paymentId,
       paidAt: new Date(),
+      // Confirmed via Fire → the source of truth.
+      paidMethod: "fire",
     },
   });
 

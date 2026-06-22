@@ -25,6 +25,7 @@ export async function GET() {
         paymentRef: true,
         paymentUrl: true,
         paidAt: true,
+        paidMethod: true,
         sentAt: true,
         createdAt: true,
         updatedAt: true,

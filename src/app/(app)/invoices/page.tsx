@@ -52,9 +52,20 @@ interface Invoice {
   total: number;
   sentAt: string | null;
   paidAt: string | null;
+  paidMethod: string | null;
   createdAt: string;
   items: InvoiceItem[];
 }
+
+// How a paid invoice was confirmed. "fire" = landed in the Fire account
+// (source of truth) — shown plainly. Manual methods get a visible tag so
+// it's clear they won't appear in Fire.
+const PAID_METHOD_LABEL: Record<string, string> = {
+  fire: "Fire",
+  cash: "Cash",
+  bank_transfer: "Bank transfer",
+  other: "Other",
+};
 
 interface InvoiceStats {
   totalInvoiced: number;
@@ -185,14 +196,14 @@ export default function InvoicesPage() {
     }
   }
 
-  async function markPaid(id: string) {
+  async function markPaid(id: string, paidMethod: string) {
     setMarkError(null);
     setMarkingId(id);
     try {
       const res = await fetch(`/api/invoices/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "paid" }),
+        body: JSON.stringify({ status: "paid", paidMethod }),
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
@@ -521,8 +532,6 @@ export default function InvoicesPage() {
                         const overdue = isOverdue(inv.dueDate, inv.status);
                         const isConfirming = confirmDeleteId === inv.id;
                         const isDeleting = deletingId === inv.id;
-                        const isConfirmingPaid = confirmPaidId === inv.id;
-                        const isMarking = markingId === inv.id;
                         // Paid invoices can't be deleted server-side
                         // (see API); hide the trash button to avoid
                         // a confusing rejected request.
@@ -535,69 +544,6 @@ export default function InvoicesPage() {
                         // Mark-unpaid reverses a payment recorded in
                         // error — only relevant once it's "paid".
                         const canMarkUnpaid = inv.status === "paid";
-
-                        if (isConfirmingPaid) {
-                          return (
-                            <tr
-                              key={inv.id}
-                              style={{ background: "rgba(34,197,94,0.05)" }}
-                            >
-                              <td colSpan={7}>
-                                <div className="flex flex-wrap items-center justify-between gap-3 px-1 py-1">
-                                  <span className="text-sm">
-                                    Mark <strong>{inv.invoiceNumber}</strong> for{" "}
-                                    <strong>{inv.clientName}</strong>{" "}
-                                    ({formatCurrency(inv.total, inv.currency)}) as
-                                    paid? Use this if FireBuddy didn&apos;t fire
-                                    the webhook but you&apos;ve confirmed payment
-                                    received.
-                                  </span>
-                                  <div className="flex items-center gap-2">
-                                    {markError && (
-                                      <span className="text-xs text-red-600">
-                                        {markError}
-                                      </span>
-                                    )}
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setConfirmPaidId(null);
-                                        setMarkError(null);
-                                      }}
-                                      disabled={isMarking}
-                                      className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium hover:bg-muted/50 disabled:opacity-50"
-                                    >
-                                      <X className="h-3 w-3" />
-                                      Cancel
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        markPaid(inv.id);
-                                      }}
-                                      disabled={isMarking}
-                                      className="inline-flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1 text-xs font-bold text-white hover:bg-green-700 disabled:opacity-60"
-                                    >
-                                      {isMarking ? (
-                                        <>
-                                          <Loader2 className="h-3 w-3 animate-spin" />
-                                          Marking…
-                                        </>
-                                      ) : (
-                                        <>
-                                          <CheckCircle2 className="h-3 w-3" />
-                                          Confirm paid
-                                        </>
-                                      )}
-                                    </button>
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        }
 
                         if (isConfirming) {
                           return (
@@ -721,9 +667,22 @@ export default function InvoicesPage() {
                               {formatCurrency(inv.total, inv.currency)}
                             </td>
                             <td>
-                              <Chip tone={STATUS_TONE[inv.status]}>
-                                {STATUS_LABEL[inv.status]}
-                              </Chip>
+                              <div className="inline-flex items-center gap-1.5">
+                                <Chip tone={STATUS_TONE[inv.status]}>
+                                  {STATUS_LABEL[inv.status]}
+                                </Chip>
+                                {/* Cash/bank/other paid → show how, since it
+                                    won't appear in Fire. Fire-confirmed shows
+                                    plainly. */}
+                                {inv.status === "paid" &&
+                                  inv.paidMethod &&
+                                  inv.paidMethod !== "fire" && (
+                                    <span className="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+                                      {PAID_METHOD_LABEL[inv.paidMethod] ??
+                                        inv.paidMethod}
+                                    </span>
+                                  )}
+                              </div>
                             </td>
                             <td style={{ textAlign: "right" }}>
                               <div className="inline-flex items-center gap-1">
@@ -834,6 +793,93 @@ export default function InvoicesPage() {
           </Panel>
         </>
       )}
+
+      {/* Mark-paid — pick how it was paid. Fire-confirmed payments arrive
+          via Sync; this manual path is for off-Fire (cash/bank/other). */}
+      <Dialog
+        open={confirmPaidId !== null}
+        onOpenChange={(o) => {
+          if (!o) {
+            setConfirmPaidId(null);
+            setMarkError(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>How was this invoice paid?</DialogTitle>
+          </DialogHeader>
+          {(() => {
+            const inv = invoices.find((i) => i.id === confirmPaidId);
+            if (!inv) return null;
+            const isMarking = markingId === inv.id;
+            const methods: { key: string; label: string; hint: string }[] = [
+              { key: "cash", label: "Cash", hint: "Paid in cash" },
+              {
+                key: "bank_transfer",
+                label: "Bank transfer",
+                hint: "BACS / standing order outside Fire",
+              },
+              { key: "other", label: "Other", hint: "Card, cheque, etc." },
+            ];
+            return (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Marking <strong>{inv.invoiceNumber}</strong> for{" "}
+                  <strong>{inv.clientName}</strong> (
+                  {formatCurrency(inv.total, inv.currency)}) as paid. Payments
+                  made through Fire are confirmed automatically by{" "}
+                  <strong>Sync with FireBuddy</strong> — only use this for
+                  payments that won&apos;t show in Fire.
+                </p>
+                {markError && (
+                  <p className="text-xs text-red-600 dark:text-red-400">
+                    {markError}
+                  </p>
+                )}
+                <div className="mt-1 grid gap-2">
+                  {methods.map((m) => (
+                    <button
+                      key={m.key}
+                      type="button"
+                      onClick={() => markPaid(inv.id, m.key)}
+                      disabled={isMarking}
+                      className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3 text-left transition-colors hover:border-green-500/50 hover:bg-green-50 disabled:opacity-50 dark:hover:bg-green-950/20"
+                    >
+                      <span>
+                        <span className="block text-sm font-semibold">
+                          {m.label}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {m.hint}
+                        </span>
+                      </span>
+                      {isMarking ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <div className="-mx-4 -mb-4 mt-1 flex items-center justify-end rounded-b-xl border-t border-border bg-muted/40 px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmPaidId(null);
+                      setMarkError(null);
+                    }}
+                    disabled={isMarking}
+                    className="rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       {/* Mark-unpaid confirm — clean modal instead of an inline row. */}
       <Dialog

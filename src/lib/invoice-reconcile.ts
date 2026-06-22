@@ -43,7 +43,14 @@ async function markInvoicePaid(
 ): Promise<void> {
   await prisma.invoice.update({
     where: { id: invoice.id },
-    data: { status: "paid", paidAt: new Date(), paymentRef: paymentId },
+    // paidMethod "fire" = confirmed landed in the Fire account (the
+    // source of truth). Distinguishes these from manual cash/other marks.
+    data: {
+      status: "paid",
+      paidAt: new Date(),
+      paymentRef: paymentId,
+      paidMethod: "fire",
+    },
   });
 
   // Reflect the paid status onto the mirrored FireBuddy accounting

@@ -67,7 +67,7 @@ export async function PATCH(
 
     const reverted = await prisma.invoice.update({
       where: { id: invoiceId },
-      data: { status: "sent", paidAt: null },
+      data: { status: "sent", paidAt: null, paidMethod: null },
       include: { items: true, client: true },
     });
 
@@ -115,7 +115,7 @@ export async function PATCH(
 
     return NextResponse.json(reverted);
   }
-  const { clientName, clientEmail, clientAddress, clientId, dueDate, notes, status, items, bankTransfer } = body;
+  const { clientName, clientEmail, clientAddress, clientId, dueDate, notes, status, items, bankTransfer, paidMethod } = body;
 
   // Build the update payload
   const data: Record<string, unknown> = {};
@@ -136,7 +136,14 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
     data.status = status;
-    if (status === "paid") data.paidAt = new Date();
+    if (status === "paid") {
+      data.paidAt = new Date();
+      // Record HOW it was paid. A manual mark is off-Fire by definition
+      // (Fire-confirmed payments come in via sync/webhook as "fire"), so
+      // capture cash / bank_transfer / other; default to "other".
+      const validMethods = ["fire", "cash", "bank_transfer", "other"];
+      data.paidMethod = validMethods.includes(paidMethod) ? paidMethod : "other";
+    }
   }
 
   // If items are provided, full-replace and recalculate totals
