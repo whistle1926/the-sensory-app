@@ -2,9 +2,15 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Trash2, Forward, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { FormField, UploadedFile } from "@/lib/forms";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Submission {
   id: string;
@@ -60,6 +66,48 @@ export default function SubmissionDetailPage({
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+
+  // ── Forward-to-OT dialog state ──────────────────────────────────
+  const [forwardOpen, setForwardOpen] = useState(false);
+  const [forwardTo, setForwardTo] = useState("");
+  const [forwardNote, setForwardNote] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [sentTo, setSentTo] = useState<string | null>(null);
+
+  async function handleForward() {
+    const to = forwardTo.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+      setSendError("Please enter a valid email address.");
+      return;
+    }
+    setSending(true);
+    setSendError(null);
+    try {
+      const res = await fetch(
+        `/api/forms/${formId}/submissions/${submissionId}/forward`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to, note: forwardNote.trim() }),
+        },
+      );
+      const result = (await res.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(result.error || `Send failed (${res.status})`);
+      }
+      setSentTo(to);
+      setForwardOpen(false);
+      setForwardTo("");
+      setForwardNote("");
+    } catch (e) {
+      setSendError(e instanceof Error ? e.message : "Send failed");
+    } finally {
+      setSending(false);
+    }
+  }
 
   useEffect(() => {
     fetch(`/api/forms/${formId}/submissions/${submissionId}`)
@@ -163,20 +211,41 @@ export default function SubmissionDetailPage({
             </p>
           )}
         </div>
-        <button
-          type="button"
-          onClick={handleDelete}
-          disabled={deleting}
-          className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-        >
-          {deleting ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Trash2 className="h-3.5 w-3.5" />
-          )}
-          Delete
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setSendError(null);
+              setForwardOpen(true);
+            }}
+            className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
+          >
+            <Forward className="h-3.5 w-3.5" />
+            Forward to OT
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleting}
+            className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+          >
+            {deleting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5" />
+            )}
+            Delete
+          </button>
+        </div>
       </div>
+
+      {/* Confirmation after a successful forward. */}
+      {sentTo && (
+        <div className="flex items-center gap-2 rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800/60 dark:bg-green-950/30 dark:text-green-300">
+          <Check className="h-4 w-4" />
+          Referral sent to <strong>{sentTo}</strong>.
+        </div>
+      )}
 
       <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
         <dl className="space-y-5">
@@ -214,6 +283,77 @@ export default function SubmissionDetailPage({
           })}
         </dl>
       </div>
+
+      {/* Forward-to-OT dialog */}
+      <Dialog open={forwardOpen} onOpenChange={setForwardOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Forward to another OT</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Email a read-only copy of this referral to a colleague. They
+              don&apos;t need an account to view it.
+            </p>
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Recipient email
+              </label>
+              <input
+                type="email"
+                value={forwardTo}
+                onChange={(e) => {
+                  setForwardTo(e.target.value);
+                  if (sendError) setSendError(null);
+                }}
+                placeholder="colleague@example.com"
+                autoFocus
+                className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Note (optional)
+              </label>
+              <textarea
+                value={forwardNote}
+                onChange={(e) => setForwardNote(e.target.value)}
+                rows={3}
+                placeholder="Add a short message for your colleague…"
+                className="w-full resize-y rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+            {sendError && (
+              <p className="text-xs text-red-600 dark:text-red-400">
+                {sendError}
+              </p>
+            )}
+          </div>
+          <div className="-mx-4 -mb-4 flex items-center justify-end gap-2 rounded-b-xl border-t border-border bg-muted/40 px-4 py-3">
+            <button
+              type="button"
+              onClick={() => setForwardOpen(false)}
+              disabled={sending}
+              className="rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleForward}
+              disabled={sending || !forwardTo.trim()}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/80 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {sending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Forward className="h-3.5 w-3.5" />
+              )}
+              {sending ? "Sending…" : "Send referral"}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
