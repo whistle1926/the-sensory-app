@@ -42,6 +42,7 @@ export type AuditAction =
   | "report.delete"
   | "report.update"
   | "invoice.send"
+  | "invoice.share.whatsapp"
   | "invoice.cancel"
   | "invoice.delete"
   | "client.create"

@@ -28,6 +28,8 @@ import {
   ExternalLink,
   Mail,
   RotateCcw,
+  MessageCircle,
+  Clock,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -135,6 +137,53 @@ export default function InvoiceDetailPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [payMethodOpen, setPayMethodOpen] = useState(false);
+
+  /* ---- sending activity ---- */
+  interface ActivityEntry {
+    id: string;
+    action: string;
+    actorLabel: string;
+    meta: Record<string, unknown>;
+    createdAt: string;
+  }
+  const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  async function loadActivity() {
+    try {
+      const r = await fetch(`/api/invoices/${invoiceId}/activity`);
+      if (r.ok) {
+        const d = (await r.json()) as { entries?: ActivityEntry[] };
+        setActivity(d.entries ?? []);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Open WhatsApp with a pre-filled message + the secure payment link, so
+  // the OT can chase payment in one tap. The send happens in their own
+  // WhatsApp; we just log that it was shared for the activity history.
+  function shareWhatsApp() {
+    if (!invoice?.paymentUrl) return;
+    const firstName = (invoice.clientName || "").split(" ")[0];
+    const msg =
+      `Hi ${firstName},\n\n` +
+      `Here's the secure payment link for invoice ${invoice.invoiceNumber} ` +
+      `(${formatCurrency(invoice.total, invoice.currency)}) from The Sensory Submarine:\n` +
+      `${invoice.paymentUrl}\n\n` +
+      `Thank you!`;
+    window.open(
+      `https://wa.me/?text=${encodeURIComponent(msg)}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+    fetch(`/api/invoices/${invoiceId}/activity`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ channel: "whatsapp" }),
+    })
+      .then(() => loadActivity())
+      .catch(() => {});
+  }
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -191,6 +240,7 @@ export default function InvoiceDetailPage() {
 
   useEffect(() => {
     load();
+    loadActivity();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoiceId]);
 
@@ -1571,19 +1621,30 @@ export default function InvoiceDetailPage() {
               )}
             </Button>
             {invoice.paymentUrl && (
-              <Button variant="outline" onClick={copyPaymentLink}>
-                {copied ? (
-                  <>
-                    <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="mr-2 h-4 w-4" />
-                    Copy Payment Link
-                  </>
-                )}
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  onClick={shareWhatsApp}
+                  title="Send the payment link via WhatsApp"
+                  className="border-green-600/40 text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950/20"
+                >
+                  <MessageCircle className="mr-2 h-4 w-4" />
+                  WhatsApp link
+                </Button>
+                <Button variant="outline" onClick={copyPaymentLink}>
+                  {copied ? (
+                    <>
+                      <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="mr-2 h-4 w-4" />
+                      Copy Payment Link
+                    </>
+                  )}
+                </Button>
+              </>
             )}
             {isPastDue && (
               <Button
@@ -1628,19 +1689,30 @@ export default function InvoiceDetailPage() {
               )}
             </Button>
             {invoice.paymentUrl && (
-              <Button variant="outline" onClick={copyPaymentLink}>
-                {copied ? (
-                  <>
-                    <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="mr-2 h-4 w-4" />
-                    Copy Payment Link
-                  </>
-                )}
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  onClick={shareWhatsApp}
+                  title="Send the payment link via WhatsApp"
+                  className="border-green-600/40 text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950/20"
+                >
+                  <MessageCircle className="mr-2 h-4 w-4" />
+                  WhatsApp link
+                </Button>
+                <Button variant="outline" onClick={copyPaymentLink}>
+                  {copied ? (
+                    <>
+                      <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="mr-2 h-4 w-4" />
+                      Copy Payment Link
+                    </>
+                  )}
+                </Button>
+              </>
             )}
           </>
         )}
@@ -1677,6 +1749,59 @@ export default function InvoiceDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Sending activity — every time this invoice was emailed or
+          shared, newest first. Lets the OT see how they've chased it. */}
+      {activity.length > 0 && (
+        <div className="mt-6 rounded-xl border border-border bg-card p-5">
+          <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <Clock className="h-3.5 w-3.5" />
+            Sending activity
+          </h3>
+          <ul className="mt-3 space-y-3">
+            {activity.map((a) => {
+              const when = new Date(a.createdAt).toLocaleString("en-GB", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+              const actor = a.actorLabel.replace(/\s*<[^>]*>/, "");
+              const isWhatsApp = a.action === "invoice.share.whatsapp";
+              const to =
+                typeof a.meta?.to === "string" ? (a.meta.to as string) : "";
+              return (
+                <li key={a.id} className="flex items-start gap-3 text-sm">
+                  <span
+                    className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                      isWhatsApp
+                        ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300"
+                        : "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
+                    }`}
+                  >
+                    {isWhatsApp ? (
+                      <MessageCircle className="h-3.5 w-3.5" />
+                    ) : (
+                      <Mail className="h-3.5 w-3.5" />
+                    )}
+                  </span>
+                  <div>
+                    <p className="font-medium">
+                      {isWhatsApp
+                        ? "Shared via WhatsApp"
+                        : `Emailed${to ? ` to ${to}` : ""}`}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {when} · {actor}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       {/* Mark-paid method picker. Fire payments are confirmed via Sync;
           this manual path is for off-Fire payments (cash/bank/other). */}
