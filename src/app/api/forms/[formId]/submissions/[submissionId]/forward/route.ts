@@ -2,42 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendMail } from "@/lib/mailer";
-import { isLayoutOnly, type FormField, type UploadedFile } from "@/lib/forms";
+import { type FormField } from "@/lib/forms";
+import { escapeHtml, submissionAnswerRowsHtml } from "@/lib/submission-render";
 
 function isStaff(role: string | undefined): boolean {
   return role === "SUPER_ADMIN" || role === "TEAM_MANAGER";
 }
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-/** Render one submitted value as safe HTML (string, list, or file link). */
-function renderValue(value: unknown): string {
-  if (value === null || value === undefined || value === "") {
-    return '<span style="color:#9ca3af;">—</span>';
-  }
-  if (Array.isArray(value)) {
-    return escapeHtml(value.map(String).join(", "));
-  }
-  if (typeof value === "object") {
-    const uf = value as UploadedFile;
-    if (uf.url && uf.filename) {
-      return `<a href="${escapeHtml(uf.url)}" style="color:#2563eb;">${escapeHtml(
-        uf.filename,
-      )}</a>`;
-    }
-    return escapeHtml(JSON.stringify(value));
-  }
-  // Preserve line breaks in long-text answers.
-  return escapeHtml(String(value)).replace(/\n/g, "<br/>");
-}
 
 /**
  * Forward a completed form submission to another professional by email.
@@ -90,20 +62,9 @@ export async function POST(
     : [];
   const data = (submission.data ?? {}) as Record<string, unknown>;
 
-  // Build the answer rows from the field snapshot (skip layout-only
+  // Build the answer rows from the field snapshot (skips layout-only
   // fields like headings/paragraphs, which carry no answer).
-  const rows = snapshot
-    .filter((f) => f && f.type && !isLayoutOnly(f.type))
-    .map((field) => {
-      const label = escapeHtml(field.label || "(Untitled)");
-      return `<tr>
-        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-weight:600;color:#374151;width:40%;vertical-align:top;">${label}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #eee;color:#111827;">${renderValue(
-          data[field.id],
-        )}</td>
-      </tr>`;
-    })
-    .join("");
+  const rows = submissionAnswerRowsHtml(snapshot, data);
 
   const clientName = submission.invite?.client
     ? `${submission.invite.client.firstName} ${submission.invite.client.lastName}`

@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Trash2, Forward, Check } from "lucide-react";
+import { ArrowLeft, Loader2, Trash2, Forward, Check, Download } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { FormField, UploadedFile } from "@/lib/forms";
 import {
@@ -212,6 +212,15 @@ export default function SubmissionDetailPage({
           )}
         </div>
         <div className="flex items-center gap-2">
+          <a
+            href={`/api/forms/${formId}/submissions/${submissionId}/print`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Download PDF
+          </a>
           <button
             type="button"
             onClick={() => {
