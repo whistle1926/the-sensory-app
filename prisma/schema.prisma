@@ -1064,6 +1064,7 @@ model FormSubmission {
   submitterName  String?                           // denormalised from the first name-ish text field
   submittedAt    DateTime    @default(now())
   ipHash         String?                           // SHA256 of IP — lightweight abuse signal
+  forwardLog     Json?                             // [{ to, note?, sentByName?, sentAt }] — history of who this was emailed/forwarded to
 
   @@index([formId, submittedAt])
 }

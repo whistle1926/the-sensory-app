@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { sendMail } from "@/lib/mailer";
 import { type FormField } from "@/lib/forms";
 import { escapeHtml, submissionAnswerRowsHtml } from "@/lib/submission-render";
+import type { ForwardLogEntry } from "@/lib/submission-render";
 
 function isStaff(role: string | undefined): boolean {
   return role === "SUPER_ADMIN" || role === "TEAM_MANAGER";
@@ -134,5 +136,28 @@ export async function POST(
     );
   }
 
-  return NextResponse.json({ ok: true, to });
+  // Record the forward so the submission page can show a history of
+  // everyone this referral has been shared with. Append to the JSON log
+  // (read-modify-write is fine here — single practice, low concurrency).
+  const entry: ForwardLogEntry = {
+    to,
+    note: note || undefined,
+    sentByName: sender,
+    sentAt: new Date().toISOString(),
+  };
+  const existing = Array.isArray(submission.forwardLog)
+    ? (submission.forwardLog as unknown as ForwardLogEntry[])
+    : [];
+  try {
+    await prisma.formSubmission.update({
+      where: { id: submissionId },
+      data: { forwardLog: [...existing, entry] as unknown as Prisma.InputJsonValue },
+    });
+  } catch (err) {
+    // Email already sent — don't fail the request just because logging
+    // the history hit a snag; surface success with a soft warning.
+    console.error("[forward] failed to record forward log", err);
+  }
+
+  return NextResponse.json({ ok: true, to, entry });
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Loader2, Trash2, Forward, Check, Download } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { FormField, UploadedFile } from "@/lib/forms";
+import type { ForwardLogEntry } from "@/lib/submission-render";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +21,7 @@ interface Submission {
   submittedAt: string;
   data: Record<string, unknown>;
   fieldsSnapshot: FormField[] | unknown;
+  forwardLog: ForwardLogEntry[] | null;
   form: { id: string; title: string; slug: string };
   invite: {
     id: string;
@@ -94,11 +96,20 @@ export default function SubmissionDetailPage({
       );
       const result = (await res.json().catch(() => ({}))) as {
         error?: string;
+        entry?: ForwardLogEntry;
       };
       if (!res.ok) {
         throw new Error(result.error || `Send failed (${res.status})`);
       }
       setSentTo(to);
+      // Reflect the new forward in the history immediately.
+      if (result.entry) {
+        setSubmission((prev) =>
+          prev
+            ? { ...prev, forwardLog: [...(prev.forwardLog ?? []), result.entry!] }
+            : prev,
+        );
+      }
       setForwardOpen(false);
       setForwardTo("");
       setForwardNote("");
@@ -255,6 +266,80 @@ export default function SubmissionDetailPage({
           Referral sent to <strong>{sentTo}</strong>.
         </div>
       )}
+
+      {/* Sharing history — everyone this referral has been emailed to. */}
+      <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Sharing history
+        </h2>
+        <ul className="mt-3 space-y-2.5 text-sm">
+          {/* Origin — who submitted it. */}
+          <li className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+              Received
+            </span>
+            <span>
+              {submission.submitterEmail ? (
+                <a
+                  href={`mailto:${submission.submitterEmail}`}
+                  className="text-primary hover:underline"
+                >
+                  {submission.submitterEmail}
+                </a>
+              ) : (
+                "Submitted via form"
+              )}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {new Date(submission.submittedAt).toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })}
+            </span>
+          </li>
+
+          {/* Forwards, newest last. */}
+          {(submission.forwardLog ?? []).map((f, i) => (
+            <li
+              key={`${f.to}-${f.sentAt}-${i}`}
+              className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5"
+            >
+              <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                Forwarded
+              </span>
+              <a
+                href={`mailto:${f.to}`}
+                className="text-primary hover:underline"
+              >
+                {f.to}
+              </a>
+              <span className="text-xs text-muted-foreground">
+                {new Date(f.sentAt).toLocaleString("en-GB", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+                {f.sentByName ? ` · by ${f.sentByName}` : ""}
+              </span>
+              {f.note && (
+                <span className="w-full pl-1 text-xs italic text-muted-foreground">
+                  “{f.note}”
+                </span>
+              )}
+            </li>
+          ))}
+
+          {(submission.forwardLog ?? []).length === 0 && (
+            <li className="text-xs text-muted-foreground">
+              Not yet forwarded to anyone. Use{" "}
+              <strong>Forward to OT</strong> above to share it.
+            </li>
+          )}
+        </ul>
+      </div>
 
       <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
         <dl className="space-y-5">

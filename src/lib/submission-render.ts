@@ -3,6 +3,14 @@
 // stay in sync.
 import { isLayoutOnly, type FormField, type UploadedFile } from "@/lib/forms";
 
+/** One entry in a submission's forward/share history. */
+export interface ForwardLogEntry {
+  to: string;
+  note?: string;
+  sentByName?: string;
+  sentAt: string; // ISO timestamp
+}
+
 export function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
