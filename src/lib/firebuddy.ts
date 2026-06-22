@@ -20,6 +20,8 @@ export interface PaymentResult {
 export interface PaymentStatus {
   id: string;
   status: "pending" | "completed" | "failed";
+  /** Major units (pounds), e.g. 100 = £100.00, 1.14 = £1.14 — NOT pence.
+   *  Our Invoice.total is pence, so multiply by 100 before comparing. */
   amount: number;
   currency: string;
   fire_payment_code: string;

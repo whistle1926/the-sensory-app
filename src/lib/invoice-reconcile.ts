@@ -149,7 +149,12 @@ export async function reconcileInvoicePayments(): Promise<ReconcileResult> {
       // an underpayment, or a stray/mismatched payment-request from
       // flipping a full invoice to "paid". Fire is the source of truth —
       // if what landed doesn't equal what we billed, we don't trust it.
-      const amountOk = status.amount === inv.total;
+      //
+      // UNITS: FireBuddy's payment-request `amount` is in major units
+      // (pounds), e.g. 100 = £100.00, 1.14 = £1.14. Our invoice.total is
+      // in pence. Convert before comparing.
+      const receivedPence = Math.round((status.amount ?? 0) * 100);
+      const amountOk = receivedPence === inv.total;
       const currencyOk =
         (status.currency || "").toUpperCase() ===
         (inv.currency || "GBP").toUpperCase();
@@ -157,7 +162,7 @@ export async function reconcileInvoicePayments(): Promise<ReconcileResult> {
         mismatches.push({
           invoiceNumber: inv.invoiceNumber,
           expected: inv.total,
-          received: status.amount,
+          received: receivedPence,
           currency: status.currency || inv.currency || "GBP",
         });
         console.warn(
