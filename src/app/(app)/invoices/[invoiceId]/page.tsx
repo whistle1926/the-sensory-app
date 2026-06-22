@@ -4,12 +4,6 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,7 +21,6 @@ import {
   Receipt,
   ExternalLink,
   Mail,
-  RotateCcw,
   MessageCircle,
   Clock,
 } from "lucide-react";
@@ -69,13 +62,6 @@ interface Invoice {
   items: InvoiceItem[];
 }
 
-const PAID_METHOD_LABEL: Record<string, string> = {
-  fire: "Fire",
-  cash: "Cash",
-  bank_transfer: "Bank transfer",
-  other: "Other",
-};
-
 interface EditableItem {
   key: number;
   id?: string;
@@ -116,10 +102,12 @@ const STATUS_CONFIG: Record<
   Invoice["status"],
   { label: string; variant: "default" | "secondary" | "destructive" | "outline" }
 > = {
+  // Payment status lives in FireBuddy now — the portal only tracks
+  // whether an invoice is a Draft, has been Sent, or was Cancelled.
   draft: { label: "Draft", variant: "secondary" },
   sent: { label: "Sent", variant: "default" },
-  paid: { label: "Paid", variant: "default" },
-  overdue: { label: "Overdue", variant: "destructive" },
+  paid: { label: "Sent", variant: "default" },
+  overdue: { label: "Sent", variant: "default" },
   cancelled: { label: "Cancelled", variant: "outline" },
 };
 
@@ -136,7 +124,6 @@ export default function InvoiceDetailPage() {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [payMethodOpen, setPayMethodOpen] = useState(false);
 
   /* ---- sending activity ---- */
   interface ActivityEntry {
@@ -448,93 +435,6 @@ export default function InvoiceDetailPage() {
     setEmailSending(false);
   }
 
-  /* ---- mark as paid (pick how it was paid) ---- */
-  async function doMarkPaid(paidMethod: string) {
-    setError("");
-    setActionLoading("paid");
-
-    try {
-      const res = await fetch(`/api/invoices/${invoiceId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "paid", paidMethod }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || "Failed to mark as paid.");
-        setActionLoading(null);
-        return;
-      }
-
-      const updated = await res.json();
-      setInvoice(updated);
-      setPayMethodOpen(false);
-    } catch {
-      setError("Something went wrong. Please try again.");
-    }
-
-    setActionLoading(null);
-  }
-
-  /* ---- mark as unpaid (reverse a mistaken payment) ---- */
-  async function markAsUnpaid() {
-    if (
-      !confirm(
-        "Mark this invoice as unpaid? Only do this if it was marked paid by mistake — it should only be paid once funds land in the Fire account. This also reverses the income credit.",
-      )
-    )
-      return;
-    setError("");
-    setActionLoading("unpaid");
-    try {
-      const res = await fetch(`/api/invoices/${invoiceId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "sent" }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || "Failed to mark as unpaid.");
-        setActionLoading(null);
-        return;
-      }
-      const updated = await res.json();
-      setInvoice(updated);
-    } catch {
-      setError("Something went wrong. Please try again.");
-    }
-    setActionLoading(null);
-  }
-
-  /* ---- mark as overdue ---- */
-  async function markAsOverdue() {
-    setError("");
-    setActionLoading("overdue");
-
-    try {
-      const res = await fetch(`/api/invoices/${invoiceId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "overdue" }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || "Failed to mark as overdue.");
-        setActionLoading(null);
-        return;
-      }
-
-      const updated = await res.json();
-      setInvoice(updated);
-    } catch {
-      setError("Something went wrong. Please try again.");
-    }
-
-    setActionLoading(null);
-  }
-
   /* ---- cancel invoice (status → cancelled) ---- */
   async function cancelInvoice() {
     setError("");
@@ -623,8 +523,6 @@ export default function InvoiceDetailPage() {
   }
 
   const statusCfg = STATUS_CONFIG[invoice.status];
-  const isPastDue =
-    invoice.status === "sent" && new Date(invoice.dueDate) < new Date();
 
   /* ------------------------------------------------------------------ */
   /*  EDIT MODE                                                         */
@@ -1349,13 +1247,8 @@ export default function InvoiceDetailPage() {
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Due Date</p>
-            <p
-              className={`text-sm font-medium ${
-                isPastDue ? "text-red-600 dark:text-red-400" : ""
-              }`}
-            >
+            <p className="text-sm font-medium">
               {formatDateFull(invoice.dueDate)}
-              {isPastDue && " (overdue)"}
             </p>
           </div>
           {invoice.sentAt && (
@@ -1589,7 +1482,7 @@ export default function InvoiceDetailPage() {
           </>
         )}
 
-        {/* Draft-only: surface Compose Email up here */}
+        {/* Draft — not sent yet. */}
         {invoice.status === "draft" && (
           <Button onClick={startCompose}>
             <Mail className="mr-2 h-4 w-4" />
@@ -1597,28 +1490,14 @@ export default function InvoiceDetailPage() {
           </Button>
         )}
 
-        {/* Sent actions */}
-        {invoice.status === "sent" && (
+        {/* Already sent (incl. legacy paid/overdue). The portal doesn't
+            track payment — chase it with email / WhatsApp / pay link;
+            check whether it's paid in FireBuddy. */}
+        {invoice.status !== "draft" && invoice.status !== "cancelled" && (
           <>
             <Button onClick={startCompose} variant="outline">
               <Mail className="mr-2 h-4 w-4" />
-              Compose Email
-            </Button>
-            <Button
-              onClick={() => setPayMethodOpen(true)}
-              disabled={actionLoading === "paid"}
-            >
-              {actionLoading === "paid" ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Mark as Paid
-                </>
-              )}
+              Resend email
             </Button>
             {invoice.paymentUrl && (
               <>
@@ -1640,113 +1519,13 @@ export default function InvoiceDetailPage() {
                   ) : (
                     <>
                       <Copy className="mr-2 h-4 w-4" />
-                      Copy Payment Link
-                    </>
-                  )}
-                </Button>
-              </>
-            )}
-            {isPastDue && (
-              <Button
-                variant="destructive"
-                onClick={markAsOverdue}
-                disabled={actionLoading === "overdue"}
-              >
-                {actionLoading === "overdue" ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Updating...
-                  </>
-                ) : (
-                  "Mark as Overdue"
-                )}
-              </Button>
-            )}
-          </>
-        )}
-
-        {/* Overdue actions */}
-        {invoice.status === "overdue" && (
-          <>
-            <Button onClick={startCompose} variant="outline">
-              <Mail className="mr-2 h-4 w-4" />
-              Compose Email
-            </Button>
-            <Button
-              onClick={() => setPayMethodOpen(true)}
-              disabled={actionLoading === "paid"}
-            >
-              {actionLoading === "paid" ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Mark as Paid
-                </>
-              )}
-            </Button>
-            {invoice.paymentUrl && (
-              <>
-                <Button
-                  variant="outline"
-                  onClick={shareWhatsApp}
-                  title="Send the payment link via WhatsApp"
-                  className="border-green-600/40 text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950/20"
-                >
-                  <MessageCircle className="mr-2 h-4 w-4" />
-                  WhatsApp link
-                </Button>
-                <Button variant="outline" onClick={copyPaymentLink}>
-                  {copied ? (
-                    <>
-                      <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="mr-2 h-4 w-4" />
-                      Copy Payment Link
+                      Copy payment link
                     </>
                   )}
                 </Button>
               </>
             )}
           </>
-        )}
-
-        {/* Paid - read only with payment details + undo */}
-        {invoice.status === "paid" && (
-          <div className="flex flex-wrap items-center gap-2">
-            {invoice.paidAt && (
-              <div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-2 dark:border-green-800 dark:bg-green-950/30">
-                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                <span className="text-sm font-medium text-green-600 dark:text-green-400">
-                  Paid on {formatDate(invoice.paidAt)}
-                  {invoice.paidMethod === "fire"
-                    ? " · confirmed in Fire"
-                    : invoice.paidMethod
-                      ? ` · by ${PAID_METHOD_LABEL[invoice.paidMethod] ?? invoice.paidMethod}`
-                      : ""}
-                </span>
-              </div>
-            )}
-            <Button
-              variant="outline"
-              onClick={markAsUnpaid}
-              disabled={actionLoading === "unpaid"}
-              title="Reverse a payment recorded in error"
-            >
-              {actionLoading === "unpaid" ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <RotateCcw className="mr-2 h-4 w-4" />
-              )}
-              Mark unpaid
-            </Button>
-          </div>
         )}
       </div>
 
@@ -1802,55 +1581,6 @@ export default function InvoiceDetailPage() {
           </ul>
         </div>
       )}
-
-      {/* Mark-paid method picker. Fire payments are confirmed via Sync;
-          this manual path is for off-Fire payments (cash/bank/other). */}
-      <Dialog open={payMethodOpen} onOpenChange={setPayMethodOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>How was this invoice paid?</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Payments made through Fire are confirmed automatically by{" "}
-            <strong>Sync with FireBuddy</strong>. Use this only for payments
-            that won&apos;t show in Fire.
-          </p>
-          {error && (
-            <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
-          )}
-          <div className="mt-1 grid gap-2">
-            {[
-              { key: "cash", label: "Cash", hint: "Paid in cash" },
-              {
-                key: "bank_transfer",
-                label: "Bank transfer",
-                hint: "BACS / standing order outside Fire",
-              },
-              { key: "other", label: "Other", hint: "Card, cheque, etc." },
-            ].map((m) => (
-              <button
-                key={m.key}
-                type="button"
-                onClick={() => doMarkPaid(m.key)}
-                disabled={actionLoading === "paid"}
-                className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3 text-left transition-colors hover:border-green-500/50 hover:bg-green-50 disabled:opacity-50 dark:hover:bg-green-950/20"
-              >
-                <span>
-                  <span className="block text-sm font-semibold">{m.label}</span>
-                  <span className="block text-xs text-muted-foreground">
-                    {m.hint}
-                  </span>
-                </span>
-                {actionLoading === "paid" ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                )}
-              </button>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

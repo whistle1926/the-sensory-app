@@ -4,10 +4,6 @@
     {
       "path": "/api/cron/booking-reminders",
       "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/cron/reconcile-invoices",
-      "schedule": "0 7 * * *"
     }
   ]
 }

@@ -3,30 +3,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import {
-  AlertCircle,
-  Banknote,
-  CheckCircle2,
   ChevronRight,
-  Clock,
   FileText,
   Loader2,
   Plus,
   PoundSterling,
-  RefreshCw,
-  RotateCcw,
   Search,
+  Send,
   Trash2,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Toolbar, Panel, Chip, Empty, type ChipTone } from "@/components/ds";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -52,20 +41,9 @@ interface Invoice {
   total: number;
   sentAt: string | null;
   paidAt: string | null;
-  paidMethod: string | null;
   createdAt: string;
   items: InvoiceItem[];
 }
-
-// How a paid invoice was confirmed. "fire" = landed in the Fire account
-// (source of truth) — shown plainly. Manual methods get a visible tag so
-// it's clear they won't appear in Fire.
-const PAID_METHOD_LABEL: Record<string, string> = {
-  fire: "Fire",
-  cash: "Cash",
-  bank_transfer: "Bank transfer",
-  other: "Other",
-};
 
 interface InvoiceStats {
   totalInvoiced: number;
@@ -88,14 +66,6 @@ type StatusFilter =
   | "paid"
   | "overdue"
   | "cancelled";
-
-/** Statuses that count as "unpaid" — owed money, not yet collected.
- *  Mirrors the server's totalUnpaid (draft + sent + overdue). */
-const UNPAID_STATUSES: ReadonlyArray<Invoice["status"]> = [
-  "draft",
-  "sent",
-  "overdue",
-];
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -126,19 +96,22 @@ function isOverdue(dueDate: string, status: string): boolean {
   return new Date(dueDate) < new Date();
 }
 
+// The portal no longer tracks payment — that lives in FireBuddy. We only
+// show whether an invoice is still a Draft, has been Sent, or was
+// Cancelled. Any legacy paid/overdue rows collapse to "Sent".
 const STATUS_TONE: Record<Invoice["status"], ChipTone> = {
   draft: "neutral",
   sent: "info",
-  paid: "success",
-  overdue: "danger",
+  paid: "info",
+  overdue: "info",
   cancelled: "neutral",
 };
 
 const STATUS_LABEL: Record<Invoice["status"], string> = {
   draft: "Draft",
   sent: "Sent",
-  paid: "Paid",
-  overdue: "Overdue",
+  paid: "Sent",
+  overdue: "Sent",
   cancelled: "Cancelled",
 };
 
@@ -158,67 +131,6 @@ export default function InvoicesPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  // Manual mark-as-paid — for when the FireBuddy webhook didn't
-  // fire and you've confirmed payment some other way (bank
-  // transfer, cash, FireBuddy dashboard).
-  const [confirmPaidId, setConfirmPaidId] = useState<string | null>(null);
-  const [markingId, setMarkingId] = useState<string | null>(null);
-  const [markError, setMarkError] = useState<string | null>(null);
-
-  // Mark-unpaid — reverse a payment recorded in error. "Paid" must only
-  // ever mean funds actually landed in the Fire account, so this lets you
-  // undo a mistaken mark and reverts the income credit + FireBuddy status.
-  const [confirmUnpaidId, setConfirmUnpaidId] = useState<string | null>(null);
-  const [unmarkingId, setUnmarkingId] = useState<string | null>(null);
-  const [unmarkError, setUnmarkError] = useState<string | null>(null);
-
-  async function markUnpaid(id: string) {
-    setUnmarkError(null);
-    setUnmarkingId(id);
-    try {
-      const res = await fetch(`/api/invoices/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "sent" }),
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error ?? `Mark unpaid failed (${res.status})`);
-      }
-      const updated = (await res.json()) as Invoice;
-      setInvoices((prev) => prev.map((i) => (i.id === id ? updated : i)));
-      setConfirmUnpaidId(null);
-    } catch (err) {
-      setUnmarkError(err instanceof Error ? err.message : "Mark unpaid failed");
-    } finally {
-      setUnmarkingId(null);
-    }
-  }
-
-  async function markPaid(id: string, paidMethod: string) {
-    setMarkError(null);
-    setMarkingId(id);
-    try {
-      const res = await fetch(`/api/invoices/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "paid", paidMethod }),
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error ?? `Mark paid failed (${res.status})`);
-      }
-      // Update in place so the row's chip + filter counts react.
-      const updated = (await res.json()) as Invoice;
-      setInvoices((prev) => prev.map((i) => (i.id === id ? updated : i)));
-      setConfirmPaidId(null);
-    } catch (err) {
-      setMarkError(err instanceof Error ? err.message : "Mark paid failed");
-    } finally {
-      setMarkingId(null);
-    }
-  }
 
   async function deleteInvoice(id: string) {
     setDeleteError(null);
@@ -253,63 +165,17 @@ export default function InvoicesPage() {
     loadInvoices();
   }, []);
 
-  // "Sync with FireBuddy" — pulls payment status for unpaid invoices and
-  // marks the completed ones paid (the webhook is unreliable, so we pull).
-  const [syncing, setSyncing] = useState(false);
-  const [syncMsg, setSyncMsg] = useState<string | null>(null);
-  async function syncWithFireBuddy() {
-    setSyncing(true);
-    setSyncMsg(null);
-    try {
-      const res = await fetch("/api/invoices/reconcile", { method: "POST" });
-      const data = (await res.json().catch(() => ({}))) as {
-        synced?: { invoiceNumber: string }[];
-        checked?: number;
-        mismatches?: { invoiceNumber: string; expected: number; received: number; currency: string }[];
-        error?: string;
-      };
-      if (!res.ok) {
-        setSyncMsg(data.error ?? "Sync failed — please try again.");
-        return;
-      }
-      // Always refresh the list so it reflects the current saved state —
-      // even when *this* run marked nothing new, the displayed list may
-      // be out of date with paid statuses applied by an earlier sync.
-      await loadInvoices();
-      const n = data.synced?.length ?? 0;
-      const base =
-        n > 0
-          ? `Updated ${n} invoice${n === 1 ? "" : "s"} to Paid: ${data.synced!
-              .map((s) => s.invoiceNumber)
-              .join(", ")}.`
-          : `All up to date — nothing new marked paid (checked ${data.checked ?? 0}).`;
-      // Surface any completed-but-mismatched payments. These are NOT
-      // marked paid (amount/currency didn't match the invoice) — the OT
-      // needs to look at them (test payment, underpayment, wrong link).
-      const mm = data.mismatches ?? [];
-      const mmMsg =
-        mm.length > 0
-          ? ` ⚠️ ${mm.length} payment${mm.length === 1 ? "" : "s"} completed but the amount didn't match, so left unpaid: ${mm
-              .map(
-                (m) =>
-                  `${m.invoiceNumber} (got ${formatCurrency(m.received, m.currency)} of ${formatCurrency(m.expected, m.currency)})`,
-              )
-              .join(", ")}.`
-          : "";
-      setSyncMsg(base + mmMsg);
-    } catch {
-      setSyncMsg("Sync failed — please try again.");
-    } finally {
-      setSyncing(false);
-    }
-  }
-
   const filtered = useMemo(() => {
     let list = invoices;
-    if (activeFilter === "unpaid") {
-      list = list.filter((inv) => UNPAID_STATUSES.includes(inv.status));
-    } else if (activeFilter !== "all") {
-      list = list.filter((inv) => inv.status === activeFilter);
+    if (activeFilter === "draft") {
+      list = list.filter((inv) => inv.status === "draft");
+    } else if (activeFilter === "sent") {
+      // "Sent" = anything that's left draft, incl. legacy paid/overdue.
+      list = list.filter((inv) =>
+        ["sent", "paid", "overdue"].includes(inv.status),
+      );
+    } else if (activeFilter === "cancelled") {
+      list = list.filter((inv) => inv.status === "cancelled");
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -326,21 +192,22 @@ export default function InvoicesPage() {
     stats
       ? [
           { key: "all", label: "All", count: stats.countAll },
-          {
-            key: "unpaid",
-            label: "Unpaid",
-            count:
-              stats.countDraft + stats.countSent + stats.countOverdue,
-          },
           { key: "draft", label: "Draft", count: stats.countDraft },
-          { key: "sent", label: "Sent", count: stats.countSent },
-          { key: "paid", label: "Paid", count: stats.countPaid },
-          { key: "overdue", label: "Overdue", count: stats.countOverdue },
+          {
+            key: "sent",
+            label: "Sent",
+            // "Sent" now covers everything that's been sent — including
+            // legacy paid/overdue rows (payment lives in FireBuddy).
+            count:
+              stats.countSent + stats.countPaid + stats.countOverdue,
+          },
           { key: "cancelled", label: "Cancelled", count: stats.countCancelled },
         ]
       : [];
 
-  // KPI cards (top row) — mirrors the dashboard KPI pattern.
+  // KPI cards (top row). Payment status lives in FireBuddy, so we only
+  // summarise what the portal owns: how much has been invoiced and how
+  // many invoices are drafts vs sent.
   const kpis = stats
     ? [
         {
@@ -351,25 +218,18 @@ export default function InvoicesPage() {
           accent: false,
         },
         {
-          label: "Paid",
-          value: formatCurrency(stats.totalPaid),
-          helper: `${stats.countPaid} collected`,
-          icon: CheckCircle2,
+          label: "Sent",
+          value: String(stats.countSent + stats.countPaid + stats.countOverdue),
+          helper: "sent to clients",
+          icon: Send,
           accent: false,
         },
         {
-          label: "Unpaid",
-          value: formatCurrency(stats.totalUnpaid),
-          helper: `${stats.countSent + stats.countDraft} outstanding`,
-          icon: Clock,
+          label: "Drafts",
+          value: String(stats.countDraft),
+          helper: "not sent yet",
+          icon: FileText,
           accent: false,
-        },
-        {
-          label: "Overdue",
-          value: formatCurrency(stats.totalOverdue),
-          helper: `${stats.countOverdue} overdue`,
-          icon: AlertCircle,
-          accent: true,
         },
       ]
     : [];
@@ -381,16 +241,6 @@ export default function InvoicesPage() {
         subtitle="Manage and track all invoices"
         actions={
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={syncWithFireBuddy}
-              disabled={syncing}
-              className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold transition-colors hover:bg-muted disabled:opacity-60"
-              title="Check FireBuddy for any invoices that have been paid and update them here"
-            >
-              <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-              {syncing ? "Syncing…" : "Sync with FireBuddy"}
-            </button>
             <Link
               href="/invoices/new"
               className={buttonVariants({ className: "rounded-xl" })}
@@ -402,21 +252,6 @@ export default function InvoicesPage() {
         }
       />
 
-      {syncMsg && (
-        <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm">
-          <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />
-          <span className="flex-1">{syncMsg}</span>
-          <button
-            type="button"
-            onClick={() => setSyncMsg(null)}
-            className="rounded p-0.5 text-muted-foreground hover:text-foreground"
-            aria-label="Dismiss"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      )}
-
       {loading ? (
         <Panel>
           <Empty>Loading invoices…</Empty>
@@ -425,7 +260,7 @@ export default function InvoicesPage() {
         <>
           {/* ---- KPI row ---- */}
           {stats && (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-3">
               {kpis.map((k) => {
                 const Icon = k.icon;
                 return (
@@ -542,18 +377,9 @@ export default function InvoicesPage() {
                         const overdue = isOverdue(inv.dueDate, inv.status);
                         const isConfirming = confirmDeleteId === inv.id;
                         const isDeleting = deletingId === inv.id;
-                        // Paid invoices can't be deleted server-side
-                        // (see API); hide the trash button to avoid
-                        // a confusing rejected request.
+                        // Legacy "paid" rows can't be deleted server-side;
+                        // hide the trash button to avoid a rejected request.
                         const canDelete = inv.status !== "paid";
-                        // Mark-paid is the manual fallback for when
-                        // FireBuddy's webhook didn't fire. Only show
-                        // for active billing states.
-                        const canMarkPaid =
-                          inv.status === "sent" || inv.status === "overdue";
-                        // Mark-unpaid reverses a payment recorded in
-                        // error — only relevant once it's "paid".
-                        const canMarkUnpaid = inv.status === "paid";
 
                         if (isConfirming) {
                           return (
@@ -677,54 +503,12 @@ export default function InvoicesPage() {
                               {formatCurrency(inv.total, inv.currency)}
                             </td>
                             <td>
-                              <div className="inline-flex items-center gap-1.5">
-                                <Chip tone={STATUS_TONE[inv.status]}>
-                                  {STATUS_LABEL[inv.status]}
-                                </Chip>
-                                {/* Cash/bank/other paid → show how, since it
-                                    won't appear in Fire. Fire-confirmed shows
-                                    plainly. */}
-                                {inv.status === "paid" &&
-                                  inv.paidMethod &&
-                                  inv.paidMethod !== "fire" && (
-                                    <span className="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-                                      {PAID_METHOD_LABEL[inv.paidMethod] ??
-                                        inv.paidMethod}
-                                    </span>
-                                  )}
-                              </div>
+                              <Chip tone={STATUS_TONE[inv.status]}>
+                                {STATUS_LABEL[inv.status]}
+                              </Chip>
                             </td>
                             <td style={{ textAlign: "right" }}>
                               <div className="inline-flex items-center gap-1">
-                                {canMarkPaid && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setConfirmPaidId(inv.id);
-                                      setMarkError(null);
-                                    }}
-                                    title="Mark as paid (webhook fallback)"
-                                    aria-label="Mark as paid"
-                                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-green-50 hover:text-green-700 dark:hover:bg-green-950/30"
-                                  >
-                                    <Banknote className="h-3.5 w-3.5" />
-                                  </button>
-                                )}
-                                {canMarkUnpaid && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setConfirmUnpaidId(inv.id);
-                                      setUnmarkError(null);
-                                    }}
-                                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-muted-foreground transition-colors hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950/30"
-                                  >
-                                    <RotateCcw className="h-3.5 w-3.5" />
-                                    Mark unpaid
-                                  </button>
-                                )}
                                 {canDelete && (
                                   <button
                                     type="button"
@@ -803,163 +587,6 @@ export default function InvoicesPage() {
           </Panel>
         </>
       )}
-
-      {/* Mark-paid — pick how it was paid. Fire-confirmed payments arrive
-          via Sync; this manual path is for off-Fire (cash/bank/other). */}
-      <Dialog
-        open={confirmPaidId !== null}
-        onOpenChange={(o) => {
-          if (!o) {
-            setConfirmPaidId(null);
-            setMarkError(null);
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>How was this invoice paid?</DialogTitle>
-          </DialogHeader>
-          {(() => {
-            const inv = invoices.find((i) => i.id === confirmPaidId);
-            if (!inv) return null;
-            const isMarking = markingId === inv.id;
-            const methods: { key: string; label: string; hint: string }[] = [
-              { key: "cash", label: "Cash", hint: "Paid in cash" },
-              {
-                key: "bank_transfer",
-                label: "Bank transfer",
-                hint: "BACS / standing order outside Fire",
-              },
-              { key: "other", label: "Other", hint: "Card, cheque, etc." },
-            ];
-            return (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  Marking <strong>{inv.invoiceNumber}</strong> for{" "}
-                  <strong>{inv.clientName}</strong> (
-                  {formatCurrency(inv.total, inv.currency)}) as paid. Payments
-                  made through Fire are confirmed automatically by{" "}
-                  <strong>Sync with FireBuddy</strong> — only use this for
-                  payments that won&apos;t show in Fire.
-                </p>
-                {markError && (
-                  <p className="text-xs text-red-600 dark:text-red-400">
-                    {markError}
-                  </p>
-                )}
-                <div className="mt-1 grid gap-2">
-                  {methods.map((m) => (
-                    <button
-                      key={m.key}
-                      type="button"
-                      onClick={() => markPaid(inv.id, m.key)}
-                      disabled={isMarking}
-                      className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3 text-left transition-colors hover:border-green-500/50 hover:bg-green-50 disabled:opacity-50 dark:hover:bg-green-950/20"
-                    >
-                      <span>
-                        <span className="block text-sm font-semibold">
-                          {m.label}
-                        </span>
-                        <span className="block text-xs text-muted-foreground">
-                          {m.hint}
-                        </span>
-                      </span>
-                      {isMarking ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      ) : (
-                        <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-                <div className="-mx-4 -mb-4 mt-1 flex items-center justify-end rounded-b-xl border-t border-border bg-muted/40 px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setConfirmPaidId(null);
-                      setMarkError(null);
-                    }}
-                    disabled={isMarking}
-                    className="rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
-
-      {/* Mark-unpaid confirm — clean modal instead of an inline row. */}
-      <Dialog
-        open={confirmUnpaidId !== null}
-        onOpenChange={(o) => {
-          if (!o) {
-            setConfirmUnpaidId(null);
-            setUnmarkError(null);
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Mark this invoice as unpaid?</DialogTitle>
-          </DialogHeader>
-          {(() => {
-            const inv = invoices.find((i) => i.id === confirmUnpaidId);
-            if (!inv) return null;
-            const isUnmarking = unmarkingId === inv.id;
-            return (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  This moves <strong>{inv.invoiceNumber}</strong> for{" "}
-                  <strong>{inv.clientName}</strong> (
-                  {formatCurrency(inv.total, inv.currency)}) back to{" "}
-                  <strong>Sent</strong>. Only do this if it was marked paid by
-                  mistake — it should only be paid once the funds land in the
-                  Fire account. The income credit is reversed too.
-                </p>
-                {unmarkError && (
-                  <p className="text-xs text-red-600 dark:text-red-400">
-                    {unmarkError}
-                  </p>
-                )}
-                <div className="-mx-4 -mb-4 mt-1 flex items-center justify-end gap-2 rounded-b-xl border-t border-border bg-muted/40 px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setConfirmUnpaidId(null);
-                      setUnmarkError(null);
-                    }}
-                    disabled={isUnmarking}
-                    className="rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => markUnpaid(inv.id)}
-                    disabled={isUnmarking}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-amber-700 disabled:opacity-60"
-                  >
-                    {isUnmarking ? (
-                      <>
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        Updating…
-                      </>
-                    ) : (
-                      <>
-                        <RotateCcw className="h-3.5 w-3.5" />
-                        Mark unpaid
-                      </>
-                    )}
-                  </button>
-                </div>
-              </>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
