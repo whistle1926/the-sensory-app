@@ -13,6 +13,7 @@ import {
   Plus,
   PoundSterling,
   RefreshCw,
+  RotateCcw,
   Search,
   Trash2,
   X,
@@ -147,6 +148,36 @@ export default function InvoicesPage() {
   const [confirmPaidId, setConfirmPaidId] = useState<string | null>(null);
   const [markingId, setMarkingId] = useState<string | null>(null);
   const [markError, setMarkError] = useState<string | null>(null);
+
+  // Mark-unpaid — reverse a payment recorded in error. "Paid" must only
+  // ever mean funds actually landed in the Fire account, so this lets you
+  // undo a mistaken mark and reverts the income credit + FireBuddy status.
+  const [confirmUnpaidId, setConfirmUnpaidId] = useState<string | null>(null);
+  const [unmarkingId, setUnmarkingId] = useState<string | null>(null);
+  const [unmarkError, setUnmarkError] = useState<string | null>(null);
+
+  async function markUnpaid(id: string) {
+    setUnmarkError(null);
+    setUnmarkingId(id);
+    try {
+      const res = await fetch(`/api/invoices/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "sent" }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? `Mark unpaid failed (${res.status})`);
+      }
+      const updated = (await res.json()) as Invoice;
+      setInvoices((prev) => prev.map((i) => (i.id === id ? updated : i)));
+      setConfirmUnpaidId(null);
+    } catch (err) {
+      setUnmarkError(err instanceof Error ? err.message : "Mark unpaid failed");
+    } finally {
+      setUnmarkingId(null);
+    }
+  }
 
   async function markPaid(id: string) {
     setMarkError(null);
@@ -486,6 +517,8 @@ export default function InvoicesPage() {
                         const isDeleting = deletingId === inv.id;
                         const isConfirmingPaid = confirmPaidId === inv.id;
                         const isMarking = markingId === inv.id;
+                        const isConfirmingUnpaid = confirmUnpaidId === inv.id;
+                        const isUnmarking = unmarkingId === inv.id;
                         // Paid invoices can't be deleted server-side
                         // (see API); hide the trash button to avoid
                         // a confusing rejected request.
@@ -495,6 +528,73 @@ export default function InvoicesPage() {
                         // for active billing states.
                         const canMarkPaid =
                           inv.status === "sent" || inv.status === "overdue";
+                        // Mark-unpaid reverses a payment recorded in
+                        // error — only relevant once it's "paid".
+                        const canMarkUnpaid = inv.status === "paid";
+
+                        if (isConfirmingUnpaid) {
+                          return (
+                            <tr
+                              key={inv.id}
+                              style={{ background: "rgba(234,179,8,0.06)" }}
+                            >
+                              <td colSpan={7}>
+                                <div className="flex flex-wrap items-center justify-between gap-3 px-1 py-1">
+                                  <span className="text-sm">
+                                    Mark <strong>{inv.invoiceNumber}</strong> for{" "}
+                                    <strong>{inv.clientName}</strong>{" "}
+                                    ({formatCurrency(inv.total, inv.currency)}) as{" "}
+                                    <strong>unpaid</strong>? Use this if it was
+                                    marked paid by mistake — only mark it paid
+                                    again once the funds actually land in the Fire
+                                    account. This also reverses the income credit.
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    {unmarkError && (
+                                      <span className="text-xs text-red-600">
+                                        {unmarkError}
+                                      </span>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setConfirmUnpaidId(null);
+                                        setUnmarkError(null);
+                                      }}
+                                      disabled={isUnmarking}
+                                      className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium hover:bg-muted/50 disabled:opacity-50"
+                                    >
+                                      <X className="h-3 w-3" />
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        markUnpaid(inv.id);
+                                      }}
+                                      disabled={isUnmarking}
+                                      className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-3 py-1 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-60"
+                                    >
+                                      {isUnmarking ? (
+                                        <>
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                          Updating…
+                                        </>
+                                      ) : (
+                                        <>
+                                          <RotateCcw className="h-3 w-3" />
+                                          Mark unpaid
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        }
 
                         if (isConfirmingPaid) {
                           return (
@@ -700,6 +800,21 @@ export default function InvoicesPage() {
                                     className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-green-50 hover:text-green-700 dark:hover:bg-green-950/30"
                                   >
                                     <Banknote className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                                {canMarkUnpaid && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setConfirmUnpaidId(inv.id);
+                                      setUnmarkError(null);
+                                    }}
+                                    title="Mark as unpaid (reverse a mistaken payment)"
+                                    aria-label="Mark as unpaid"
+                                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950/30"
+                                  >
+                                    <RotateCcw className="h-3.5 w-3.5" />
                                   </button>
                                 )}
                                 {canDelete && (

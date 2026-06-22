@@ -40,11 +40,81 @@ export async function PATCH(
   });
 
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (existing.status === "paid") {
-    return NextResponse.json({ error: "Cannot edit a paid invoice" }, { status: 400 });
-  }
 
   const body = await req.json();
+
+  // ── Mark UNPAID (reverse a mistaken mark-paid) ─────────────────────
+  // A paid invoice is otherwise locked, but it must be possible to undo
+  // a payment that was recorded in error (e.g. before the funds actually
+  // landed in the Fire account). The ONLY change allowed on a paid
+  // invoice is reverting it to unpaid — everything else stays blocked.
+  // This fully reverses the mark-paid side effects so the books match
+  // reality: clear paidAt, remove the income-tracker credit, and revert
+  // the FireBuddy mirror back to "sent".
+  if (existing.status === "paid") {
+    const meaningfulKeys = Object.keys(body).filter(
+      (k) => body[k] !== undefined,
+    );
+    const onlyUnpay =
+      body.status === "sent" &&
+      meaningfulKeys.every((k) => k === "status");
+    if (!onlyUnpay) {
+      return NextResponse.json(
+        { error: "Cannot edit a paid invoice. Mark it unpaid first if needed." },
+        { status: 400 },
+      );
+    }
+
+    const reverted = await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: { status: "sent", paidAt: null },
+      include: { items: true, client: true },
+    });
+
+    // 1. Remove the income-tracker credit so private income isn't
+    //    inflated by a payment that didn't actually arrive.
+    try {
+      await prisma.incomeEntry.deleteMany({
+        where: { source: "INVOICE", reference: invoiceId },
+      });
+    } catch (err) {
+      console.error("[invoice/PATCH] income tracker reversal failed:", err);
+    }
+
+    // 2. Revert the FireBuddy mirror back to "sent" (best-effort).
+    if (reverted.firebuddyInvoiceId) {
+      try {
+        const settings = await prisma.paymentSettings.findUnique({
+          where: { id: "default" },
+        });
+        if (settings?.apiKey) {
+          const fb = new FireBuddy(settings.apiKey);
+          await fb.updateInvoice(reverted.firebuddyInvoiceId, { status: "sent" });
+        }
+      } catch (err) {
+        console.error("[invoice/PATCH] FireBuddy un-pay mirror failed:", err);
+      }
+    }
+
+    // 3. Audit the reversal.
+    await recordAudit({
+      actorId: session.user.id,
+      actorLabel: `${session.user.name ?? "?"} <${session.user.email ?? "?"}>`,
+      action: "invoice.send",
+      targetType: "invoice",
+      targetId: invoiceId,
+      meta: {
+        action: "mark.unpaid.manual",
+        invoiceNumber: existing.invoiceNumber,
+        previousStatus: "paid",
+        total: existing.total,
+        currency: existing.currency,
+      },
+      req,
+    });
+
+    return NextResponse.json(reverted);
+  }
   const { clientName, clientEmail, clientAddress, clientId, dueDate, notes, status, items, bankTransfer } = body;
 
   // Build the update payload

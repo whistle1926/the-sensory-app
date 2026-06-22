@@ -21,6 +21,7 @@ import {
   Receipt,
   ExternalLink,
   Mail,
+  RotateCcw,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -407,6 +408,36 @@ export default function InvoiceDetailPage() {
       setError("Something went wrong. Please try again.");
     }
 
+    setActionLoading(null);
+  }
+
+  /* ---- mark as unpaid (reverse a mistaken payment) ---- */
+  async function markAsUnpaid() {
+    if (
+      !confirm(
+        "Mark this invoice as unpaid? Only do this if it was marked paid by mistake — it should only be paid once funds land in the Fire account. This also reverses the income credit.",
+      )
+    )
+      return;
+    setError("");
+    setActionLoading("unpaid");
+    try {
+      const res = await fetch(`/api/invoices/${invoiceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "sent" }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || "Failed to mark as unpaid.");
+        setActionLoading(null);
+        return;
+      }
+      const updated = await res.json();
+      setInvoice(updated);
+    } catch {
+      setError("Something went wrong. Please try again.");
+    }
     setActionLoading(null);
   }
 
@@ -1598,13 +1629,30 @@ export default function InvoiceDetailPage() {
           </>
         )}
 
-        {/* Paid - read only with payment details */}
-        {invoice.status === "paid" && invoice.paidAt && (
-          <div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-2 dark:border-green-800 dark:bg-green-950/30">
-            <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-            <span className="text-sm font-medium text-green-600 dark:text-green-400">
-              Paid on {formatDate(invoice.paidAt)}
-            </span>
+        {/* Paid - read only with payment details + undo */}
+        {invoice.status === "paid" && (
+          <div className="flex flex-wrap items-center gap-2">
+            {invoice.paidAt && (
+              <div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-2 dark:border-green-800 dark:bg-green-950/30">
+                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                  Paid on {formatDate(invoice.paidAt)}
+                </span>
+              </div>
+            )}
+            <Button
+              variant="outline"
+              onClick={markAsUnpaid}
+              disabled={actionLoading === "unpaid"}
+              title="Reverse a payment recorded in error"
+            >
+              {actionLoading === "unpaid" ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RotateCcw className="mr-2 h-4 w-4" />
+              )}
+              Mark unpaid
+            </Button>
           </div>
         )}
       </div>
