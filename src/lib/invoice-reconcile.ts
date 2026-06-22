@@ -22,6 +22,18 @@ import { FireBuddy } from "@/lib/firebuddy";
 export interface ReconcileResult {
   checked: number;
   synced: { invoiceNumber: string; total: number }[];
+  /**
+   * Payments FireBuddy reports as completed but where the amount or
+   * currency that landed does NOT match the invoice — e.g. a test
+   * payment or an underpayment. We deliberately do NOT mark these paid;
+   * they're surfaced so the OT can investigate.
+   */
+  mismatches: {
+    invoiceNumber: string;
+    expected: number;
+    received: number;
+    currency: string;
+  }[];
   errors: number;
 }
 
@@ -97,7 +109,7 @@ export async function reconcileInvoicePayments(): Promise<ReconcileResult> {
     select: { enabled: true, apiKey: true },
   });
   if (!settings?.enabled || !settings.apiKey) {
-    return { checked: 0, synced: [], errors: 0 };
+    return { checked: 0, synced: [], mismatches: [], errors: 0 };
   }
 
   const fb = new FireBuddy(settings.apiKey);
@@ -114,26 +126,52 @@ export async function reconcileInvoicePayments(): Promise<ReconcileResult> {
       invoiceNumber: true,
       clientName: true,
       total: true,
+      currency: true,
       paymentRef: true,
       firebuddyInvoiceId: true,
     },
   });
 
   const synced: { invoiceNumber: string; total: number }[] = [];
+  const mismatches: ReconcileResult["mismatches"] = [];
   let errors = 0;
 
   for (const inv of invoices) {
     if (!inv.paymentRef) continue;
     try {
       const status = await fb.getPaymentStatus(inv.paymentRef);
-      if (status.status === "completed") {
-        await markInvoicePaid(
-          inv,
-          status.fire_payment_code || inv.paymentRef,
-          settings.apiKey,
+      // Only "completed" payments count. Anything pending/failed is left
+      // exactly as-is — never marked paid.
+      if (status.status !== "completed") continue;
+
+      // Truth guard: the money that actually landed must match the
+      // invoice in BOTH amount and currency. This stops a test payment,
+      // an underpayment, or a stray/mismatched payment-request from
+      // flipping a full invoice to "paid". Fire is the source of truth —
+      // if what landed doesn't equal what we billed, we don't trust it.
+      const amountOk = status.amount === inv.total;
+      const currencyOk =
+        (status.currency || "").toUpperCase() ===
+        (inv.currency || "GBP").toUpperCase();
+      if (!amountOk || !currencyOk) {
+        mismatches.push({
+          invoiceNumber: inv.invoiceNumber,
+          expected: inv.total,
+          received: status.amount,
+          currency: status.currency || inv.currency || "GBP",
+        });
+        console.warn(
+          `[reconcile] ${inv.invoiceNumber}: completed payment does not match — expected ${inv.total} ${inv.currency}, got ${status.amount} ${status.currency}. NOT marking paid.`,
         );
-        synced.push({ invoiceNumber: inv.invoiceNumber, total: inv.total });
+        continue;
       }
+
+      await markInvoicePaid(
+        inv,
+        status.fire_payment_code || inv.paymentRef,
+        settings.apiKey,
+      );
+      synced.push({ invoiceNumber: inv.invoiceNumber, total: inv.total });
     } catch (err) {
       errors += 1;
       console.error(
@@ -143,5 +181,5 @@ export async function reconcileInvoicePayments(): Promise<ReconcileResult> {
     }
   }
 
-  return { checked: invoices.length, synced, errors };
+  return { checked: invoices.length, synced, mismatches, errors };
 }

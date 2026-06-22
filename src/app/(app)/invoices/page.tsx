@@ -265,6 +265,7 @@ export default function InvoicesPage() {
       const data = (await res.json().catch(() => ({}))) as {
         synced?: { invoiceNumber: string }[];
         checked?: number;
+        mismatches?: { invoiceNumber: string; expected: number; received: number; currency: string }[];
         error?: string;
       };
       if (!res.ok) {
@@ -276,17 +277,26 @@ export default function InvoicesPage() {
       // be out of date with paid statuses applied by an earlier sync.
       await loadInvoices();
       const n = data.synced?.length ?? 0;
-      if (n > 0) {
-        setSyncMsg(
-          `Updated ${n} invoice${n === 1 ? "" : "s"} to Paid: ${data.synced!
-            .map((s) => s.invoiceNumber)
-            .join(", ")}.`,
-        );
-      } else {
-        setSyncMsg(
-          `All up to date — nothing new marked paid (checked ${data.checked ?? 0}).`,
-        );
-      }
+      const base =
+        n > 0
+          ? `Updated ${n} invoice${n === 1 ? "" : "s"} to Paid: ${data.synced!
+              .map((s) => s.invoiceNumber)
+              .join(", ")}.`
+          : `All up to date — nothing new marked paid (checked ${data.checked ?? 0}).`;
+      // Surface any completed-but-mismatched payments. These are NOT
+      // marked paid (amount/currency didn't match the invoice) — the OT
+      // needs to look at them (test payment, underpayment, wrong link).
+      const mm = data.mismatches ?? [];
+      const mmMsg =
+        mm.length > 0
+          ? ` ⚠️ ${mm.length} payment${mm.length === 1 ? "" : "s"} completed but the amount didn't match, so left unpaid: ${mm
+              .map(
+                (m) =>
+                  `${m.invoiceNumber} (got ${formatCurrency(m.received, m.currency)} of ${formatCurrency(m.expected, m.currency)})`,
+              )
+              .join(", ")}.`
+          : "";
+      setSyncMsg(base + mmMsg);
     } catch {
       setSyncMsg("Sync failed — please try again.");
     } finally {

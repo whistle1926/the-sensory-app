@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
   if (reference.startsWith("invoice:")) {
     const invoiceId = reference.slice("invoice:".length);
     try {
-      await handleInvoicePayment(invoiceId, event.paymentId, event.amount);
+      await handleInvoicePayment(invoiceId, event.paymentId, event.amount, event.currency);
     } catch (err) {
       console.error("[WEBHOOK] Invoice payment handling failed:", err);
       return NextResponse.json({ error: "Internal error" }, { status: 500 });
@@ -160,7 +160,12 @@ async function handleCoursePayment(purchaseId: string, paymentId: string) {
   }
 }
 
-async function handleInvoicePayment(invoiceId: string, paymentId: string, amountPounds: number) {
+async function handleInvoicePayment(
+  invoiceId: string,
+  paymentId: string,
+  amountPounds: number,
+  currency?: string,
+) {
   const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
   if (!invoice) {
     console.warn("[WEBHOOK] invoice not found:", invoiceId);
@@ -169,6 +174,21 @@ async function handleInvoicePayment(invoiceId: string, paymentId: string, amount
 
   // Idempotent — skip if already paid
   if (invoice.status === "paid") return;
+
+  // Truth guard — the amount + currency that landed must match the
+  // invoice. Stops a test/partial payment from flipping the whole
+  // invoice to paid. (Same rule as the pull-based reconcile.)
+  const amountPence = Math.round(amountPounds * 100);
+  const amountOk = amountPence === invoice.total;
+  const currencyOk =
+    !currency ||
+    currency.toUpperCase() === (invoice.currency || "GBP").toUpperCase();
+  if (!amountOk || !currencyOk) {
+    console.warn(
+      `[WEBHOOK] ${invoice.invoiceNumber}: payment does not match — expected ${invoice.total} ${invoice.currency}, got ${amountPence} ${currency}. NOT marking paid.`,
+    );
+    return;
+  }
 
   await prisma.invoice.update({
     where: { id: invoiceId },
@@ -200,8 +220,7 @@ async function handleInvoicePayment(invoiceId: string, paymentId: string, amount
     }
   }
 
-  // Credit the private income tracker
-  const amountPence = Math.round(amountPounds * 100);
+  // Credit the private income tracker (amountPence computed above).
   if (amountPence > 0) {
     try {
       await prisma.incomeEntry.upsert({
