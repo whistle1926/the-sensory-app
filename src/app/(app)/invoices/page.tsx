@@ -21,6 +21,12 @@ import {
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Toolbar, Panel, Chip, Empty, type ChipTone } from "@/components/ds";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -517,8 +523,6 @@ export default function InvoicesPage() {
                         const isDeleting = deletingId === inv.id;
                         const isConfirmingPaid = confirmPaidId === inv.id;
                         const isMarking = markingId === inv.id;
-                        const isConfirmingUnpaid = confirmUnpaidId === inv.id;
-                        const isUnmarking = unmarkingId === inv.id;
                         // Paid invoices can't be deleted server-side
                         // (see API); hide the trash button to avoid
                         // a confusing rejected request.
@@ -531,70 +535,6 @@ export default function InvoicesPage() {
                         // Mark-unpaid reverses a payment recorded in
                         // error — only relevant once it's "paid".
                         const canMarkUnpaid = inv.status === "paid";
-
-                        if (isConfirmingUnpaid) {
-                          return (
-                            <tr
-                              key={inv.id}
-                              style={{ background: "rgba(234,179,8,0.06)" }}
-                            >
-                              <td colSpan={7}>
-                                <div className="flex flex-wrap items-center justify-between gap-3 px-1 py-1">
-                                  <span className="text-sm">
-                                    Mark <strong>{inv.invoiceNumber}</strong> for{" "}
-                                    <strong>{inv.clientName}</strong>{" "}
-                                    ({formatCurrency(inv.total, inv.currency)}) as{" "}
-                                    <strong>unpaid</strong>? Use this if it was
-                                    marked paid by mistake — only mark it paid
-                                    again once the funds actually land in the Fire
-                                    account. This also reverses the income credit.
-                                  </span>
-                                  <div className="flex items-center gap-2">
-                                    {unmarkError && (
-                                      <span className="text-xs text-red-600">
-                                        {unmarkError}
-                                      </span>
-                                    )}
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setConfirmUnpaidId(null);
-                                        setUnmarkError(null);
-                                      }}
-                                      disabled={isUnmarking}
-                                      className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium hover:bg-muted/50 disabled:opacity-50"
-                                    >
-                                      <X className="h-3 w-3" />
-                                      Cancel
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        markUnpaid(inv.id);
-                                      }}
-                                      disabled={isUnmarking}
-                                      className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-3 py-1 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-60"
-                                    >
-                                      {isUnmarking ? (
-                                        <>
-                                          <Loader2 className="h-3 w-3 animate-spin" />
-                                          Updating…
-                                        </>
-                                      ) : (
-                                        <>
-                                          <RotateCcw className="h-3 w-3" />
-                                          Mark unpaid
-                                        </>
-                                      )}
-                                    </button>
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        }
 
                         if (isConfirmingPaid) {
                           return (
@@ -810,11 +750,10 @@ export default function InvoicesPage() {
                                       setConfirmUnpaidId(inv.id);
                                       setUnmarkError(null);
                                     }}
-                                    title="Mark as unpaid (reverse a mistaken payment)"
-                                    aria-label="Mark as unpaid"
-                                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950/30"
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-muted-foreground transition-colors hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950/30"
                                   >
                                     <RotateCcw className="h-3.5 w-3.5" />
+                                    Mark unpaid
                                   </button>
                                 )}
                                 {canDelete && (
@@ -895,6 +834,76 @@ export default function InvoicesPage() {
           </Panel>
         </>
       )}
+
+      {/* Mark-unpaid confirm — clean modal instead of an inline row. */}
+      <Dialog
+        open={confirmUnpaidId !== null}
+        onOpenChange={(o) => {
+          if (!o) {
+            setConfirmUnpaidId(null);
+            setUnmarkError(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mark this invoice as unpaid?</DialogTitle>
+          </DialogHeader>
+          {(() => {
+            const inv = invoices.find((i) => i.id === confirmUnpaidId);
+            if (!inv) return null;
+            const isUnmarking = unmarkingId === inv.id;
+            return (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  This moves <strong>{inv.invoiceNumber}</strong> for{" "}
+                  <strong>{inv.clientName}</strong> (
+                  {formatCurrency(inv.total, inv.currency)}) back to{" "}
+                  <strong>Sent</strong>. Only do this if it was marked paid by
+                  mistake — it should only be paid once the funds land in the
+                  Fire account. The income credit is reversed too.
+                </p>
+                {unmarkError && (
+                  <p className="text-xs text-red-600 dark:text-red-400">
+                    {unmarkError}
+                  </p>
+                )}
+                <div className="-mx-4 -mb-4 mt-1 flex items-center justify-end gap-2 rounded-b-xl border-t border-border bg-muted/40 px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmUnpaidId(null);
+                      setUnmarkError(null);
+                    }}
+                    disabled={isUnmarking}
+                    className="rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => markUnpaid(inv.id)}
+                    disabled={isUnmarking}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-amber-700 disabled:opacity-60"
+                  >
+                    {isUnmarking ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Updating…
+                      </>
+                    ) : (
+                      <>
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        Mark unpaid
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
