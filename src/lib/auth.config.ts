@@ -1,5 +1,6 @@
 import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { requiredNavKey } from "./nav-areas";
 
 // Routes that never require auth (prefix match)
 const PUBLIC_PREFIXES = [
@@ -79,6 +80,9 @@ export const authConfig: NextAuthConfig = {
         token.role = (user as { role: string }).role;
         const impersonatedBy = (user as { impersonatedBy?: string | null }).impersonatedBy;
         token.impersonatedBy = impersonatedBy ?? null;
+        // Allowed nav keys (from the user's dashboard template). null =
+        // no restriction. Stamped at login; refreshed on next login.
+        token.nav = (user as { navAccess?: string[] | null }).navAccess ?? null;
       }
       return token;
     },
@@ -86,6 +90,7 @@ export const authConfig: NextAuthConfig = {
       session.user.id = token.id as string;
       session.user.role = token.role as "SUPER_ADMIN" | "TEAM_MANAGER" | "CLIENT";
       session.user.impersonatedBy = (token.impersonatedBy as string | null | undefined) ?? null;
+      session.user.nav = (token.nav as string[] | null | undefined) ?? null;
       return session;
     },
     authorized({ auth, request: { nextUrl } }) {
@@ -110,12 +115,17 @@ export const authConfig: NextAuthConfig = {
         isHome || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
       const isPortal = pathname === "/portal" || pathname.startsWith("/portal/") || pathname.startsWith("/api/portal");
       const isAdminArea = ADMIN_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+      const isApi = pathname.startsWith("/api/");
 
       if (isApiAuth || isPublic) return true;
 
-      // Not logged in: allow login pages through; everything else bounces to /login
+      // Not logged in: allow login pages through; everything else bounces
+      // to /login — EXCEPT API routes, which enforce their own auth and
+      // must keep working for public/guest callers (this preserves the
+      // previous behaviour, where middleware didn't run on /api at all).
       if (!isLoggedIn) {
         if (isLoginPage) return true;
+        if (isApi) return true;
         return false;
       }
 
@@ -139,6 +149,26 @@ export const authConfig: NextAuthConfig = {
       );
       if (isSuperAdminArea && role !== "SUPER_ADMIN") {
         return Response.redirect(new URL("/dashboard", nextUrl));
+      }
+
+      // ── Fine-grained access control (dashboard templates) ──────────
+      // A staff user can be restricted to a subset of areas via their
+      // dashboard template (e.g. a "Clinic Associate" who should only
+      // reach bookings/calendar). SUPER_ADMIN always bypasses. `nav` is
+      // null when the user has no restriction (full access) — only an
+      // explicit list locks areas down, so existing staff are unaffected.
+      if (role !== "SUPER_ADMIN") {
+        const nav = (auth?.user as { nav?: string[] | null } | undefined)?.nav;
+        if (Array.isArray(nav)) {
+          const required = requiredNavKey(pathname);
+          if (required && !nav.includes(required)) {
+            // API → hard 403 (blocks the data); page → bounce to a page
+            // they're allowed to see.
+            return isApi
+              ? Response.json({ error: "Forbidden" }, { status: 403 })
+              : Response.redirect(new URL("/dashboard", nextUrl));
+          }
+        }
       }
 
       return true;

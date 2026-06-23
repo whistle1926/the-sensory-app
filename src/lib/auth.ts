@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import { authConfig } from "./auth.config";
+import { computeNavAccess } from "./nav-access";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
@@ -36,6 +37,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: user.email,
           role: user.role,
           impersonatedBy: null,
+          navAccess: await computeNavAccess(user.dashTemplateId),
         };
       },
     }),
@@ -85,6 +87,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           // clear impersonatedBy. Otherwise, this is an *enter* token —
           // set impersonatedBy to the admin's id so UI can show the banner.
           impersonatedBy: record.originalAdminId ? null : record.adminUserId,
+          // Impersonated session sees what the target sees — incl. their
+          // restricted access.
+          navAccess: await computeNavAccess(target.dashTemplateId),
         };
       },
     }),

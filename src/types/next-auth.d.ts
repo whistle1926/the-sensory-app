@@ -6,6 +6,7 @@ declare module "next-auth" {
     id: string;
     role: Role;
     impersonatedBy?: string | null;
+    navAccess?: string[] | null;
   }
 
   interface Session {
@@ -15,6 +16,8 @@ declare module "next-auth" {
       email: string;
       role: Role;
       impersonatedBy?: string | null;
+      /** Allowed nav keys; null = no restriction (full access). */
+      nav?: string[] | null;
     };
   }
 }
@@ -24,5 +27,6 @@ declare module "next-auth/jwt" {
     id: string;
     role: Role;
     impersonatedBy?: string | null;
+    nav?: string[] | null;
   }
 }
