@@ -40,6 +40,35 @@ function invoiceIdFromReference(ref: string | null): string | null {
   return m ? m[1] : null;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * Fire signs each request with a one-time, time-based nonce. Two calls
+ * close together (likely from Vercel, which sits right next to the proxy)
+ * can land on the same nonce → "nonce already used". Retry GET reads a
+ * couple of times with a >1s gap so a fresh nonce is generated. Safe for
+ * idempotent reads only.
+ */
+async function withNonceRetry<T>(fn: () => Promise<T>): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/nonce/i.test(msg)) {
+        await sleep(1300);
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
+}
+
 export async function getFirePaymentsReceived(): Promise<FirePaymentsResult> {
   const settings = await prisma.paymentSettings.findUnique({
     where: { id: "default" },
@@ -53,10 +82,10 @@ export async function getFirePaymentsReceived(): Promise<FirePaymentsResult> {
   let accounts: FireAccount[] = [];
   let transactions;
   try {
-    // Fire signs each request with a one-time nonce, so concurrent calls
-    // collide ("nonce already used"). Call them sequentially.
-    accounts = await fb.getAccounts();
-    transactions = await fb.getTransactions();
+    // Sequential + spaced + retry: each call needs its own fresh nonce.
+    accounts = await withNonceRetry(() => fb.getAccounts());
+    await sleep(1300);
+    transactions = await withNonceRetry(() => fb.getTransactions());
   } catch (err) {
     return {
       configured: true,
