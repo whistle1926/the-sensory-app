@@ -147,8 +147,12 @@ export class FireBuddy {
   // account(s). A "completed" payment-request is NOT the same as money
   // landing — only an IN transaction here means funds genuinely arrived.
   // GET /accounts returns live balances per account (ICAN).
-  async getTransactions(): Promise<FireTransaction[]> {
-    const data = (await this.call("GET", "transactions")) as {
+  // Plain /transactions only returns ONE (default) account's movements.
+  // Pass an `ican` to get a specific account's transactions — query each
+  // account separately to see everything that landed.
+  async getTransactions(ican?: number): Promise<FireTransaction[]> {
+    const path = ican ? `transactions?ican=${ican}` : "transactions";
+    const data = (await this.call("GET", path)) as {
       transactions?: FireTransaction[];
     };
     return data.transactions ?? [];

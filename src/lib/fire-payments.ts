@@ -32,12 +32,15 @@ export interface FirePaymentsResult {
   error?: string;
 }
 
-/** Pull the invoice id out of a Fire transaction reference, e.g.
- *  "invoice:abc123" or "invoicecmpx…" → the id portion. */
-function invoiceIdFromReference(ref: string | null): string | null {
+/** Pull the invoice-id fragment out of a Fire transaction reference, e.g.
+ *  "invoice:abc123" or "invoicecmpx…" → the id portion. Fire TRUNCATES
+ *  references (~18 chars), so this is a PREFIX of the real invoice id —
+ *  match with startsWith, not equality. */
+function invoiceFragmentFromReference(ref: string | null): string | null {
   if (!ref) return null;
   const m = ref.match(/invoice:?([a-z0-9]+)/i);
-  return m ? m[1] : null;
+  // Require a few chars so a stray short fragment can't false-match.
+  return m && m[1].length >= 6 ? m[1] : null;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -80,12 +83,18 @@ export async function getFirePaymentsReceived(): Promise<FirePaymentsResult> {
 
   const fb = new FireBuddy(settings.apiKey);
   let accounts: FireAccount[] = [];
-  let transactions;
+  const transactions = [];
   try {
     // Sequential + spaced + retry: each call needs its own fresh nonce.
     accounts = await withNonceRetry(() => fb.getAccounts());
-    await sleep(1300);
-    transactions = await withNonceRetry(() => fb.getTransactions());
+    // The plain /transactions endpoint only returns ONE account's
+    // movements, so query EACH account (by ICAN) and combine — otherwise
+    // we'd miss everything that landed in the other account(s).
+    for (const acc of accounts) {
+      await sleep(1300);
+      const txns = await withNonceRetry(() => fb.getTransactions(acc.ican));
+      transactions.push(...txns);
+    }
   } catch (err) {
     return {
       configured: true,
@@ -98,32 +107,28 @@ export async function getFirePaymentsReceived(): Promise<FirePaymentsResult> {
   // Money IN only — that's the definition of "received".
   const incoming = transactions.filter((t) => t.direction === "IN");
 
-  // Pre-load the invoices referenced so we can attach number + client.
-  const ids = Array.from(
-    new Set(
-      incoming
-        .map((t) => invoiceIdFromReference(t.reference))
-        .filter((x): x is string => !!x),
-    ),
-  );
-  const invoices = ids.length
-    ? await prisma.invoice.findMany({
-        where: { id: { in: ids } },
-        select: {
-          id: true,
-          invoiceNumber: true,
-          clientName: true,
-          total: true,
-          currency: true,
-        },
-      })
-    : [];
-  const byId = new Map(invoices.map((i) => [i.id, i]));
+  // Load all live invoices once and match by id PREFIX (Fire truncates
+  // the reference, so it's a prefix of the real cuid). Small set, so a
+  // linear scan is fine and avoids fragile `in` queries.
+  const invoices = await prisma.invoice.findMany({
+    where: { status: { not: "cancelled" } },
+    select: {
+      id: true,
+      invoiceNumber: true,
+      clientName: true,
+      total: true,
+      currency: true,
+    },
+  });
+  function matchInvoice(ref: string | null) {
+    const frag = invoiceFragmentFromReference(ref);
+    if (!frag) return undefined;
+    return invoices.find((i) => i.id.startsWith(frag));
+  }
 
   const payments: ReceivedPayment[] = incoming
     .map((t) => {
-      const id = invoiceIdFromReference(t.reference);
-      const inv = id ? byId.get(id) : undefined;
+      const inv = matchInvoice(t.reference);
       const amountPence = Math.round((t.amount ?? 0) * 100);
       return {
         txnId: t.txnId,
