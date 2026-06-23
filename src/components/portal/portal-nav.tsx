@@ -12,12 +12,13 @@ interface Item {
   matchPrefixes: string[];
 }
 
-const ITEMS: Item[] = [
-  {
-    href: "/portal/training",
-    label: "Courses",
-    matchPrefixes: ["/portal/training"],
-  },
+const COURSES_ITEM: Item = {
+  href: "/portal/training",
+  label: "Courses",
+  matchPrefixes: ["/portal/training"],
+};
+
+const BASE_ITEMS: Item[] = [
   {
     href: "/portal/bookings",
     label: "My Bookings",
@@ -40,11 +41,14 @@ const ITEMS: Item[] = [
  * also do 1:1). "Book a session" last — deliberately the tail of the
  * nav since it's an outbound jump into the public booking flow.
  */
-export function PortalNav() {
+export function PortalNav({ coursesEnabled = true }: { coursesEnabled?: boolean }) {
   const pathname = usePathname();
+  // Courses link only shows when courses are live. Paused = parents who
+  // just created an account don't see a way into unreleased content.
+  const items = coursesEnabled ? [COURSES_ITEM, ...BASE_ITEMS] : BASE_ITEMS;
   return (
     <nav className="flex items-center gap-1">
-      {ITEMS.map((item) => {
+      {items.map((item) => {
         const isActive = item.matchPrefixes.some((p) =>
           pathname === p || pathname.startsWith(p + "/"),
         );

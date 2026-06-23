@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { StorefrontHeader } from "@/components/courses/storefront-header";
 import { CourseCard, type StorefrontCourse } from "@/components/courses/course-card";
@@ -31,6 +32,11 @@ export default async function CoursesStorefrontPage({
   const config = await prisma.storefrontConfig.findUnique({
     where: { id: "default" },
   });
+  // Courses paused → don't show the storefront at all (content isn't
+  // ready). Send visitors to the home page.
+  if (config && config.showCoursesNav === false) {
+    redirect("/");
+  }
   const tagline = config?.tagline?.trim() || DEFAULT_TAGLINE;
   const heroTitle = config?.heroTitle?.trim() || DEFAULT_HERO_TITLE;
   const heroBlurb = config?.heroBlurb?.trim() || DEFAULT_HERO_BLURB;

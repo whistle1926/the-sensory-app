@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
+import { coursesEnabled } from "@/lib/storefront";
 import { ImpersonationBanner } from "@/components/impersonate/impersonation-banner";
 import { AccountMenu } from "@/components/account/account-menu";
 import { PortalNav } from "@/components/portal/portal-nav";
@@ -31,6 +32,7 @@ export default async function PortalLayout({ children }: { children: React.React
 
   const name = session.user.name || session.user.email || "You";
   const isImpersonating = !!session.user.impersonatedBy;
+  const showCourses = await coursesEnabled();
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -53,7 +55,7 @@ export default async function PortalLayout({ children }: { children: React.React
           </Link>
 
           <div className="flex items-center gap-2">
-            <PortalNav />
+            <PortalNav coursesEnabled={showCourses} />
             <div className="ml-1">
               <AccountMenu />
             </div>

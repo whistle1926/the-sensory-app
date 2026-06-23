@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { FireBuddy } from "@/lib/firebuddy";
 import { ensureEnrollment } from "@/lib/course-enrollment";
+import { coursesEnabled } from "@/lib/storefront";
 import { sendTransactionalEmail, escapeHtml } from "@/lib/email";
 
 // Lightweight in-memory per-IP rate limit — good enough while we're on a
@@ -66,6 +67,14 @@ function baseUrl(req: NextRequest): string {
  * out from the webhook on payment.paid, or from here on free-course enrol.
  */
 export async function POST(req: NextRequest) {
+  // Courses paused → no purchases (content isn't released yet).
+  if (!(await coursesEnabled())) {
+    return NextResponse.json(
+      { error: "Courses aren't available yet. Please check back soon." },
+      { status: 403 },
+    );
+  }
+
   const body = await req.json().catch(() => ({}));
 
   // Honeypot — bots tend to fill a field named "website". Quietly 200 them.
