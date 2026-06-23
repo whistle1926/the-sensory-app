@@ -58,7 +58,10 @@ export async function sendTransactionalEmail(
     html: input.html,
     text,
   };
-  if (input.replyTo) body.reply_to = input.replyTo;
+  // Per-send override wins; otherwise fall back to the configured
+  // Reply-to (Settings → Email) so client replies reach a real inbox.
+  const replyTo = input.replyTo ?? settings.replyTo ?? undefined;
+  if (replyTo) body.reply_to = replyTo;
 
   const res = await fetch("https://api.mail.mailcub.com/api/send_email", {
     method: "POST",

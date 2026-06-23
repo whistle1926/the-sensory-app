@@ -405,6 +405,11 @@ model EmailSettings {
   apiKey       String?
   senderEmail  String?
   senderName   String   @default("The Sensory Submarine")
+  /// Where client replies go. The "from" must be a verified Mailcub
+  /// sender (a mail.* subdomain), which isn't a monitored inbox — so
+  /// set this to the real inbox (e.g. info@thesensorysubmarine.com) and
+  /// it's added as the Reply-To on every outgoing email.
+  replyTo      String?
   enabled      Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

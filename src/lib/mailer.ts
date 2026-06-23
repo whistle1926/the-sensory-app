@@ -52,6 +52,9 @@ export async function sendMail(opts: SendMailOptions): Promise<boolean> {
         html: opts.html,
         text: opts.text || stripHtml(opts.html),
         ...(ccList.length > 0 ? { cc: ccList } : {}),
+        // Replies go to the real monitored inbox (Settings → Email →
+        // Reply-to), since the "from" is a no-reply mail.* sender.
+        ...(settings.replyTo ? { reply_to: settings.replyTo } : {}),
       }),
     });
 

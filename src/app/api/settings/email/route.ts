@@ -35,6 +35,7 @@ export async function GET() {
     hasKey: Boolean(settings.apiKey),
     senderEmail: settings.senderEmail || "",
     senderName: settings.senderName,
+    replyTo: settings.replyTo || "",
     enabled: settings.enabled,
   });
 }
@@ -46,12 +47,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const { apiKey, senderEmail, senderName, enabled } = body;
+  const { apiKey, senderEmail, senderName, replyTo, enabled } = body;
 
   if (apiKey !== undefined && typeof apiKey !== "string")
     return NextResponse.json({ error: "Invalid apiKey" }, { status: 400 });
   if (senderEmail !== undefined && typeof senderEmail !== "string")
     return NextResponse.json({ error: "Invalid senderEmail" }, { status: 400 });
+  if (replyTo !== undefined && typeof replyTo !== "string")
+    return NextResponse.json({ error: "Invalid replyTo" }, { status: 400 });
 
   const existing = await prisma.emailSettings.findUnique({
     where: { id: "default" },
@@ -66,6 +69,7 @@ export async function POST(req: NextRequest) {
   }
   if (senderEmail !== undefined) data.senderEmail = senderEmail;
   if (senderName !== undefined) data.senderName = senderName;
+  if (replyTo !== undefined) data.replyTo = replyTo.trim() || null;
   if (enabled !== undefined) data.enabled = enabled;
 
   let settings;

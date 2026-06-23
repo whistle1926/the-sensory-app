@@ -53,6 +53,7 @@ interface EmailConfig {
   hasKey?: boolean;
   senderEmail: string;
   senderName: string;
+  replyTo: string;
   enabled: boolean;
 }
 
@@ -108,6 +109,7 @@ export default function SettingsPage() {
     apiKey: "",
     senderEmail: "",
     senderName: "The Sensory Submarine",
+    replyTo: "",
     enabled: false,
   });
   const [aiConfig, setAiConfig] = useState<AiConfig>({
@@ -484,6 +486,23 @@ export default function SettingsPage() {
                     setEmailConfig({ ...emailConfig, senderName: e.target.value })
                   }
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="replyTo">Reply-to Address</Label>
+                <Input
+                  id="replyTo"
+                  type="email"
+                  placeholder="info@thesensorysubmarine.com"
+                  value={emailConfig.replyTo}
+                  onChange={(e) =>
+                    setEmailConfig({ ...emailConfig, replyTo: e.target.value })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Where client replies go. The sender address above is a
+                  no-reply mailbox, so set this to a real inbox you check.
+                </p>
               </div>
 
               <div className="flex items-center gap-3 pt-2">
