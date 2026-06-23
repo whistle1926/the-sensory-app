@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import {
+  CheckCircle2,
   ChevronRight,
   FileText,
   Landmark,
@@ -61,11 +62,9 @@ interface InvoiceStats {
 
 type StatusFilter =
   | "all"
-  | "unpaid"
   | "draft"
   | "sent"
-  | "paid"
-  | "overdue"
+  | "received"
   | "cancelled";
 
 /* ------------------------------------------------------------------ */
@@ -166,6 +165,9 @@ export default function InvoicesPage() {
   // account → invoiceId mapped to the date it was received. Live overlay
   // from Fire's real transactions; we never write this to the DB.
   const [receivedAt, setReceivedAt] = useState<Record<string, string>>({});
+  // Total money received that matched an invoice, in GBP pence (the
+  // practice's main currency). Shown in a KPI box.
+  const [receivedTotal, setReceivedTotal] = useState(0);
   async function loadReceived() {
     try {
       const r = await fetch("/api/payments/received", { cache: "no-store" });
@@ -174,14 +176,21 @@ export default function InvoicesPage() {
         payments?: {
           invoiceId: string | null;
           amountMatches: boolean;
+          amountPence: number;
+          currency: string;
           date: string;
         }[];
       };
       const map: Record<string, string> = {};
+      let total = 0;
       for (const p of d.payments ?? []) {
-        if (p.invoiceId && p.amountMatches) map[p.invoiceId] = p.date;
+        if (p.invoiceId && p.amountMatches) {
+          map[p.invoiceId] = p.date;
+          if (p.currency === "GBP") total += p.amountPence;
+        }
       }
       setReceivedAt(map);
+      setReceivedTotal(total);
     } catch {
       /* best-effort overlay — ignore */
     }
@@ -203,6 +212,9 @@ export default function InvoicesPage() {
       list = list.filter((inv) =>
         ["sent", "paid", "overdue"].includes(inv.status),
       );
+    } else if (activeFilter === "received") {
+      // Money actually landed in Fire (live overlay).
+      list = list.filter((inv) => receivedAt[inv.id]);
     } else if (activeFilter === "cancelled") {
       list = list.filter((inv) => inv.status === "cancelled");
     }
@@ -215,7 +227,7 @@ export default function InvoicesPage() {
       );
     }
     return list;
-  }, [invoices, activeFilter, searchQuery]);
+  }, [invoices, activeFilter, searchQuery, receivedAt]);
 
   const filterTabs: { key: StatusFilter; label: string; count: number }[] =
     stats
@@ -229,6 +241,11 @@ export default function InvoicesPage() {
             // legacy paid/overdue rows (payment lives in FireBuddy).
             count:
               stats.countSent + stats.countPaid + stats.countOverdue,
+          },
+          {
+            key: "received",
+            label: "Received",
+            count: Object.keys(receivedAt).length,
           },
           { key: "cancelled", label: "Cancelled", count: stats.countCancelled },
         ]
@@ -247,12 +264,16 @@ export default function InvoicesPage() {
           accent: false,
         },
         {
+          label: "Received",
+          value: formatCurrency(receivedTotal),
+          helper: `${Object.keys(receivedAt).length} landed in Fire`,
+          icon: CheckCircle2,
+          accent: false,
+        },
+        {
           label: "Sent",
           value: String(stats.countSent + stats.countPaid + stats.countOverdue),
-          helper:
-            Object.keys(receivedAt).length > 0
-              ? `${Object.keys(receivedAt).length} received in Fire`
-              : "sent to clients",
+          helper: "sent to clients",
           icon: Send,
           accent: false,
         },
@@ -300,7 +321,7 @@ export default function InvoicesPage() {
         <>
           {/* ---- KPI row ---- */}
           {stats && (
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {kpis.map((k) => {
                 const Icon = k.icon;
                 return (
