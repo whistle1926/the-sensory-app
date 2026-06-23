@@ -53,10 +53,10 @@ export async function getFirePaymentsReceived(): Promise<FirePaymentsResult> {
   let accounts: FireAccount[] = [];
   let transactions;
   try {
-    [accounts, transactions] = await Promise.all([
-      fb.getAccounts(),
-      fb.getTransactions(),
-    ]);
+    // Fire signs each request with a one-time nonce, so concurrent calls
+    // collide ("nonce already used"). Call them sequentially.
+    accounts = await fb.getAccounts();
+    transactions = await fb.getTransactions();
   } catch (err) {
     return {
       configured: true,
