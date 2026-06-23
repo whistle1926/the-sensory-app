@@ -162,8 +162,36 @@ export default function InvoicesPage() {
     }
   }
 
+  // Which invoices have had the FULL amount actually land in the Fire
+  // account → invoiceId mapped to the date it was received. Live overlay
+  // from Fire's real transactions; we never write this to the DB.
+  const [receivedAt, setReceivedAt] = useState<Record<string, string>>({});
+  async function loadReceived() {
+    try {
+      const r = await fetch("/api/payments/received", { cache: "no-store" });
+      if (!r.ok) return;
+      const d = (await r.json()) as {
+        payments?: {
+          invoiceId: string | null;
+          amountMatches: boolean;
+          date: string;
+        }[];
+      };
+      const map: Record<string, string> = {};
+      for (const p of d.payments ?? []) {
+        if (p.invoiceId && p.amountMatches) map[p.invoiceId] = p.date;
+      }
+      setReceivedAt(map);
+    } catch {
+      /* best-effort overlay — ignore */
+    }
+  }
+
   useEffect(() => {
     loadInvoices();
+    // Loaded separately (a Fire round-trip takes a couple of seconds) so
+    // the list shows instantly and the Received badges fill in after.
+    loadReceived();
   }, []);
 
   const filtered = useMemo(() => {
@@ -221,7 +249,10 @@ export default function InvoicesPage() {
         {
           label: "Sent",
           value: String(stats.countSent + stats.countPaid + stats.countOverdue),
-          helper: "sent to clients",
+          helper:
+            Object.keys(receivedAt).length > 0
+              ? `${Object.keys(receivedAt).length} received in Fire`
+              : "sent to clients",
           icon: Send,
           accent: false,
         },
@@ -512,9 +543,17 @@ export default function InvoicesPage() {
                               {formatCurrency(inv.total, inv.currency)}
                             </td>
                             <td>
-                              <Chip tone={STATUS_TONE[inv.status]}>
-                                {STATUS_LABEL[inv.status]}
-                              </Chip>
+                              {receivedAt[inv.id] ? (
+                                <span
+                                  title={`Received in Fire on ${formatDate(receivedAt[inv.id])}`}
+                                >
+                                  <Chip tone="success">✓ Received</Chip>
+                                </span>
+                              ) : (
+                                <Chip tone={STATUS_TONE[inv.status]}>
+                                  {STATUS_LABEL[inv.status]}
+                                </Chip>
+                              )}
                             </td>
                             <td style={{ textAlign: "right" }}>
                               <div className="inline-flex items-center gap-1">
@@ -562,9 +601,13 @@ export default function InvoicesPage() {
                               <p className="text-sm font-semibold text-foreground">
                                 {inv.invoiceNumber}
                               </p>
-                              <Chip tone={STATUS_TONE[inv.status]}>
-                                {STATUS_LABEL[inv.status]}
-                              </Chip>
+                              {receivedAt[inv.id] ? (
+                                <Chip tone="success">✓ Received</Chip>
+                              ) : (
+                                <Chip tone={STATUS_TONE[inv.status]}>
+                                  {STATUS_LABEL[inv.status]}
+                                </Chip>
+                              )}
                             </div>
                             <p className="mt-0.5 truncate text-sm text-muted-foreground">
                               {inv.clientName}
