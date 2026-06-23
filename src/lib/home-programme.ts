@@ -43,11 +43,76 @@ export function isImageUrl(line: string): boolean {
  * absence of HTML tags, they fall back to the old line-by-line pass
  * (image-URL lines → <img>, other URLs → links, newlines → <br/>).
  */
+/** Extract a YouTube video id from any common URL shape. */
+function youtubeId(url: string): string | null {
+  if (!url) return null;
+  const patterns = [
+    /youtube(?:-nocookie)?\.com\/embed\/([\w-]{6,})/i,
+    /youtube\.com\/watch\?[^"'\s]*\bv=([\w-]{6,})/i,
+    /youtu\.be\/([\w-]{6,})/i,
+    /youtube\.com\/shorts\/([\w-]{6,})/i,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+/** A clickable YouTube thumbnail + text link that works in web, PDF and
+ *  email (where <iframe> is stripped). */
+function youtubeBlock(id: string): string {
+  const watch = `https://www.youtube.com/watch?v=${id}`;
+  const thumb = `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
+  return (
+    `<a href="${watch}" target="_blank" rel="noopener noreferrer">` +
+    `<img src="${thumb}" alt="Watch the video on YouTube" /></a>` +
+    `<br/><a href="${watch}" target="_blank" rel="noopener noreferrer">▶ Watch the video on YouTube</a>`
+  );
+}
+
+/**
+ * Turn video embeds + pasted video links into clickable thumbnails/links.
+ * The editor stores YouTube videos as an <iframe>, and pasted links as
+ * <a> — but email clients (and our sanitiser) strip <iframe>, so an
+ * embedded video would silently vanish when a programme is emailed or
+ * saved to PDF. A thumbnail that links to the video works everywhere.
+ *
+ * Anchors are processed BEFORE iframes so the anchors generated here
+ * aren't re-processed.
+ */
+export function embedsToLinks(html: string): string {
+  if (!html) return "";
+  let out = html;
+  // 1. Pasted YouTube links (anchors).
+  out = out.replace(
+    /<a\b[^>]*href=["']([^"']+)["'][^>]*>[\s\S]*?<\/a>/gi,
+    (whole, href: string) => {
+      const id = youtubeId(href);
+      return id ? youtubeBlock(id) : whole;
+    },
+  );
+  // 2. Video-button embeds (iframes): YouTube → thumbnail, Vimeo/other → link.
+  out = out.replace(/<iframe\b[^>]*>(?:[\s\S]*?<\/iframe>)?/gi, (tag) => {
+    const src = (tag.match(/src=["']([^"']+)["']/i) || [])[1] || "";
+    const id = youtubeId(src);
+    if (id) return youtubeBlock(id);
+    const vimeo = src.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
+    if (vimeo) {
+      return `<a href="https://vimeo.com/${vimeo[1]}" target="_blank" rel="noopener noreferrer">▶ Watch the video on Vimeo</a>`;
+    }
+    return src
+      ? `<a href="${src}" target="_blank" rel="noopener noreferrer">▶ Watch the video</a>`
+      : "";
+  });
+  return out;
+}
+
 export function bodyToHtml(body: string): string {
   if (!body) return "";
   const looksLikeHtml = /<[a-z][\s\S]*>/i.test(body);
   if (looksLikeHtml) {
-    return sanitizeHtml(body, {
+    return sanitizeHtml(embedsToLinks(body), {
       allowedTags: [
         "p", "br", "strong", "b", "em", "i", "u", "s", "code", "blockquote",
         "h1", "h2", "h3", "ul", "ol", "li", "a", "img",
