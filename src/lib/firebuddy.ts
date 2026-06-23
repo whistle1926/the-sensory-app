@@ -30,6 +30,29 @@ export interface PaymentStatus {
   updated_at: string;
 }
 
+/** A real movement on the Fire account. `amount` is major units (pounds);
+ *  `direction` IN = money received. Only IN movements mean funds landed. */
+export interface FireTransaction {
+  txnId: number;
+  date: string;
+  amount: number; // major units (pounds), NOT pence
+  currency: string;
+  direction: "IN" | "OUT";
+  reference: string | null;
+  description: string | null;
+  balance?: number;
+}
+
+/** A Fire account (one per currency) with its live balance. */
+export interface FireAccount {
+  ican: number;
+  name: string;
+  currency: string;
+  balance: number; // major units (pounds)
+  availableBalance?: number;
+  status?: string;
+}
+
 /** Line item shape FireBuddy expects on POST /invoices. */
 export interface FireBuddyInvoiceItem {
   description: string;
@@ -116,6 +139,26 @@ export class FireBuddy {
 
   async getPaymentStatus(code: string): Promise<PaymentStatus> {
     return this.call("GET", `payment-requests/${code}`);
+  }
+
+  // ── Real account data — the ground truth of what landed ──────────
+  //
+  // GET /transactions returns the actual movements on the Fire
+  // account(s). A "completed" payment-request is NOT the same as money
+  // landing — only an IN transaction here means funds genuinely arrived.
+  // GET /accounts returns live balances per account (ICAN).
+  async getTransactions(): Promise<FireTransaction[]> {
+    const data = (await this.call("GET", "transactions")) as {
+      transactions?: FireTransaction[];
+    };
+    return data.transactions ?? [];
+  }
+
+  async getAccounts(): Promise<FireAccount[]> {
+    const data = (await this.call("GET", "accounts")) as {
+      accounts?: FireAccount[];
+    };
+    return data.accounts ?? [];
   }
 
   // ── Invoices ────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 import {
   ChevronRight,
   FileText,
+  Landmark,
   Loader2,
   Plus,
   PoundSterling,
@@ -241,6 +242,14 @@ export default function InvoicesPage() {
         subtitle="Manage and track all invoices"
         actions={
           <div className="flex items-center gap-2">
+            <Link
+              href="/payments"
+              className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold transition-colors hover:bg-muted"
+              title="See payments that have actually landed in your Fire account"
+            >
+              <Landmark className="h-4 w-4" />
+              Payments received
+            </Link>
             <Link
               href="/invoices/new"
               className={buttonVariants({ className: "rounded-xl" })}
