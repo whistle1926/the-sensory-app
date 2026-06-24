@@ -475,10 +475,24 @@ async function computeDashboardAggregates() {
       };
     });
 
-    // ── 14-day revenue buckets for the chart ───────────────────────────
-    const revenue = days14.map((d, i, arr) => ({
+    // ── Revenue buckets for the chart — 90 days so the 14d/30d/90d
+    //    toggle can slice client-side. From the Fire-synced income tracker.
+    const days90: Date[] = [];
+    for (let i = 89; i >= 0; i--) {
+      const d = new Date(startOfToday);
+      d.setDate(d.getDate() - i);
+      days90.push(d);
+    }
+    const rev90Pence = Object.fromEntries(
+      days90.map((d) => [dayKey(d), 0]),
+    ) as Record<string, number>;
+    for (const e of incomeRows) {
+      const k = dayKey(e.occurredAt);
+      if (k in rev90Pence) rev90Pence[k] += e.amount;
+    }
+    const revenue = days90.map((d, i, arr) => ({
       d: dayKey(d),
-      v: Math.round((revenueSeriesPence[dayKey(d)] ?? 0) / 100),
+      v: Math.round((rev90Pence[dayKey(d)] ?? 0) / 100),
       active: i === arr.length - 1,
     }));
     const invoicedMtd = Math.round(revenueMtdPence / 100);

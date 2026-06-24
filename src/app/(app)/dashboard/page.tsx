@@ -137,6 +137,7 @@ export default function DashboardPage() {
     "all" | "overdue" | "drafting" | "sent"
   >("all");
   const [dateRange, setDateRange] = useState<"today" | "week" | "month" | "quarter">("week");
+  const [revWindow, setRevWindow] = useState<14 | 30 | 90>(14);
 
   const fetchData = useCallback(() => {
     setLoading(true);
@@ -200,9 +201,14 @@ export default function DashboardPage() {
     () => Math.max(1, ...data.pipeline.map((p) => p.count)),
     [data.pipeline],
   );
+  // Slice the 90-day series to the selected window for the chart.
+  const chartRevenue = useMemo(
+    () => data.revenue.slice(-revWindow),
+    [data.revenue, revWindow],
+  );
   const maxRevenue = useMemo(
-    () => Math.max(1, ...data.revenue.map((r) => r.v)),
-    [data.revenue],
+    () => Math.max(1, ...chartRevenue.map((r) => r.v)),
+    [chartRevenue],
   );
 
   const filteredReports = useMemo(() => {
@@ -443,7 +449,7 @@ export default function DashboardPage() {
         </Panel>
 
         <Panel
-          title="Revenue · 14 days"
+          title={`Revenue · ${revWindow} days`}
           subtitle={
             <>
               MTD{" "}
@@ -454,20 +460,27 @@ export default function DashboardPage() {
           }
           actions={
             <div className="ds-seg">
-              <button type="button" className="is-active">14d</button>
-              <button type="button">30d</button>
-              <button type="button">90d</button>
+              {([14, 30, 90] as const).map((w) => (
+                <button
+                  key={w}
+                  type="button"
+                  className={revWindow === w ? "is-active" : ""}
+                  onClick={() => setRevWindow(w)}
+                >
+                  {w}d
+                </button>
+              ))}
             </div>
           }
           padded
         >
-          <div className="ds-barchart" aria-label="Revenue last 14 days">
-            {data.revenue.length === 0 ? (
+          <div className="ds-barchart" aria-label={`Revenue last ${revWindow} days`}>
+            {chartRevenue.every((r) => r.v === 0) ? (
               <div className="ds-empty" style={{ gridColumn: "1 / -1" }}>
-                No paid invoices in this window.
+                No payments received in this window.
               </div>
             ) : (
-              data.revenue.map((r) => {
+              chartRevenue.map((r) => {
                 const hPct = (r.v / maxRevenue) * 100;
                 return (
                   <div className="ds-bc-col" key={r.d}>
@@ -476,11 +489,13 @@ export default function DashboardPage() {
                       style={{ height: `${Math.max(4, hPct)}%` }}
                       title={`${r.d}: ${formatCurrency(r.v)}`}
                     />
-                    <span className="ds-bc-label">
-                      {new Date(r.d).toLocaleDateString("en-GB", {
-                        weekday: "short",
-                      })[0]}
-                    </span>
+                    {revWindow === 14 && (
+                      <span className="ds-bc-label">
+                        {new Date(r.d).toLocaleDateString("en-GB", {
+                          weekday: "short",
+                        })[0]}
+                      </span>
+                    )}
                   </div>
                 );
               })
