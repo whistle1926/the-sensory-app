@@ -169,6 +169,18 @@ function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
+/** The 42 days (6 weeks) of the month-view grid containing `anchor` —
+ * starting on the Sunday on/before the 1st of that month. */
+function monthGridDays(anchor: Date): Date[] {
+  const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+  const start = getWeekStart(first);
+  return Array.from({ length: 42 }, (_, i) => addDays(start, i));
+}
+
+function addMonths(d: Date, n: number) {
+  return new Date(d.getFullYear(), d.getMonth() + n, 1);
+}
+
 function formatTime12(t: string) {
   const [h, m] = t.split(":").map(Number);
   const ampm = h >= 12 ? "PM" : "AM";
@@ -209,6 +221,9 @@ export default function BookingsPage() {
   // Calendar state
   const [weekStart, setWeekStart] = useState(() => getWeekStart(today));
   const [selectedDay, setSelectedDay] = useState<Date>(today);
+  // Calendar tab view mode. Month is the default — it's the at-a-glance
+  // diary; Day drills into a single day's timeline.
+  const [calView, setCalView] = useState<"month" | "day">("month");
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(true);
   // The signed-in user's own Google Calendar events, overlaid on the
@@ -337,18 +352,24 @@ export default function BookingsPage() {
     setLoadingBookings(false);
   }, []);
 
-  // Pull the signed-in user's Google Calendar events for the visible
-  // week and overlay them on the daily timeline — so the bookings
-  // calendar shows the real diary, not just portal bookings.
+  // The month currently in focus (stable per month so we don't refetch
+  // the calendar feeds on every day-click).
+  const monthKey = `${selectedDay.getFullYear()}-${selectedDay.getMonth()}`;
+
+  // Pull connected Google Calendar events for the whole visible month grid
+  // and overlay them on the calendar — so it shows the real diary, not
+  // just portal bookings. Covers both the month grid and the day view.
   const fetchIcsEvents = useCallback(async () => {
-    const from = weekDays[0].toISOString();
-    const endOfWeek = new Date(weekDays[6]);
-    endOfWeek.setHours(23, 59, 59, 999);
+    const [y, m] = monthKey.split("-").map(Number);
+    const grid = monthGridDays(new Date(y, m, 1));
+    const from = grid[0].toISOString();
+    const end = new Date(grid[41]);
+    end.setHours(23, 59, 59, 999);
     try {
       const res = await fetch(
         `/api/team-calendar/events?from=${encodeURIComponent(
           from,
-        )}&to=${encodeURIComponent(endOfWeek.toISOString())}`,
+        )}&to=${encodeURIComponent(end.toISOString())}`,
       );
       if (res.ok) {
         const data = (await res.json()) as { events?: IcsCalEvent[] };
@@ -360,7 +381,7 @@ export default function BookingsPage() {
         setIcsEvents(all);
       }
     } catch { /* silent */ }
-  }, [weekDays]);
+  }, [monthKey]);
 
   useEffect(() => {
     fetchIcsEvents();
@@ -601,6 +622,59 @@ export default function BookingsPage() {
     setSelectedDay(addDays(selectedDay, 7));
   }
 
+  // Header prev/next — step by month in month view, by week in day view.
+  function prevPeriod() {
+    if (calView === "month") setSelectedDay(addMonths(selectedDay, -1));
+    else prevWeek();
+  }
+  function nextPeriod() {
+    if (calView === "month") setSelectedDay(addMonths(selectedDay, 1));
+    else nextWeek();
+  }
+
+  // Merged, time-sorted list of everything on a day (portal bookings +
+  // Google events) — used to fill the month-grid cells.
+  function dayAgenda(day: Date): Array<{
+    key: string;
+    time: string;
+    label: string;
+    kind: "booking" | "google";
+  }> {
+    const items: Array<{
+      key: string;
+      time: string;
+      label: string;
+      kind: "booking" | "google";
+    }> = [];
+    for (const b of bookings) {
+      if (isSameDay(new Date(b.date), day) && b.status !== "cancelled") {
+        items.push({
+          key: `b-${b.id}`,
+          time: b.time,
+          label: `${b.time} ${b.clientName}`,
+          kind: "booking",
+        });
+      }
+    }
+    for (const e of icsEvents) {
+      if (isSameDay(new Date(e.startAt), day)) {
+        const t = e.allDay
+          ? ""
+          : new Date(e.startAt).toLocaleTimeString("en-GB", {
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+        items.push({
+          key: `g-${e.uid}`,
+          time: e.allDay ? "00:00" : t,
+          label: e.allDay ? e.title : `${t} ${e.title}`,
+          kind: "google",
+        });
+      }
+    }
+    return items.sort((a, b) => a.time.localeCompare(b.time));
+  }
+
   const dayBookings = getBookingsForDay(selectedDay);
   const dayAvail = getAvailForDay(selectedDay);
   // Google Calendar events on the selected day. Timed events that fall
@@ -731,16 +805,107 @@ export default function BookingsPage() {
             <div className="flex items-center gap-3">
               <h2 className="text-lg font-bold">{monthYear}</h2>
               <div className="flex items-center gap-1">
-                <button onClick={prevWeek} className="rounded-lg p-1 hover:bg-muted transition-colors">
+                <button onClick={prevPeriod} className="rounded-lg p-1 hover:bg-muted transition-colors" aria-label="Previous">
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                <button onClick={nextWeek} className="rounded-lg p-1 hover:bg-muted transition-colors">
+                <button onClick={nextPeriod} className="rounded-lg p-1 hover:bg-muted transition-colors" aria-label="Next">
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
+              <button
+                onClick={() => setSelectedDay(today)}
+                className="rounded-lg border border-border px-2.5 py-1 text-xs font-semibold hover:bg-muted"
+              >
+                Today
+              </button>
             </div>
-            <span className="rounded-lg bg-primary px-3 py-1 text-xs font-semibold text-white">Daily</span>
+            {/* Month / Day view toggle */}
+            <div className="flex items-center gap-1 rounded-lg bg-muted p-1">
+              {(["month", "day"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setCalView(v)}
+                  className={`rounded-md px-3 py-1 text-xs font-semibold capitalize transition-colors ${
+                    calView === v
+                      ? "bg-primary text-white shadow-[var(--shadow-xs)]"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
           </div>
+
+          {/* ---- MONTH VIEW ---- */}
+          {calView === "month" && (
+            <div>
+              <div className="grid grid-cols-7 border-b border-border bg-muted/30">
+                {DAY_NAMES_SHORT.map((d) => (
+                  <div
+                    key={d}
+                    className="py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+                  >
+                    {d}
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7">
+                {monthGridDays(selectedDay).map((day, i) => {
+                  const inMonth = day.getMonth() === selectedDay.getMonth();
+                  const isToday = isSameDay(day, today);
+                  const agenda = dayAgenda(day);
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setSelectedDay(day);
+                        setWeekStart(getWeekStart(day));
+                        setCalView("day");
+                      }}
+                      className={`flex min-h-[104px] flex-col gap-1 border-b border-r border-border/60 p-1.5 text-left transition-colors hover:bg-muted/40 ${
+                        inMonth ? "" : "bg-muted/20"
+                      }`}
+                    >
+                      <span
+                        className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
+                          isToday
+                            ? "bg-primary text-white"
+                            : inMonth
+                              ? "text-foreground"
+                              : "text-muted-foreground/50"
+                        }`}
+                      >
+                        {day.getDate()}
+                      </span>
+                      <div className="flex flex-col gap-0.5 overflow-hidden">
+                        {agenda.slice(0, 3).map((it) => (
+                          <span
+                            key={it.key}
+                            className={`truncate rounded px-1 py-0.5 text-[10px] font-medium leading-tight ${
+                              it.kind === "booking"
+                                ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300"
+                                : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {it.label}
+                          </span>
+                        ))}
+                        {agenda.length > 3 && (
+                          <span className="px-1 text-[10px] font-medium text-muted-foreground">
+                            +{agenda.length - 3} more
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {calView === "day" && (
+          <>{/* ---- DAY VIEW (week strip + timeline) ---- */}
 
           {/* Week day selector */}
           <div className="grid grid-cols-7 border-b border-border">
@@ -861,6 +1026,8 @@ export default function BookingsPage() {
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
       )}
 
