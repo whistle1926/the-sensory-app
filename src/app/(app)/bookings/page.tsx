@@ -68,6 +68,20 @@ interface BookingRecord {
   paymentStatus: string;
 }
 
+/** A Google Calendar event (from /api/team-calendar/events) overlaid on
+ * the bookings calendar so the diary reflects real appointments. */
+interface IcsCalEvent {
+  uid: string;
+  title: string;
+  startAt: string;
+  endAt: string;
+  allDay: boolean;
+  location?: string;
+  userId: string;
+  userName: string;
+  userColour: string;
+}
+
 /** Minimal service shape needed for the availability service picker. */
 interface ManageableService {
   id: string;
@@ -197,6 +211,10 @@ export default function BookingsPage() {
   const [selectedDay, setSelectedDay] = useState<Date>(today);
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(true);
+  // The signed-in user's own Google Calendar events, overlaid on the
+  // Calendar tab so the diary isn't empty when appointments live in
+  // Google rather than as portal bookings.
+  const [icsEvents, setIcsEvents] = useState<IcsCalEvent[]>([]);
 
   // Schedule state
   const [schedule, setSchedule] = useState<Record<number, DaySchedule>>({});
@@ -318,6 +336,33 @@ export default function BookingsPage() {
     } catch { /* silent */ }
     setLoadingBookings(false);
   }, []);
+
+  // Pull the signed-in user's Google Calendar events for the visible
+  // week and overlay them on the daily timeline — so the bookings
+  // calendar shows the real diary, not just portal bookings.
+  const fetchIcsEvents = useCallback(async () => {
+    const from = weekDays[0].toISOString();
+    const endOfWeek = new Date(weekDays[6]);
+    endOfWeek.setHours(23, 59, 59, 999);
+    try {
+      const res = await fetch(
+        `/api/team-calendar/events?from=${encodeURIComponent(
+          from,
+        )}&to=${encodeURIComponent(endOfWeek.toISOString())}`,
+      );
+      if (res.ok) {
+        const data = (await res.json()) as { events?: IcsCalEvent[] };
+        const all = Array.isArray(data.events) ? data.events : [];
+        // Just my own diary on my bookings calendar (admins still see
+        // everyone on the dedicated Team Calendar page).
+        setIcsEvents(myId ? all.filter((e) => e.userId === myId) : all);
+      }
+    } catch { /* silent */ }
+  }, [weekDays, myId]);
+
+  useEffect(() => {
+    fetchIcsEvents();
+  }, [fetchIcsEvents]);
 
   // Query-string fragment scoping availability calls to the chosen
   // service (empty = the admin Default calendar).
@@ -556,6 +601,16 @@ export default function BookingsPage() {
 
   const dayBookings = getBookingsForDay(selectedDay);
   const dayAvail = getAvailForDay(selectedDay);
+  // Google Calendar events on the selected day. Timed events that fall
+  // inside the visible grid (08:00–17:00) sit in their hour row; all-day
+  // events and anything outside those hours show in a strip on top so
+  // nothing is hidden.
+  const dayIcsEvents = icsEvents.filter((e) =>
+    isSameDay(new Date(e.startAt), selectedDay),
+  );
+  const isInGridHour = (e: IcsCalEvent) =>
+    !e.allDay && HOURS.includes(new Date(e.startAt).getHours());
+  const dayIcsOther = dayIcsEvents.filter((e) => !isInGridHour(e));
   const isWeekend = selectedDay.getDay() === 0 || selectedDay.getDay() === 6;
 
   return (
@@ -721,6 +776,21 @@ export default function BookingsPage() {
               </div>
             ) : (
               <div className="relative">
+                {/* All-day / out-of-hours Google events — shown on top so
+                    nothing is hidden by the 08:00–17:00 grid. */}
+                {dayIcsOther.length > 0 && (
+                  <div className="border-b border-border/40 bg-muted/20 px-4 py-2.5">
+                    <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <CalendarDays className="h-3 w-3" />
+                      From your Google Calendar
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {dayIcsOther.map((e) => (
+                        <IcsEventChip key={e.uid} event={e} />
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {HOURS.map((hour, idx) => {
                   const timeStr = `${String(hour).padStart(2, "0")}:00`;
                   const timeHalf = `${String(hour).padStart(2, "0")}:30`;
@@ -750,6 +820,17 @@ export default function BookingsPage() {
                             <span className="text-[11px] text-green-600 dark:text-green-400">{timeHalf} — Available</span>
                           </div>
                         ) : null}
+
+                        {/* Google Calendar events starting in this hour. */}
+                        {dayIcsEvents
+                          .filter(
+                            (e) =>
+                              isInGridHour(e) &&
+                              new Date(e.startAt).getHours() === hour,
+                          )
+                          .map((e) => (
+                            <IcsEventChip key={e.uid} event={e} />
+                          ))}
                       </div>
                     </div>
                   );
@@ -1242,6 +1323,45 @@ export default function BookingsPage() {
 /* ------------------------------------------------------------------ */
 /*  Booking Card Component                                             */
 /* ------------------------------------------------------------------ */
+
+/** A read-only chip for a Google Calendar event overlaid on the bookings
+ * timeline. Tagged "Google" so it's clearly distinct from portal bookings,
+ * which are the only thing you can edit/cancel here. */
+function IcsEventChip({ event }: { event: IcsCalEvent }) {
+  const colour = event.userColour || "#6366f1";
+  const timeLabel = event.allDay
+    ? "All day"
+    : `${new Date(event.startAt).toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}–${new Date(event.endAt).toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`;
+  return (
+    <div
+      className="ml-3 mb-1 flex w-[calc(100%-12px)] items-start gap-2 rounded-lg border border-border bg-card/70 px-3 py-2"
+      style={{ borderLeftColor: colour, borderLeftWidth: 4 }}
+      title={`From Google Calendar — ${event.title}`}
+    >
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-foreground">
+          {event.title || "(busy)"}
+        </p>
+        <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <Clock className="h-3 w-3" />
+          <span>{timeLabel}</span>
+          {event.location && (
+            <span className="truncate">· {event.location}</span>
+          )}
+        </div>
+      </div>
+      <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+        Google
+      </span>
+    </div>
+  );
+}
 
 function BookingCard({ booking, onClick }: { booking: BookingRecord; onClick: () => void }) {
   const dur = durationToMinutes(booking.duration);
