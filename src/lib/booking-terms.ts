@@ -16,10 +16,15 @@
 
 export const TERMS_VERSION = "2026-04-29";
 
-/** Services that require a non-refundable deposit to secure the slot. */
-export const DEPOSIT_SERVICES: Record<string, { amountPence: number; label: string }> = {
-  "initial-ot": { amountPence: 10000, label: "£100" },
-};
+/**
+ * Services that require a non-refundable deposit to secure the slot.
+ *
+ * Currently empty: OT assessments are charged in full up front (no
+ * partial deposit), so no deposit clause or "£100 to secure" wording is
+ * shown anywhere. Add an entry here (keyed by BookingService.slug) to
+ * bring deposit messaging back for a specific service.
+ */
+export const DEPOSIT_SERVICES: Record<string, { amountPence: number; label: string }> = {};
 
 export interface TermsClause {
   /** Stable id used as the React key + form field name. The seeded

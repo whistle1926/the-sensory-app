@@ -153,7 +153,14 @@ function formatDate(d: Date) {
 /*  Page                                                               */
 /* ------------------------------------------------------------------ */
 
-type Step = "service" | "datetime" | "details" | "confirmed";
+type Step = "service" | "location" | "datetime" | "details" | "confirmed";
+
+/** A service is a face-to-face clinic assessment if it's an in-person
+ * service tagged with a town/venue. These are grouped under one
+ * "Face to Face OT Assessment" card and split into location tabs. */
+function isLocationAssessment(s: ServiceCatalogueRow): boolean {
+  return s.mode === "in_person" && Boolean(s.locationLabel);
+}
 
 /**
  * Next.js 15 requires anything that calls `useSearchParams()` to live
@@ -258,6 +265,30 @@ function BookingPageInner() {
   const [slotsLoaded, setSlotsLoaded] = useState(false);
 
   const service = services.find((s) => s.id === selectedService);
+
+  // Split the catalogue: the face-to-face clinic assessments are pulled
+  // out and shown under one prominent "Face to Face OT Assessment" card
+  // (most-requested service, pinned top), then chosen by location. Every
+  // other service renders as a normal card.
+  const locationServices = useMemo(
+    () => services.filter(isLocationAssessment),
+    [services],
+  );
+  const otherServices = useMemo(
+    () => services.filter((s) => !isLocationAssessment(s)),
+    [services],
+  );
+  const assessmentPriceLabel =
+    locationServices[0]?.priceLabel ?? "";
+
+  // Picking a service jumps straight into the booking flow (date & time)
+  // — no separate "Continue" click. Parents told us they kept having to
+  // scroll to find the button. One service at a time, so selecting it is
+  // an unambiguous "let's book this".
+  const chooseService = useCallback((id: string) => {
+    setSelectedService(id);
+    setStep("datetime");
+  }, []);
 
   const weekDays = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
@@ -406,7 +437,10 @@ function BookingPageInner() {
                   { key: "details", label: "Your details" },
                 ] as const
               ).map((s, i, arr) => {
-                const currentIdx = arr.findIndex((x) => x.key === step);
+                // The location-picker is part of choosing a service, so it
+                // shares the "Service" progress dot.
+                const progressStep = step === "location" ? "service" : step;
+                const currentIdx = arr.findIndex((x) => x.key === progressStep);
                 const thisIdx = i;
                 const state =
                   thisIdx < currentIdx
@@ -482,21 +516,133 @@ function BookingPageInner() {
                 </p>
               </div>
             ) : (
-              <ServicePicker
-                services={services}
-                selectedService={selectedService}
-                onSelect={setSelectedService}
-              />
-            )}
+              <div className="space-y-8">
+                {/* Most-requested: Face to Face OT Assessment, pinned to the
+                    top. One card that opens the location picker. */}
+                {locationServices.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setStep("location")}
+                    className="group relative w-full overflow-hidden rounded-2xl border-2 border-primary/30 bg-primary/[0.03] p-5 text-left shadow-[var(--shadow-sm)] card-lift hover:border-primary"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div
+                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-[var(--shadow-glow)]"
+                        style={{ backgroundColor: "oklch(0.55 0.20 264)" }}
+                      >
+                        <MapPin className="h-6 w-6 text-white" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <span className="mb-1.5 inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                          Most requested
+                        </span>
+                        <h3 className="text-lg font-bold">
+                          Face to Face OT Assessment
+                        </h3>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          {assessmentPriceLabel && (
+                            <span className="font-semibold text-primary">
+                              {assessmentPriceLabel}
+                            </span>
+                          )}
+                          <span className="text-border">|</span>
+                          <span>
+                            {locationServices.length} clinic location
+                            {locationServices.length === 1 ? "" : "s"}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                          A full in-person occupational therapy assessment.
+                          Choose the clinic nearest you to see available dates.
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {locationServices.map((s) => (
+                            <span
+                              key={s.id}
+                              className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-foreground shadow-[var(--shadow-sm)]"
+                            >
+                              <MapPin className="h-3 w-3 text-primary" />
+                              {s.locationLabel}
+                            </span>
+                          ))}
+                        </div>
+                        <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary">
+                          Choose a location
+                          <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                )}
 
-            <div className="flex justify-center">
-              <Button
-                onClick={() => selectedService && setStep("datetime")}
-                disabled={!selectedService}
-                className="h-11 rounded-xl px-8"
-              >
-                Continue
-              </Button>
+                {otherServices.length > 0 && (
+                  <ServicePicker
+                    services={otherServices}
+                    onSelect={chooseService}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ------ STEP: LOCATION (clinic tabs for the F2F assessment) ------ */}
+        {step === "location" && (
+          <div className="space-y-6">
+            <button
+              onClick={() => setStep("service")}
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to services
+            </button>
+
+            <div className="text-center">
+              <h1 className="text-2xl font-bold tracking-tight">
+                Face to Face OT Assessment
+              </h1>
+              <p className="mt-2 text-muted-foreground">
+                Choose your nearest clinic location to see available dates
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {locationServices.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => chooseService(s.id)}
+                  className="group flex items-start gap-3 rounded-2xl border-2 border-border bg-card p-5 text-left shadow-[var(--shadow-sm)] card-lift hover:border-primary"
+                >
+                  <div
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-[var(--shadow-glow)]"
+                    style={{ backgroundColor: s.colour }}
+                  >
+                    <MapPin className="h-5 w-5 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold">
+                      {s.locationLabel ?? s.title}
+                    </h3>
+                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{s.duration}</span>
+                      <span className="text-border">|</span>
+                      <span className="font-semibold text-primary">
+                        {s.priceLabel}
+                      </span>
+                    </div>
+                    {s.ownerName && (
+                      <p className="mt-1.5 text-xs text-muted-foreground">
+                        with {s.ownerName}
+                      </p>
+                    )}
+                    <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary">
+                      See dates
+                      <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                    </span>
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -505,11 +651,19 @@ function BookingPageInner() {
         {step === "datetime" && (
           <div className="space-y-6">
             <button
-              onClick={() => setStep("service")}
+              onClick={() =>
+                setStep(
+                  service && isLocationAssessment(service)
+                    ? "location"
+                    : "service",
+                )
+              }
               className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
-              Back to services
+              {service && isLocationAssessment(service)
+                ? "Back to locations"
+                : "Back to services"}
             </button>
 
             {service && (
@@ -660,7 +814,14 @@ function BookingPageInner() {
                             return (
                               <button
                                 key={time}
-                                onClick={() => setSelectedTime(time)}
+                                onClick={() => {
+                                  // Picking a time is the final calendar
+                                  // action — go straight to the details
+                                  // form rather than making them find a
+                                  // Continue button further down the page.
+                                  setSelectedTime(time);
+                                  setStep("details");
+                                }}
                                 className={`rounded-lg px-3 py-2 text-sm font-medium transition-all ${
                                   isChosen
                                     ? "bg-primary text-white shadow-[var(--shadow-glow)]"
@@ -677,18 +838,6 @@ function BookingPageInner() {
                   );
                 })()}
               </div>
-            </div>
-
-            <div className="flex justify-center">
-              <Button
-                onClick={() =>
-                  selectedDate && selectedTime && setStep("details")
-                }
-                disabled={!selectedDate || !selectedTime}
-                className="h-11 rounded-xl px-8"
-              >
-                Continue
-              </Button>
             </div>
           </div>
         )}
@@ -958,11 +1107,9 @@ function BookingPageInner() {
  */
 function ServicePicker({
   services,
-  selectedService,
   onSelect,
 }: {
   services: ServiceCatalogueRow[];
-  selectedService: string | null;
   onSelect: (id: string) => void;
 }) {
   // Full service descriptions always show — parents need to see exactly
@@ -990,7 +1137,6 @@ function ServicePicker({
           <div className="grid gap-4 sm:grid-cols-2">
             {items.map((s) => {
               const Icon = s.icon;
-              const isSelected = selectedService === s.id;
               return (
                 <div
                   key={s.id}
@@ -1003,17 +1149,8 @@ function ServicePicker({
                       onSelect(s.id);
                     }
                   }}
-                  className={`group relative cursor-pointer rounded-2xl border-2 bg-card p-5 text-left shadow-[var(--shadow-sm)] card-lift ${
-                    isSelected
-                      ? "border-primary ring-2 ring-primary/20"
-                      : "border-border"
-                  }`}
+                  className="group relative cursor-pointer rounded-2xl border-2 border-border bg-card p-5 text-left shadow-[var(--shadow-sm)] card-lift hover:border-primary"
                 >
-                  {isSelected && (
-                    <div className="absolute right-3 top-3">
-                      <CheckCircle2 className="h-5 w-5 text-primary" />
-                    </div>
-                  )}
                   <div className="flex items-start gap-3">
                     <div
                       className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-[var(--shadow-glow)]"
