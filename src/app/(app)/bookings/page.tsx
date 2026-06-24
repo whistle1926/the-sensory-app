@@ -562,6 +562,7 @@ export default function BookingsPage() {
     <div className="space-y-6">
       <Toolbar
         title="Bookings"
+        help="bookings"
         subtitle="Manage your calendar, availability, and client bookings"
         actions={
           <Button

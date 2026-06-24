@@ -139,6 +139,7 @@ export default function FormsListPage() {
     <div className="space-y-6">
       <Toolbar
         title="Forms"
+        help="forms"
         subtitle="Build intake questionnaires, consent forms, surveys — share the public link or email it directly to clients."
         actions={
           <Link href="/forms/new">

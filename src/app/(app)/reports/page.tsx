@@ -148,6 +148,7 @@ export default function ReportsPage() {
     <div className="space-y-6">
       <Toolbar
         title="Reports"
+        help="reports"
         subtitle={
           loading
             ? "Loading…"

@@ -10,6 +10,7 @@
  */
 import React from "react";
 import Link from "next/link";
+import { PageHelp } from "@/components/help/page-help";
 
 /* ──────────────────────────────────────────────────────────────────── */
 /* Toolbar — page title + subtitle + action strip on the right.        */
@@ -18,13 +19,19 @@ interface ToolbarProps {
   title: string;
   subtitle?: React.ReactNode;
   actions?: React.ReactNode;
+  /** Page-help registry key. When set, a "?" guide icon is shown next to
+   * the title (renders nothing if the key has no registered content). */
+  help?: string;
 }
 
-export function Toolbar({ title, subtitle, actions }: ToolbarProps) {
+export function Toolbar({ title, subtitle, actions, help }: ToolbarProps) {
   return (
     <div className="ds-toolbar">
       <div>
-        <h1 className="ds-page-title">{title}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="ds-page-title">{title}</h1>
+          {help && <PageHelp pageKey={help} />}
+        </div>
         {subtitle && <p className="ds-page-sub">{subtitle}</p>}
       </div>
       {actions && <div className="ds-toolbar-right">{actions}</div>}

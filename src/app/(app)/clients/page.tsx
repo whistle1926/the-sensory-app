@@ -256,6 +256,7 @@ export default function ClientsPage() {
     <div className="space-y-6">
       <Toolbar
         title="Clients"
+        help="clients"
         subtitle={
           loading
             ? "Loading…"

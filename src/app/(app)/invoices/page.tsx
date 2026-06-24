@@ -291,6 +291,7 @@ export default function InvoicesPage() {
     <div className="space-y-6">
       <Toolbar
         title="Invoices"
+        help="invoices"
         subtitle="Manage and track all invoices"
         actions={
           <div className="flex items-center gap-2">

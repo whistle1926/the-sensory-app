@@ -221,6 +221,7 @@ export default function DashboardPage() {
       {/* ── Toolbar ──────────────────────────────────────────────── */}
       <Toolbar
         title="Practice Overview"
+        help="dashboard"
         subtitle={`${date} · Good ${tod}`}
         actions={
           <>
