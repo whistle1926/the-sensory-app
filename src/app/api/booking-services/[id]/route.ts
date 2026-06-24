@@ -60,6 +60,8 @@ export async function PATCH(
   )
     data.depositPence = Math.max(0, Math.floor(body.depositPence));
   if (typeof body.isActive === "boolean") data.isActive = body.isActive;
+  if (typeof body.autoSendReferralForm === "boolean")
+    data.autoSendReferralForm = body.autoSendReferralForm;
   if (typeof body.order === "number" && Number.isFinite(body.order))
     data.order = Math.floor(body.order);
 

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { FireBuddy } from "@/lib/firebuddy";
 import { ensureEnrollment } from "@/lib/course-enrollment";
 import { sendTransactionalEmail, escapeHtml } from "@/lib/email";
+import { sendBookingReferralForm } from "@/lib/booking-referral";
 
 export async function POST(req: NextRequest) {
   const signature = req.headers.get("x-firebuddy-signature");
@@ -87,6 +88,20 @@ export async function POST(req: NextRequest) {
       } catch (err) {
         console.error("[WEBHOOK] Failed to credit income tracker:", err);
       }
+    }
+
+    // Auto-send the intake/referral form on payment, if this service is
+    // opted in (e.g. OT assessments). Best-effort + idempotent — never
+    // let it disturb the payment handling.
+    try {
+      const result = await sendBookingReferralForm(booking.id);
+      if (result.sent) {
+        console.log(
+          `[WEBHOOK] Referral form sent for booking ${booking.id} → ${result.to}`,
+        );
+      }
+    } catch (err) {
+      console.error("[WEBHOOK] Referral form auto-send failed:", err);
     }
   }
 

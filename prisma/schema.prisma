@@ -564,6 +564,12 @@ model BookingService {
   /// are attributed to them.
   ownerId         String?  @map("owner_id")
   owner           User?    @relation("BookingServiceOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  /// When true, paying for a booking of this service automatically emails
+  /// the client the intake/referral form (the published form flagged
+  /// `createsClient`). Used for OT assessments so the referral form goes
+  /// out the moment payment lands. Admin-controlled per service.
+  autoSendReferralForm Boolean @default(false) @map("auto_send_referral_form")
+
   /// Delivery mode — drives the location/online wording shown to
   /// parents and in reminder emails. "in_person" | "online" | "home".
   mode            String   @default("in_person")
@@ -600,6 +606,10 @@ model Booking {
   status        String   @default("pending")
   paymentStatus String   @default("unpaid")
   paymentRef    String?
+  // Stamped the first time the intake/referral form is auto-emailed to
+  // this client on payment (see src/lib/booking-referral.ts). Idempotency
+  // key so the webhook firing twice never double-sends the form.
+  referralFormSentAt DateTime? @map("referral_form_sent_at")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

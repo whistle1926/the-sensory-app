@@ -44,6 +44,7 @@ interface ServiceRow {
   durationMinutes: number;
   depositPence: number;
   isActive: boolean;
+  autoSendReferralForm: boolean;
   order: number;
   ownerId: string | null;
   ownerName: string | null;
@@ -485,6 +486,9 @@ function EditorPanel({
     service.durationMinutes,
   );
   const [isActive, setIsActive] = useState(service.isActive);
+  const [autoSendReferralForm, setAutoSendReferralForm] = useState(
+    service.autoSendReferralForm,
+  );
   const [ownerId, setOwnerId] = useState<string>(service.ownerId ?? "");
   const [mode, setMode] = useState(service.mode || "in_person");
   const [locationLabel, setLocationLabel] = useState(service.locationLabel ?? "");
@@ -807,6 +811,24 @@ function EditorPanel({
             className="h-5 w-5 rounded border-border text-primary focus:ring-primary"
           />
         </label>
+        <label className="flex cursor-pointer items-center justify-between rounded-xl border border-border bg-muted/30 p-3 sm:col-span-2">
+          <div>
+            <p className="text-sm font-medium">
+              Send referral form on payment
+            </p>
+            <p className="text-xs text-muted-foreground">
+              When a booking for this service is paid, the client is
+              automatically emailed the intake/referral form. Recommended for
+              OT assessments.
+            </p>
+          </div>
+          <input
+            type="checkbox"
+            checked={autoSendReferralForm}
+            onChange={(e) => setAutoSendReferralForm(e.target.checked)}
+            className="h-5 w-5 rounded border-border text-primary focus:ring-primary"
+          />
+        </label>
       </div>
 
       <div className="mt-5 flex items-center justify-end gap-2 border-t border-border pt-4">
@@ -830,6 +852,7 @@ function EditorPanel({
               durationLabel,
               durationMinutes,
               isActive,
+              autoSendReferralForm,
               mode,
               locationLabel: locationLabel.trim() || null,
               // Only admins may change ownership; omit otherwise so the
