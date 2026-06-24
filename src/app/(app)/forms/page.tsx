@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SendFormDialog } from "@/components/forms/send-form-dialog";
+import { RecipientsDialog } from "@/components/forms/recipients-dialog";
 import { Toolbar, Panel, Chip, Empty } from "@/components/ds";
 
 interface FormRow {
@@ -40,6 +41,7 @@ export default function FormsListPage() {
   const [forms, setForms] = useState<FormRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [sendFor, setSendFor] = useState<FormRow | null>(null);
+  const [recipientsFor, setRecipientsFor] = useState<FormRow | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   // Which KPI card is acting as the active list filter (null = show all).
   const [filter, setFilter] = useState<
@@ -305,10 +307,15 @@ export default function FormsListPage() {
                             </span>
                           )}
                           {form._count.invites > 0 && (
-                            <span className="inline-flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setRecipientsFor(form)}
+                              className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                              title="See who this form was sent to"
+                            >
                               <Send className="h-3 w-3" />
                               {form._count.invites} sent
-                            </span>
+                            </button>
                           )}
                           {form.isPublished && (
                             <a
@@ -384,6 +391,15 @@ export default function FormsListPage() {
           onOpenChange={(o) => !o && setSendFor(null)}
           formId={sendFor.id}
           formTitle={sendFor.title}
+        />
+      )}
+
+      {recipientsFor && (
+        <RecipientsDialog
+          open={!!recipientsFor}
+          onOpenChange={(o) => !o && setRecipientsFor(null)}
+          formId={recipientsFor.id}
+          formTitle={recipientsFor.title}
         />
       )}
     </div>
