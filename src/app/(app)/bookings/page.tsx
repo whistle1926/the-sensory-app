@@ -231,6 +231,41 @@ export default function BookingsPage() {
     clientPhone: "",
     notes: "",
   });
+  // Existing-client typeahead for the name field.
+  type ClientHit = { id: string; childName: string; parentName: string; parentEmail: string };
+  const [nbHits, setNbHits] = useState<ClientHit[]>([]);
+  const [nbHitsOpen, setNbHitsOpen] = useState(false);
+  useEffect(() => {
+    const q = nb.clientName.trim();
+    if (!nbOpen || !nbHitsOpen || q.length < 2) {
+      setNbHits([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/clients/search?q=${encodeURIComponent(q)}`);
+        if (!r.ok) {
+          setNbHits([]); // 403 for restricted users → just free-text
+          return;
+        }
+        const d = (await r.json()) as { results?: ClientHit[] };
+        setNbHits(d.results ?? []);
+      } catch {
+        setNbHits([]);
+      }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [nb.clientName, nbOpen, nbHitsOpen]);
+
+  function pickClient(hit: ClientHit) {
+    setNb((prev) => ({
+      ...prev,
+      clientName: hit.parentName || hit.childName,
+      clientEmail: hit.parentEmail || prev.clientEmail,
+    }));
+    setNbHitsOpen(false);
+    setNbHits([]);
+  }
 
   async function submitNewBooking() {
     setNbError(null);
@@ -1112,14 +1147,43 @@ export default function BookingsPage() {
                 />
               </div>
             </div>
-            <div className="space-y-1.5">
+            <div className="relative space-y-1.5">
               <Label htmlFor="nb-name">Client / parent name</Label>
               <Input
                 id="nb-name"
                 value={nb.clientName}
-                onChange={(e) => setNb({ ...nb, clientName: e.target.value })}
-                placeholder="Jane Doe"
+                autoComplete="off"
+                onChange={(e) => {
+                  setNb({ ...nb, clientName: e.target.value });
+                  setNbHitsOpen(true);
+                }}
+                onFocus={() => setNbHitsOpen(true)}
+                placeholder="Start typing to find an existing client…"
               />
+              {nbHitsOpen && nbHits.length > 0 && (
+                <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-border bg-card shadow-lg">
+                  {nbHits.map((h) => (
+                    <li key={h.id}>
+                      <button
+                        type="button"
+                        onClick={() => pickClient(h)}
+                        className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm hover:bg-muted"
+                      >
+                        <span className="font-medium">
+                          {h.parentName || h.childName}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {h.parentName ? `Child: ${h.childName}` : ""}
+                          {h.parentEmail ? ` · ${h.parentEmail}` : ""}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="text-[11px] text-muted-foreground">
+                Pick a match to fill their details, or just type a new client.
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
