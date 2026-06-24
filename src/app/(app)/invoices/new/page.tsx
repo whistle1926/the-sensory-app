@@ -55,9 +55,9 @@ function formatCurrency(pence: number, cur: string = "GBP"): string {
 }
 
 function defaultDueDate(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 14);
-  return d.toISOString().split("T")[0];
+  // Default to "due on issue" (the same day). Schools etc. that get 30-day
+  // terms can have the date changed manually before sending.
+  return new Date().toISOString().split("T")[0];
 }
 
 let nextKey = 1;
@@ -602,6 +602,29 @@ export default function NewInvoicePage() {
                   onChange={(e) => setDueDate(e.target.value)}
                   required
                 />
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-muted-foreground">Quick set:</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDueDate(new Date().toISOString().split("T")[0])
+                    }
+                    className="rounded-md border border-border px-2 py-0.5 font-medium hover:bg-muted"
+                  >
+                    Due on issue
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 30);
+                      setDueDate(d.toISOString().split("T")[0]);
+                    }}
+                    className="rounded-md border border-border px-2 py-0.5 font-medium hover:bg-muted"
+                  >
+                    30 days (schools)
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-2">

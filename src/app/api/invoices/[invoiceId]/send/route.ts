@@ -512,8 +512,13 @@ function buildInvoiceEmail(params: {
       <p style="margin:0 0 4px;font-size:12px;color:#999;text-align:center;">
         The Sensory Submarine &middot; Occupational Therapy Services
       </p>
-      <p style="margin:0;font-size:11px;color:#bbb;text-align:center;">
+      <p style="margin:0 0 8px;font-size:11px;color:#bbb;text-align:center;">
         If you have any questions about this invoice, please reply to this email.
+      </p>
+      <p style="margin:0;font-size:11px;color:#bbb;text-align:center;">
+        Don't see our emails? Add The Sensory Submarine to your contacts, and
+        check your junk/spam folder (marking us &ldquo;not junk&rdquo; helps
+        future emails reach your inbox).
       </p>
     </div>
   </div>
