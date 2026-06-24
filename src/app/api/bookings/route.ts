@@ -41,20 +41,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid email address" }, { status: 400 });
   }
 
-  // Validate T&C agreement: client must have ticked every applicable
-  // clause and submitted with the live terms version. We re-derive the
-  // expected list server-side so a mischievous client can't strip clauses.
+  // Staff booking on a client's behalf (manual booking from the admin
+  // dashboard, e.g. a phone enquiry) skips the public T&C gate — the
+  // parent isn't sitting at the form ticking boxes.
+  const session = await auth();
+  const isStaffBooking =
+    !!session?.user && session.user.role !== "CLIENT";
+
   const termsCfg = await getTermsConfig();
-  const expectedClauseIds = (
-    await clausesForServiceFromDb(service)
-  ).map((c) => c.id);
-  const submittedIds: string[] = Array.isArray(acceptedClauses) ? acceptedClauses : [];
-  const allTicked = expectedClauseIds.every((id) => submittedIds.includes(id));
-  if (!allTicked || acceptedTermsVersion !== termsCfg.version) {
-    return NextResponse.json(
-      { error: "Please tick all of the terms boxes to confirm your booking." },
-      { status: 400 },
-    );
+  if (!isStaffBooking) {
+    // Validate T&C agreement: client must have ticked every applicable
+    // clause and submitted with the live terms version. We re-derive the
+    // expected list server-side so a mischievous client can't strip clauses.
+    const expectedClauseIds = (
+      await clausesForServiceFromDb(service)
+    ).map((c) => c.id);
+    const submittedIds: string[] = Array.isArray(acceptedClauses) ? acceptedClauses : [];
+    const allTicked = expectedClauseIds.every((id) => submittedIds.includes(id));
+    if (!allTicked || acceptedTermsVersion !== termsCfg.version) {
+      return NextResponse.json(
+        { error: "Please tick all of the terms boxes to confirm your booking." },
+        { status: 400 },
+      );
+    }
   }
 
   const normalisedEmail = clientEmail.toLowerCase().trim();

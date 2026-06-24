@@ -3,6 +3,14 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   CalendarDays,
   Link2,
@@ -208,6 +216,59 @@ export default function BookingsPage() {
 
   // Selected booking detail
   const [selectedBooking, setSelectedBooking] = useState<BookingRecord | null>(null);
+
+  /* ------ Manual ("new") booking from the dashboard ------ */
+  const [nbOpen, setNbOpen] = useState(false);
+  const [nbSaving, setNbSaving] = useState(false);
+  const [nbError, setNbError] = useState<string | null>(null);
+  const [nb, setNb] = useState({
+    service: "",
+    date: "",
+    time: "",
+    duration: "",
+    clientName: "",
+    clientEmail: "",
+    clientPhone: "",
+    notes: "",
+  });
+
+  async function submitNewBooking() {
+    setNbError(null);
+    if (!nb.service || !nb.date || !nb.time || !nb.clientName.trim() || !nb.clientEmail.trim()) {
+      setNbError("Service, date, time, client name and email are all required.");
+      return;
+    }
+    setNbSaving(true);
+    try {
+      const res = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service: nb.service,
+          // Stored as a Date — send midnight UTC of the chosen day so it
+          // matches how the public flow records dates.
+          date: new Date(`${nb.date}T00:00:00`).toISOString(),
+          time: nb.time,
+          duration: nb.duration,
+          clientName: nb.clientName.trim(),
+          clientEmail: nb.clientEmail.trim(),
+          clientPhone: nb.clientPhone.trim() || undefined,
+          notes: nb.notes.trim() || undefined,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        throw new Error(data.error ?? `Booking failed (${res.status})`);
+      }
+      setNbOpen(false);
+      setNb({ service: "", date: "", time: "", duration: "", clientName: "", clientEmail: "", clientPhone: "", notes: "" });
+      await fetchBookings();
+    } catch (e) {
+      setNbError(e instanceof Error ? e.message : "Booking failed");
+    } finally {
+      setNbSaving(false);
+    }
+  }
 
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
   const bookingLink = typeof window !== "undefined" ? `${window.location.origin}/book` : "/book";
@@ -467,6 +528,18 @@ export default function BookingsPage() {
       <Toolbar
         title="Bookings"
         subtitle="Manage your calendar, availability, and client bookings"
+        actions={
+          <Button
+            onClick={() => {
+              setNbError(null);
+              setNbOpen(true);
+            }}
+            className="rounded-xl"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            New booking
+          </Button>
+        }
       />
 
       {/* Booking Link Card */}
@@ -993,6 +1066,110 @@ export default function BookingsPage() {
           </div>
         </div>
       )}
+
+      {/* Manual booking — staff book on a client's behalf (e.g. a phone
+          enquiry). Skips the public T&C step server-side. */}
+      <Dialog open={nbOpen} onOpenChange={setNbOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>New booking</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="nb-service">Service</Label>
+              <select
+                id="nb-service"
+                value={nb.service}
+                onChange={(e) => setNb({ ...nb, service: e.target.value })}
+                className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="">Choose a service…</option>
+                {manageableServices.map((s) => (
+                  <option key={s.id} value={s.slug}>
+                    {s.title}
+                    {s.ownerName ? ` — ${s.ownerName}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="nb-date">Date</Label>
+                <Input
+                  id="nb-date"
+                  type="date"
+                  value={nb.date}
+                  onChange={(e) => setNb({ ...nb, date: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="nb-time">Time</Label>
+                <Input
+                  id="nb-time"
+                  type="time"
+                  value={nb.time}
+                  onChange={(e) => setNb({ ...nb, time: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="nb-name">Client / parent name</Label>
+              <Input
+                id="nb-name"
+                value={nb.clientName}
+                onChange={(e) => setNb({ ...nb, clientName: e.target.value })}
+                placeholder="Jane Doe"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="nb-email">Email</Label>
+                <Input
+                  id="nb-email"
+                  type="email"
+                  value={nb.clientEmail}
+                  onChange={(e) => setNb({ ...nb, clientEmail: e.target.value })}
+                  placeholder="jane@example.com"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="nb-phone">Phone (optional)</Label>
+                <Input
+                  id="nb-phone"
+                  value={nb.clientPhone}
+                  onChange={(e) => setNb({ ...nb, clientPhone: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="nb-notes">Notes (optional)</Label>
+              <textarea
+                id="nb-notes"
+                value={nb.notes}
+                onChange={(e) => setNb({ ...nb, notes: e.target.value })}
+                rows={2}
+                className="w-full resize-y rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+            {nbError && (
+              <p className="text-xs text-red-600 dark:text-red-400">{nbError}</p>
+            )}
+          </div>
+          <div className="-mx-4 -mb-4 mt-1 flex items-center justify-end gap-2 rounded-b-xl border-t border-border bg-muted/40 px-4 py-3">
+            <Button
+              variant="outline"
+              onClick={() => setNbOpen(false)}
+              disabled={nbSaving}
+              className="rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button onClick={submitNewBooking} disabled={nbSaving} className="rounded-xl">
+              {nbSaving ? "Booking…" : "Create booking"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
