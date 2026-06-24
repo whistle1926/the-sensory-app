@@ -37,6 +37,9 @@ interface User {
   dashTemplateId: string | null;
   hasPassword?: boolean;
   createdAt: string;
+  photoUrl?: string | null;
+  bio?: string | null;
+  phone?: string | null;
 }
 
 const roleColour: Record<string, string> = {
@@ -385,6 +388,12 @@ export default function TeamPage() {
             )
           }
           onDetailsSaved={(id, next) => {
+            setUsers((prev) =>
+              prev.map((u) => (u.id === id ? { ...u, ...next } : u)),
+            );
+            setProfileUser((p) => (p && p.id === id ? { ...p, ...next } : p));
+          }}
+          onProfileSaved={(id, next) => {
             setUsers((prev) =>
               prev.map((u) => (u.id === id ? { ...u, ...next } : u)),
             );

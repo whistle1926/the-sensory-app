@@ -44,6 +44,10 @@ interface ServiceCatalogueRow {
   locationLabel: string | null;
   /** Display name of the associate who runs this service, if any. */
   ownerName: string | null;
+  /** Therapist profile (shown on the location step). */
+  ownerPhotoUrl: string | null;
+  ownerBio: string | null;
+  ownerPhone: string | null;
   /** Picked at render time \u2014 every card gets a consistent icon based on
    * a stable hash of the slug so it doesn't change between visits. */
   icon: typeof Video;
@@ -81,6 +85,9 @@ function adaptService(
     mode?: string;
     locationLabel?: string | null;
     ownerName?: string | null;
+    ownerPhotoUrl?: string | null;
+    ownerBio?: string | null;
+    ownerPhone?: string | null;
   },
 ): ServiceCatalogueRow {
   const h = hashCode(row.slug);
@@ -96,6 +103,9 @@ function adaptService(
     mode: row.mode || "in_person",
     locationLabel: row.locationLabel ?? null,
     ownerName: row.ownerName ?? null,
+    ownerPhotoUrl: row.ownerPhotoUrl ?? null,
+    ownerBio: row.ownerBio ?? null,
+    ownerPhone: row.ownerPhone ?? null,
     icon: ICON_PALETTE[h % ICON_PALETTE.length],
     colour: COLOUR_PALETTE[h % COLOUR_PALETTE.length],
   };
@@ -612,35 +622,68 @@ function BookingPageInner() {
                   key={s.id}
                   type="button"
                   onClick={() => chooseService(s.id)}
-                  className="group flex items-start gap-3 rounded-2xl border-2 border-border bg-card p-5 text-left shadow-[var(--shadow-sm)] card-lift hover:border-primary"
+                  className="group flex flex-col rounded-2xl border-2 border-border bg-card p-5 text-left shadow-[var(--shadow-sm)] card-lift hover:border-primary"
                 >
-                  <div
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-[var(--shadow-glow)]"
-                    style={{ backgroundColor: s.colour }}
-                  >
-                    <MapPin className="h-5 w-5 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold">
-                      {s.locationLabel ?? s.title}
-                    </h3>
-                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>{s.duration}</span>
-                      <span className="text-border">|</span>
-                      <span className="font-semibold text-primary">
-                        {s.priceLabel}
-                      </span>
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-[var(--shadow-glow)]"
+                      style={{ backgroundColor: s.colour }}
+                    >
+                      <MapPin className="h-5 w-5 text-white" />
                     </div>
-                    {s.ownerName && (
-                      <p className="mt-1.5 text-xs text-muted-foreground">
-                        with {s.ownerName}
-                      </p>
-                    )}
-                    <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary">
-                      See dates
-                      <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                    </span>
+                    <div className="flex-1">
+                      <h3 className="font-semibold">
+                        {s.locationLabel ?? s.title}
+                      </h3>
+                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{s.duration}</span>
+                        <span className="text-border">|</span>
+                        <span className="font-semibold text-primary">
+                          {s.priceLabel}
+                        </span>
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Therapist profile — who you'll be seeing at this clinic. */}
+                  {(s.ownerName || s.ownerPhotoUrl) && (
+                    <div className="mt-4 flex items-start gap-3 rounded-xl bg-muted/40 p-3">
+                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
+                        {s.ownerPhotoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={s.ownerPhotoUrl}
+                            alt={s.ownerName ?? "Therapist"}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                            <Users className="h-5 w-5" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        {s.ownerName && (
+                          <p className="text-sm font-semibold">{s.ownerName}</p>
+                        )}
+                        {s.ownerBio && (
+                          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                            {s.ownerBio}
+                          </p>
+                        )}
+                        {s.ownerPhone && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {s.ownerPhone}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary">
+                    See dates
+                    <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                  </span>
                 </button>
               ))}
             </div>

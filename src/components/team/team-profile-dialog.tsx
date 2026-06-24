@@ -12,18 +12,23 @@
  * it to share); it's hashed server-side and never returned. Reset is
  * audit-logged in the API.
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Building2,
   CheckCircle2,
   KeyRound,
+  Loader2,
   Mail,
+  Phone,
   RefreshCw,
   ShieldCheck,
+  Upload,
+  UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +44,9 @@ export interface TeamMember {
   business: string | null;
   hasPassword?: boolean;
   createdAt: string;
+  photoUrl?: string | null;
+  bio?: string | null;
+  phone?: string | null;
 }
 
 interface Props {
@@ -50,6 +58,11 @@ interface Props {
   onPasswordSet: (memberId: string) => void;
   /** Called after name/email is saved so the card reflects the change. */
   onDetailsSaved: (memberId: string, next: { name: string; email: string }) => void;
+  /** Called after the booking-page profile (photo/bio/phone) is saved. */
+  onProfileSaved: (
+    memberId: string,
+    next: { photoUrl: string | null; bio: string | null; phone: string | null },
+  ) => void;
 }
 
 /** A readable-over-the-phone password (no 0/O, 1/l/I confusion). */
@@ -69,6 +82,7 @@ export function TeamProfileDialog({
   onClose,
   onPasswordSet,
   onDetailsSaved,
+  onProfileSaved,
 }: Props) {
   const [password, setPassword] = useState(() => suggestPassword());
   const [saving, setSaving] = useState(false);
@@ -85,6 +99,77 @@ export function TeamProfileDialog({
     name.trim() !== member.name || email.trim().toLowerCase() !== member.email;
 
   const firstName = (name || member.name).split(" ")[0] || member.name;
+
+  // ── Booking-page profile: photo, bio, contact number ──────────────
+  const [photoUrl, setPhotoUrl] = useState<string | null>(member.photoUrl ?? null);
+  const [bio, setBio] = useState(member.bio ?? "");
+  const [phone, setPhone] = useState(member.phone ?? "");
+  const [uploading, setUploading] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState("");
+  const [profileSaved, setProfileSaved] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const profileDirty =
+    photoUrl !== (member.photoUrl ?? null) ||
+    bio.trim() !== (member.bio ?? "") ||
+    phone.trim() !== (member.phone ?? "");
+
+  async function uploadPhoto(file: File) {
+    setProfileError("");
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/uploads/therapist-photo", {
+        method: "POST",
+        body: fd,
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        url?: string;
+        error?: string;
+      };
+      if (!res.ok || !data.url) {
+        throw new Error(data.error ?? "Couldn't upload the image.");
+      }
+      setPhotoUrl(data.url);
+      setProfileSaved(false);
+    } catch (e) {
+      setProfileError(e instanceof Error ? e.message : "Couldn't upload the image.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function saveProfile() {
+    setSavingProfile(true);
+    setProfileError("");
+    try {
+      const next = {
+        photoUrl: photoUrl,
+        bio: bio.trim() || null,
+        phone: phone.trim() || null,
+      };
+      const res = await fetch(`/api/users/${member.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          photoUrl: photoUrl ?? "",
+          bio: next.bio ?? "",
+          phone: next.phone ?? "",
+        }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? "Couldn't save the profile.");
+      }
+      setProfileSaved(true);
+      onProfileSaved(member.id, next);
+    } catch (e) {
+      setProfileError(e instanceof Error ? e.message : "Couldn't save the profile.");
+    } finally {
+      setSavingProfile(false);
+    }
+  }
 
   async function saveDetails() {
     if (!name.trim()) {
@@ -228,6 +313,130 @@ export function TeamProfileDialog({
                 className="rounded-xl"
               >
                 {savingDetails ? "Saving…" : "Save details"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="border-t border-border" />
+
+          {/* Booking-page profile: photo + bio + contact number. Shown to
+              parents when they pick this person's clinic on /book. */}
+          <div className="space-y-3">
+            <Label className="flex items-center gap-1.5">
+              <UserRound className="h-3.5 w-3.5" />
+              Booking-page profile
+            </Label>
+            <p className="-mt-1 text-[11px] text-muted-foreground">
+              Shown to parents when they choose {firstName}&apos;s clinic on the
+              booking page.
+            </p>
+
+            <div className="flex items-start gap-3">
+              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
+                {photoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={photoUrl}
+                    alt={member.name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                    <UserRound className="h-7 w-7" />
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) uploadPhoto(f);
+                    e.target.value = "";
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={uploading}
+                  onClick={() => fileRef.current?.click()}
+                  className="rounded-xl"
+                >
+                  {uploading ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Upload className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  {photoUrl ? "Change photo" : "Upload photo"}
+                </Button>
+                {photoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPhotoUrl(null);
+                      setProfileSaved(false);
+                    }}
+                    className="text-left text-[11px] text-muted-foreground hover:text-red-600"
+                  >
+                    Remove photo
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="member-bio">Short bio</Label>
+              <Textarea
+                id="member-bio"
+                value={bio}
+                onChange={(e) => {
+                  setBio(e.target.value);
+                  setProfileSaved(false);
+                }}
+                rows={3}
+                placeholder={`A few lines about ${firstName} — experience, specialisms, a warm welcome.`}
+                className="rounded-xl"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="member-phone" className="flex items-center gap-1.5">
+                <Phone className="h-3.5 w-3.5" />
+                Contact number
+              </Label>
+              <Input
+                id="member-phone"
+                value={phone}
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  setProfileSaved(false);
+                }}
+                placeholder="e.g. 07700 900000"
+                className="rounded-xl"
+              />
+            </div>
+
+            {profileError && (
+              <p className="text-xs text-red-600 dark:text-red-400">{profileError}</p>
+            )}
+            <div className="flex items-center justify-end gap-2">
+              {profileSaved && !profileDirty && (
+                <span className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Saved
+                </span>
+              )}
+              <Button
+                variant="outline"
+                onClick={saveProfile}
+                disabled={!profileDirty || savingProfile || uploading}
+                className="rounded-xl"
+              >
+                {savingProfile ? "Saving…" : "Save profile"}
               </Button>
             </div>
           </div>

@@ -41,13 +41,27 @@ export async function GET(req: NextRequest) {
   const rows = await prisma.bookingService.findMany({
     where: showInactive ? {} : { isActive: true },
     orderBy: [{ order: "asc" }, { createdAt: "asc" }],
-    include: { owner: { select: { id: true, name: true } } },
+    include: {
+      owner: {
+        select: {
+          id: true,
+          name: true,
+          photoUrl: true,
+          bio: true,
+          phone: true,
+        },
+      },
+    },
   });
-  // Flatten the owner relation to a name for convenient display on the
-  // public cards + admin list, while keeping ownerId for the editor.
+  // Flatten the owner relation for the public cards + admin list, while
+  // keeping ownerId for the editor. The therapist profile fields are
+  // surfaced so the booking page can show who runs each clinic.
   const shaped = rows.map(({ owner, ...svc }) => ({
     ...svc,
     ownerName: owner?.name ?? null,
+    ownerPhotoUrl: owner?.photoUrl ?? null,
+    ownerBio: owner?.bio ?? null,
+    ownerPhone: owner?.phone ?? null,
   }));
   return NextResponse.json(shaped);
 }

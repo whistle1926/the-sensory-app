@@ -119,6 +119,27 @@ export async function PATCH(
     data.dashTemplateId = body.dashTemplateId;
   }
 
+  // Therapist profile fields shown on the public booking page. All
+  // optional; empty string clears the value.
+  if ("photoUrl" in body) {
+    data.photoUrl =
+      typeof body.photoUrl === "string" && body.photoUrl.trim()
+        ? body.photoUrl.trim()
+        : null;
+  }
+  if ("bio" in body) {
+    data.bio =
+      typeof body.bio === "string" && body.bio.trim()
+        ? body.bio.trim().slice(0, 2_000)
+        : null;
+  }
+  if ("phone" in body) {
+    data.phone =
+      typeof body.phone === "string" && body.phone.trim()
+        ? body.phone.trim().slice(0, 40)
+        : null;
+  }
+
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
   }
@@ -126,7 +147,16 @@ export async function PATCH(
   const user = await prisma.user.update({
     where: { id: userId },
     data,
-    select: { id: true, email: true, name: true, role: true, dashTemplateId: true },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      dashTemplateId: true,
+      photoUrl: true,
+      bio: true,
+      phone: true,
+    },
   });
 
   // Audit password resets — a sensitive action. We record who did it and

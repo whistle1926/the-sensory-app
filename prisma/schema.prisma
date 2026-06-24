@@ -86,6 +86,13 @@ model User {
   calendarIcsUrl  String?
   calendarColour  String? // e.g. "#3b82f6" — defaults applied at render
 
+  // ── Therapist profile (shown on the public booking page) ──────────
+  // Surfaced when a parent picks a clinic location so they can see who
+  // they'll be seeing. Edited by an admin in Team → View Profile.
+  photoUrl        String? // headshot, uploaded via admin → Vercel Blob
+  bio             String? @db.Text
+  phone           String? // contact number shown on the clinic card
+
   // ── Email signatures (multi) ────────────────────────────────────
   // Stored inline as JSON rather than a separate table because
   // signatures are short, per-user, and only ever read with the user.

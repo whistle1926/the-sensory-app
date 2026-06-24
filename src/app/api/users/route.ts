@@ -18,6 +18,9 @@ export async function GET() {
       business: true,
       dashTemplateId: true,
       createdAt: true,
+      photoUrl: true,
+      bio: true,
+      phone: true,
       // Selected only to derive a boolean — the hash itself is never
       // returned to the client.
       passwordHash: true,
