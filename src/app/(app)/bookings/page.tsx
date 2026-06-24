@@ -353,12 +353,14 @@ export default function BookingsPage() {
       if (res.ok) {
         const data = (await res.json()) as { events?: IcsCalEvent[] };
         const all = Array.isArray(data.events) ? data.events : [];
-        // Just my own diary on my bookings calendar (admins still see
-        // everyone on the dedicated Team Calendar page).
-        setIcsEvents(myId ? all.filter((e) => e.userId === myId) : all);
+        // Show every connected staff calendar — this is the practice
+        // diary. (We deliberately don't filter to the signed-in user:
+        // the same person can have more than one admin login, and the
+        // calendar may be connected to a different one of them.)
+        setIcsEvents(all);
       }
     } catch { /* silent */ }
-  }, [weekDays, myId]);
+  }, [weekDays]);
 
   useEffect(() => {
     fetchIcsEvents();
@@ -745,6 +747,17 @@ export default function BookingsPage() {
             {weekDays.map((day, i) => {
               const isSelected = isSameDay(day, selectedDay);
               const isToday = isSameDay(day, today);
+              // Does this day have anything on it? Drives a dot under the
+              // date so busy days stand out in the daily view (otherwise
+              // an empty selected day makes the whole week look blank).
+              const hasBooking = bookings.some(
+                (b) =>
+                  isSameDay(new Date(b.date), day) && b.status !== "cancelled",
+              );
+              const hasIcs = icsEvents.some((e) =>
+                isSameDay(new Date(e.startAt), day),
+              );
+              const hasActivity = hasBooking || hasIcs;
               return (
                 <button
                   key={i}
@@ -763,6 +776,16 @@ export default function BookingsPage() {
                   >
                     {String(day.getDate()).padStart(2, "0")}
                   </span>
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      hasActivity
+                        ? isSelected
+                          ? "bg-white"
+                          : "bg-primary"
+                        : "bg-transparent"
+                    }`}
+                    aria-hidden
+                  />
                 </button>
               );
             })}
