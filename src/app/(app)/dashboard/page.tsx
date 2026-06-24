@@ -62,8 +62,20 @@ interface RevenueCell {
   v: number;
   active: boolean;
 }
+interface RangeMetrics {
+  revenuePence: number;
+  revenueDeltaPct: number;
+  reports: number;
+  reportsDeltaPct: number;
+  bookings: number;
+  bookingsDeltaPct: number;
+  newClients: number;
+  clientsDeltaPct: number;
+}
 interface DashData {
   kpis: Kpi[];
+  metricsByRange?: Record<"today" | "week" | "month" | "quarter", RangeMetrics>;
+  activeClients?: number;
   pipeline: PipelineRow[];
   pipelineTotal: number;
   agenda: AgendaItem[];
@@ -141,6 +153,49 @@ export default function DashboardPage() {
 
   const { date, tod } = useMemo(() => formatGreeting(data.now), [data.now]);
 
+  // KPI cards driven by the Today/Week/Month/Quarter selector. Values come
+  // from the period metrics; the spark series are the shared 14-day trends.
+  const displayKpis = useMemo<Kpi[]>(() => {
+    const m = data.metricsByRange?.[dateRange];
+    const rl = { today: "Today", week: "This week", month: "This month", quarter: "This quarter" }[dateRange];
+    const low = rl.toLowerCase();
+    const sp = (i: number) => data.kpis[i]?.spark ?? [];
+    return [
+      {
+        key: "active_clients",
+        label: "Active Clients",
+        value: String(data.activeClients ?? 0),
+        deltaPct: m?.clientsDeltaPct ?? 0,
+        helper: `${m?.newClients ?? 0} new · ${low}`,
+        spark: sp(0),
+      },
+      {
+        key: "reports",
+        label: `Reports · ${rl}`,
+        value: String(m?.reports ?? 0),
+        deltaPct: m?.reportsDeltaPct ?? 0,
+        helper: `${m?.reports ?? 0} ${low}`,
+        spark: sp(1),
+      },
+      {
+        key: "bookings",
+        label: `Bookings · ${rl}`,
+        value: String(m?.bookings ?? 0),
+        deltaPct: m?.bookingsDeltaPct ?? 0,
+        helper: `${data.agenda.length} today`,
+        spark: sp(2),
+      },
+      {
+        key: "revenue",
+        label: `Revenue · ${rl}`,
+        value: formatCurrency((m?.revenuePence ?? 0) / 100),
+        deltaPct: m?.revenueDeltaPct ?? 0,
+        helper: "Received in Fire",
+        spark: sp(3),
+      },
+    ];
+  }, [data, dateRange]);
+
   const maxPipeline = useMemo(
     () => Math.max(1, ...data.pipeline.map((p) => p.count)),
     [data.pipeline],
@@ -187,7 +242,7 @@ export default function DashboardPage() {
 
       {/* ── KPI row ──────────────────────────────────────────────── */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {(loading ? Array.from({ length: 4 }) : data.kpis).map((raw, i) => {
+        {(loading ? Array.from({ length: 4 }) : displayKpis).map((raw, i) => {
           const k = raw as Kpi | undefined;
           const Icon = KPI_ICONS[i] ?? Users;
           const Trend =

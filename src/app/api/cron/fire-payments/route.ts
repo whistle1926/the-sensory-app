@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendMail } from "@/lib/mailer";
-import { getFirePaymentsReceived } from "@/lib/fire-payments";
+import { getFirePaymentsReceived, syncFireIncomeToTracker } from "@/lib/fire-payments";
 
 export const maxDuration = 30;
 
@@ -35,6 +35,10 @@ export async function GET(req: NextRequest) {
   if (!result.configured) {
     return NextResponse.json({ ok: true, configured: false });
   }
+
+  // Keep the income tracker (→ dashboard revenue) in step with the real
+  // Fire payments, stamped with their actual landing dates.
+  const sync = await syncFireIncomeToTracker();
 
   // Landed in roughly the last 25 hours (cron runs daily; a little overlap
   // is harmless — this is an FYI digest, not a ledger).
@@ -100,5 +104,6 @@ export async function GET(req: NextRequest) {
     ok: true,
     received: recent.length,
     totalPayments: result.payments.length,
+    incomeSynced: sync.synced,
   });
 }

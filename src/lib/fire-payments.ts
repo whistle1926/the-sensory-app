@@ -152,3 +152,46 @@ export async function getFirePaymentsReceived(): Promise<FirePaymentsResult> {
 
   return { configured: true, accounts, payments };
 }
+
+/**
+ * Mirror the real Fire payments into the private income tracker so the
+ * dashboard revenue reflects money that ACTUALLY landed (the source of
+ * truth), self-correcting as new payments arrive. Idempotent: upserts an
+ * IncomeEntry per matched invoice payment keyed on (source, reference),
+ * stamping the REAL Fire transaction date as occurredAt. Run from the
+ * daily fire-payments cron. Returns how many entries were written.
+ */
+export async function syncFireIncomeToTracker(): Promise<{ synced: number }> {
+  const result = await getFirePaymentsReceived();
+  if (!result.configured || result.error) return { synced: 0 };
+
+  let synced = 0;
+  for (const p of result.payments) {
+    // Only payments matched to an invoice with the full amount count as
+    // income — top-ups / mismatches are left out.
+    if (!p.invoiceId || !p.amountMatches) continue;
+    const occurredAt = new Date(p.date);
+    const description = p.invoiceNumber
+      ? `${p.invoiceNumber} — ${p.clientName ?? ""}`.trim()
+      : "Fire payment";
+    try {
+      await prisma.incomeEntry.upsert({
+        where: {
+          source_reference: { source: "INVOICE", reference: p.invoiceId },
+        },
+        update: { amount: p.amountPence, occurredAt, description },
+        create: {
+          source: "INVOICE",
+          reference: p.invoiceId,
+          amount: p.amountPence,
+          occurredAt,
+          description,
+        },
+      });
+      synced++;
+    } catch (err) {
+      console.error("[fire-income] upsert failed for", p.invoiceNumber, err);
+    }
+  }
+  return { synced };
+}

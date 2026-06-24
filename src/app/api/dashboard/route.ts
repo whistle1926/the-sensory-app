@@ -154,10 +154,6 @@ async function computeDashboardAggregates() {
       recentReportCounts14,
       stages,
       clientsByStage,
-      paidInvoicesSince,
-      paidInvoicesPrevSince,
-      completedBookingsSince,
-      completedBookingsPrevSince,
       outstandingInvoices,
     ] = await Promise.all([
       countsPromise,
@@ -206,36 +202,6 @@ async function computeDashboardAggregates() {
         where: { active: true },
         _count: { _all: true },
       }),
-      prisma.invoice.findMany({
-        where: { paidAt: { gte: start14 } },
-        select: { paidAt: true, total: true, currency: true },
-      }),
-      prisma.invoice.findMany({
-        where: {
-          paidAt: {
-            gte: new Date(start14.getTime() - 14 * 86400000),
-            lt: start14,
-          },
-        },
-        select: { total: true },
-      }),
-      prisma.booking.findMany({
-        where: {
-          paymentStatus: "paid",
-          date: { gte: start14 },
-        },
-        select: { date: true, price: true },
-      }),
-      prisma.booking.findMany({
-        where: {
-          paymentStatus: "paid",
-          date: {
-            gte: new Date(start14.getTime() - 14 * 86400000),
-            lt: start14,
-          },
-        },
-        select: { price: true },
-      }),
       prisma.invoice.aggregate({
         where: {
           status: { in: ["sent", "overdue", "draft"] },
@@ -255,6 +221,80 @@ async function computeDashboardAggregates() {
     const bookingsThisWeek = Number(row?.bookings_this_week ?? 0);
     const bookingsPrevWeek = Number(row?.bookings_prev_week ?? 0);
 
+    // ── % delta helper (used by the per-range metrics + legacy KPIs) ───
+    const pct = (cur: number, prev: number): number => {
+      if (prev === 0) return cur === 0 ? 0 : 100;
+      return Math.round(((cur - prev) / prev) * 100);
+    };
+
+    // ── Period-driven metrics for the Today/Week/Month/Quarter selector ─
+    // Revenue is the REAL money that landed (IncomeEntry, synced from the
+    // Fire account), so the figure self-corrects as payments arrive.
+    const quarterStart = new Date(
+      now.getFullYear(),
+      Math.floor(now.getMonth() / 3) * 3,
+      1,
+    );
+    type Range = "today" | "week" | "month" | "quarter";
+    const periodStartOf: Record<Range, Date> = {
+      today: startOfToday,
+      week: weekStart,
+      month: monthStart,
+      quarter: quarterStart,
+    };
+    // Pull raw rows once over the widest window (≈ two quarters) and bucket
+    // per range in JS — cheap, and avoids a query per range.
+    const widest = new Date(
+      quarterStart.getTime() - (now.getTime() - quarterStart.getTime()) - 86_400_000,
+    );
+    const [incomeRows, periodReports, periodBookings, periodClients] =
+      await Promise.all([
+        prisma.incomeEntry.findMany({
+          where: { occurredAt: { gte: widest } },
+          select: { amount: true, occurredAt: true },
+        }),
+        prisma.report.findMany({
+          where: { createdAt: { gte: widest } },
+          select: { createdAt: true },
+        }),
+        prisma.booking.findMany({
+          where: { date: { gte: widest }, status: { not: "cancelled" } },
+          select: { date: true },
+        }),
+        prisma.client.findMany({
+          where: { active: true, createdAt: { gte: widest } },
+          select: { createdAt: true },
+        }),
+      ]);
+    const inWin = (d: Date, s: Date, e: Date) => d >= s && d < e;
+    function metricsFor(range: Range) {
+      const pStart = periodStartOf[range];
+      const pLen = now.getTime() - pStart.getTime();
+      const prevStart = new Date(pStart.getTime() - pLen);
+      const rev = (s: Date, e: Date) =>
+        incomeRows.filter((r) => inWin(r.occurredAt, s, e)).reduce((a, r) => a + r.amount, 0);
+      const cnt = (rows: { d: Date }[], s: Date, e: Date) =>
+        rows.filter((r) => inWin(r.d, s, e)).length;
+      const reps = periodReports.map((r) => ({ d: r.createdAt }));
+      const bks = periodBookings.map((b) => ({ d: b.date }));
+      const cls = periodClients.map((c) => ({ d: c.createdAt }));
+      return {
+        revenuePence: rev(pStart, now),
+        revenueDeltaPct: pct(rev(pStart, now), rev(prevStart, pStart)),
+        reports: cnt(reps, pStart, now),
+        reportsDeltaPct: pct(cnt(reps, pStart, now), cnt(reps, prevStart, pStart)),
+        bookings: cnt(bks, pStart, now),
+        bookingsDeltaPct: pct(cnt(bks, pStart, now), cnt(bks, prevStart, pStart)),
+        newClients: cnt(cls, pStart, now),
+        clientsDeltaPct: pct(cnt(cls, pStart, now), cnt(cls, prevStart, pStart)),
+      };
+    }
+    const metricsByRange = {
+      today: metricsFor("today"),
+      week: metricsFor("week"),
+      month: metricsFor("month"),
+      quarter: metricsFor("quarter"),
+    };
 
     // ── Build 14-day series helpers ────────────────────────────────────
     const dayKey = (d: Date) => {
@@ -282,19 +322,14 @@ async function computeDashboardAggregates() {
       if (k in reportSeries) reportSeries[k]++;
     }
 
-    // Revenue per day (paid invoices in pence + paid bookings in pounds)
-    // Invoice.total is in pence; Booking.price is in pounds — normalise to pounds.
+    // Revenue per day (last 14) — real money that landed, from the
+    // Fire-synced income tracker, stamped on the actual landing date.
     const revenueSeriesPence = Object.fromEntries(
       days14.map((d) => [dayKey(d), 0]),
     ) as Record<string, number>;
-    for (const inv of paidInvoicesSince) {
-      if (!inv.paidAt) continue;
-      const k = dayKey(inv.paidAt);
-      if (k in revenueSeriesPence) revenueSeriesPence[k] += inv.total;
-    }
-    for (const b of completedBookingsSince) {
-      const k = dayKey(b.date);
-      if (k in revenueSeriesPence) revenueSeriesPence[k] += (b.price ?? 0) * 100;
+    for (const e of incomeRows) {
+      const k = dayKey(e.occurredAt);
+      if (k in revenueSeriesPence) revenueSeriesPence[k] += e.amount;
     }
     // Bookings-this-week count (not counting cancelled):
     // The raw count above includes all statuses except absence of filter — refine
@@ -302,27 +337,7 @@ async function computeDashboardAggregates() {
     // already exclude "cancelled" from the list view via status filters.
 
     // ── KPI deltas ─────────────────────────────────────────────────────
-    const pct = (now: number, prev: number): number => {
-      if (prev === 0) return now === 0 ? 0 : 100;
-      return Math.round(((now - prev) / prev) * 100);
-    };
-
-    const revenueMtdPence =
-      paidInvoicesSince
-        .filter((i) => i.paidAt && i.paidAt >= monthStart)
-        .reduce((s, i) => s + i.total, 0) +
-      completedBookingsSince
-        .filter((b) => b.date >= monthStart)
-        .reduce((s, b) => s + (b.price ?? 0) * 100, 0);
-
-    // Revenue-prev14 delta: compare last 14 days sum vs previous 14 days sum.
-    const revenueLast14Pence = Object.values(revenueSeriesPence).reduce(
-      (a, b) => a + b,
-      0,
-    );
-    const revenuePrev14Pence =
-      paidInvoicesPrevSince.reduce((s, i) => s + i.total, 0) +
-      completedBookingsPrevSince.reduce((s, b) => s + (b.price ?? 0) * 100, 0);
+    const revenueMtdPence = metricsByRange.month.revenuePence;
 
     const kpis = [
       {
@@ -359,7 +374,7 @@ async function computeDashboardAggregates() {
         key: "revenue_mtd",
         label: "Revenue · MTD",
         value: "£" + Math.round(revenueMtdPence / 100).toLocaleString("en-GB"),
-        deltaPct: pct(revenueLast14Pence, revenuePrev14Pence),
+        deltaPct: metricsByRange.month.revenueDeltaPct,
         helper: "Paid this month",
         spark: days14.map((d) =>
           Math.round((revenueSeriesPence[dayKey(d)] ?? 0) / 100),
@@ -383,6 +398,17 @@ async function computeDashboardAggregates() {
         "oklch(0.577 0.245 27.325)",
       ][i % 5],
     }));
+
+    // Active clients with no stage set still count as active — surface
+    // them so the funnel reconciles to the "Active Clients" KPI total.
+    const unassignedCount = stageMap["__none__"] ?? 0;
+    if (unassignedCount > 0) {
+      pipeline.push({
+        stage: "Unassigned",
+        count: unassignedCount,
+        color: "oklch(0.7 0.02 260)",
+      });
+    }
 
     const pipelineTotal = pipeline.reduce((a, b) => a + b.count, 0);
 
@@ -467,6 +493,9 @@ async function computeDashboardAggregates() {
     // user-specific visibleWidgets + response headers.
     return {
       kpis,
+      // Period-aware metrics for the Today/Week/Month/Quarter selector.
+      metricsByRange,
+      activeClients: activeClientCount,
       pipeline,
       pipelineTotal,
       agenda,
