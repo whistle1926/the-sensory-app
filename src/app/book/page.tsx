@@ -646,39 +646,7 @@ function BookingPageInner() {
                   </div>
 
                   {/* Therapist profile — who you'll be seeing at this clinic. */}
-                  {(s.ownerName || s.ownerPhotoUrl) && (
-                    <div className="mt-4 flex items-start gap-3 rounded-xl bg-muted/40 p-3">
-                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
-                        {s.ownerPhotoUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={s.ownerPhotoUrl}
-                            alt={s.ownerName ?? "Therapist"}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                            <Users className="h-5 w-5" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        {s.ownerName && (
-                          <p className="text-sm font-semibold">{s.ownerName}</p>
-                        )}
-                        {s.ownerBio && (
-                          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                            {s.ownerBio}
-                          </p>
-                        )}
-                        {s.ownerPhone && (
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {s.ownerPhone}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                  <TherapistMini service={s} />
 
                   <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary">
                     See dates
@@ -1148,6 +1116,45 @@ function BookingPageInner() {
  * services don't sit alongside the schools ones — keeps the choice
  * scannable when there are 10+ options.
  */
+/** Compact therapist card — photo, name, bio, phone — shown on a service
+ * or clinic so parents see who they'll be seeing. Renders nothing if the
+ * service has no assigned therapist profile. */
+function TherapistMini({ service: s }: { service: ServiceCatalogueRow }) {
+  if (!s.ownerName && !s.ownerPhotoUrl && !s.ownerBio && !s.ownerPhone)
+    return null;
+  return (
+    <div className="mt-3 flex items-start gap-3 rounded-xl bg-muted/40 p-3">
+      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
+        {s.ownerPhotoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={s.ownerPhotoUrl}
+            alt={s.ownerName ?? "Therapist"}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+            <Users className="h-5 w-5" />
+          </div>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        {s.ownerName && (
+          <p className="text-sm font-semibold">{s.ownerName}</p>
+        )}
+        {s.ownerBio && (
+          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+            {s.ownerBio}
+          </p>
+        )}
+        {s.ownerPhone && (
+          <p className="mt-1 text-xs text-muted-foreground">{s.ownerPhone}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ServicePicker({
   services,
   onSelect,
@@ -1236,11 +1243,14 @@ function ServicePicker({
                               {s.locationLabel}
                             </span>
                           )}
-                          {s.ownerName && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                              with {s.ownerName}
-                            </span>
-                          )}
+                          {s.ownerName &&
+                            !s.ownerPhotoUrl &&
+                            !s.ownerBio &&
+                            !s.ownerPhone && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                                with {s.ownerName}
+                              </span>
+                            )}
                         </div>
                       )}
                       {/* Full description — always shown so parents can
@@ -1248,6 +1258,8 @@ function ServicePicker({
                       <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
                         {s.description}
                       </p>
+                      {/* Therapist profile (photo + bio + phone) when set. */}
+                      <TherapistMini service={s} />
                     </div>
                   </div>
                 </div>
