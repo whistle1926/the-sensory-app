@@ -452,7 +452,7 @@ export default function DashboardPage() {
           title={`Revenue · ${revWindow} days`}
           subtitle={
             <>
-              MTD{" "}
+              This month{" "}
               <strong style={{ color: "var(--foreground)" }}>
                 {formatCurrency(data.revenueSummary.invoicedMtd)}
               </strong>
