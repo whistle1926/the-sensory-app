@@ -89,29 +89,12 @@ export async function POST(
     );
   }
 
-  // 4. Update invoice with payment details
-  const updatedInvoice = await prisma.invoice.update({
-    where: { id: invoiceId },
-    data: {
-      paymentRef: result.code,
-      paymentUrl: result.paymentUrl,
-      status: "sent",
-      sentAt: new Date(),
-    },
-    include: { items: true },
-  });
-
-  // 4b. Mirror the invoice into FireBuddy's Accounting view so it
-  // appears in Accounting → Invoices for the accountant. Failure
-  // here is non-fatal — payment link + email still go out — but we
-  // log it so it's visible if it starts misbehaving.
-  await mirrorInvoiceToFireBuddy(updatedInvoice, settings.apiKey, result.paymentUrl).catch(
-    (err) => console.error(`[INVOICE-SEND] FireBuddy mirror failed for ${invoice.invoiceNumber}:`, err),
-  );
-
-  // 5. Send email
+  // 4. Build + send the email BEFORE marking the invoice "sent", so the
+  // dashboard never shows "sent" for a message that didn't actually go
+  // out. (Previously the invoice was stamped "sent" first — which is why
+  // a failed email still appeared as sent on the list.)
   const emailHtml = buildInvoiceEmail({
-    invoice: updatedInvoice,
+    invoice,
     paymentUrl: result.paymentUrl,
     personalNote,
     bank: {
@@ -140,24 +123,43 @@ export async function POST(
   const emailSent = await sendMail(mailOptions);
 
   if (!emailSent) {
-    // FireBuddy has already created the payment + stamped the
-    // invoice as "sent" with paymentUrl, so we can't roll that back
-    // cleanly — instead we surface a clear 502 so the UI shows
-    // the failure rather than silently pretending success. The
-    // invoice can be re-sent (the existing paymentUrl is reused;
-    // no new FireBuddy charge is created).
+    // Persist the payment link so a retry reuses it (no new FireBuddy
+    // charge), but do NOT mark the invoice "sent" — it wasn't. Keeps the
+    // dashboard honest.
+    await prisma.invoice
+      .update({
+        where: { id: invoiceId },
+        data: { paymentRef: result.code, paymentUrl: result.paymentUrl },
+      })
+      .catch(() => {});
     console.error(`Invoice ${invoice.invoiceNumber}: payment link created but email failed to send`);
     return NextResponse.json(
       {
         error:
-          "Payment link was created, but the email failed to send. Check the email provider (Mailcub) settings or your sender address, then click Send again to retry.",
-        invoice: updatedInvoice,
+          "The email did not send, so the invoice has NOT been marked as sent. The payment link is saved — check the email provider (Mailcub) settings / sender address, then click Send again to retry.",
         paymentUrl: result.paymentUrl,
         emailSent: false,
       },
       { status: 502 },
     );
   }
+
+  // 5. Email is away — now mark the invoice "sent" and mirror it into
+  // FireBuddy's Accounting view (non-fatal on failure).
+  const updatedInvoice = await prisma.invoice.update({
+    where: { id: invoiceId },
+    data: {
+      paymentRef: result.code,
+      paymentUrl: result.paymentUrl,
+      status: "sent",
+      sentAt: new Date(),
+    },
+    include: { items: true },
+  });
+
+  await mirrorInvoiceToFireBuddy(updatedInvoice, settings.apiKey, result.paymentUrl).catch(
+    (err) => console.error(`[INVOICE-SEND] FireBuddy mirror failed for ${invoice.invoiceNumber}:`, err),
+  );
 
   await recordAudit({
     actorId: session.user.id,

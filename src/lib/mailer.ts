@@ -52,14 +52,24 @@ export async function sendMail(opts: SendMailOptions): Promise<boolean> {
         html: opts.html,
         text: opts.text || stripHtml(opts.html),
         ...(ccList.length > 0 ? { cc: ccList } : {}),
-        // Replies go to the real monitored inbox (Settings → Email →
-        // Reply-to), since the "from" is a no-reply mail.* sender.
-        ...(settings.replyTo ? { reply_to: settings.replyTo } : {}),
+        // NOTE: do NOT send `reply_to` — Mailcub rejects it with
+        // 400 "reply_to is not allowed", which silently failed EVERY
+        // email once a Reply-to was configured. Set the reply-to on the
+        // Mailcub sender record instead if a custom one is needed.
       }),
     });
 
-    if (!res.ok) {
-      console.error("sendMail: Mailcub error", res.status, await res.text());
+    // Mailcub returns HTTP 200 even on validation/delivery errors and
+    // signals the real outcome via a `code` field in the body — so we must
+    // parse it and check code === 200, not just res.ok. (Checking only
+    // res.ok reported rejected emails as "sent": the invoice flipped to
+    // "sent" but the client never received it.)
+    const json = (await res.json().catch(() => ({}))) as {
+      code?: number;
+      message?: string;
+    };
+    if (!res.ok || json.code !== 200) {
+      console.error("sendMail: Mailcub error", res.status, json);
       return false;
     }
 

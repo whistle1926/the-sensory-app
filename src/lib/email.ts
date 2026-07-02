@@ -58,10 +58,11 @@ export async function sendTransactionalEmail(
     html: input.html,
     text,
   };
-  // Per-send override wins; otherwise fall back to the configured
-  // Reply-to (Settings → Email) so client replies reach a real inbox.
-  const replyTo = input.replyTo ?? settings.replyTo ?? undefined;
-  if (replyTo) body.reply_to = replyTo;
+  // NOTE: do NOT send `reply_to` — Mailcub rejects it with 400 "reply_to
+  // is not allowed", which silently failed EVERY transactional email once
+  // a Reply-to was configured. If a custom reply-to is needed, set it on
+  // the Mailcub sender record. `input.replyTo` / EmailSettings.replyTo are
+  // intentionally not forwarded to the API.
 
   const res = await fetch("https://api.mail.mailcub.com/api/send_email", {
     method: "POST",
