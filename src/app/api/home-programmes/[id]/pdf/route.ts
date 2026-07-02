@@ -46,7 +46,18 @@ export async function GET(
     dateLabel,
   });
 
-  return new NextResponse(html, {
+  // Auto-open the browser's print dialog so "Save as PDF" is one step from
+  // the new tab — consistent with the report + form-submission exports.
+  const printScript = `<script>
+    window.addEventListener('load', function () {
+      setTimeout(function () { window.print(); }, 400);
+    });
+  </script>`;
+  const withPrint = html.includes("</body>")
+    ? html.replace("</body>", `${printScript}</body>`)
+    : html + printScript;
+
+  return new NextResponse(withPrint, {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
 }
