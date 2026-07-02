@@ -22,6 +22,10 @@ import {
   ListChecks,
   Receipt,
   PoundSterling,
+  UserCircle2,
+  ClipboardList,
+  FileStack,
+  Radio,
 } from "lucide-react";
 
 interface MobileNavProps {
@@ -33,6 +37,7 @@ interface MobileNavProps {
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, navKey: "nav_dashboard", roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
   { href: "/clients", label: "Clients", icon: Users, navKey: "nav_clients", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
+  { href: "/website-users", label: "Parents / Carers", icon: UserCircle2, navKey: "nav_website_users", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
   { href: "/reports", label: "Reports", icon: FileText, navKey: "nav_reports", roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
   { href: "/home-programmes", label: "Home Programmes", icon: HousePlus, navKey: "nav_home_programmes", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
   { href: "/activities", label: "Activities", icon: BookOpen, navKey: "nav_activities", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
@@ -43,6 +48,9 @@ const navItems = [
   { href: "/tasks", label: "Tasks", icon: ListChecks, navKey: "nav_tasks", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
   { href: "/invoices", label: "Invoices", icon: Receipt, navKey: "nav_invoices", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
   { href: "/services", label: "Services", icon: PoundSterling, navKey: "nav_services", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
+  { href: "/forms", label: "Forms", icon: ClipboardList, navKey: "nav_forms", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
+  { href: "/leaflets", label: "Leaflets", icon: FileStack, navKey: "nav_leaflets", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
+  { href: "/live-sessions", label: "Live Sessions", icon: Radio, navKey: "nav_live_sessions", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
   { href: "/team", label: "Team", icon: UserPlus, navKey: "nav_team", roles: ["SUPER_ADMIN"] },
   { href: "/settings", label: "Settings", icon: Settings, navKey: "nav_settings", roles: ["SUPER_ADMIN", "TEAM_MANAGER", "CLIENT"] },
 ];
