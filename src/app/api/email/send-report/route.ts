@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
     includeReport: includeReport !== false,
     reportContent: report.content as unknown as ReportContent,
     attachments,
+    contactEmail: settings.replyTo?.trim() || "info@thesensorysubmarine.com",
   });
 
   // Send via Mailcub API
@@ -127,6 +128,7 @@ interface EmailParams {
   includeReport: boolean;
   reportContent: ReportContent;
   attachments: Array<{ url: string; filename: string }>;
+  contactEmail: string;
 }
 
 function buildReportSection(content: ReportContent): string {
@@ -264,7 +266,7 @@ function sectionEmailHtml(
 }
 
 function buildEmailHtml(params: EmailParams): string {
-  const { senderName, clientName, sessionDate, message, sessionNumber, isHtml, includeReport, reportContent, attachments } = params;
+  const { senderName, clientName, sessionDate, message, sessionNumber, isHtml, includeReport, reportContent, attachments, contactEmail } = params;
 
   // Attachments as labelled download links (Blob-hosted). More reliable
   // than binary email attachments and free of size caps.
@@ -327,8 +329,12 @@ function buildEmailHtml(params: EmailParams): string {
       </div>
       ${reportBlock}
       <hr style="border:none;border-top:1px solid #eee;margin:24px 0;"/>
-      <p style="margin:0;font-size:12px;color:#999;text-align:center;">
+      <p style="margin:0 0 4px;font-size:12px;color:#999;text-align:center;">
         ${escapeHtml(senderName)} &middot; Occupational Therapy Services
+      </p>
+      <p style="margin:0;font-size:11px;color:#bbb;text-align:center;">
+        Questions? Email us at
+        <a href="mailto:${escapeHtml(contactEmail)}" style="color:#999;">${escapeHtml(contactEmail)}</a>.
       </p>
     </div>
   </div>

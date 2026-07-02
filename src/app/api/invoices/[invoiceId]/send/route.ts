@@ -57,6 +57,15 @@ export async function POST(
     where: { id: "default" },
   });
 
+  // Contact address shown in the email footer (Settings → Email). The
+  // sender is a no-reply mailbox, so we tell clients where to actually
+  // write. Falls back to the practice address.
+  const emailSettings = await prisma.emailSettings.findUnique({
+    where: { id: "default" },
+  });
+  const contactEmail =
+    emailSettings?.replyTo?.trim() || "info@thesensorysubmarine.com";
+
   if (!settings?.enabled || !settings.apiKey) {
     return NextResponse.json(
       { error: "Payment integration is not configured. Please set up FireBuddy in Settings." },
@@ -97,6 +106,7 @@ export async function POST(
     invoice,
     paymentUrl: result.paymentUrl,
     personalNote,
+    contactEmail,
     bank: {
       accountName: settings.bankAccountName,
       sortCode: settings.bankSortCode,
@@ -348,8 +358,9 @@ function buildInvoiceEmail(params: {
   paymentUrl: string;
   personalNote?: string;
   bank?: BankDetails;
+  contactEmail?: string;
 }): string {
-  const { invoice, paymentUrl, personalNote, bank } = params;
+  const { invoice, paymentUrl, personalNote, bank, contactEmail } = params;
 
   const formatDate = (d: Date) =>
     new Date(d).toLocaleDateString("en-GB", {
@@ -515,7 +526,8 @@ function buildInvoiceEmail(params: {
         The Sensory Submarine &middot; Occupational Therapy Services
       </p>
       <p style="margin:0 0 8px;font-size:11px;color:#bbb;text-align:center;">
-        If you have any questions about this invoice, please reply to this email.
+        Any questions about this invoice? Email us at
+        <a href="mailto:${escapeHtml(contactEmail || "info@thesensorysubmarine.com")}" style="color:#999;">${escapeHtml(contactEmail || "info@thesensorysubmarine.com")}</a>.
       </p>
       <p style="margin:0;font-size:11px;color:#bbb;text-align:center;">
         Don't see our emails? Add The Sensory Submarine to your contacts, and

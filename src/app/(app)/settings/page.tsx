@@ -489,7 +489,7 @@ export default function SettingsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="replyTo">Reply-to Address</Label>
+                <Label htmlFor="replyTo">Contact email (shown in email footers)</Label>
                 <Input
                   id="replyTo"
                   type="email"
@@ -500,8 +500,10 @@ export default function SettingsPage() {
                   }
                 />
                 <p className="text-xs text-muted-foreground">
-                  Where client replies go. The sender address above is a
-                  no-reply mailbox, so set this to a real inbox you check.
+                  Shown at the bottom of invoices and report emails as the
+                  address clients can write to. (The sender is a no-reply
+                  mailbox, so replies don&apos;t reach you — clients should
+                  email this address instead.)
                 </p>
               </div>
 
