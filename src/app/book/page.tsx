@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { StorefrontHeader } from "@/components/courses/storefront-header";
 import { DEPOSIT_SERVICES, type TermsClause } from "@/lib/booking-terms";
+import { localDateKey } from "@/lib/date-key";
 
 /* ------------------------------------------------------------------ */
 /*  Data                                                               */
@@ -310,8 +311,8 @@ function BookingPageInner() {
   // online consults on Wed/Fri, clinics on Tue/Thu, a monthly Armagh
   // clinic on its specific dates).
   const fetchSlots = useCallback(async () => {
-    const from = weekDays[0].toISOString().split("T")[0];
-    const to = weekDays[6].toISOString().split("T")[0];
+    const from = localDateKey(weekDays[0]);
+    const to = localDateKey(weekDays[6]);
     const serviceParam = selectedService
       ? `&service=${encodeURIComponent(selectedService)}`
       : "";
@@ -343,7 +344,7 @@ function BookingPageInner() {
 
   // Get available times for a selected date
   function getAvailableTimes(date: Date) {
-    const dateKey = date.toISOString().split("T")[0];
+    const dateKey = localDateKey(date);
     const slots = computedSlots[dateKey];
 
     // Not yet loaded — return null to show all (backward compat)

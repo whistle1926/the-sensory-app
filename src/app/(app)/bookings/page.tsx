@@ -30,6 +30,7 @@ import {
   PoundSterling,
 } from "lucide-react";
 import { Toolbar } from "@/components/ds";
+import { localDateKey } from "@/lib/date-key";
 import { AutomationsSection } from "@/components/bookings/automations-section";
 import { TermsSection } from "@/components/bookings/terms-section";
 import { ServicesSection } from "@/components/bookings/services-section";
@@ -412,8 +413,8 @@ export default function BookingsPage() {
   }, [availService]);
 
   const fetchComputedSlots = useCallback(async () => {
-    const from = weekDays[0].toISOString().split("T")[0];
-    const to = weekDays[6].toISOString().split("T")[0];
+    const from = localDateKey(weekDays[0]);
+    const to = localDateKey(weekDays[6]);
     try {
       const res = await fetch(`/api/availability?from=${from}&to=${to}`);
       if (res.ok) setComputedSlots(await res.json());
@@ -606,7 +607,7 @@ export default function BookingsPage() {
   }
 
   function getAvailForDay(day: Date): string[] {
-    const dateKey = day.toISOString().split("T")[0];
+    const dateKey = localDateKey(day);
     return computedSlots[dateKey] || [];
   }
 
