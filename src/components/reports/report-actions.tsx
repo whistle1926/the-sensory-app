@@ -15,17 +15,25 @@ interface ReportActionsProps {
 export function ReportActions({ reportId, status, onStatusChange, showEmail }: ReportActionsProps) {
   const [finalising, setFinalising] = useState(false);
 
-  async function handleDownload(format: "docx" | "pdf") {
-    const res = await fetch(`/api/reports/${reportId}/${format}`);
+  // Word is a real .docx — download it directly.
+  async function handleDownloadDocx() {
+    const res = await fetch(`/api/reports/${reportId}/docx`);
     if (!res.ok) return;
 
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `report.${format}`;
+    a.download = `report.docx`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  // "PDF" opens the branded report in a new tab and auto-triggers the
+  // browser's print dialog, where the user picks "Save as PDF". (We don't
+  // run headless Chrome, so this is how every PDF export in the app works.)
+  function handlePdf() {
+    window.open(`/api/reports/${reportId}/pdf`, "_blank", "noopener,noreferrer");
   }
 
   async function handleFinalise() {
@@ -49,11 +57,11 @@ export function ReportActions({ reportId, status, onStatusChange, showEmail }: R
           </Button>
         </Link>
       )}
-      <Button variant="outline" size="sm" onClick={() => handleDownload("docx")}>
+      <Button variant="outline" size="sm" onClick={handleDownloadDocx}>
         <Download className="mr-2 h-4 w-4" />
         Word
       </Button>
-      <Button variant="outline" size="sm" onClick={() => handleDownload("pdf")}>
+      <Button variant="outline" size="sm" onClick={handlePdf}>
         <Download className="mr-2 h-4 w-4" />
         PDF
       </Button>

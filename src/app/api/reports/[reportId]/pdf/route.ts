@@ -29,9 +29,21 @@ export async function GET(
   const content = report.content as unknown as ReportContent;
   const html = generateReportHtml(content);
 
-  // Return HTML that can be opened in browser and printed to PDF
-  // For server-side PDF generation, Puppeteer/Chromium would be needed
-  return new NextResponse(html, {
+  // We render a branded HTML page and let the browser "Save as PDF" via
+  // its print dialog (no headless-Chrome dependency — same approach as
+  // home programmes and form submissions). Auto-opening the print dialog
+  // makes it one step from the new tab. The previous flow fetched this
+  // HTML and saved it as a ".pdf" file, which produced a broken document.
+  const printScript = `<script>
+    window.addEventListener('load', function () {
+      setTimeout(function () { window.print(); }, 400);
+    });
+  </script>`;
+  const withPrint = html.includes("</body>")
+    ? html.replace("</body>", `${printScript}</body>`)
+    : html + printScript;
+
+  return new NextResponse(withPrint, {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
     },
