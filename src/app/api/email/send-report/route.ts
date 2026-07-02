@@ -18,6 +18,21 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { reportId, to, subject, message, isHtml, includeReport } = body;
 
+  // Optional file attachments — each an already-uploaded Blob URL + name.
+  // Included in the email as labelled download links (see buildEmailHtml).
+  const attachments: Array<{ url: string; filename: string }> = Array.isArray(
+    body.attachments,
+  )
+    ? body.attachments
+        .filter(
+          (a: unknown): a is { url: string; filename: string } =>
+            !!a &&
+            typeof (a as { url?: unknown }).url === "string" &&
+            typeof (a as { filename?: unknown }).filename === "string",
+        )
+        .slice(0, 10)
+    : [];
+
   if (!reportId || !to || !subject)
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
 
@@ -63,6 +78,7 @@ export async function POST(req: NextRequest) {
     isHtml: !!isHtml,
     includeReport: includeReport !== false,
     reportContent: report.content as unknown as ReportContent,
+    attachments,
   });
 
   // Send via Mailcub API
@@ -110,6 +126,7 @@ interface EmailParams {
   isHtml: boolean;
   includeReport: boolean;
   reportContent: ReportContent;
+  attachments: Array<{ url: string; filename: string }>;
 }
 
 function buildReportSection(content: ReportContent): string {
@@ -247,7 +264,27 @@ function sectionEmailHtml(
 }
 
 function buildEmailHtml(params: EmailParams): string {
-  const { senderName, clientName, sessionDate, message, sessionNumber, isHtml, includeReport, reportContent } = params;
+  const { senderName, clientName, sessionDate, message, sessionNumber, isHtml, includeReport, reportContent, attachments } = params;
+
+  // Attachments as labelled download links (Blob-hosted). More reliable
+  // than binary email attachments and free of size caps.
+  const attachmentsBlock =
+    attachments.length > 0
+      ? `<div style="background:#f0f4ff;border-radius:8px;padding:16px 20px;margin:0 0 20px 0;">
+          <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#1a1a2e;">
+            📎 Attachment${attachments.length === 1 ? "" : "s"}
+          </p>
+          ${attachments
+            .map(
+              (a) =>
+                `<p style="margin:0 0 6px;font-size:14px;">
+                  <a href="${escapeHtml(a.url)}" style="color:#2563eb;text-decoration:underline;">${escapeHtml(a.filename)}</a>
+                </p>`,
+            )
+            .join("")}
+          <p style="margin:6px 0 0;font-size:11px;color:#888;">Click a file name to open or download it.</p>
+        </div>`
+      : "";
 
   // If the message came from the rich text editor, use it directly
   // Otherwise escape and convert newlines
@@ -281,6 +318,7 @@ function buildEmailHtml(params: EmailParams): string {
     </div>
     <div style="background:#fff;padding:32px;border-radius:0 0 12px 12px;">
       ${messageBlock}
+      ${attachmentsBlock}
       <div style="background:#f0f4ff;border-radius:8px;padding:16px 20px;margin:0 0 20px 0;">
         <p style="margin:0;font-size:14px;color:#555;">
           <strong>Client:</strong> ${escapeHtml(clientName)}<br/>

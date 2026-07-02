@@ -16,6 +16,8 @@ import {
   Plus,
   Mail,
   FileText,
+  Paperclip,
+  Upload,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -53,6 +55,49 @@ export default function EmailComposePage() {
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [sentCount, setSentCount] = useState(0);
+
+  // File attachments (e.g. a visual schedule) — uploaded to Blob, then
+  // sent as download links in the email.
+  const [attachments, setAttachments] = useState<
+    Array<{ url: string; filename: string }>
+  >([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+
+  async function handleAttach(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploadError("");
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch("/api/uploads/email-attachment", {
+          method: "POST",
+          body: fd,
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          url?: string;
+          filename?: string;
+          error?: string;
+        };
+        if (!res.ok || !data.url) {
+          setUploadError(data.error ?? `Couldn't attach ${file.name}.`);
+          continue;
+        }
+        setAttachments((prev) => [
+          ...prev,
+          { url: data.url!, filename: data.filename ?? file.name },
+        ]);
+      }
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function removeAttachment(url: string) {
+    setAttachments((prev) => prev.filter((a) => a.url !== url));
+  }
 
   useEffect(() => {
     fetch(`/api/reports/${reportId}`)
@@ -125,6 +170,7 @@ export default function EmailComposePage() {
             message,
             isHtml: true,
             includeReport,
+            attachments,
           }),
         });
 
@@ -315,6 +361,67 @@ export default function EmailComposePage() {
               </div>
             </div>
           </label>
+        </div>
+
+        {/* Attachments (e.g. a visual schedule) */}
+        <div className="border-t border-border px-4 py-4 sm:px-6">
+          <div className="flex items-center gap-2">
+            <Paperclip className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Attachments</span>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Add files to send with this email — e.g. a visual schedule.
+            Recipients get a download link. Images, PDFs and documents up to
+            15&nbsp;MB.
+          </p>
+
+          {attachments.length > 0 && (
+            <div className="mt-3 space-y-2">
+              {attachments.map((a) => (
+                <div
+                  key={a.url}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2"
+                >
+                  <span className="flex min-w-0 items-center gap-2 text-sm">
+                    <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="truncate">{a.filename}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeAttachment(a.url)}
+                    className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-red-600"
+                    aria-label={`Remove ${a.filename}`}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium hover:bg-muted">
+            {uploading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
+            {uploading ? "Uploading…" : "Add attachment"}
+            <input
+              type="file"
+              multiple
+              className="hidden"
+              disabled={uploading}
+              onChange={(e) => {
+                handleAttach(e.target.files);
+                e.target.value = "";
+              }}
+            />
+          </label>
+          {uploadError && (
+            <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+              {uploadError}
+            </p>
+          )}
         </div>
 
         {/* Footer Actions */}
