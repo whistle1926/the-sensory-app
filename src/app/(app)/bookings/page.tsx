@@ -216,6 +216,9 @@ export default function BookingsPage() {
   // associates only ever see/edit their own services. `availService`
   // is the slug being edited, or null for the admin Default calendar.
   const [manageableServices, setManageableServices] = useState<ManageableService[]>([]);
+  // Every service (not owner-scoped) — used by the "New booking" form so
+  // staff can book a client onto ANY service, even ones they don't own.
+  const [allServices, setAllServices] = useState<ManageableService[]>([]);
   const [availService, setAvailService] = useState<string | null>(null);
   const [availServiceReady, setAvailServiceReady] = useState(false);
 
@@ -439,16 +442,18 @@ export default function BookingsPage() {
           ownerName: string | null;
         }>;
         if (cancelled) return;
+        const shape = (r: (typeof rows)[number]) => ({
+          id: r.id,
+          slug: r.slug,
+          title: r.title,
+          ownerId: r.ownerId,
+          ownerName: r.ownerName,
+        });
+        // Owner-scoped list for the availability editor (you manage your
+        // own service's calendar); the full list for the booking form.
         const mine = isAdmin ? rows : rows.filter((r) => r.ownerId === myId);
-        setManageableServices(
-          mine.map((r) => ({
-            id: r.id,
-            slug: r.slug,
-            title: r.title,
-            ownerId: r.ownerId,
-            ownerName: r.ownerName,
-          })),
-        );
+        setManageableServices(mine.map(shape));
+        setAllServices(rows.map(shape));
         // Initial selection: admins start on the Default calendar (null);
         // associates start on their first owned service.
         setAvailService(isAdmin ? null : (mine[0]?.slug ?? null));
@@ -1392,7 +1397,7 @@ export default function BookingsPage() {
                 className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
               >
                 <option value="">Choose a service…</option>
-                {manageableServices.map((s) => (
+                {allServices.map((s) => (
                   <option key={s.id} value={s.slug}>
                     {s.title}
                     {s.ownerName ? ` — ${s.ownerName}` : ""}
