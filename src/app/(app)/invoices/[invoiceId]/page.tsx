@@ -23,6 +23,7 @@ import {
   Mail,
   MessageCircle,
   Clock,
+  Download,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -1527,6 +1528,24 @@ export default function InvoiceDetailPage() {
             )}
           </>
         )}
+
+        {/* A clean copy of the invoice document, any status — for records,
+            an accountant, a school's finance team, or when Fire compliance
+            asks for one. Opens in a new tab and pops Save as PDF. */}
+        <Button
+          variant="outline"
+          onClick={() =>
+            window.open(
+              `/api/invoices/${invoiceId}/pdf`,
+              "_blank",
+              "noopener,noreferrer",
+            )
+          }
+          title="Open a printable copy of this invoice — then Save as PDF"
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Download / Print
+        </Button>
       </div>
 
       {/* Sending activity — every time this invoice was emailed or
