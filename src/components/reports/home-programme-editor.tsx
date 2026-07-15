@@ -20,10 +20,24 @@
  * working without changes.
  */
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, FileStack, Plus, Search } from "lucide-react";
+import {
+  BookOpen,
+  FileStack,
+  Loader2,
+  Plus,
+  Search,
+  Sparkles,
+} from "lucide-react";
 import { sanitiseProgrammeSections } from "@/lib/programme-sections";
 import { VoiceNotesRecorder } from "@/components/reports/voice-notes-recorder";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface ProgrammeTemplate {
   id: string;
@@ -137,6 +151,39 @@ export function HomeProgrammeEditor({ value, onChange }: Props) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [leaflets, setLeaflets] = useState<Leaflet[]>([]);
 
+  // ── Tidy with AI ────────────────────────────────────────────────
+  // Same idea as the report tidy: send the in-flight body, review the
+  // result side-by-side, and only apply on approval. Nothing is saved
+  // until the therapist hits Save as usual.
+  const [tidying, setTidying] = useState(false);
+  const [tidyResult, setTidyResult] = useState<string | null>(null);
+  const [tidyError, setTidyError] = useState("");
+
+  async function handleTidy() {
+    setTidyError("");
+    setTidying(true);
+    try {
+      const res = await fetch("/api/home-programmes/tidy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ html: value }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        html?: string;
+        error?: string;
+      };
+      if (!res.ok || !data.html) {
+        setTidyError(data.error ?? "Couldn't tidy the programme. Please try again.");
+        return;
+      }
+      setTidyResult(data.html);
+    } catch {
+      setTidyError("Network error — please try again.");
+    } finally {
+      setTidying(false);
+    }
+  }
+
   useEffect(() => {
     fetch("/api/programmes")
       .then((r) => r.json())
@@ -168,6 +215,28 @@ export function HomeProgrammeEditor({ value, onChange }: Props) {
           leaflets={leaflets}
           onPick={(l) => onChange(appendBlock(value, formatLeaflet(l)))}
         />
+        {/* Tidy with AI — same as the report editor: cleans up dumped
+            notes (grammar/tone only), reviewed before it's applied. */}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleTidy}
+          disabled={tidying || !value.trim()}
+          title={
+            value.trim()
+              ? "Clean up the writing with AI — you review before it's applied"
+              : "Write or dictate some notes first"
+          }
+          className="rounded-xl"
+        >
+          {tidying ? (
+            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles className="mr-1.5 h-4 w-4" />
+          )}
+          {tidying ? "Tidying…" : "Tidy with AI"}
+        </Button>
         <span className="text-xs text-muted-foreground">
           Inserts append to the bottom — edit, format and reorder freely. Use
           the toolbar to <strong>bold</strong> or underline titles. Demo photos
@@ -181,12 +250,71 @@ export function HomeProgrammeEditor({ value, onChange }: Props) {
       <VoiceNotesRecorder value={value} onChange={onChange} mode="html" />
 
       {/* Rich-text editor — bold, underline, headings, bullet/number lists. */}
+      {tidyError && (
+        <p className="text-xs text-red-600 dark:text-red-400">{tidyError}</p>
+      )}
+
       <RichTextEditor
         value={value}
         onChange={onChange}
         minHeight={240}
         placeholder="Write the home programme… use the toolbar to bold or underline titles."
       />
+
+      {/* Review the tidy before it replaces anything. */}
+      <Dialog
+        open={tidyResult !== null}
+        onOpenChange={(o) => !o && setTidyResult(null)}
+      >
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Review the tidied programme</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            Grammar and tone only — the activities, instructions, numbers and
+            links are unchanged. Nothing is saved until you apply this and hit
+            Save.
+          </p>
+          <div className="grid max-h-[55vh] gap-4 overflow-y-auto sm:grid-cols-2">
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Before
+              </p>
+              <div
+                className="prose prose-sm max-w-none rounded-xl border border-border bg-muted/30 p-3 dark:prose-invert"
+                dangerouslySetInnerHTML={{ __html: value }}
+              />
+            </div>
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-primary">
+                After
+              </p>
+              <div
+                className="prose prose-sm max-w-none rounded-xl border-2 border-primary/40 bg-background p-3 dark:prose-invert"
+                dangerouslySetInnerHTML={{ __html: tidyResult ?? "" }}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 border-t border-border pt-3">
+            <Button
+              variant="outline"
+              onClick={() => setTidyResult(null)}
+              className="rounded-xl"
+            >
+              Keep mine
+            </Button>
+            <Button
+              onClick={() => {
+                if (tidyResult) onChange(tidyResult);
+                setTidyResult(null);
+              }}
+              className="rounded-xl"
+            >
+              Use tidied version
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

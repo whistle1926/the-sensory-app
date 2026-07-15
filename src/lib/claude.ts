@@ -133,6 +133,58 @@ export async function tidyReport(content: ReportContent): Promise<ReportContent>
   return JSON.parse(text) as ReportContent;
 }
 
+/**
+ * Tidy-pass for a home programme body. Unlike the report tidy this works
+ * on a single HTML string (the rich-text body) rather than structured
+ * JSON, and the audience is a parent/carer rather than a clinician — so
+ * the tone target is warm and plain, not clinical.
+ */
+const TIDY_HOME_PROGRAMME_PROMPT = `You are a paediatric occupational-therapy editor. The user will send you the HTML body of a home programme written for a parent/carer to follow at home. Your job is ONLY to clean up the writing so it reads well — often the therapist has "dumped" rough notes and wants them tidied.
+
+ABSOLUTE RULES — violating any of these makes the output unusable:
+1. Return ONLY the cleaned HTML body. No code fence, no commentary, no <html>/<body> wrapper.
+2. Preserve the HTML structure and every tag exactly: headings, <strong>, <em>, <u>, <ul>/<ol>/<li>, <p>, <br>, <a href="..."> and <img src="..."> must all survive. NEVER alter, shorten or drop a URL in href or src — the links and demo photos must keep working.
+3. NEVER add activities, strategies or advice that weren't already there. NEVER remove any.
+4. NEVER change the meaning. Preserve every instruction and every number exactly — repetitions, frequencies, durations and sets (e.g. "3x a day", "10 minutes", "twice weekly").
+5. NEVER change names (the child's, the parent's, the therapist's).
+6. If the body is empty, return it unchanged.
+
+WHAT YOU MAY DO:
+- Fix typos, spelling and grammar
+- Standardise to UK English (behaviour, programme, colour, paediatric, recognise, practise)
+- Turn rough/dumped notes into clear, complete sentences
+- Improve paragraphing and tidy list structure
+- Use a warm, encouraging, plain-English tone a busy parent can follow — avoid clinical jargon where a simpler word works`;
+
+export async function tidyHomeProgramme(html: string): Promise<string> {
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  // Model + fallback chain live in ai-model.ts. Structured text generation
+  // (not reasoning) — disable thinking and run at low effort to stay well
+  // under the function time limit.
+  const { message } = await createMessageResilient(anthropic, {
+    thinking: { type: "disabled" },
+    output_config: { effort: "low" },
+    max_tokens: 8192,
+    system: TIDY_HOME_PROGRAMME_PROMPT,
+    messages: [
+      {
+        role: "user",
+        content: `Tidy this home programme. Return the HTML body only:\n\n${html}`,
+      },
+    ],
+  });
+  const textBlock = message.content.find((b) => b.type === "text");
+  if (!textBlock || textBlock.type !== "text") {
+    throw new Error("No text response from Claude");
+  }
+  // Tolerate a code-fence even though we told it not to use one.
+  let text = textBlock.text.trim();
+  if (text.startsWith("```")) {
+    text = text.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "");
+  }
+  return text.trim();
+}
+
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
