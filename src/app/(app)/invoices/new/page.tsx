@@ -212,6 +212,13 @@ export default function NewInvoicePage() {
     setItems((prev) => [...prev, makeItem()]);
   }
 
+  /** Quick-add a pre-labelled line. "Discount" is just a normal line with
+   * a negative amount, so it subtracts from the subtotal and is taxed
+   * consistently with everything else. */
+  function addPreset(description: string) {
+    setItems((prev) => [...prev, { ...makeItem(), description }]);
+  }
+
   /* ---- calculate totals ---- */
   function itemAmountPence(item: LineItem): number {
     const price = parseFloat(item.unitPrice) || 0;
@@ -243,8 +250,21 @@ export default function NewInvoicePage() {
       setError("Each line item must have a description.");
       return;
     }
-    if (items.some((item) => !item.unitPrice || parseFloat(item.unitPrice) <= 0)) {
+    // A discount line is a negative price, so only a missing/zero/invalid
+    // amount is rejected — not a negative one.
+    if (
+      items.some(
+        (item) =>
+          !item.unitPrice ||
+          !Number.isFinite(parseFloat(item.unitPrice)) ||
+          parseFloat(item.unitPrice) === 0,
+      )
+    ) {
       setError("Each line item must have a valid unit price.");
+      return;
+    }
+    if (subtotalPence < 0) {
+      setError("The total can't be negative — check the discount amount.");
       return;
     }
 
@@ -551,16 +571,44 @@ export default function NewInvoicePage() {
                 </div>
               ))}
 
-              {/* Add item button */}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={addItem}
-                className="w-full"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Item
-              </Button>
+              {/* Add item + quick presets. Travel is just a labelled line;
+                  a discount is a line with a negative amount. */}
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addItem}
+                  className="flex-1"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Item
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => addPreset("Travel expenses")}
+                  className="flex-1"
+                  title="Add a travel expenses line"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Travel expenses
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => addPreset("Discount")}
+                  className="flex-1"
+                  title="Add a discount line — enter the amount as a negative, e.g. -25"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Discount
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Pick a service to auto-fill its description and price — you can
+                still edit either. For a discount, enter the amount as a
+                negative (e.g. <strong>-25</strong>) so it comes off the total.
+              </p>
             </CardContent>
           </Card>
         </div>

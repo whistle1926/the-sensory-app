@@ -261,15 +261,9 @@ function bankTransferBlock(
   }
 
   return `<div style="background:#f0f7ff;border:1px solid #cfe2ff;border-radius:8px;padding:16px 20px;margin:0 0 24px;">
-    <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#1d4ed8;">Pay by bank transfer</p>
-    <p style="margin:0 0 10px;font-size:12px;line-height:1.5;color:#444;">
-      If you&rsquo;d prefer to pay directly into our bank account &mdash; or if
-      you have any issues paying online with FireBuddy &mdash; you can use the
-      details below.
-    </p>
+    <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#1d4ed8;">Pay by bank transfer</p>
     <table style="border-collapse:collapse;">
       ${rows}
-      ${row("Reference", invoice.invoiceNumber)}
     </table>
     ${bank.instructions ? `<p style="margin:10px 0 0;font-size:12px;line-height:1.5;color:#555;">${escapeHtml(bank.instructions).replace(/\n/g, "<br/>")}</p>` : ""}
   </div>`;
@@ -423,7 +417,9 @@ function buildInvoiceEmail(params: {
       </p>
       ${personalNote ? `<p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#444;font-style:italic;">${escapeHtml(personalNote).replace(/\n/g, "<br/>")}</p>` : ""}
       <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#444;">
-        Please find your invoice below.
+        Please find your invoice below. Payment can be made using the
+        FireBuddy payment link below, or by direct bank transfer.
+        Thank you for choosing The Sensory Submarine.
       </p>
 
       <!-- Invoice details -->
@@ -525,14 +521,9 @@ function buildInvoiceEmail(params: {
       <p style="margin:0 0 4px;font-size:12px;color:#999;text-align:center;">
         The Sensory Submarine &middot; Occupational Therapy Services
       </p>
-      <p style="margin:0 0 8px;font-size:11px;color:#bbb;text-align:center;">
-        Any questions about this invoice? Email us at
-        <a href="mailto:${escapeHtml(contactEmail || "info@thesensorysubmarine.com")}" style="color:#999;">${escapeHtml(contactEmail || "info@thesensorysubmarine.com")}</a>.
-      </p>
       <p style="margin:0;font-size:11px;color:#bbb;text-align:center;">
-        Don't see our emails? Add The Sensory Submarine to your contacts, and
-        check your junk/spam folder (marking us &ldquo;not junk&rdquo; helps
-        future emails reach your inbox).
+        Email us at
+        <a href="mailto:${escapeHtml(contactEmail || "admin@thesensorysubmarine.com")}" style="color:#999;">${escapeHtml(contactEmail || "admin@thesensorysubmarine.com")}</a>
       </p>
     </div>
   </div>

@@ -133,9 +133,26 @@ export async function POST(req: NextRequest) {
     if (typeof item.quantity !== "number" || item.quantity < 1) {
       return NextResponse.json({ error: "Each item must have a valid quantity" }, { status: 400 });
     }
-    if (typeof item.unitPrice !== "number" || item.unitPrice < 0) {
+    // Negative unit prices are allowed so a "Discount" line can subtract
+    // from the total. Only a non-number is invalid.
+    if (typeof item.unitPrice !== "number" || !Number.isFinite(item.unitPrice)) {
       return NextResponse.json({ error: "Each item must have a valid unitPrice" }, { status: 400 });
     }
+  }
+
+  // ...but the invoice as a whole must never come out negative (a
+  // discount bigger than the work billed is a mistake, and a negative
+  // payment request makes no sense to FireBuddy).
+  const provisionalSubtotal = items.reduce(
+    (sum: number, i: { quantity: number; unitPrice: number }) =>
+      sum + i.quantity * i.unitPrice,
+    0,
+  );
+  if (provisionalSubtotal < 0) {
+    return NextResponse.json(
+      { error: "The invoice total can't be negative — check the discount amount." },
+      { status: 400 },
+    );
   }
 
   // Generate invoice number: INV-0110, INV-0111, etc.
