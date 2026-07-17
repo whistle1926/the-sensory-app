@@ -62,6 +62,23 @@ export async function PATCH(
   if (typeof body.isActive === "boolean") data.isActive = body.isActive;
   if (typeof body.autoSendReferralForm === "boolean")
     data.autoSendReferralForm = body.autoSendReferralForm;
+
+  // How many dates the client picks in one booking (1/1 = a normal
+  // appointment; 2/5 = a block priced per session).
+  if (typeof body.minSessions === "number" && Number.isFinite(body.minSessions))
+    data.minSessions = Math.min(20, Math.max(1, Math.floor(body.minSessions)));
+  if (typeof body.maxSessions === "number" && Number.isFinite(body.maxSessions))
+    data.maxSessions = Math.min(20, Math.max(1, Math.floor(body.maxSessions)));
+  {
+    const min = (data.minSessions ?? undefined) as number | undefined;
+    const max = (data.maxSessions ?? undefined) as number | undefined;
+    if (min !== undefined && max !== undefined && max < min) {
+      return NextResponse.json(
+        { error: "Max sessions can't be lower than min sessions." },
+        { status: 400 },
+      );
+    }
+  }
   if (typeof body.order === "number" && Number.isFinite(body.order))
     data.order = Math.floor(body.order);
 

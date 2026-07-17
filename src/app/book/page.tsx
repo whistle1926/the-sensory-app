@@ -49,6 +49,10 @@ interface ServiceCatalogueRow {
   ownerPhotoUrl: string | null;
   ownerBio: string | null;
   ownerPhone: string | null;
+  /** Dates the client picks in one booking. 1/1 = a single appointment;
+   * a block (e.g. 2/5) is charged `price` PER session. */
+  minSessions: number;
+  maxSessions: number;
   /** Picked at render time \u2014 every card gets a consistent icon based on
    * a stable hash of the slug so it doesn't change between visits. */
   icon: typeof Video;
@@ -89,6 +93,8 @@ function adaptService(
     ownerPhotoUrl?: string | null;
     ownerBio?: string | null;
     ownerPhone?: string | null;
+    minSessions?: number;
+    maxSessions?: number;
   },
 ): ServiceCatalogueRow {
   const h = hashCode(row.slug);
@@ -107,6 +113,8 @@ function adaptService(
     ownerPhotoUrl: row.ownerPhotoUrl ?? null,
     ownerBio: row.ownerBio ?? null,
     ownerPhone: row.ownerPhone ?? null,
+    minSessions: Math.max(1, row.minSessions ?? 1),
+    maxSessions: Math.max(1, row.maxSessions ?? 1),
     icon: ICON_PALETTE[h % ICON_PALETTE.length],
     colour: COLOUR_PALETTE[h % COLOUR_PALETTE.length],
   };
@@ -277,6 +285,50 @@ function BookingPageInner() {
 
   const service = services.find((s) => s.id === selectedService);
 
+  // ── Block bookings ───────────────────────────────────────────────
+  // A block service asks for several dates in one go (min..max), priced
+  // per session. `chosenSlots` holds them in pick order; a single-session
+  // service just ends up with one entry.
+  const maxSessions = service?.maxSessions ?? 1;
+  const minSessions = service?.minSessions ?? 1;
+  const isBlock = maxSessions > 1;
+  const [chosenSlots, setChosenSlots] = useState<
+    Array<{ date: Date; time: string }>
+  >([]);
+
+  // Switching service invalidates any picks.
+  useEffect(() => {
+    setChosenSlots([]);
+  }, [selectedService]);
+
+  const slotKey = (d: Date, t: string) => `${localDateKey(d)}_${t}`;
+  const isSlotChosen = (d: Date, t: string) =>
+    chosenSlots.some((s) => slotKey(s.date, s.time) === slotKey(d, t));
+
+  /** Toggle a slot for a block; for a single service just replace it. */
+  function toggleSlot(d: Date, t: string) {
+    if (!isBlock) {
+      setChosenSlots([{ date: d, time: t }]);
+      return;
+    }
+    setChosenSlots((prev) => {
+      const key = slotKey(d, t);
+      const existing = prev.find((s) => slotKey(s.date, s.time) === key);
+      if (existing) return prev.filter((s) => slotKey(s.date, s.time) !== key);
+      if (prev.length >= maxSessions) return prev; // at the cap
+      return [...prev, { date: d, time: t }].sort(
+        (a, b) =>
+          a.date.getTime() - b.date.getTime() || a.time.localeCompare(b.time),
+      );
+    });
+  }
+
+  // What the client will actually pay — per-session price × sessions.
+  const sessionCount = chosenSlots.length;
+  const totalPence = (service?.price ?? 0) * Math.max(1, sessionCount);
+  const totalLabel =
+    service?.price === 0 ? "Free" : `£${(totalPence / 100).toFixed(2)}`;
+
   // Split the catalogue: the face-to-face clinic assessments are pulled
   // out and shown under one prominent "Face to Face OT Assessment" card
   // (most-requested service, pinned top), then chosen by location. Every
@@ -368,7 +420,13 @@ function BookingPageInner() {
   /* ------ Submit booking ------ */
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!service || !selectedDate || !selectedTime) return;
+    if (!service || chosenSlots.length === 0) return;
+    if (chosenSlots.length < minSessions) {
+      setSubmitError(
+        `Please choose ${minSessions} appointment${minSessions === 1 ? "" : "s"}.`,
+      );
+      return;
+    }
     if (!allAgreed) {
       setSubmitError("Please tick all of the boxes to agree to our terms.");
       return;
@@ -383,10 +441,13 @@ function BookingPageInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           service: service.id,
-          date: selectedDate.toISOString(),
-          time: selectedTime,
-          duration: service.duration,
-          price: service.price,
+          // Every appointment being booked — one for a normal service,
+          // 2-5 for a block. The server re-checks the count, the price
+          // and each slot's availability.
+          slots: chosenSlots.map((s) => ({
+            date: s.date.toISOString(),
+            time: s.time,
+          })),
           clientName: name,
           clientEmail: email,
           clientPhone: phone || undefined,
@@ -822,22 +883,36 @@ function BookingPageInner() {
                       ) : (
                         <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-6">
                           {allTimes.map((time) => {
-                            const isChosen = selectedTime === time;
+                            const chosen = isSlotChosen(selectedDate, time);
+                            const atCap =
+                              isBlock && !chosen && sessionCount >= maxSessions;
                             return (
                               <button
                                 key={time}
+                                disabled={atCap}
+                                title={
+                                  atCap
+                                    ? `You've picked the maximum of ${maxSessions} sessions`
+                                    : undefined
+                                }
                                 onClick={() => {
-                                  // Picking a time is the final calendar
-                                  // action — go straight to the details
-                                  // form rather than making them find a
-                                  // Continue button further down the page.
-                                  setSelectedTime(time);
-                                  setStep("details");
+                                  toggleSlot(selectedDate, time);
+                                  // A single appointment goes straight on to
+                                  // the details form (parents kept hunting
+                                  // for a Continue button). A block needs
+                                  // several dates, so we stay put until
+                                  // they've picked enough.
+                                  if (!isBlock) {
+                                    setSelectedTime(time);
+                                    setStep("details");
+                                  }
                                 }}
                                 className={`rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                                  isChosen
+                                  chosen
                                     ? "bg-primary text-white shadow-[var(--shadow-glow)]"
-                                    : "bg-muted/50 text-foreground hover:bg-muted"
+                                    : atCap
+                                      ? "cursor-not-allowed bg-muted/30 text-muted-foreground/40"
+                                      : "bg-muted/50 text-foreground hover:bg-muted"
                                 }`}
                               >
                                 {time}
@@ -851,6 +926,74 @@ function BookingPageInner() {
                 })()}
               </div>
             </div>
+
+            {/* Block bookings: running list of the dates picked so far +
+                the live total, then Continue once they've hit the minimum.
+                (A single appointment jumps straight to the details form,
+                so this never shows for one.) */}
+            {isBlock && (
+              <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
+                <p className="text-sm font-semibold">
+                  Choose {minSessions}
+                  {maxSessions > minSessions ? `–${maxSessions}` : ""}{" "}
+                  appointments
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Pick a day above, then tap a time. Repeat until you&apos;ve
+                  chosen them all — tap a selected time again to remove it.
+                  You&apos;re charged per session.
+                </p>
+
+                {chosenSlots.length === 0 ? (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    No appointments chosen yet.
+                  </p>
+                ) : (
+                  <ul className="mt-3 space-y-1.5">
+                    {chosenSlots.map((s, i) => (
+                      <li
+                        key={slotKey(s.date, s.time)}
+                        className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2 text-sm"
+                      >
+                        <span>
+                          <span className="font-medium">
+                            Session {i + 1}
+                          </span>{" "}
+                          — {formatDate(s.date)} at {s.time}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => toggleSlot(s.date, s.time)}
+                          className="shrink-0 text-xs font-medium text-muted-foreground hover:text-red-600"
+                        >
+                          Remove
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
+                  <p className="text-sm">
+                    <span className="text-muted-foreground">
+                      {sessionCount} × {service?.priceLabel} ={" "}
+                    </span>
+                    <span className="text-lg font-bold text-primary">
+                      {sessionCount > 0 ? totalLabel : "—"}
+                    </span>
+                  </p>
+                  <Button
+                    onClick={() => setStep("details")}
+                    disabled={sessionCount < minSessions}
+                    className="h-11 rounded-xl px-6"
+                  >
+                    {sessionCount < minSessions
+                      ? `Choose ${minSessions - sessionCount} more`
+                      : "Continue"}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -865,8 +1008,9 @@ function BookingPageInner() {
               Back to calendar
             </button>
 
-            {/* Summary */}
-            {service && selectedDate && selectedTime && (
+            {/* Summary — lists every appointment (a block has 2-5) and the
+                total actually being charged (per-session price × sessions). */}
+            {service && chosenSlots.length > 0 && (
               <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                   Booking Summary
@@ -876,24 +1020,37 @@ function BookingPageInner() {
                     <span className="text-muted-foreground">Service</span>
                     <span className="font-medium">{service.title}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Date</span>
-                    <span className="font-medium">
-                      {formatDate(selectedDate)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Time</span>
-                    <span className="font-medium">{selectedTime}</span>
-                  </div>
+                  {chosenSlots.map((s, i) => (
+                    <div
+                      key={slotKey(s.date, s.time)}
+                      className="flex justify-between"
+                    >
+                      <span className="text-muted-foreground">
+                        {isBlock ? `Session ${i + 1}` : "Date"}
+                      </span>
+                      <span className="font-medium">
+                        {formatDate(s.date)} at {s.time}
+                      </span>
+                    </div>
+                  ))}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Duration</span>
-                    <span className="font-medium">{service.duration}</span>
+                    <span className="font-medium">
+                      {service.duration}
+                      {isBlock ? " each" : ""}
+                    </span>
                   </div>
                   <div className="flex justify-between border-t border-border pt-2">
-                    <span className="font-semibold">Total</span>
+                    <span className="font-semibold">
+                      Total
+                      {isBlock && (
+                        <span className="ml-1 text-xs font-normal text-muted-foreground">
+                          ({sessionCount} × {service.priceLabel})
+                        </span>
+                      )}
+                    </span>
                     <span className="text-lg font-bold text-primary">
-                      {service.priceLabel}
+                      {totalLabel}
                     </span>
                   </div>
                 </div>
@@ -1023,7 +1180,7 @@ function BookingPageInner() {
                     Booking...
                   </>
                 ) : (
-                  `Confirm Booking \u2014 ${service?.priceLabel}`
+                  `Confirm Booking \u2014 ${totalLabel}`
                 )}
               </Button>
 
@@ -1051,23 +1208,26 @@ function BookingPageInner() {
               <span className="font-medium text-foreground">{email}</span>.
             </p>
 
-            {service && selectedDate && selectedTime && (
+            {service && chosenSlots.length > 0 && (
               <div className="rounded-2xl border border-border bg-card p-5 text-left shadow-[var(--shadow-sm)]">
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Service</span>
                     <span className="font-medium">{service.title}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Date</span>
-                    <span className="font-medium">
-                      {formatDate(selectedDate)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Time</span>
-                    <span className="font-medium">{selectedTime}</span>
-                  </div>
+                  {chosenSlots.map((s, i) => (
+                    <div
+                      key={slotKey(s.date, s.time)}
+                      className="flex justify-between"
+                    >
+                      <span className="text-muted-foreground">
+                        {chosenSlots.length > 1 ? `Session ${i + 1}` : "Date"}
+                      </span>
+                      <span className="font-medium">
+                        {formatDate(s.date)} at {s.time}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -1087,6 +1247,7 @@ function BookingPageInner() {
                 setSelectedService(null);
                 setSelectedDate(null);
                 setSelectedTime(null);
+                setChosenSlots([]);
                 setName("");
                 setEmail("");
                 setPhone("");

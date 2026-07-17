@@ -29,6 +29,9 @@ export interface AutomationVariables {
   terms?: string; // raw HTML
   /** "Add to calendar" URL (Google Calendar template link). */
   calendar_link?: string;
+  /** Every appointment in the booking as an HTML list — one line for a
+   * normal booking, 2-5 for a block ("Session 1 of 5 — ..."). */
+  sessions?: string;
   /** Video-call paragraph — ONLY populated for online services, so the
    * reminder can say "we'll send the link" without it appearing on
    * in-person clinic appointments. Empty string otherwise. */
@@ -97,6 +100,9 @@ export async function variablesForBooking(args: {
   duration: string;
   pricePence: number;
   depositPence?: number;
+  /** All appointments in this booking (a block has 2-5). Defaults to the
+   * single date/time above. */
+  sessions?: Array<{ date: Date; time: string }>;
 }): Promise<AutomationVariables> {
   const meta = await bookingServiceMetaFromDb(args.service);
   const dateStr = args.date.toLocaleDateString("en-GB", {
@@ -116,6 +122,35 @@ export async function variablesForBooking(args: {
   });
   const isOnline = svc?.mode === "online";
 
+  // Every appointment in the booking. A block lists each session so the
+  // parent sees all the dates they've just booked.
+  const all = args.sessions?.length
+    ? args.sessions
+    : [{ date: args.date, time: args.time }];
+  const longDate = (d: Date) =>
+    d.toLocaleDateString("en-GB", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: "Europe/London",
+    });
+  const sessionsHtml =
+    all.length === 1
+      ? `<ul>
+  <li><strong>Date:</strong> ${longDate(all[0].date)}</li>
+  <li><strong>Time:</strong> ${all[0].time}</li>
+</ul>`
+      : `<p><strong>Your ${all.length} appointments:</strong></p>
+<ul>
+${all
+  .map(
+    (s, i) =>
+      `  <li>Session ${i + 1} of ${all.length} — ${longDate(s.date)} at ${s.time}</li>`,
+  )
+  .join("\n")}
+</ul>`;
+
   return {
     client_name: args.clientName,
     service: meta.title,
@@ -125,6 +160,7 @@ export async function variablesForBooking(args: {
     price: formatPrice(args.pricePence),
     deposit: args.depositPence ? formatPrice(args.depositPence) : "",
     terms: await renderTermsHtmlFromDb(args.service),
+    sessions: sessionsHtml,
     calendar_link: buildCalendarLink({
       title: meta.title,
       date: args.date,

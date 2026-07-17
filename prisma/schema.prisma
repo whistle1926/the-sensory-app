@@ -543,8 +543,19 @@ model BookingService {
   /// "Parents & individuals" / "Schools & community" / free text. Used
   /// to group services on /book and in the admin list.
   category        String   @default("")
-  /// Price in pence — 0 = free / quote.
+  /// Price in pence — 0 = free / quote. For a multi-session service
+  /// (maxSessions > 1) this is the PER-SESSION price: the client is
+  /// charged pricePence × the number of dates they pick.
   pricePence      Int      @default(0)
+
+  /// How many dates the client picks in one booking.
+  ///   1 / 1  → an ordinary single appointment (the default).
+  ///   2 / 5  → a block: they must choose between 2 and 5 dates, each
+  ///            becomes its own linked appointment, and the total is
+  ///            pricePence × the number chosen.
+  /// Admin-set per service in Bookings → Services.
+  minSessions     Int      @default(1) @map("min_sessions")
+  maxSessions     Int      @default(1) @map("max_sessions")
   /// Friendly duration label ("60 minutes", "5 × 60 mins") shown on
   /// cards. The booking calendar always uses durationMinutes for the
   /// time-slot math.
@@ -613,6 +624,15 @@ model Booking {
   status        String   @default("pending")
   paymentStatus String   @default("unpaid")
   paymentRef    String?
+  // Links the sessions of a multi-session block booking so they can be
+  // shown/paid/cancelled together. Each session is still its own row (so
+  // it occupies its own calendar slot and can't be double-booked), and
+  // each row's `price` is the PER-SESSION price — the block is paid once
+  // via a single payment request for the group total.
+  // NULL on ordinary single appointments.
+  groupId       String?  @map("group_id")
+  // Position within the block, 1-based (1 of 5, 2 of 5...). NULL if single.
+  sessionIndex  Int?     @map("session_index")
   // Stamped the first time the intake/referral form is auto-emailed to
   // this client on payment (see src/lib/booking-referral.ts). Idempotency
   // key so the webhook firing twice never double-sends the form.
@@ -641,6 +661,7 @@ model Booking {
   @@index([date])
   @@index([ownerId])
   @@index([status])
+  @@index([groupId])
 }
 
 /// User-editable email automations attached to bookings. Two are seeded

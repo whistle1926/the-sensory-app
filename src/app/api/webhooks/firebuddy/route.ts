@@ -61,6 +61,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true });
   }
 
+  // Block-booking branch: reference is "group:<groupId>" — one payment
+  // covers every session in the block, so confirm them all together.
+  if (reference.startsWith("group:")) {
+    const groupId = reference.slice("group:".length);
+    try {
+      await handleBlockPayment(groupId, event.paymentId);
+    } catch (err) {
+      console.error("[WEBHOOK] Block booking payment handling failed:", err);
+      return NextResponse.json({ error: "Internal error" }, { status: 500 });
+    }
+    return NextResponse.json({ received: true });
+  }
+
   // Booking branch (legacy path — reference is the booking id directly).
   if (reference) {
     const booking = await prisma.booking.update({
@@ -106,6 +119,61 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ received: true });
+}
+
+/**
+ * A block booking is several linked sessions paid by ONE payment request
+ * (reference "group:<id>"). Confirm every session, but credit the income
+ * tracker and send the referral form only once for the block.
+ */
+async function handleBlockPayment(groupId: string, paymentId: string) {
+  const sessions = await prisma.booking.findMany({
+    where: { groupId },
+    orderBy: { date: "asc" },
+  });
+  if (sessions.length === 0) {
+    console.warn("[WEBHOOK] block booking not found:", groupId);
+    return;
+  }
+  // Idempotent — the webhook can fire twice.
+  if (sessions.every((s) => s.paymentStatus === "paid")) return;
+
+  await prisma.booking.updateMany({
+    where: { groupId },
+    data: { paymentStatus: "paid", paymentRef: paymentId, status: "confirmed" },
+  });
+
+  const first = sessions[0];
+  // Credit the block's TOTAL once, keyed on the group so a repeat webhook
+  // can't double-count it.
+  const total = sessions.reduce((sum, s) => sum + s.price, 0);
+  if (total > 0) {
+    try {
+      await prisma.incomeEntry.upsert({
+        where: { source_reference: { source: "BOOKING", reference: groupId } },
+        update: {
+          amount: total,
+          description: `${first.service} (${sessions.length} sessions) — ${first.clientName}`,
+        },
+        create: {
+          amount: total,
+          source: "BOOKING",
+          reference: groupId,
+          description: `${first.service} (${sessions.length} sessions) — ${first.clientName}`,
+          occurredAt: new Date(),
+        },
+      });
+    } catch (err) {
+      console.error("[WEBHOOK] Failed to credit income tracker for block:", err);
+    }
+  }
+
+  // One referral form for the block, not one per session.
+  try {
+    await sendBookingReferralForm(first.id);
+  } catch (err) {
+    console.error("[WEBHOOK] Referral form auto-send failed for block:", err);
+  }
 }
 
 async function handleCoursePayment(purchaseId: string, paymentId: string) {

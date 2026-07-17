@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { FireBuddy } from "@/lib/firebuddy";
@@ -31,8 +32,33 @@ export async function POST(req: NextRequest) {
     acceptedClauses,
   } = body;
 
-  if (!service || !date || !time || !clientName || !clientEmail) {
+  // Slots the client picked. A single appointment posts { date, time };
+  // a block posts slots: [{ date, time }, ...]. Normalise both to one
+  // array so the rest of the flow doesn't care which it was.
+  const rawSlots: Array<{ date?: unknown; time?: unknown }> = Array.isArray(
+    body.slots,
+  ) && body.slots.length > 0
+    ? body.slots
+    : [{ date, time }];
+  const slots = rawSlots
+    .filter(
+      (s): s is { date: string; time: string } =>
+        !!s && typeof s.date === "string" && typeof s.time === "string",
+    )
+    .map((s) => ({ date: new Date(s.date), time: s.time }))
+    .filter((s) => Number.isFinite(s.date.getTime()));
+
+  if (!service || slots.length === 0 || !clientName || !clientEmail) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  }
+
+  // Two sessions can't be at the same date+time as each other.
+  const slotKeys = slots.map((s) => `${s.date.toISOString()}_${s.time}`);
+  if (new Set(slotKeys).size !== slotKeys.length) {
+    return NextResponse.json(
+      { error: "You've picked the same appointment twice — choose different times." },
+      { status: 400 },
+    );
   }
 
   // Validate email
@@ -78,9 +104,28 @@ export async function POST(req: NextRequest) {
       pricePence: true,
       durationLabel: true,
       durationMinutes: true,
+      minSessions: true,
+      maxSessions: true,
+      title: true,
     },
   });
   const ownerId = svc?.ownerId ?? null;
+
+  // How many dates is this service allowed in one booking? 1/1 for an
+  // ordinary appointment; a block is e.g. 2..5.
+  const minSessions = Math.max(1, svc?.minSessions ?? 1);
+  const maxSessions = Math.max(minSessions, svc?.maxSessions ?? 1);
+  if (slots.length < minSessions || slots.length > maxSessions) {
+    return NextResponse.json(
+      {
+        error:
+          minSessions === maxSessions
+            ? `Please choose ${minSessions} appointment${minSessions === 1 ? "" : "s"}.`
+            : `Please choose between ${minSessions} and ${maxSessions} appointments — you picked ${slots.length}.`,
+      },
+      { status: 400 },
+    );
+  }
 
   // Price + duration come from the SERVICE, not the request. The admin
   // "New booking" form doesn't send them (bookings landed at price=0, so
@@ -92,45 +137,79 @@ export async function POST(req: NextRequest) {
     ? svc.durationLabel || `${svc.durationMinutes} minutes`
     : (duration ?? "");
 
-  // Check for a clash on the SAME owner's calendar. Two different
-  // associates can hold the same date/time; one associate cannot be
-  // booked twice. Owner null = the practice's shared calendar.
-  const bookingDate = new Date(date);
-  const existing = await prisma.booking.findFirst({
-    where: {
-      date: bookingDate,
-      time,
-      ownerId,
-      status: { not: "cancelled" },
-    },
-  });
-
-  if (existing) {
-    return NextResponse.json(
-      { error: "This time slot is no longer available. Please choose another." },
-      { status: 409 }
-    );
+  // Check EVERY requested slot against the SAME owner's calendar. Two
+  // different associates can hold the same date/time; one associate can't
+  // be booked twice. Owner null = the practice's shared calendar.
+  for (const slot of slots) {
+    const existing = await prisma.booking.findFirst({
+      where: {
+        date: slot.date,
+        time: slot.time,
+        ownerId,
+        status: { not: "cancelled" },
+      },
+    });
+    if (existing) {
+      const label = slot.date.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        timeZone: "Europe/London",
+      });
+      return NextResponse.json(
+        {
+          error:
+            slots.length > 1
+              ? `${label} at ${slot.time} has just been taken — please pick another time for that session.`
+              : "This time slot is no longer available. Please choose another.",
+        },
+        { status: 409 },
+      );
+    }
   }
 
   const depositPolicy = DEPOSIT_SERVICES[service];
-  const booking = await prisma.booking.create({
-    data: {
-      service,
-      ownerId,
-      date: bookingDate,
-      time,
-      duration: resolvedDuration,
-      price: resolvedPrice,
-      clientName,
-      clientEmail: normalisedEmail,
-      clientPhone: clientPhone || null,
-      notes: notes || null,
-      acceptedTermsAt: new Date(),
-      acceptedTermsVersion: termsCfg.version,
-      depositRequired: Boolean(depositPolicy),
-      depositAmount: depositPolicy?.amountPence ?? 0,
-    },
-  });
+  const isBlock = slots.length > 1;
+  // One id ties a block's sessions together; a single appointment has none.
+  const groupId = isBlock ? randomUUID() : null;
+  // Each session is priced at the per-session rate; the client pays the
+  // sum in a single payment request (see below).
+  const totalPrice = resolvedPrice * slots.length;
+
+  // Earliest slot first, so "session 1 of 5" means what you'd expect and
+  // the confirmation lists them in order.
+  const ordered = [...slots].sort(
+    (a, b) =>
+      a.date.getTime() - b.date.getTime() || a.time.localeCompare(b.time),
+  );
+
+  const created = await prisma.$transaction(
+    ordered.map((slot, i) =>
+      prisma.booking.create({
+        data: {
+          service,
+          ownerId,
+          date: slot.date,
+          time: slot.time,
+          duration: resolvedDuration,
+          price: resolvedPrice,
+          groupId,
+          sessionIndex: isBlock ? i + 1 : null,
+          clientName,
+          clientEmail: normalisedEmail,
+          clientPhone: clientPhone || null,
+          notes: notes || null,
+          acceptedTermsAt: new Date(),
+          acceptedTermsVersion: termsCfg.version,
+          depositRequired: Boolean(depositPolicy),
+          depositAmount: depositPolicy?.amountPence ?? 0,
+        },
+      }),
+    ),
+  );
+  // The first session represents the booking in emails/redirects.
+  const booking = created[0];
+  const bookingDate = booking.date;
+  const firstTime = booking.time;
 
   // Notify the owning associate (best-effort) that they have a new
   // booking. Routed to the service owner's email; falls back to silence
@@ -142,7 +221,8 @@ export async function POST(req: NextRequest) {
     clientEmail: normalisedEmail,
     service,
     date: bookingDate,
-    time,
+    time: firstTime,
+    extraSessions: created.length - 1,
   }).catch((err) => console.error("Owner booking notification failed:", err));
 
   // Auto-create CLIENT user account (+ password setup token + email)
@@ -167,10 +247,13 @@ export async function POST(req: NextRequest) {
     clientName,
     service,
     date: bookingDate,
-    time,
+    time: firstTime,
     duration: resolvedDuration,
-    pricePence: resolvedPrice,
+    // The client is quoted the TOTAL they'll pay — for a block that's the
+    // per-session rate × the sessions they picked.
+    pricePence: totalPrice,
     depositPence: depositPolicy?.amountPence,
+    sessions: ordered,
   }).catch((err) => console.error("Booking confirmation email failed:", err));
 
   // Attempt to create FireBuddy payment if enabled
@@ -182,18 +265,23 @@ export async function POST(req: NextRequest) {
     try {
       const fb = new FireBuddy(paymentSettings.apiKey);
       const origin = req.nextUrl.origin;
+      // ONE payment request for the whole booking — for a block that's
+      // the total for every session, not one charge per date. The webhook
+      // resolves a "group:" reference to all of the block's sessions.
       const payment = await fb.createPayment({
-        amount: resolvedPrice / 100, // price is in pence, FireBuddy expects pounds
+        amount: totalPrice / 100, // pence → pounds
         currency: "GBP",
-        description: `${service} — ${clientName}`,
-        reference: booking.id,
+        description: isBlock
+          ? `${svc?.title ?? service} — ${slots.length} sessions — ${clientName}`
+          : `${service} — ${clientName}`,
+        reference: groupId ? `group:${groupId}` : booking.id,
         email: normalisedEmail,
         returnUrl: `${origin}/book/success?booking=${booking.id}${accountCreated ? "&newAccount=1" : ""}`,
       });
 
-      // Store payment reference on booking
-      await prisma.booking.update({
-        where: { id: booking.id },
+      // Stamp the payment on every session of the booking.
+      await prisma.booking.updateMany({
+        where: groupId ? { groupId } : { id: booking.id },
         data: { paymentRef: payment.code },
       });
 
@@ -267,6 +355,9 @@ async function notifyOwnerOfBooking(args: {
   service: string;
   date: Date;
   time: string;
+  /** Sessions booked beyond the first — >0 means this was a block, so the
+   * therapist knows more dates are in their calendar. */
+  extraSessions?: number;
 }) {
   if (!args.ownerId) return;
   const owner = await prisma.user.findUnique({
@@ -288,13 +379,17 @@ async function notifyOwnerOfBooking(args: {
     timeZone: "UTC",
   });
 
+  const extra = args.extraSessions ?? 0;
   await sendTransactionalEmail({
     to: owner.email,
     subject: `New booking: ${serviceTitle} — ${dateLabel} at ${args.time}`,
     html: `<p>Hi ${owner.name?.split(" ")[0] ?? "there"},</p>
-<p>You have a new booking for <strong>${serviceTitle}</strong>.</p>
+<p>You have a new booking for <strong>${serviceTitle}</strong>${
+      extra > 0 ? ` — a block of ${extra + 1} sessions` : ""
+    }.</p>
 <ul>
-  <li><strong>When:</strong> ${dateLabel} at ${args.time}</li>
+  <li><strong>${extra > 0 ? "First session" : "When"}:</strong> ${dateLabel} at ${args.time}</li>
+  ${extra > 0 ? `<li><strong>Plus:</strong> ${extra} further session${extra === 1 ? "" : "s"} — all ${extra + 1} are in your calendar</li>` : ""}
   <li><strong>Client:</strong> ${args.clientName} (${args.clientEmail})</li>
 </ul>
 <p>It's on your bookings page in the portal.</p>`,
@@ -314,6 +409,9 @@ async function sendBookingConfirmationEmail(args: {
   duration: string;
   pricePence: number;
   depositPence?: number;
+  /** Every session in the booking — one for a normal appointment, 2-5
+   * for a block. Drives the {{sessions}} list in the email. */
+  sessions?: Array<{ date: Date; time: string }>;
 }) {
   const automation = await getEnabledAutomation("confirmation");
   if (!automation) return;
@@ -325,6 +423,7 @@ async function sendBookingConfirmationEmail(args: {
     duration: args.duration,
     pricePence: args.pricePence,
     depositPence: args.depositPence,
+    sessions: args.sessions,
   });
   await sendTransactionalEmail({
     to: args.to,

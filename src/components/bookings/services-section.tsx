@@ -45,6 +45,8 @@ interface ServiceRow {
   depositPence: number;
   isActive: boolean;
   autoSendReferralForm: boolean;
+  minSessions: number;
+  maxSessions: number;
   order: number;
   ownerId: string | null;
   ownerName: string | null;
@@ -489,6 +491,9 @@ function EditorPanel({
   const [autoSendReferralForm, setAutoSendReferralForm] = useState(
     service.autoSendReferralForm,
   );
+  const [minSessions, setMinSessions] = useState(service.minSessions ?? 1);
+  const [maxSessions, setMaxSessions] = useState(service.maxSessions ?? 1);
+  const isBlock = maxSessions > 1;
   const [ownerId, setOwnerId] = useState<string>(service.ownerId ?? "");
   const [mode, setMode] = useState(service.mode || "in_person");
   const [locationLabel, setLocationLabel] = useState(service.locationLabel ?? "");
@@ -811,6 +816,59 @@ function EditorPanel({
             className="h-5 w-5 rounded border-border text-primary focus:ring-primary"
           />
         </label>
+        {/* Sessions per booking — 1/1 is a normal appointment; set a range
+            (e.g. 2–5) to make this a block the client picks several dates
+            for, charged per session. */}
+        <div className="rounded-xl border border-border bg-muted/30 p-3 sm:col-span-2">
+          <p className="text-sm font-medium">Sessions per booking</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Leave both at 1 for a normal single appointment. For a block, set
+            a range (e.g. 2 to 5) — the client picks that many dates and is
+            charged the price above <strong>per session</strong>.
+          </p>
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            <Label htmlFor={`min-${service.id}`} className="text-xs">
+              From
+            </Label>
+            <Input
+              id={`min-${service.id}`}
+              type="number"
+              min={1}
+              max={20}
+              value={minSessions}
+              onChange={(e) => {
+                const v = Math.max(1, Number(e.target.value) || 1);
+                setMinSessions(v);
+                if (v > maxSessions) setMaxSessions(v);
+              }}
+              className="h-9 w-20 rounded-lg"
+            />
+            <Label htmlFor={`max-${service.id}`} className="text-xs">
+              to
+            </Label>
+            <Input
+              id={`max-${service.id}`}
+              type="number"
+              min={1}
+              max={20}
+              value={maxSessions}
+              onChange={(e) =>
+                setMaxSessions(
+                  Math.max(minSessions, Number(e.target.value) || 1),
+                )
+              }
+              className="h-9 w-20 rounded-lg"
+            />
+            <span className="text-xs text-muted-foreground">
+              {isBlock
+                ? `Block: client picks ${minSessions}–${maxSessions} dates · up to ${maxSessions} × £${
+                    pricePence / 100
+                  } = £${(pricePence * maxSessions) / 100}`
+                : "Single appointment"}
+            </span>
+          </div>
+        </div>
+
         <label className="flex cursor-pointer items-center justify-between rounded-xl border border-border bg-muted/30 p-3 sm:col-span-2">
           <div>
             <p className="text-sm font-medium">
@@ -853,6 +911,8 @@ function EditorPanel({
               durationMinutes,
               isActive,
               autoSendReferralForm,
+              minSessions,
+              maxSessions,
               mode,
               locationLabel: locationLabel.trim() || null,
               // Only admins may change ownership; omit otherwise so the
