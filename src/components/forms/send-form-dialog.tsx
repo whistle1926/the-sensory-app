@@ -48,7 +48,7 @@ export function SendFormDialog({
     `${formTitle} — please complete this short form`,
   );
   const [body, setBody] = useState(
-    `Hi,\n\nI've set up a form for you to complete when you have a moment:\n\n{{formUrl}}\n\nThanks!`,
+    `Hi,\n\nAhead of your upcoming OT assessment with The Sensory Submarine, please take some time to complete the referral form by following the link below:\n\nIf you've any issues or questions, please contact Claire - admin@thesensorysubmarine.com\n\nThank you and see you soon.\n\nThe Sensory Submarine Team`,
   );
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ sent: number; failed: number } | null>(

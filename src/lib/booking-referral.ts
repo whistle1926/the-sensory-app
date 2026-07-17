@@ -13,6 +13,7 @@
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendTransactionalEmail, escapeHtml } from "@/lib/email";
+import { brandedEmail } from "@/lib/email-layout";
 
 function baseUrl(): string {
   return (
@@ -99,32 +100,34 @@ export async function sendBookingReferralForm(bookingId: string): Promise<
 
   const formUrl = `${baseUrl()}/f/${form.slug}?t=${token}`;
   const firstName = booking.clientName?.split(" ")[0] || "there";
-  const html = `<!doctype html><html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8f9fb;margin:0;padding:24px">
-    <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;padding:24px">
-      <h1 style="margin:0 0 12px;font-size:20px">Thanks — your booking is confirmed</h1>
-      <p style="font-size:14px;color:#333;line-height:1.6">
-        Hi ${escapeHtml(firstName)}, thanks for booking your
-        <strong>${escapeHtml(service.title)}</strong> with The Sensory Submarine.
+  const html = brandedEmail({
+    bodyHtml: `
+      <p style="margin:0 0 14px;">Hi ${escapeHtml(firstName)}</p>
+      <p style="margin:0 0 14px;">
+        Ahead of your upcoming OT assessment with The Sensory Submarine,
+        please take some time to complete the referral form by following the
+        link below:
       </p>
-      <p style="font-size:14px;color:#333;line-height:1.6">
-        To help us prepare, please complete this short referral form before
-        your appointment — it only takes a few minutes.
-      </p>
-      <div style="margin-top:20px">
-        <a href="${escapeHtml(formUrl)}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">
-          Complete the referral form
+      <p style="margin:0 0 20px;">
+        <a href="${escapeHtml(formUrl)}" style="display:inline-block;background:#1a1a2e;color:#ffffff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:700;">
+          ${escapeHtml(form.title)}
         </a>
-      </div>
-      <p style="margin-top:20px;font-size:12px;color:#888;line-height:1.5">
-        If the button doesn't work, copy and paste this link:<br>
-        <a href="${escapeHtml(formUrl)}">${escapeHtml(formUrl)}</a>
       </p>
-    </div>
-  </body></html>`;
+      <p style="margin:0 0 14px;">
+        If you've any issues or questions, please contact Claire &mdash;
+        <a href="mailto:admin@thesensorysubmarine.com">admin@thesensorysubmarine.com</a>
+      </p>
+      <p style="margin:0 0 14px;">Thank you and see you soon.</p>
+      <p style="margin:0;"><strong>The Sensory Submarine Team</strong></p>
+      <p style="margin:18px 0 0;font-size:11px;color:#999999;">
+        If the button doesn't work, copy and paste this link:<br/>
+        <a href="${escapeHtml(formUrl)}" style="color:#999999;">${escapeHtml(formUrl)}</a>
+      </p>`,
+  });
 
   await sendTransactionalEmail({
     to: booking.clientEmail,
-    subject: "Please complete your referral form — The Sensory Submarine",
+    subject: `Please complete your referral form — ${service.title}`,
     html,
   });
 

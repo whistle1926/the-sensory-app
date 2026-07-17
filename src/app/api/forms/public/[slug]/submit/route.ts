@@ -12,6 +12,7 @@ import {
   type UploadedFile,
 } from "@/lib/forms";
 import { sendTransactionalEmail, escapeHtml } from "@/lib/email";
+import { brandedEmail } from "@/lib/email-layout";
 import { ingestReferralSubmission } from "@/lib/referral-intake";
 
 // Lightweight in-memory IP rate limit — good enough for a single Vercel
@@ -72,13 +73,12 @@ function buildNotificationHtml(
     })
     .join("");
 
-  return `<!doctype html><html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8f9fb;margin:0;padding:24px">
-    <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;padding:24px">
-      <p style="margin:0 0 8px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#888">New submission</p>
-      <h1 style="margin:0 0 16px;font-size:20px">${escapeHtml(formTitle)}</h1>
-      <table style="width:100%;border-collapse:collapse;font-size:14px">${rows}</table>
-    </div>
-  </body></html>`;
+  return brandedEmail({
+    heading: escapeHtml(formTitle),
+    bodyHtml: `
+      <p style="margin:0 0 12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888888;">New submission</p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px;">${rows}</table>`,
+  });
 }
 
 function renderTemplate(
@@ -92,12 +92,10 @@ function renderTemplate(
 
 function buildAutoReplyHtml(subject: string, body: string, vars: Record<string, string>): string {
   const rendered = renderTemplate(body, vars);
-  return `<!doctype html><html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8f9fb;margin:0;padding:24px">
-    <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;padding:24px">
-      <h1 style="margin:0 0 16px;font-size:18px">${escapeHtml(renderTemplate(subject, vars))}</h1>
-      <div style="white-space:pre-wrap;font-size:14px;color:#333">${escapeHtml(rendered)}</div>
-    </div>
-  </body></html>`;
+  return brandedEmail({
+    heading: escapeHtml(renderTemplate(subject, vars)),
+    bodyHtml: `<div style="white-space:pre-wrap;">${escapeHtml(rendered)}</div>`,
+  });
 }
 
 export async function POST(

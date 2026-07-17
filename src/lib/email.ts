@@ -21,6 +21,21 @@ export interface SendEmailResult {
 }
 
 /**
+ * Build the `email_from` value, with a display name when we have one, so
+ * inboxes show "The Sensory Submarine" instead of the bare address.
+ *
+ * Mailcub has no sender_name / email_from_name field (both 400 with
+ * "not allowed"), but it DOES accept the standard RFC 5322 form
+ * `"Display Name" <addr@host>` — verified against the live API 2026-07-17.
+ * The name is quoted and stripped of quotes/backslashes so it can't break
+ * out of the header.
+ */
+export function formatSender(name: string | null | undefined, email: string): string {
+  const clean = (name ?? "").replace(/["\\\r\n]/g, "").trim();
+  return clean ? `"${clean}" <${email}>` : email;
+}
+
+/**
  * Shared Mailcub transport used by every transactional email in the app.
  *
  * Caller is expected to:
@@ -53,7 +68,10 @@ export async function sendTransactionalEmail(
   // so we parse the JSON and check that, not just `res.ok`.
   const body: Record<string, unknown> = {
     receiver: input.to,
-    email_from: input.fromOverride ?? settings.senderEmail,
+    email_from: formatSender(
+      settings.senderName,
+      input.fromOverride ?? settings.senderEmail,
+    ),
     subject: input.subject,
     html: input.html,
     text,

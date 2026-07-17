@@ -8,6 +8,7 @@ import {
   type ReportSectionKey,
 } from "@/types/report";
 import { bodyToHtml as homeBodyToHtml } from "@/lib/home-programme";
+import { formatSender } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -95,7 +96,7 @@ export async function POST(req: NextRequest) {
       // 400 "email_from is required".
       body: JSON.stringify({
         receiver: to,
-        email_from: settings.senderEmail,
+        email_from: formatSender(settings.senderName, settings.senderEmail),
         subject,
         html: htmlBody,
         text: stripHtml(htmlBody),

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { formatSender } from "@/lib/email";
 import {
   homeProgrammeEmailHtml,
   htmlToText,
@@ -88,7 +89,7 @@ export async function POST(
       // truth. Wrong names get a 400 "email_from is required".
       body: JSON.stringify({
         receiver: to,
-        email_from: settings.senderEmail,
+        email_from: formatSender(settings.senderName, settings.senderEmail),
         subject,
         html,
         text: htmlToText(html),

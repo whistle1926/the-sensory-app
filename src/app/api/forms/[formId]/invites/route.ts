@@ -3,6 +3,7 @@ import { randomBytes } from "crypto";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendTransactionalEmail, escapeHtml } from "@/lib/email";
+import { brandedEmail } from "@/lib/email-layout";
 import { isEmail } from "@/lib/forms";
 
 function isStaff(role: string | undefined): boolean {
@@ -12,6 +13,19 @@ function isStaff(role: string | undefined): boolean {
 function makeToken(): string {
   return randomBytes(18).toString("base64url");
 }
+
+/** Default wording when staff don't edit it in the Send dialog. Claire's
+ * copy (2026-07-17) — the link is appended as a button by the sender, so
+ * the body doesn't need to repeat {{formUrl}}. */
+const DEFAULT_INVITE_BODY = `Hi,
+
+Ahead of your upcoming OT assessment with The Sensory Submarine, please take some time to complete the referral form by following the link below:
+
+If you've any issues or questions, please contact Claire - admin@thesensorysubmarine.com
+
+Thank you and see you soon.
+
+The Sensory Submarine Team`;
 
 interface InviteRecipient {
   email: string;
@@ -105,7 +119,7 @@ export async function POST(
   const bodyTemplate =
     typeof body?.body === "string" && body.body.trim()
       ? body.body.trim()
-      : `Hi,\n\nI've set up a form for you to complete when you have a moment:\n\n{{formUrl}}\n\nThanks!`;
+      : DEFAULT_INVITE_BODY;
 
   // Normalise + dedupe recipients.
   const seen = new Set<string>();
@@ -155,12 +169,21 @@ export async function POST(
     const subject = renderTemplate(subjectTemplate, vars);
     const renderedBody = renderTemplate(bodyTemplate, vars);
 
-    const html = `<!doctype html><html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8f9fb;margin:0;padding:24px">
-      <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;padding:24px">
-        <div style="white-space:pre-wrap;font-size:14px;color:#333">${escapeHtml(renderedBody)}</div>
-        <div style="margin-top:24px"><a href="${escapeHtml(formUrl)}" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Open form</a></div>
-      </div>
-    </body></html>`;
+    // Branded shell so form invites match the invoice/booking emails
+    // (same font, logo header, footer) rather than being bare text.
+    const html = brandedEmail({
+      bodyHtml: `
+        <div style="white-space:pre-wrap;">${escapeHtml(renderedBody)}</div>
+        <p style="margin:20px 0 0;">
+          <a href="${escapeHtml(formUrl)}" style="display:inline-block;background:#1a1a2e;color:#ffffff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:700;">
+            ${escapeHtml(form.title)}
+          </a>
+        </p>
+        <p style="margin:18px 0 0;font-size:11px;color:#999999;">
+          If the button doesn't work, copy and paste this link:<br/>
+          <a href="${escapeHtml(formUrl)}" style="color:#999999;">${escapeHtml(formUrl)}</a>
+        </p>`,
+    });
 
     try {
       const res = await sendTransactionalEmail({

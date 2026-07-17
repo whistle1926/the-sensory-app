@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { formatSender } from "./email";
 
 interface SendMailOptions {
   to: string;
@@ -47,7 +48,9 @@ export async function sendMail(opts: SendMailOptions): Promise<boolean> {
       },
       body: JSON.stringify({
         receiver: opts.to,
-        email_from: settings.senderEmail,
+        // Display name via the RFC form — Mailcub has no sender_name field
+        // but accepts `"Name" <addr>`. See formatSender().
+        email_from: formatSender(settings.senderName, settings.senderEmail),
         subject: opts.subject,
         html: opts.html,
         text: opts.text || stripHtml(opts.html),
