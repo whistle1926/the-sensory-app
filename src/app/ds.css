@@ -449,3 +449,35 @@
     radial-gradient(120% 80% at 100% 0%, oklch(0.5 0.24 264 / 18%), transparent 60%),
     var(--card);
 }
+
+/* ──────────────────────────────────────────────────────────────────── */
+/* Page-help highlight — applied by <PageHelp> to the element the       */
+/* current step is talking about, so you can see what it means while    */
+/* the guide stays open. Ring + soft pulse; nothing that shifts layout  */
+/* (no borders/margins) so highlighting can't nudge the page around.    */
+/* ──────────────────────────────────────────────────────────────────── */
+.help-highlight {
+  outline: 2px solid var(--color-primary, oklch(0.55 0.20 264));
+  outline-offset: 3px;
+  border-radius: 12px;
+  animation: help-highlight-pulse 1.6s ease-in-out infinite;
+  scroll-margin: 120px;
+  position: relative;
+  z-index: 20;
+}
+
+@keyframes help-highlight-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 oklch(0.55 0.2 264 / 35%);
+  }
+  50% {
+    box-shadow: 0 0 0 6px oklch(0.55 0.2 264 / 0%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .help-highlight {
+    animation: none;
+  }
+}

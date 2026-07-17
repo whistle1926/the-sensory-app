@@ -10,7 +10,7 @@ import {
   List,
   Check,
 } from "lucide-react";
-import { getPageHelp } from "@/lib/page-help";
+import { getPageHelp, stepParts } from "@/lib/page-help";
 
 /**
  * PageHelp — the "?" guide beside a page title.
@@ -44,6 +44,33 @@ export function PageHelp({ pageKey }: { pageKey: string }) {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
+
+  // Highlight the element the current step is describing, and bring it into
+  // view. Cleans up whenever the step changes / the guide closes, so only
+  // one thing is ever ringed. A missing element (wrong tab open, renamed
+  // selector) simply means no highlight — never a broken guide.
+  const activeTarget =
+    open && !showAll && content
+      ? stepParts(content.steps[step] ?? "").target
+      : undefined;
+
+  useEffect(() => {
+    if (!activeTarget) return;
+    const el = document.querySelector(activeTarget);
+    if (!el) return;
+    el.classList.add("help-highlight");
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+    return () => el.classList.remove("help-highlight");
+  }, [activeTarget]);
+
+  // Belt and braces: if the panel unmounts mid-step, drop any stray ring.
+  useEffect(() => {
+    return () => {
+      document
+        .querySelectorAll(".help-highlight")
+        .forEach((el) => el.classList.remove("help-highlight"));
+    };
+  }, []);
 
   if (!content) return null;
 
@@ -124,7 +151,7 @@ export function PageHelp({ pageKey }: { pageKey: string }) {
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
                       {i + 1}
                     </span>
-                    <span className="pt-0.5">{s}</span>
+                    <span className="pt-0.5">{stepParts(s).text}</span>
                   </li>
                 ))}
               </ol>
@@ -135,9 +162,14 @@ export function PageHelp({ pageKey }: { pageKey: string }) {
                     {step + 1}
                   </span>
                   <p className="pt-0.5 text-sm leading-relaxed">
-                    {content.steps[step]}
+                    {stepParts(content.steps[step]).text}
                   </p>
                 </div>
+                {activeTarget && (
+                  <p className="mt-2 pl-8 text-[11px] text-primary">
+                    Highlighted on the page for you
+                  </p>
+                )}
 
                 {/* Progress dots — jump straight to any step. */}
                 <div className="mt-3 flex flex-wrap gap-1.5">

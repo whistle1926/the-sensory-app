@@ -703,6 +703,7 @@ export default function BookingsPage() {
         subtitle="Manage your calendar, availability, and client bookings"
         actions={
           <Button
+            data-help="bookings-new"
             onClick={() => {
               setNbError(null);
               setNbOpen(true);
@@ -716,7 +717,10 @@ export default function BookingsPage() {
       />
 
       {/* Booking Link Card */}
-      <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
+      <div
+        data-help="bookings-share-link"
+        className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]"
+      >
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-[var(--shadow-glow)]" style={{ background: "var(--gradient-primary)" }}>
             <Link2 className="h-5 w-5 text-white" />
@@ -740,6 +744,7 @@ export default function BookingsPage() {
       {/* Tabs */}
       <div className="flex gap-1 rounded-xl bg-muted/50 p-1">
         <button
+          data-help="bookings-tab-calendar"
           onClick={() => setTab("calendar")}
           className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
             tab === "calendar" ? "bg-card text-foreground shadow-[var(--shadow-xs)]" : "text-muted-foreground hover:text-foreground"
@@ -749,6 +754,7 @@ export default function BookingsPage() {
           Calendar
         </button>
         <button
+          data-help="bookings-tab-availability"
           onClick={() => setTab("availability")}
           className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
             tab === "availability" ? "bg-card text-foreground shadow-[var(--shadow-xs)]" : "text-muted-foreground hover:text-foreground"
@@ -758,6 +764,7 @@ export default function BookingsPage() {
           Availability
         </button>
         <button
+          data-help="bookings-tab-automations"
           onClick={() => setTab("automations")}
           className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
             tab === "automations" ? "bg-card text-foreground shadow-[var(--shadow-xs)]" : "text-muted-foreground hover:text-foreground"
@@ -767,6 +774,7 @@ export default function BookingsPage() {
           Automations
         </button>
         <button
+          data-help="bookings-tab-terms"
           onClick={() => setTab("terms")}
           className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
             tab === "terms" ? "bg-card text-foreground shadow-[var(--shadow-xs)]" : "text-muted-foreground hover:text-foreground"
@@ -776,6 +784,7 @@ export default function BookingsPage() {
           Terms
         </button>
         <button
+          data-help="bookings-tab-services"
           onClick={() => setTab("services")}
           className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
             tab === "services" ? "bg-card text-foreground shadow-[var(--shadow-xs)]" : "text-muted-foreground hover:text-foreground"

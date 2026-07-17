@@ -18,15 +18,38 @@
  * always matches what the page actually does.
  */
 
+/**
+ * A step. Either plain text, or text plus a `target` CSS selector for the
+ * element it's talking about — the guide then highlights and scrolls to it
+ * as you step through.
+ *
+ * Targets should point at a data-help attribute on the page rather than a
+ * class or DOM shape, so restyling can't silently break them — e.g. a step
+ * targeting the Availability tab uses the selector
+ * [data-help="bookings-tab-availability"], and the tab button carries the
+ * matching attribute.
+ *
+ * If the element isn't on screen the step just shows without a highlight,
+ * so a stale selector degrades quietly rather than breaking the guide. That
+ * also means a renamed attribute fails SILENTLY — when you move or rename a
+ * targeted element, update its step here too.
+ */
+export type PageHelpStep = string | { text: string; target?: string };
+
 export interface PageHelpContent {
-  /** Heading shown at the top of the help popover. */
+  /** Heading shown at the top of the help panel. */
   title: string;
   /** One sentence: what this page is for. */
   summary: string;
   /** Short, ordered "how to use it" steps — keep each to one line. */
-  steps: string[];
+  steps: PageHelpStep[];
   /** Optional extra pointers (shortcuts, gotchas, good-to-knows). */
   tips?: string[];
+}
+
+/** Normalise a step to its object form. */
+export function stepParts(step: PageHelpStep): { text: string; target?: string } {
+  return typeof step === "string" ? { text: step } : step;
 }
 
 export const PAGE_HELP: Record<string, PageHelpContent> = {
@@ -49,13 +72,38 @@ export const PAGE_HELP: Record<string, PageHelpContent> = {
     summary:
       "One place to see your calendar, set when each service is available, and manage what clients can book.",
     steps: [
-      "Calendar — opens on the month view, showing your portal bookings and your Google Calendar together. Click any day to see its hour-by-hour timeline, or use Month/Day (top right) to switch. A dot under a date means something's on.",
-      "New booking (top right) — book a client in yourself. Pick the service and the price fills in automatically.",
-      "Availability — choose a service from the dropdown, then set its weekly hours. Each block of hours you add is ONE bookable appointment, so 09:15–10:00 offers a 09:15 slot. Add more blocks to offer more times.",
-      "For a monthly clinic, skip weekly hours and add date-specific days instead (Date overrides → pick the date → Custom hours).",
-      "Services — add, edit or hide what people can book: price, location, who runs it, and Sessions per booking (leave 1–1 for a single appointment, or set 2–5 for a block where the client picks several dates and pays per session). LIVE/OFF makes a service public or hidden.",
-      "Automations — edit the confirmation and 24-hour reminder emails clients receive.",
-      "Terms — edit the terms & conditions clients tick when booking.",
+      {
+        text: "Calendar — opens on the month view, showing your portal bookings and your Google Calendar together. Click any day to see its hour-by-hour timeline, or use Month/Day (top right) to switch. A dot under a date means something's on.",
+        target: '[data-help="bookings-tab-calendar"]',
+      },
+      {
+        text: "New booking (top right) — book a client in yourself. Pick the service and the price fills in automatically.",
+        target: '[data-help="bookings-new"]',
+      },
+      {
+        text: "Availability — choose a service from the dropdown, then set its weekly hours. Each block of hours you add is ONE bookable appointment, so 09:15–10:00 offers a 09:15 slot. Add more blocks to offer more times.",
+        target: '[data-help="bookings-tab-availability"]',
+      },
+      {
+        text: "For a monthly clinic, skip weekly hours and add date-specific days instead (Date overrides → pick the date → Custom hours).",
+        target: '[data-help="bookings-tab-availability"]',
+      },
+      {
+        text: "Services — add, edit or hide what people can book: price, location, who runs it, and Sessions per booking (leave 1–1 for a single appointment, or set 2–5 for a block where the client picks several dates and pays per session). LIVE/OFF makes a service public or hidden.",
+        target: '[data-help="bookings-tab-services"]',
+      },
+      {
+        text: "Automations — edit the confirmation and 24-hour reminder emails clients receive.",
+        target: '[data-help="bookings-tab-automations"]',
+      },
+      {
+        text: "Terms — edit the terms & conditions clients tick when booking.",
+        target: '[data-help="bookings-tab-terms"]',
+      },
+      {
+        text: "Share this booking link with clients so they can book themselves.",
+        target: '[data-help="bookings-share-link"]',
+      },
     ],
     tips: [
       "To add a clinic location: Services → New service, set its Location and who runs it, add its dates under Availability, then switch it LIVE.",
