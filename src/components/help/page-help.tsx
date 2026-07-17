@@ -30,8 +30,14 @@ import { getPageHelp, stepParts } from "@/lib/page-help";
 export function PageHelp({ pageKey }: { pageKey: string }) {
   const content = getPageHelp(pageKey);
   const [open, setOpen] = useState(false);
-  const [showAll, setShowAll] = useState(false);
+  // Opens on the full list — Grace's preference (2026-07-17): see every
+  // step at a glance, rather than being walked through one at a time.
+  // The ☰ toggle switches to the guided step-by-step view.
+  const [showAll, setShowAll] = useState(true);
   const [step, setStep] = useState(0);
+  // In list view, the step whose element is currently highlighted (click a
+  // step to point it out). null = nothing highlighted.
+  const [listFocus, setListFocus] = useState<number | null>(null);
   const panelId = useId();
 
   // Esc closes. No outside-click handler on purpose — clicking the page is
@@ -49,9 +55,12 @@ export function PageHelp({ pageKey }: { pageKey: string }) {
   // view. Cleans up whenever the step changes / the guide closes, so only
   // one thing is ever ringed. A missing element (wrong tab open, renamed
   // selector) simply means no highlight — never a broken guide.
+  // Which step drives the highlight: the clicked one in list view, or the
+  // current one when stepping through.
+  const activeIndex = showAll ? listFocus : step;
   const activeTarget =
-    open && !showAll && content
-      ? stepParts(content.steps[step] ?? "").target
+    open && content && activeIndex !== null
+      ? stepParts(content.steps[activeIndex] ?? "").target
       : undefined;
 
   useEffect(() => {
@@ -121,16 +130,22 @@ export function PageHelp({ pageKey }: { pageKey: string }) {
             <div className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
-                onClick={() => setShowAll((v) => !v)}
+                onClick={() => {
+                  setShowAll((v) => !v);
+                  setListFocus(null); // don't carry a ring across modes
+                }}
                 className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                title={showAll ? "Step by step" : "Show all steps"}
-                aria-label={showAll ? "Step by step" : "Show all steps"}
+                title={showAll ? "Walk me through it" : "Show all steps"}
+                aria-label={showAll ? "Walk me through it" : "Show all steps"}
               >
                 <List className="h-4 w-4" />
               </button>
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={() => {
+                  setOpen(false);
+                  setListFocus(null);
+                }}
                 aria-label="Close help"
                 className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
               >
@@ -145,16 +160,48 @@ export function PageHelp({ pageKey }: { pageKey: string }) {
             </p>
 
             {showAll ? (
-              <ol className="mt-3 space-y-2">
-                {content.steps.map((s, i) => (
-                  <li key={i} className="flex gap-2.5 text-xs leading-relaxed">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
-                      {i + 1}
-                    </span>
-                    <span className="pt-0.5">{stepParts(s).text}</span>
-                  </li>
-                ))}
+              <>
+              <ol className="mt-3 space-y-1">
+                {content.steps.map((s, i) => {
+                  const { text, target } = stepParts(s);
+                  const focused = listFocus === i;
+                  return (
+                    <li key={i}>
+                      {/* Clicking a step points it out on the page. Steps
+                          without a target aren't clickable — nothing to
+                          show — so they render as plain text. */}
+                      <button
+                        type="button"
+                        disabled={!target}
+                        onClick={() => setListFocus(focused ? null : i)}
+                        title={target ? "Show me where" : undefined}
+                        className={`flex w-full gap-2.5 rounded-lg p-1.5 text-left text-xs leading-relaxed transition-colors ${
+                          focused
+                            ? "bg-primary/10"
+                            : target
+                              ? "hover:bg-muted"
+                              : "cursor-default"
+                        }`}
+                      >
+                        <span
+                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                            focused
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-primary/10 text-primary"
+                          }`}
+                        >
+                          {i + 1}
+                        </span>
+                        <span className="pt-0.5">{text}</span>
+                      </button>
+                    </li>
+                  );
+                })}
               </ol>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Tap a step to point it out on the page.
+              </p>
+              </>
             ) : (
               <div className="mt-3">
                 <div className="flex gap-2.5">
