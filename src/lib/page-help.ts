@@ -49,14 +49,17 @@ export const PAGE_HELP: Record<string, PageHelpContent> = {
     summary:
       "One place to see your calendar, set when each service is available, and manage what clients can book.",
     steps: [
-      "Calendar — see upcoming bookings. Use New booking (top right) to add one yourself for a client.",
-      "Availability — pick a service from the dropdown, then set its weekly hours, or add date-specific clinic days for monthly clinics.",
-      "Services — add, edit or hide the things people can book (price, location, who runs it). The LIVE/OFF switch makes a service public or hidden.",
-      "Automations — edit the confirmation and reminder emails clients receive.",
+      "Calendar — opens on the month view, showing your portal bookings and your Google Calendar together. Click any day to see its hour-by-hour timeline, or use Month/Day (top right) to switch. A dot under a date means something's on.",
+      "New booking (top right) — book a client in yourself. Pick the service and the price fills in automatically.",
+      "Availability — choose a service from the dropdown, then set its weekly hours. Each block of hours you add is ONE bookable appointment, so 09:15–10:00 offers a 09:15 slot. Add more blocks to offer more times.",
+      "For a monthly clinic, skip weekly hours and add date-specific days instead (Date overrides → pick the date → Custom hours).",
+      "Services — add, edit or hide what people can book: price, location, who runs it, and Sessions per booking (leave 1–1 for a single appointment, or set 2–5 for a block where the client picks several dates and pays per session). LIVE/OFF makes a service public or hidden.",
+      "Automations — edit the confirmation and 24-hour reminder emails clients receive.",
       "Terms — edit the terms & conditions clients tick when booking.",
     ],
     tips: [
-      "To add a new clinic location: Services → New service, set its Location and owner, set its dates under Availability, then switch it LIVE.",
+      "To add a clinic location: Services → New service, set its Location and who runs it, add its dates under Availability, then switch it LIVE.",
+      "Google Calendar events show here as read-only (tagged “Google”) — edit those in Google. Only portal bookings can be changed here.",
       "Share the booking link at the top with clients so they can book themselves.",
     ],
   },
@@ -91,11 +94,14 @@ export const PAGE_HELP: Record<string, PageHelpContent> = {
   invoices: {
     title: "Invoices",
     summary:
-      "Create and track invoices. Fire is the source of truth for what’s actually been paid.",
+      "Create, send and track invoices. Fire is the source of truth for what’s actually been paid.",
     steps: [
-      "Create an invoice, choose the client and add line items (the service picker fills in price and tax).",
-      "‘Received’ badges and the Payments received view come from real Fire transactions — not set by hand.",
-      "Use the filters to see what’s outstanding versus received.",
+      "Create an invoice and choose the client. Pick a service on a line item and its description and price fill in for you — you can still edit either.",
+      "Use the Travel expenses and Discount buttons for extra lines. For a discount, type the amount as a negative (e.g. -25) so it comes off the total.",
+      "The due date defaults to the day you issue it. Use the ‘30 days (schools)’ button for school/EA terms.",
+      "Send the invoice by email, or use Download / Print on any invoice for a clean PDF copy (for your records, an accountant, or a finance team).",
+      "If an email doesn’t land, Copy payment link or WhatsApp link get the payment link to the client another way.",
+      "‘Received’ badges and the Payments received view come from real Fire transactions — never set by hand.",
     ],
   },
 
@@ -113,8 +119,9 @@ export const PAGE_HELP: Record<string, PageHelpContent> = {
     summary: "Turn session notes into a structured OT report you can review, export and send.",
     steps: [
       "Start a report from a client, paste or dictate your session notes, and let the draft generate.",
-      "Edit any section, reorder them, then save.",
-      "Export to PDF/Word or send a branded summary email to the parent.",
+      "Edit any section, reorder them, and use Tidy with AI to clean up the writing — you review the before/after before anything changes.",
+      "Word downloads a .docx. PDF opens a clean copy and brings up the print box — choose ‘Save as PDF’.",
+      "Email sends the report to the parent. Use Add attachment there to include extras like a visual schedule.",
     ],
   },
 };
