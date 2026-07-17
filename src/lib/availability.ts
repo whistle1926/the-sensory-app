@@ -35,7 +35,23 @@ export interface AvailabilityScope {
   ownerId: string | null;
 }
 
-/** Generate 30-minute slot start-times from a list of intervals. */
+/**
+ * Turn configured availability intervals into bookable slot start-times.
+ *
+ * ONE SLOT PER INTERVAL — each interval is a discrete appointment slot, so
+ * "09:15–10:00" offers exactly one bookable time: 09:15. This is the
+ * TidyCal model Grace asked for (2026-07-17) and it matches how the hours
+ * are actually configured: 45-minute blocks separated by 15-minute gaps.
+ *
+ * Previously we stepped *inside* each interval every 30 minutes, which
+ * offered two starts in one 45-minute block (09:15 AND 09:45). Since
+ * nothing here checks appointment length, that let a 60-minute assessment
+ * booked at 09:45 run straight over the following block. One-slot-per-
+ * interval removes that whole class of overlap: the interval defines the
+ * appointment, so the therapist controls the spacing via their hours.
+ *
+ * To offer more times, add more intervals in Bookings → Availability.
+ */
 export function slotsFromIntervals(intervals: Interval[]): string[] {
   const slots: string[] = [];
   for (const iv of intervals) {
@@ -43,15 +59,15 @@ export function slotsFromIntervals(intervals: Interval[]): string[] {
     const [sh, sm] = iv.start.split(":").map(Number);
     const [eh, em] = iv.end.split(":").map(Number);
     if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) continue;
-    const startMins = sh * 60 + sm;
-    const endMins = eh * 60 + em;
-    for (let m = startMins; m < endMins; m += 30) {
-      const h = Math.floor(m / 60);
-      const min = m % 60;
-      slots.push(`${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`);
-    }
+    // Ignore zero/negative-length intervals.
+    if (eh * 60 + em <= sh * 60 + sm) continue;
+    slots.push(
+      `${String(sh).padStart(2, "0")}:${String(sm).padStart(2, "0")}`,
+    );
   }
-  return slots;
+  // De-dupe + sort so overlapping/duplicate intervals can't double-list a
+  // time and the grid always reads in order.
+  return Array.from(new Set(slots)).sort();
 }
 
 /** ISO date key (YYYY-MM-DD) in UTC, matching how dates are stored. */
