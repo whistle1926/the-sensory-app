@@ -73,9 +73,24 @@ export async function POST(req: NextRequest) {
   // onto the booking for the per-owner double-book check + admin views.
   const svc = await prisma.bookingService.findUnique({
     where: { slug: service },
-    select: { ownerId: true },
+    select: {
+      ownerId: true,
+      pricePence: true,
+      durationLabel: true,
+      durationMinutes: true,
+    },
   });
   const ownerId = svc?.ownerId ?? null;
+
+  // Price + duration come from the SERVICE, not the request. The admin
+  // "New booking" form doesn't send them (bookings landed at price=0, so
+  // the confirmation email said "Total: £0"), and trusting a public
+  // client's `price` would let anyone book at whatever amount they liked.
+  // Fall back to the posted values only if the service can't be resolved.
+  const resolvedPrice = svc ? svc.pricePence : (price ?? 0);
+  const resolvedDuration = svc
+    ? svc.durationLabel || `${svc.durationMinutes} minutes`
+    : (duration ?? "");
 
   // Check for a clash on the SAME owner's calendar. Two different
   // associates can hold the same date/time; one associate cannot be
@@ -104,8 +119,8 @@ export async function POST(req: NextRequest) {
       ownerId,
       date: bookingDate,
       time,
-      duration: duration || "",
-      price: price || 0,
+      duration: resolvedDuration,
+      price: resolvedPrice,
       clientName,
       clientEmail: normalisedEmail,
       clientPhone: clientPhone || null,
@@ -153,8 +168,8 @@ export async function POST(req: NextRequest) {
     service,
     date: bookingDate,
     time,
-    duration: duration || "",
-    pricePence: price || 0,
+    duration: resolvedDuration,
+    pricePence: resolvedPrice,
     depositPence: depositPolicy?.amountPence,
   }).catch((err) => console.error("Booking confirmation email failed:", err));
 
@@ -168,7 +183,7 @@ export async function POST(req: NextRequest) {
       const fb = new FireBuddy(paymentSettings.apiKey);
       const origin = req.nextUrl.origin;
       const payment = await fb.createPayment({
-        amount: (price || 0) / 100, // price is in pence, FireBuddy expects pounds
+        amount: resolvedPrice / 100, // price is in pence, FireBuddy expects pounds
         currency: "GBP",
         description: `${service} — ${clientName}`,
         reference: booking.id,

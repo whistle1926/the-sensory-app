@@ -27,7 +27,54 @@ export interface AutomationVariables {
   price?: string;
   deposit?: string;
   terms?: string; // raw HTML
+  /** "Add to calendar" URL (Google Calendar template link). */
+  calendar_link?: string;
+  /** Video-call paragraph — ONLY populated for online services, so the
+   * reminder can say "we'll send the link" without it appearing on
+   * in-person clinic appointments. Empty string otherwise. */
+  online_note?: string;
   [key: string]: string | undefined;
+}
+
+/** Add `mins` to a "HH:MM" clock time. Clamps at 23:59 rather than
+ * rolling into the next day — appointments don't span midnight. */
+function addMinutesToClock(time: string, mins: number): string {
+  const [h, m] = time.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return time;
+  const total = Math.min(h * 60 + m + mins, 23 * 60 + 59);
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(
+    total % 60,
+  ).padStart(2, "0")}`;
+}
+
+/**
+ * A Google Calendar "add event" link for the booking.
+ *
+ * We pass the local wall-clock time plus `ctz=Europe/London` rather than
+ * converting to UTC — Google applies the timezone, so this stays correct
+ * across BST/GMT with no date-maths of our own.
+ */
+function buildCalendarLink(args: {
+  title: string;
+  date: Date;
+  time: string;
+  durationMinutes: number;
+}): string {
+  // The booking's calendar day AS SEEN IN LONDON (the stored instant can
+  // sit at 23:00 UTC the night before during BST).
+  const ymd = args.date
+    .toLocaleDateString("en-CA", { timeZone: "Europe/London" })
+    .replace(/-/g, "");
+  const stamp = (t: string) => `${ymd}T${t.replace(":", "")}00`;
+  const end = addMinutesToClock(args.time, args.durationMinutes || 60);
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: args.title,
+    dates: `${stamp(args.time)}/${stamp(end)}`,
+    ctz: "Europe/London",
+    details: "Booked with The Sensory Submarine.",
+  });
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
 /** Render a template string with {{variable}} placeholders. */
@@ -59,6 +106,16 @@ export async function variablesForBooking(args: {
     year: "numeric",
     timeZone: "Europe/London",
   });
+
+  // `mode` is the reliable online/in-person flag (the meta helper only
+  // guesses from the tagline text), and we need the real duration for the
+  // calendar link's end time.
+  const svc = await prisma.bookingService.findUnique({
+    where: { slug: args.service },
+    select: { mode: true, durationMinutes: true },
+  });
+  const isOnline = svc?.mode === "online";
+
   return {
     client_name: args.clientName,
     service: meta.title,
@@ -68,6 +125,17 @@ export async function variablesForBooking(args: {
     price: formatPrice(args.pricePence),
     deposit: args.depositPence ? formatPrice(args.depositPence) : "",
     terms: await renderTermsHtmlFromDb(args.service),
+    calendar_link: buildCalendarLink({
+      title: meta.title,
+      date: args.date,
+      time: args.time,
+      durationMinutes: svc?.durationMinutes ?? 60,
+    }),
+    // Online services only — an in-person clinic must not be told a video
+    // link is coming.
+    online_note: isOnline
+      ? "We will send the video link separately closer to the time. Please find a quiet space with a good internet connection and have your child nearby if relevant."
+      : "",
   };
 }
 
@@ -98,7 +166,7 @@ export const DEFAULT_AUTOMATIONS = {
     triggerHoursBefore: null as number | null,
     subject: "Your booking with The Sensory Submarine is confirmed",
     bodyHtml: `<h2>Your booking is confirmed</h2>
-<p>Hi {{client_name}}, thanks for booking with The Sensory Submarine.</p>
+<p>Hi {{client_name}}, thanks for booking with The Sensory Submarine. Here's a reminder of your upcoming appointment(s).</p>
 <h3>Booking details</h3>
 <ul>
   <li><strong>Service:</strong> {{service}}</li>
@@ -106,8 +174,12 @@ export const DEFAULT_AUTOMATIONS = {
   <li><strong>Time:</strong> {{time}}</li>
   <li><strong>Total:</strong> {{price}}</li>
 </ul>
+<p><a href="{{calendar_link}}">Click here to add to your calendar</a></p>
+<p>We are looking forward to seeing you soon.</p>
+<p><strong>The Sensory Submarine</strong></p>
+<p><img src="https://portal.thesensorysubmarine.com/brand/logo.jpg" alt="The Sensory Submarine" width="110" style="display:block;border:0;" /></p>
 {{terms}}
-<p>If you need to cancel or reschedule, please reply to this email as soon as possible. Cancellation charges apply per the terms above.</p>`,
+<p>If you need to cancel or reschedule, please email <a href="mailto:admin@thesensorysubmarine.com">admin@thesensorysubmarine.com</a> as soon as possible. Cancellation charges may apply as per the terms above.</p>`,
   },
   reminder_24h: {
     key: "reminder_24h",
@@ -117,6 +189,8 @@ export const DEFAULT_AUTOMATIONS = {
     triggerType: "before_appointment" as const,
     triggerHoursBefore: 24 as number | null,
     subject: "Reminder: your appointment with The Sensory Submarine is tomorrow at {{time}}",
+    // {{online_note}} resolves to the video-link line for online services
+    // and to an empty string for in-person clinics.
     bodyHtml: `<h2>Reminder: your appointment is tomorrow</h2>
 <p>Hi {{client_name}}, this is a friendly reminder of your appointment with The Sensory Submarine.</p>
 <h3>Appointment details</h3>
@@ -126,8 +200,11 @@ export const DEFAULT_AUTOMATIONS = {
   <li><strong>Time:</strong> {{time}} (UK time)</li>
   <li><strong>Duration:</strong> {{duration}}</li>
 </ul>
-<p>We'll send the video link separately closer to the time. Please find a quiet space with a good internet connection and have your child nearby if relevant.</p>
-<p>Need to cancel or reschedule? Reply to this email as soon as possible. Cancellations within 24 hours of the appointment require full payment unless in case of sickness.</p>`,
+<p>{{online_note}}</p>
+<p>We're looking forward to seeing you then!</p>
+<p><strong>The Sensory Submarine</strong></p>
+<p><img src="https://portal.thesensorysubmarine.com/brand/logo.jpg" alt="The Sensory Submarine" width="110" style="display:block;border:0;" /></p>
+<p>Need to cancel or reschedule? Contact <a href="mailto:admin@thesensorysubmarine.com">admin@thesensorysubmarine.com</a> as soon as possible. Cancellations within 24 hours of the appointment require full payment.</p>`,
   },
 };
 
