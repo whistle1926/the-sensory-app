@@ -25,7 +25,12 @@ import { timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendTransactionalEmail } from "@/lib/email";
 import { sendMail } from "@/lib/mailer";
-import { checkAiHealth, type AiHealth } from "@/lib/ai-model";
+import {
+  checkAiHealth,
+  raiseAiKeyTask,
+  resolveAiKeyTask,
+  type AiHealth,
+} from "@/lib/ai-model";
 import {
   getEnabledAutomation,
   renderTemplate,
@@ -91,10 +96,11 @@ export async function GET(req: NextRequest) {
     }
     // Also raise (or clear) an admin task, so a broken key is flagged
     // right in /tasks where it can be actioned — not just in an email
-    // that might be missed.
-    await syncAiHealthTask(aiHealth).catch((e) =>
-      console.error("[ai-health] task sync failed (non-fatal)", e),
-    );
+    // that might be missed. (The real-time 401 trigger in
+    // createMessageResilient raises the same task the moment a live AI
+    // call fails; this daily pass is the backstop + the clearer.)
+    if (aiHealth.ok) await resolveAiKeyTask();
+    else await raiseAiKeyTask(aiHealth.error);
   } catch (err) {
     console.error("[ai-health] check failed (non-fatal)", err);
   }
@@ -211,57 +217,3 @@ async function sendReminderEmail(b: BookingForReminder) {
   });
 }
 
-/**
- * Keep a single "Claude AI key needs updating" admin task in sync with the
- * AI health check:
- *   • AI down (health.ok === false) → open an URGENT task, unless one is
- *     already open (so it isn't recreated every day it stays broken).
- *   • AI recovered → auto-complete any open one, so it clears itself when
- *     someone pastes a fresh key into Settings → AI.
- * Best-effort; the caller swallows errors.
- */
-async function syncAiHealthTask(health: AiHealth): Promise<void> {
-  const TITLE = "⚠️ Claude AI key needs updating";
-
-  const open = await prisma.task.findFirst({
-    where: { title: TITLE, status: { not: "done" } },
-    select: { id: true },
-  });
-
-  if (!health.ok) {
-    if (open) return; // already flagged — don't pile up duplicates
-    // Attribute the task to an admin (createdById is required).
-    const admin = await prisma.user.findFirst({
-      where: { role: "SUPER_ADMIN" },
-      orderBy: { createdAt: "asc" },
-      select: { id: true },
-    });
-    if (!admin) return;
-    await prisma.task.create({
-      data: {
-        title: TITLE,
-        priority: "urgent",
-        status: "todo",
-        createdById: admin.id,
-        description:
-          `Automated check: the Claude AI features are currently failing` +
-          (health.error ? ` (${health.error})` : "") +
-          `.\n\nWhile this is broken, report generation, "Tidy with AI", ` +
-          `report summaries, home-programme tidy and leaflet generation ` +
-          `will all show an error.\n\nMost likely the Claude API key has ` +
-          `expired or been rotated. To fix: go to Settings → AI, paste a ` +
-          `fresh key from the Anthropic Console, and click Save — it takes ` +
-          `effect immediately, no developer needed. (If the key is fine, ` +
-          `check the Anthropic account still has credit.)\n\n` +
-          `This task will tick itself off automatically once the AI is ` +
-          `working again.`,
-      },
-    });
-  } else if (open) {
-    // Recovered — close the flag.
-    await prisma.task.update({
-      where: { id: open.id },
-      data: { status: "done", completedAt: new Date() },
-    });
-  }
-}

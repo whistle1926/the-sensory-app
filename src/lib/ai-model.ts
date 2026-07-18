@@ -85,6 +85,10 @@ export async function createMessageResilient(
           `[ai-model] primary "${AI_MODELS[0]}" unavailable — used fallback "${model}". Update src/lib/ai-model.ts.`,
         );
       }
+      // A live call just succeeded — if a "key needs updating" task was
+      // open, the key has been fixed, so clear it in real time (best-
+      // effort; the daily cron is the backstop).
+      void resolveAiKeyTask();
       return { message, modelUsed: model, fellBack: i > 0 };
     } catch (err) {
       const status = (err as { status?: number } | null)?.status;
@@ -94,10 +98,86 @@ export async function createMessageResilient(
         lastErr = err;
         continue;
       }
+      // 401 = the key is bad (expired/rotated). Flag it for the admin in
+      // real time — don't wait for the daily health cron — then surface
+      // the error as before. Fire-and-forget so it can't affect the call.
+      if (status === 401) {
+        void raiseAiKeyTask("A live AI request was rejected (401 — invalid API key).");
+      }
       throw err;
     }
   }
   throw lastErr ?? new Error("All configured AI models are unavailable");
+}
+
+// ── "Claude AI key needs updating" admin task ────────────────────────
+// One shared task raised whenever the key is failing — by the daily
+// health cron AND, in real time, the moment a live AI call 401s. Both
+// paths use these so there's a single title/description and one open task
+// at a time.
+
+export const AI_KEY_TASK_TITLE = "⚠️ Claude AI key needs updating";
+
+function aiKeyTaskDescription(reason?: string): string {
+  return (
+    `Automated check: the Claude AI features are currently failing` +
+    (reason ? ` — ${reason}` : "") +
+    `.\n\nWhile this is broken, report generation, "Tidy with AI", report ` +
+    `summaries, home-programme tidy and leaflet generation will all show an ` +
+    `error.\n\nMost likely the Claude API key has expired or been rotated. ` +
+    `To fix: go to Settings → AI, paste a fresh key from the Anthropic ` +
+    `Console, and click Save — it takes effect immediately, no developer ` +
+    `needed. (If the key is fine, check the Anthropic account still has ` +
+    `credit.)\n\nThis task ticks itself off automatically once the AI is ` +
+    `working again.`
+  );
+}
+
+/** Open an urgent admin task if one isn't already open. Idempotent, so it
+ * can be called from many places without piling up duplicates. */
+export async function raiseAiKeyTask(reason?: string): Promise<void> {
+  try {
+    const open = await prisma.task.findFirst({
+      where: { title: AI_KEY_TASK_TITLE, status: { not: "done" } },
+      select: { id: true },
+    });
+    if (open) return;
+    const admin = await prisma.user.findFirst({
+      where: { role: "SUPER_ADMIN" },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    if (!admin) return;
+    await prisma.task.create({
+      data: {
+        title: AI_KEY_TASK_TITLE,
+        priority: "urgent",
+        status: "todo",
+        createdById: admin.id,
+        description: aiKeyTaskDescription(reason),
+      },
+    });
+  } catch (e) {
+    console.error("[ai-health] raiseAiKeyTask failed (non-fatal)", e);
+  }
+}
+
+/** Complete any open "key needs updating" task — the AI is working again. */
+export async function resolveAiKeyTask(): Promise<void> {
+  try {
+    const open = await prisma.task.findFirst({
+      where: { title: AI_KEY_TASK_TITLE, status: { not: "done" } },
+      select: { id: true },
+    });
+    if (open) {
+      await prisma.task.update({
+        where: { id: open.id },
+        data: { status: "done", completedAt: new Date() },
+      });
+    }
+  } catch (e) {
+    console.error("[ai-health] resolveAiKeyTask failed (non-fatal)", e);
+  }
 }
 
 export interface AiHealth {
