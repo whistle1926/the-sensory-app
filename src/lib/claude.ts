@@ -1,7 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { REPORT_SYSTEM_PROMPT, buildUserPrompt } from "./report-prompt";
 import { ReportContent } from "@/types/report";
-import { createMessageResilient } from "./ai-model";
+import { createMessageResilient, getAnthropicClient } from "./ai-model";
 
 /**
  * Tidy prompt — distinct from the generation prompt. This is for
@@ -80,7 +79,7 @@ export async function summariseReport(
   content: ReportContent,
   audience: "clinical" | "parent",
 ): Promise<string> {
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const anthropic = await getAnthropicClient();
   // Model + fallback chain live in ai-model.ts. Structured text/JSON
   // generation (not reasoning) — disable thinking and run at low effort
   // to stay well under the 60s function limit.
@@ -104,7 +103,7 @@ export async function summariseReport(
 }
 
 export async function tidyReport(content: ReportContent): Promise<ReportContent> {
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const anthropic = await getAnthropicClient();
   // Model + fallback chain live in ai-model.ts. Structured text/JSON
   // generation (not reasoning) — disable thinking and run at low effort
   // to stay well under the 60s function limit.
@@ -157,7 +156,7 @@ WHAT YOU MAY DO:
 - Use a warm, encouraging, plain-English tone a busy parent can follow — avoid clinical jargon where a simpler word works`;
 
 export async function tidyHomeProgramme(html: string): Promise<string> {
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const anthropic = await getAnthropicClient();
   // Model + fallback chain live in ai-model.ts. Structured text generation
   // (not reasoning) — disable thinking and run at low effort to stay well
   // under the function time limit.
@@ -185,9 +184,6 @@ export async function tidyHomeProgramme(html: string): Promise<string> {
   return text.trim();
 }
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
 
 export async function generateReport(
   clientInfo: {
@@ -211,6 +207,8 @@ export async function generateReport(
     rawNotes,
     therapistName
   );
+
+  const anthropic = await getAnthropicClient();
 
   // Model + fallback chain live in ai-model.ts. Structured text/JSON
   // generation (not reasoning) — disable thinking and run at low effort

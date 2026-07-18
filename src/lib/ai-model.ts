@@ -1,4 +1,34 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { prisma } from "./prisma";
+
+/**
+ * Resolve the Claude API key. Prefer the admin-managed key in
+ * Settings → AI (AiSettings.apiKey) so it can be rotated in the app
+ * without a redeploy — the same pattern as the Mailcub and FireBuddy
+ * keys. Falls back to the ANTHROPIC_API_KEY env var if the DB has none.
+ *
+ * (The env var alone was a trap: Settings → AI showed a key field that
+ * looked like the control but wasn't wired to anything, so a rotated env
+ * key silently broke every AI feature — 2026-07-17.)
+ */
+export async function getAnthropicApiKey(): Promise<string | undefined> {
+  try {
+    const s = await prisma.aiSettings.findUnique({
+      where: { id: "default" },
+      select: { apiKey: true },
+    });
+    const dbKey = s?.apiKey?.trim();
+    if (dbKey) return dbKey;
+  } catch {
+    // DB unreachable — fall through to the env var.
+  }
+  return process.env.ANTHROPIC_API_KEY || undefined;
+}
+
+/** An Anthropic client configured with the resolved key. */
+export async function getAnthropicClient(): Promise<Anthropic> {
+  return new Anthropic({ apiKey: await getAnthropicApiKey() });
+}
 
 /**
  * Single source of truth for the Claude model used by EVERY AI feature
@@ -87,16 +117,18 @@ export interface AiHealth {
  */
 export async function checkAiHealth(): Promise<AiHealth> {
   const primary = PRIMARY_AI_MODEL;
-  if (!process.env.ANTHROPIC_API_KEY) {
+  const apiKey = await getAnthropicApiKey();
+  if (!apiKey) {
     return {
       ok: false,
       primary,
       modelUsed: null,
       fellBack: false,
-      error: "ANTHROPIC_API_KEY is not set in the environment.",
+      error:
+        "No Claude API key configured (Settings → AI, or ANTHROPIC_API_KEY).",
     };
   }
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const anthropic = new Anthropic({ apiKey });
   try {
     const { modelUsed, fellBack } = await createMessageResilient(anthropic, {
       max_tokens: 4,
