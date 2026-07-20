@@ -77,25 +77,16 @@ function collectDiffs(before: ReportContent, after: ReportContent): Diff[] {
   return out;
 }
 
-/** Set a nested value on an object by dotted path (mutates). */
-function setPath(obj: Record<string, unknown>, path: string, value: unknown) {
-  const keys = path.split(".");
-  let node: Record<string, unknown> = obj;
-  for (let i = 0; i < keys.length - 1; i++) {
-    const k = keys[i];
-    if (!node[k] || typeof node[k] !== "object") node[k] = {};
-    node = node[k] as Record<string, unknown>;
-  }
-  node[keys[keys.length - 1]] = value;
-}
-
-/** Textarea that grows to fit its content, so long sections aren't cramped. */
+/** Textarea that grows to fit its content, so long sections aren't cramped.
+ *  Goes read-only once a section is approved (locked into the draft). */
 function GrowTextarea({
   value,
   onChange,
+  readOnly,
 }: {
   value: string;
   onChange: (v: string) => void;
+  readOnly?: boolean;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
@@ -110,8 +101,14 @@ function GrowTextarea({
       ref={ref}
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      readOnly={readOnly}
       rows={2}
-      className="w-full resize-y rounded-lg border border-primary/20 bg-background px-2.5 py-2 text-sm leading-relaxed text-foreground outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
+      className={
+        "w-full resize-y rounded-lg border px-2.5 py-2 text-sm leading-relaxed outline-none transition-colors " +
+        (readOnly
+          ? "cursor-default border-green-500/30 bg-green-50/50 text-foreground/90 dark:bg-green-950/20"
+          : "border-primary/20 bg-background text-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/20")
+      }
     />
   );
 }
@@ -122,9 +119,10 @@ interface Props {
   error: string | null;
   before: ReportContent | null;
   after: ReportContent | null;
-  /** Receives the final After content — INCLUDING any edits the OT made. */
-  onApply: (finalAfter: ReportContent) => void;
-  onDiscard: () => void;
+  /** Live-apply (or revert) ONE section straight into the draft. */
+  onApplySection: (path: string, value: string) => void;
+  /** Close the dialog — approved sections are already in the draft. */
+  onClose: () => void;
 }
 
 export function TidyReviewDialog({
@@ -133,15 +131,15 @@ export function TidyReviewDialog({
   error,
   before,
   after,
-  onApply,
-  onDiscard,
+  onApplySection,
+  onClose,
 }: Props) {
   // The section list is FROZEN when results arrive so that editing an
   // After box (even to match the Before) never makes a row vanish mid-edit.
   const [frozen, setFrozen] = useState<Diff[]>([]);
   // Editable After text per section, seeded from Claude's version.
   const [afters, setAfters] = useState<Record<string, string>>({});
-  // Sections the OT has ticked off as approved. Only these get applied.
+  // Sections the OT has approved — these are LIVE in the draft already.
   const [approved, setApproved] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -163,31 +161,41 @@ export function TidyReviewDialog({
     // changes) or on open — NOT on edits, which touch local state only.
   }, [open, before, after]);
 
-  function toggleApprove(path: string) {
+  /** Approve = write this section's (edited) After into the draft now. */
+  function approveSection(d: Diff) {
+    onApplySection(d.path, afters[d.path] ?? d.after);
+    setApproved((prev) => new Set(prev).add(d.path));
+  }
+
+  /** Undo = revert this section in the draft back to the original wording.
+   *  The edited After text is kept in the box so nothing typed is lost. */
+  function undoSection(d: Diff) {
+    onApplySection(d.path, d.before);
     setApproved((prev) => {
       const next = new Set(prev);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
+      next.delete(d.path);
       return next;
     });
   }
 
   const allApproved = frozen.length > 0 && approved.size === frozen.length;
 
-  function handleApply() {
-    if (!before) return;
-    // Base is the ORIGINAL draft; only approved sections get overwritten
-    // (with the OT's edited text). Unapproved sections keep the OT's
-    // original wording untouched.
-    const final = JSON.parse(JSON.stringify(before)) as Record<string, unknown>;
+  function approveAll() {
     for (const d of frozen) {
-      if (approved.has(d.path)) setPath(final, d.path, afters[d.path] ?? d.after);
+      if (!approved.has(d.path)) onApplySection(d.path, afters[d.path] ?? d.after);
     }
-    onApply(final as unknown as ReportContent);
+    setApproved(new Set(frozen.map((d) => d.path)));
+  }
+
+  function undoAll() {
+    for (const d of frozen) {
+      if (approved.has(d.path)) onApplySection(d.path, d.before);
+    }
+    setApproved(new Set());
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onDiscard()}>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="!max-w-none !w-[96vw] sm:!w-[96vw] sm:!max-w-none max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>AI tidy — review changes</DialogTitle>
@@ -218,26 +226,21 @@ export function TidyReviewDialog({
               <p className="text-xs text-muted-foreground">
                 {frozen.length} section{frozen.length === 1 ? "" : "s"} changed.
                 Edit each <strong>After</strong> box if you want, then{" "}
-                <strong>Approve</strong> the ones you&apos;re happy with as you
-                go. Only approved sections get applied. Nothing is saved until
-                you click <strong>Save</strong> back on the report.
+                <strong>Approve</strong> it — the change drops straight into your
+                report the moment you click. <strong>Undo</strong> any section to
+                put it back. Nothing is permanently saved until you click{" "}
+                <strong>Save</strong> back on the report.
               </p>
               <div className="flex shrink-0 items-center gap-2">
                 <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                  {approved.size} / {frozen.length} approved
+                  {approved.size} / {frozen.length} applied
                 </span>
                 <button
                   type="button"
-                  onClick={() =>
-                    setApproved(
-                      allApproved
-                        ? new Set()
-                        : new Set(frozen.map((d) => d.path)),
-                    )
-                  }
+                  onClick={() => (allApproved ? undoAll() : approveAll())}
                   className="text-[11px] font-semibold text-primary underline hover:brightness-110"
                 >
-                  {allApproved ? "Clear all" : "Approve all"}
+                  {allApproved ? "Undo all" : "Approve all"}
                 </button>
               </div>
             </div>
@@ -262,24 +265,28 @@ export function TidyReviewDialog({
                         )}
                         {d.label}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => toggleApprove(d.path)}
-                        className={
-                          "inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors " +
-                          (isApproved
-                            ? "bg-green-600 text-white hover:bg-green-700"
-                            : "border border-primary text-primary hover:bg-primary/10")
-                        }
-                      >
-                        {isApproved ? (
-                          <>
-                            <CheckCircle2 className="h-3.5 w-3.5" /> Approved
-                          </>
-                        ) : (
-                          "Approve section"
-                        )}
-                      </button>
+                      {isApproved ? (
+                        <span className="inline-flex items-center gap-2">
+                          <span className="text-[11px] font-semibold text-green-700 dark:text-green-400">
+                            Applied to report
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => undoSection(d)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          >
+                            Undo
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => approveSection(d)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-primary bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground transition-colors hover:brightness-110"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Approve &amp; apply
+                        </button>
+                      )}
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-x sm:divide-y-0 divide-border">
                       <div className="p-4">
@@ -293,9 +300,9 @@ export function TidyReviewDialog({
                       <div className="bg-primary/5 p-4">
                         <div className="mb-2 flex items-center justify-between">
                           <p className="text-[10px] font-bold uppercase tracking-wider text-primary">
-                            After — editable
+                            {isApproved ? "After — applied" : "After — editable"}
                           </p>
-                          {edited && (
+                          {!isApproved && edited && (
                             <button
                               type="button"
                               onClick={() =>
@@ -315,7 +322,14 @@ export function TidyReviewDialog({
                           onChange={(v) =>
                             setAfters((prev) => ({ ...prev, [d.path]: v }))
                           }
+                          readOnly={isApproved}
                         />
+                        {isApproved && (
+                          <p className="mt-1.5 text-[10px] text-muted-foreground">
+                            Locked in. Click <strong>Undo</strong> above to edit
+                            this section again.
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -326,18 +340,20 @@ export function TidyReviewDialog({
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={onDiscard} disabled={loading}>
-            <X className="mr-2 h-4 w-4" />
-            Discard
-          </Button>
           <Button
-            onClick={handleApply}
-            disabled={loading || !!error || approved.size === 0}
+            variant="outline"
+            onClick={() => {
+              undoAll();
+              onClose();
+            }}
+            disabled={loading || approved.size === 0}
           >
+            <X className="mr-2 h-4 w-4" />
+            Undo all &amp; close
+          </Button>
+          <Button onClick={onClose} disabled={loading}>
             <CheckCircle2 className="mr-2 h-4 w-4" />
-            {approved.size > 0
-              ? `Apply ${approved.size} approved`
-              : "Approve sections to apply"}
+            {approved.size > 0 ? `Done — ${approved.size} applied` : "Done"}
           </Button>
         </DialogFooter>
       </DialogContent>

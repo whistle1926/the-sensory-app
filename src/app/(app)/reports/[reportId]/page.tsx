@@ -101,11 +101,23 @@ export default function ReportDetailPage() {
     }
   }
 
-  // Receives the final After content from the review dialog — this includes
-  // any edits the OT made to the AI's suggestions before applying.
-  function applyTidy(finalAfter: ReportContent) {
-    setDraftContent(finalAfter);
-    closeTidy();
+  // Live-apply (or revert) ONE tidied section straight into the draft as the
+  // OT approves it in the review dialog. Sets the value at a dotted path on a
+  // clone of the current draft. Persistence still only happens on Save.
+  function applyTidySection(path: string, value: string) {
+    setDraftContent((prev) => {
+      if (!prev) return prev;
+      const next = JSON.parse(JSON.stringify(prev)) as Record<string, unknown>;
+      const keys = path.split(".");
+      let node: Record<string, unknown> = next;
+      for (let i = 0; i < keys.length - 1; i++) {
+        const k = keys[i];
+        if (!node[k] || typeof node[k] !== "object") node[k] = {};
+        node = node[k] as Record<string, unknown>;
+      }
+      node[keys[keys.length - 1]] = value;
+      return next as unknown as ReportContent;
+    });
   }
   function closeTidy() {
     setTidyOpen(false);
@@ -491,8 +503,8 @@ export default function ReportDetailPage() {
         error={tidyError}
         before={tidyBefore}
         after={tidyAfter}
-        onApply={applyTidy}
-        onDiscard={closeTidy}
+        onApplySection={applyTidySection}
+        onClose={closeTidy}
       />
 
       {/* AI summary + email — opens via the Summary button. */}
