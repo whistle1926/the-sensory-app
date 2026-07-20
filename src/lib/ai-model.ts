@@ -200,6 +200,118 @@ export async function resolveAiKeyTask(): Promise<void> {
   }
 }
 
+// ── "AI features running slow" monitor ───────────────────────────────
+// The key/health task above catches AI being DOWN (401/404/no key). It
+// does NOT catch AI being UP but too SLOW — which is what made "Tidy with
+// AI" look broken (a ~2-min call). This flags that failure mode: callers
+// wrap their AI feature with recordAiLatency(); if a SUCCESSFUL call blows
+// past a per-feature budget, an admin task is raised (idempotent, self-
+// clearing once calls are quick again). Thresholds are per-feature because
+// some are legitimately slow (a full report generation over long notes can
+// take a couple of minutes; a tidy should not).
+
+export const AI_SLOW_TASK_TITLE = "⚠️ AI features running slow";
+
+/** Wall-clock budget (ms) beyond which a SUCCESSFUL call is "too slow". */
+const AI_SLOW_THRESHOLDS: Record<string, number> = {
+  "report.tidy": 90_000, // per-field parallel — ~33s healthy
+  "report.generate": 240_000, // legitimately heavy on long notes
+  "report.summary": 60_000,
+  "home-programme.tidy": 120_000,
+  "leaflet.generate": 120_000,
+};
+const AI_SLOW_DEFAULT = 120_000;
+
+function slowThreshold(feature: string): number {
+  return AI_SLOW_THRESHOLDS[feature] ?? AI_SLOW_DEFAULT;
+}
+
+function aiSlowTaskDescription(feature: string, ms: number): string {
+  const secs = Math.round(ms / 1000);
+  return (
+    `Automated check: an AI feature is working but running SLOW — ` +
+    `"${feature}" took ${secs}s (budget ${Math.round(slowThreshold(feature) / 1000)}s).\n\n` +
+    `The key and models are fine (this isn't an outage) — the feature is ` +
+    `just taking long enough that it looks broken to staff. Likely causes: ` +
+    `Anthropic under load, an unusually large document, or a call pattern ` +
+    `that should be split up / parallelised (that's what made "Tidy with AI" ` +
+    `hang before).\n\nWorth a look at src/lib/claude.ts and the model config ` +
+    `in src/lib/ai-model.ts. This task ticks itself off automatically once ` +
+    `the feature is quick again.`
+  );
+}
+
+/** Raise the "running slow" task if one isn't already open. Idempotent. */
+async function raiseAiSlowTask(feature: string, ms: number): Promise<void> {
+  try {
+    const open = await prisma.task.findFirst({
+      where: { title: AI_SLOW_TASK_TITLE, status: { not: "done" } },
+      select: { id: true },
+    });
+    if (open) return;
+    const admin = await prisma.user.findFirst({
+      where: { role: "SUPER_ADMIN" },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    if (!admin) return;
+    await prisma.task.create({
+      data: {
+        title: AI_SLOW_TASK_TITLE,
+        priority: "high",
+        status: "todo",
+        createdById: admin.id,
+        description: aiSlowTaskDescription(feature, ms),
+      },
+    });
+  } catch (e) {
+    console.error("[ai-health] raiseAiSlowTask failed (non-fatal)", e);
+  }
+}
+
+/** Complete any open "running slow" task — the AI is quick again. */
+async function resolveAiSlowTask(): Promise<void> {
+  try {
+    const open = await prisma.task.findFirst({
+      where: { title: AI_SLOW_TASK_TITLE, status: { not: "done" } },
+      select: { id: true },
+    });
+    if (open) {
+      await prisma.task.update({
+        where: { id: open.id },
+        data: { status: "done", completedAt: new Date() },
+      });
+    }
+  } catch (e) {
+    console.error("[ai-health] resolveAiSlowTask failed (non-fatal)", e);
+  }
+}
+
+/**
+ * Record how long an AI feature call took and flag it if it was slow.
+ * Call this in a `finally` around any AI feature. Best-effort and
+ * fire-and-forget (`void recordAiLatency(...)`) — never affects the call.
+ * Only SUCCESSFUL-but-slow calls raise the task; failures are the key/
+ * health monitor's job. A fast success clears any open slow flag.
+ */
+export async function recordAiLatency(
+  feature: string,
+  ms: number,
+  ok: boolean,
+): Promise<void> {
+  if (!ok) return;
+  try {
+    if (ms > slowThreshold(feature)) {
+      console.warn(`[ai-latency] SLOW ${feature}: ${Math.round(ms / 1000)}s`);
+      await raiseAiSlowTask(feature, ms);
+    } else {
+      await resolveAiSlowTask();
+    }
+  } catch (e) {
+    console.error("[ai-latency] recordAiLatency failed (non-fatal)", e);
+  }
+}
+
 export interface AiHealth {
   ok: boolean;
   primary: string;

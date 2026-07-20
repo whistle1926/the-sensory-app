@@ -1,6 +1,10 @@
 import { REPORT_SYSTEM_PROMPT, buildUserPrompt } from "./report-prompt";
 import { ReportContent } from "@/types/report";
-import { createMessageResilient, getAnthropicClient } from "./ai-model";
+import {
+  createMessageResilient,
+  getAnthropicClient,
+  recordAiLatency,
+} from "./ai-model";
 
 /**
  * Tidy prompt — distinct from the generation prompt. This is for
@@ -74,27 +78,34 @@ export async function summariseReport(
   content: ReportContent,
   audience: "clinical" | "parent",
 ): Promise<string> {
-  const anthropic = await getAnthropicClient();
-  // Model + fallback chain live in ai-model.ts. Structured text/JSON
-  // generation (not reasoning) — disable thinking and run at low effort
-  // to stay well under the 60s function limit.
-  const { message } = await createMessageResilient(anthropic, {
-    thinking: { type: "disabled" },
-    output_config: { effort: "low" },
-    max_tokens: 1024,
-    system: SUMMARY_PROMPTS[audience],
-    messages: [
-      {
-        role: "user",
-        content: `Summarise this report. Return plain text only:\n\n${JSON.stringify(content)}`,
-      },
-    ],
-  });
-  const textBlock = message.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new Error("No text response from Claude");
+  const t0 = Date.now();
+  let ok = false;
+  try {
+    const anthropic = await getAnthropicClient();
+    // Model + fallback chain live in ai-model.ts. Structured text/JSON
+    // generation (not reasoning) — disable thinking and run at low effort
+    // to stay well under the 60s function limit.
+    const { message } = await createMessageResilient(anthropic, {
+      thinking: { type: "disabled" },
+      output_config: { effort: "low" },
+      max_tokens: 1024,
+      system: SUMMARY_PROMPTS[audience],
+      messages: [
+        {
+          role: "user",
+          content: `Summarise this report. Return plain text only:\n\n${JSON.stringify(content)}`,
+        },
+      ],
+    });
+    const textBlock = message.content.find((b) => b.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      throw new Error("No text response from Claude");
+    }
+    ok = true;
+    return textBlock.text.trim();
+  } finally {
+    void recordAiLatency("report.summary", Date.now() - t0, ok);
   }
-  return textBlock.text.trim();
 }
 
 // The dot-paths of every free-text PROSE field in a report — the only
@@ -203,23 +214,32 @@ async function tidyField(text: string): Promise<string> {
  * structure are never sent for editing, so they can't change.
  */
 export async function tidyReport(content: ReportContent): Promise<ReportContent> {
-  // Deep clone so untouched fields (names, dates, sectionOrder, etc.) pass
-  // through byte-for-byte.
-  const result = JSON.parse(JSON.stringify(content)) as Record<string, unknown>;
+  const t0 = Date.now();
+  let ok = false;
+  try {
+    // Deep clone so untouched fields (names, dates, sectionOrder, etc.) pass
+    // through byte-for-byte.
+    const result = JSON.parse(JSON.stringify(content)) as Record<string, unknown>;
 
-  // Only tidy fields that actually hold non-empty text.
-  const targets = TIDY_FIELD_PATHS.filter((p) => {
-    const v = getPath(content, p);
-    return typeof v === "string" && v.trim().length > 0;
-  });
+    // Only tidy fields that actually hold non-empty text.
+    const targets = TIDY_FIELD_PATHS.filter((p) => {
+      const v = getPath(content, p);
+      return typeof v === "string" && v.trim().length > 0;
+    });
 
-  const tidied = await mapPool(targets, 8, async (path) => ({
-    path,
-    text: await tidyField(getPath(content, path) as string),
-  }));
+    const tidied = await mapPool(targets, 8, async (path) => ({
+      path,
+      text: await tidyField(getPath(content, path) as string),
+    }));
 
-  for (const { path, text } of tidied) setPath(result, path, text);
-  return result as unknown as ReportContent;
+    for (const { path, text } of tidied) setPath(result, path, text);
+    ok = true;
+    return result as unknown as ReportContent;
+  } finally {
+    // Flag it if tidy ever runs slow again (self-clears when quick). Never
+    // affects the call.
+    void recordAiLatency("report.tidy", Date.now() - t0, ok);
+  }
 }
 
 /**
@@ -246,32 +266,39 @@ WHAT YOU MAY DO:
 - Use a warm, encouraging, plain-English tone a busy parent can follow — avoid clinical jargon where a simpler word works`;
 
 export async function tidyHomeProgramme(html: string): Promise<string> {
-  const anthropic = await getAnthropicClient();
-  // Model + fallback chain live in ai-model.ts. Structured text generation
-  // (not reasoning) — disable thinking and run at low effort to stay well
-  // under the function time limit.
-  const { message } = await createMessageResilient(anthropic, {
-    thinking: { type: "disabled" },
-    output_config: { effort: "low" },
-    max_tokens: 8192,
-    system: TIDY_HOME_PROGRAMME_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: `Tidy this home programme. Return the HTML body only:\n\n${html}`,
-      },
-    ],
-  });
-  const textBlock = message.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new Error("No text response from Claude");
+  const t0 = Date.now();
+  let ok = false;
+  try {
+    const anthropic = await getAnthropicClient();
+    // Model + fallback chain live in ai-model.ts. Structured text generation
+    // (not reasoning) — disable thinking and run at low effort to stay well
+    // under the function time limit.
+    const { message } = await createMessageResilient(anthropic, {
+      thinking: { type: "disabled" },
+      output_config: { effort: "low" },
+      max_tokens: 8192,
+      system: TIDY_HOME_PROGRAMME_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: `Tidy this home programme. Return the HTML body only:\n\n${html}`,
+        },
+      ],
+    });
+    const textBlock = message.content.find((b) => b.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      throw new Error("No text response from Claude");
+    }
+    // Tolerate a code-fence even though we told it not to use one.
+    let text = textBlock.text.trim();
+    if (text.startsWith("```")) {
+      text = text.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "");
+    }
+    ok = true;
+    return text.trim();
+  } finally {
+    void recordAiLatency("home-programme.tidy", Date.now() - t0, ok);
   }
-  // Tolerate a code-fence even though we told it not to use one.
-  let text = textBlock.text.trim();
-  if (text.startsWith("```")) {
-    text = text.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "");
-  }
-  return text.trim();
 }
 
 
@@ -290,47 +317,55 @@ export async function generateReport(
   rawNotes: string,
   therapistName: string
 ): Promise<ReportContent> {
-  const userPrompt = buildUserPrompt(
-    clientInfo,
-    sessionDate,
-    sessionNumber,
-    rawNotes,
-    therapistName
-  );
-
-  const anthropic = await getAnthropicClient();
-
-  // Model + fallback chain live in ai-model.ts. Structured text/JSON
-  // generation (not reasoning) — disable thinking and run at low effort
-  // to stay well under the 60s function limit.
-  //
-  // max_tokens must comfortably fit a FULL report: ~25 fields including
-  // the 7-field Functional Review and the home-programme block. At 4096
-  // a detailed session truncated the JSON mid-object, which then failed
-  // to parse ("Claude returned a response we couldn't parse"). 8192
-  // gives generous headroom; effort=low keeps it well under the limit.
-  const { message } = await createMessageResilient(anthropic, {
-    thinking: { type: "disabled" },
-    output_config: { effort: "low" },
-    max_tokens: 8192,
-    system: REPORT_SYSTEM_PROMPT,
-    messages: [{ role: "user", content: userPrompt }],
-  });
-
-  const textBlock = message.content.find((block) => block.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new Error("No text response from Claude");
-  }
-
-  // If the model hit the token ceiling the JSON is incomplete — say so
-  // clearly rather than surfacing a cryptic parse error.
-  if (message.stop_reason === "max_tokens") {
-    throw new Error(
-      "The report was too long to finish in one go. Please shorten the session notes slightly and try again.",
+  const t0 = Date.now();
+  let ok = false;
+  try {
+    const userPrompt = buildUserPrompt(
+      clientInfo,
+      sessionDate,
+      sessionNumber,
+      rawNotes,
+      therapistName
     );
-  }
 
-  return parseReportJson(textBlock.text);
+    const anthropic = await getAnthropicClient();
+
+    // Model + fallback chain live in ai-model.ts. Structured text/JSON
+    // generation (not reasoning) — disable thinking and run at low effort
+    // to stay well under the 60s function limit.
+    //
+    // max_tokens must comfortably fit a FULL report: ~25 fields including
+    // the 7-field Functional Review and the home-programme block. At 4096
+    // a detailed session truncated the JSON mid-object, which then failed
+    // to parse ("Claude returned a response we couldn't parse"). 8192
+    // gives generous headroom; effort=low keeps it well under the limit.
+    const { message } = await createMessageResilient(anthropic, {
+      thinking: { type: "disabled" },
+      output_config: { effort: "low" },
+      max_tokens: 8192,
+      system: REPORT_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userPrompt }],
+    });
+
+    const textBlock = message.content.find((block) => block.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      throw new Error("No text response from Claude");
+    }
+
+    // If the model hit the token ceiling the JSON is incomplete — say so
+    // clearly rather than surfacing a cryptic parse error.
+    if (message.stop_reason === "max_tokens") {
+      throw new Error(
+        "The report was too long to finish in one go. Please shorten the session notes slightly and try again.",
+      );
+    }
+
+    const parsed = parseReportJson(textBlock.text);
+    ok = true;
+    return parsed;
+  } finally {
+    void recordAiLatency("report.generate", Date.now() - t0, ok);
+  }
 }
 
 /**
