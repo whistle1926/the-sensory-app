@@ -104,6 +104,14 @@ export default function SettingsPage() {
 
   const [activeTab, setActiveTab] = useState("profile");
 
+  // Deep-link support: /settings?tab=calendar opens straight on that tab.
+  // Used by the Google OAuth callback so the staff member lands back on the
+  // Calendar settings after connecting.
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    if (tab && tabs.some((t) => t.key === tab)) setActiveTab(tab);
+  }, []);
+
   const [emailConfig, setEmailConfig] = useState<EmailConfig>({
     provider: "mailcub",
     apiKey: "",

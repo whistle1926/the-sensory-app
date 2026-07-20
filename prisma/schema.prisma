@@ -86,6 +86,18 @@ model User {
   calendarIcsUrl  String?
   calendarColour  String? // e.g. "#3b82f6" — defaults applied at render
 
+  // ── Google Calendar WRITE sync (per-user OAuth) ───────────────────
+  // Separate from the read-only iCal feed above: this is the two-way
+  // side. When a staff member connects via OAuth we store the offline
+  // refresh token (scope: calendar.events only) so booking creation can
+  // insert an event straight into their Google diary, and cancellation
+  // can delete it. googleTokenEmail records which Google account granted
+  // access; googleCalendarId is which calendar to write to ("primary").
+  googleRefreshToken String?   @map("google_refresh_token")
+  googleTokenEmail   String?   @map("google_token_email")
+  googleCalendarId   String?   @map("google_calendar_id")
+  googleConnectedAt  DateTime? @map("google_connected_at")
+
   // ── Therapist profile (shown on the public booking page) ──────────
   // Surfaced when a parent picks a clinic location so they can see who
   // they'll be seeing. Edited by an admin in Team → View Profile.
@@ -637,6 +649,10 @@ model Booking {
   // this client on payment (see src/lib/booking-referral.ts). Idempotency
   // key so the webhook firing twice never double-sends the form.
   referralFormSentAt DateTime? @map("referral_form_sent_at")
+  // Google Calendar event id, set when this booking was written to the
+  // owner's connected Google calendar (OAuth write sync). Used to delete
+  // the event if the booking is cancelled. NULL = never synced.
+  googleEventId String? @map("google_event_id")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

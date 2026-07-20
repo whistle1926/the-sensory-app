@@ -11,16 +11,19 @@
 import { useEffect, useState } from "react";
 import {
   CalendarDays,
+  CalendarPlus,
   Check,
   ChevronDown,
   ExternalLink,
   HelpCircle,
   Loader2,
+  RefreshCw,
   X,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 const PRESETS = [
   "#3b82f6", // blue
@@ -117,16 +120,21 @@ export function CalendarSettingsSection() {
 
   return (
     <div className="space-y-4">
+      <GoogleWriteSyncCard />
+
       <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
         <div className="mb-4 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
             <CalendarDays className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h2 className="text-base font-semibold">Google Calendar</h2>
+            <h2 className="text-base font-semibold">
+              Show my Google events here (read-only)
+            </h2>
             <p className="text-xs text-muted-foreground">
-              Connect your calendar so your meetings show up on the team
-              calendar view. Read-only — your events stay where they are.
+              Paste your calendar&apos;s secret iCal link so your existing
+              Google meetings appear on the portal calendar. This is separate
+              from the booking sync above — your events stay where they are.
             </p>
           </div>
         </div>
@@ -294,6 +302,143 @@ export function CalendarSettingsSection() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+interface GoogleSyncStatus {
+  configured: boolean;
+  connected: boolean;
+  email: string | null;
+}
+
+/**
+ * Settings → Calendar: the WRITE side. Connecting here lets the portal push
+ * new bookings straight into the staff member's Google Calendar (and remove
+ * them on cancellation) — the fully-automatic alternative to the one-click
+ * "Add to Google Calendar" button in the booking email.
+ */
+function GoogleWriteSyncCard() {
+  const [status, setStatus] = useState<GoogleSyncStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  // Result banner from the OAuth round-trip (?google=… on return).
+  const [flash, setFlash] = useState<
+    "connected" | "denied" | "error" | "unconfigured" | null
+  >(null);
+
+  async function refresh() {
+    try {
+      const r = await fetch("/api/settings/google");
+      if (r.ok) setStatus(await r.json());
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    refresh();
+    // Surface the OAuth outcome, then strip the param so a refresh doesn't
+    // keep re-showing the banner.
+    const sp = new URLSearchParams(window.location.search);
+    const g = sp.get("google");
+    if (g === "connected" || g === "denied" || g === "error" || g === "unconfigured") {
+      setFlash(g);
+      sp.delete("google");
+      const qs = sp.toString();
+      window.history.replaceState(
+        {},
+        "",
+        window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash,
+      );
+    }
+  }, []);
+
+  async function disconnect() {
+    if (!confirm("Disconnect Google Calendar sync? New bookings will stop being added to your Google calendar.")) return;
+    setBusy(true);
+    try {
+      await fetch("/api/google/disconnect", { method: "POST" });
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+          <CalendarPlus className="h-5 w-5 text-primary" />
+        </div>
+        <div>
+          <h2 className="text-base font-semibold">
+            Add my bookings to Google automatically
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Connect once and every new booking for you is written straight into
+            your Google Calendar — and removed if it&apos;s cancelled. No more
+            clicking &ldquo;Add to calendar&rdquo; in the email.
+          </p>
+        </div>
+      </div>
+
+      {flash === "connected" && (
+        <div className="mb-3 rounded-md bg-green-50 p-3 text-sm text-green-700 dark:bg-green-950/30 dark:text-green-400">
+          <Check className="mr-1 inline h-3 w-3" />
+          Google Calendar connected. New bookings will now sync automatically.
+        </div>
+      )}
+      {flash === "denied" && (
+        <div className="mb-3 rounded-md bg-amber-50 p-3 text-sm text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+          You cancelled the Google sign-in — nothing was connected.
+        </div>
+      )}
+      {flash === "error" && (
+        <div className="mb-3 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-400">
+          <X className="mr-1 inline h-3 w-3" />
+          Something went wrong connecting Google. Please try again.
+        </div>
+      )}
+      {(flash === "unconfigured" || (status && !status.configured)) && (
+        <div className="mb-3 rounded-md bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+          Automatic sync isn&apos;t switched on for this site yet. The Google
+          credentials still need adding — ask Paddy.
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+        </div>
+      ) : status?.connected ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="inline-flex items-center gap-1.5 text-sm text-green-600 dark:text-green-400">
+            <Check className="h-4 w-4" />
+            Connected{status.email ? ` as ${status.email}` : ""}
+          </span>
+          <Button variant="outline" onClick={disconnect} disabled={busy}>
+            {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Disconnect
+          </Button>
+          <a
+            href="/api/google/connect"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground underline hover:text-foreground"
+          >
+            <RefreshCw className="h-3 w-3" /> Reconnect / switch account
+          </a>
+        </div>
+      ) : status?.configured ? (
+        <a href="/api/google/connect" className={cn(buttonVariants())}>
+          <CalendarPlus className="mr-2 h-4 w-4" />
+          Connect Google Calendar
+        </a>
+      ) : (
+        <Button disabled>
+          <CalendarPlus className="mr-2 h-4 w-4" />
+          Connect Google Calendar
+        </Button>
+      )}
     </div>
   );
 }

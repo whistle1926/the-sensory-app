@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { deleteBookingEvent } from "@/lib/google-calendar";
 
 export async function PATCH(
   req: NextRequest,
@@ -17,6 +18,34 @@ export async function PATCH(
 
   if (!status || !["confirmed", "cancelled", "pending"].includes(status)) {
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+  }
+
+  // If this cancellation removes a booking that was synced to the owner's
+  // Google Calendar, take the event back out too. Best-effort — never blocks
+  // the cancel. We read the event id + owner BEFORE the update.
+  if (status === "cancelled") {
+    const existing = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: { googleEventId: true, ownerId: true },
+    });
+    if (existing?.googleEventId && existing.ownerId) {
+      const owner = await prisma.user.findUnique({
+        where: { id: existing.ownerId },
+        select: { googleRefreshToken: true, googleCalendarId: true },
+      });
+      if (owner?.googleRefreshToken) {
+        const ok = await deleteBookingEvent({
+          refreshToken: owner.googleRefreshToken,
+          calendarId: owner.googleCalendarId,
+          eventId: existing.googleEventId,
+        }).catch(() => false);
+        if (ok) {
+          await prisma.booking
+            .update({ where: { id: bookingId }, data: { googleEventId: null } })
+            .catch(() => {});
+        }
+      }
+    }
   }
 
   const booking = await prisma.booking.update({

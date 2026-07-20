@@ -16,6 +16,7 @@ import {
   buildCalendarLink,
 } from "@/lib/booking-automation";
 import { sendTransactionalEmail } from "@/lib/email";
+import { insertBookingEvent } from "@/lib/google-calendar";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -108,6 +109,7 @@ export async function POST(req: NextRequest) {
       minSessions: true,
       maxSessions: true,
       title: true,
+      locationLabel: true,
     },
   });
   const ownerId = svc?.ownerId ?? null;
@@ -225,6 +227,22 @@ export async function POST(req: NextRequest) {
     time: firstTime,
     extraSessions: created.length - 1,
   }).catch((err) => console.error("Owner booking notification failed:", err));
+
+  // Write each session into the owner's Google Calendar if they've connected
+  // OAuth write-sync (Settings → Calendar). Best-effort and non-blocking:
+  // any failure is swallowed so it can never break the booking; the one-click
+  // "Add to Google Calendar" button in the owner email remains the fallback.
+  void syncBookingsToGoogleCalendar({
+    ownerId,
+    bookings: created.map((b) => ({ id: b.id, date: b.date, time: b.time })),
+    serviceTitle: svc?.title ?? service,
+    durationMinutes: svc?.durationMinutes ?? 60,
+    location: svc?.locationLabel ?? undefined,
+    clientName,
+    clientEmail: normalisedEmail,
+    clientPhone: clientPhone || undefined,
+    notes: notes || undefined,
+  }).catch((err) => console.error("Google Calendar sync failed:", err));
 
   // Auto-create CLIENT user account (+ password setup token + email)
   let accountCreated = false;
@@ -344,6 +362,67 @@ export async function GET() {
   });
 
   return NextResponse.json(bookings);
+}
+
+/**
+ * Write each session of a booking into the owning associate's Google
+ * Calendar, if they've connected OAuth write-sync. Stores the created event
+ * id on each booking row so cancellation can delete it later. Entirely
+ * best-effort — never throws, and does nothing if the owner isn't connected
+ * or the service is unassigned.
+ */
+async function syncBookingsToGoogleCalendar(args: {
+  ownerId: string | null;
+  bookings: Array<{ id: string; date: Date; time: string }>;
+  serviceTitle: string;
+  durationMinutes: number;
+  location?: string;
+  clientName: string;
+  clientEmail: string;
+  clientPhone?: string;
+  notes?: string;
+}) {
+  if (!args.ownerId) return;
+  const owner = await prisma.user.findUnique({
+    where: { id: args.ownerId },
+    select: { googleRefreshToken: true, googleCalendarId: true },
+  });
+  if (!owner?.googleRefreshToken) return;
+
+  const descriptionLines = [
+    `Client: ${args.clientName}`,
+    `Email: ${args.clientEmail}`,
+    args.clientPhone ? `Phone: ${args.clientPhone}` : null,
+    args.notes ? `Notes: ${args.notes}` : null,
+    "",
+    "Booked via The Sensory Submarine portal.",
+  ].filter(Boolean);
+  const description = descriptionLines.join("\n");
+  const isBlock = args.bookings.length > 1;
+
+  for (let i = 0; i < args.bookings.length; i++) {
+    const b = args.bookings[i];
+    const summary = isBlock
+      ? `${args.serviceTitle} (${i + 1}/${args.bookings.length}) — ${args.clientName}`
+      : `${args.serviceTitle} — ${args.clientName}`;
+    const eventId = await insertBookingEvent({
+      refreshToken: owner.googleRefreshToken,
+      calendarId: owner.googleCalendarId,
+      summary,
+      description,
+      location: args.location,
+      date: b.date,
+      time: b.time,
+      durationMinutes: args.durationMinutes,
+    });
+    if (eventId) {
+      await prisma.booking
+        .update({ where: { id: b.id }, data: { googleEventId: eventId } })
+        .catch(() => {
+          /* row update is best-effort; event still exists in Google */
+        });
+    }
+  }
 }
 
 /** Email a "new booking" heads-up to the staff member responsible, with a
