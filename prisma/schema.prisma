@@ -764,6 +764,12 @@ model Task {
   // looked at it, please iterate").
   firstBuildAt  DateTime? @map("first_build_at")
   latestBuildAt DateTime? @map("latest_build_at")
+  // Stamped the FIRST time a task is moved to "for_review" — i.e. when the
+  // fix was actually delivered back for checking. This is the true measure
+  // of how fast we turn a request around: logged → for_review. It is NOT
+  // completedAt (that includes however long Grace/Claire take to verify,
+  // which isn't a reflection of fix speed). Locked on first for_review.
+  forReviewAt   DateTime? @map("for_review_at")
 
   assignees     TaskAssignee[]
   subtasks      Subtask[]

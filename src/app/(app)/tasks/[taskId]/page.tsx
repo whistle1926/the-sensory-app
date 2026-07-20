@@ -45,6 +45,7 @@ interface Task {
   subtasks: Subtask[];
   comments: Comment[];
   createdAt: string;
+  forReviewAt: string | null;
   completedAt: string | null;
   updatedAt: string;
 }
@@ -263,13 +264,18 @@ export default function TaskDetailPage({
               <span className="text-[11px] text-muted-foreground">
                 Logged {formatDateTime(task.createdAt)} by {task.createdBy.name}
               </span>
-              {task.completedAt && (
+              {task.forReviewAt && (
                 <span className="text-[11px] font-medium text-green-600 dark:text-green-400">
-                  · Completed {formatDateTime(task.completedAt)}
+                  · Fixed {formatDateTime(task.forReviewAt)}
                   {(() => {
-                    const d = humanDuration(task.createdAt, task.completedAt);
-                    return d ? ` · fixed in ${d}` : "";
+                    const d = humanDuration(task.createdAt, task.forReviewAt!);
+                    return d ? ` · in ${d}` : "";
                   })()}
+                </span>
+              )}
+              {task.completedAt && (
+                <span className="text-[11px] text-muted-foreground">
+                  · Signed off {formatDateTime(task.completedAt)}
                 </span>
               )}
             </div>

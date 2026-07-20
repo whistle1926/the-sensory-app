@@ -80,10 +80,17 @@ export async function PATCH(
     if (body.status === "in_progress" || body.status === "for_review") {
       const existing = await prisma.task.findUnique({
         where: { id: taskId },
-        select: { firstBuildAt: true },
+        select: { firstBuildAt: true, forReviewAt: true },
       });
       if (!existing?.firstBuildAt) data.firstBuildAt = new Date();
       data.latestBuildAt = new Date();
+      // `forReviewAt` = the moment the fix was first delivered for checking.
+      // Locked on the FIRST for_review flip so re-reviews don't reset it.
+      // This is what the turnaround metric measures (logged → for_review),
+      // NOT completedAt — Grace's verification lag shouldn't count as fix time.
+      if (body.status === "for_review" && !existing?.forReviewAt) {
+        data.forReviewAt = new Date();
+      }
     }
   }
   if ("dueDate" in body) {

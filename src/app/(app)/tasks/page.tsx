@@ -51,6 +51,7 @@ interface TaskRow {
   createdAt: string;
   firstBuildAt: string | null;
   latestBuildAt: string | null;
+  forReviewAt: string | null;
   completedAt: string | null;
   createdBy: { id: string; name: string; email: string } | null;
   assignees: AssigneeShape[];
@@ -170,12 +171,14 @@ export default function TasksPage() {
     return c;
   }, [rows]);
 
-  // Average "time to fix" across all completed tasks — logged → completed.
-  // This is the headline metric for tracking turnaround speed over time.
+  // Average "time to fix" = logged → sent For Review (forReviewAt), across
+  // every task that's been delivered for checking. Deliberately NOT
+  // logged → completed: the wait for Grace/Claire to verify isn't a measure
+  // of how fast we turn a fix around, so it's excluded.
   const avgFix = useMemo(() => {
     const spans = rows
-      .filter((r) => r.completedAt)
-      .map((r) => new Date(r.completedAt!).getTime() - new Date(r.createdAt).getTime())
+      .filter((r) => r.forReviewAt)
+      .map((r) => new Date(r.forReviewAt!).getTime() - new Date(r.createdAt).getTime())
       .filter((ms) => Number.isFinite(ms) && ms >= 0);
     if (spans.length === 0) return null;
     const mean = spans.reduce((a, b) => a + b, 0) / spans.length;
@@ -222,7 +225,7 @@ export default function TasksPage() {
             {avgFix?.label && (
               <span
                 className="font-medium text-foreground"
-                title={`Average time from logged to completed across ${avgFix.count} completed task${avgFix.count === 1 ? "" : "s"}`}
+                title={`Average turnaround from logged to "For Review" across ${avgFix.count} delivered task${avgFix.count === 1 ? "" : "s"}. Excludes time spent waiting to be verified.`}
               >
                 ⏱ Avg fix: {avgFix.label}
               </span>
@@ -328,7 +331,7 @@ export default function TasksPage() {
                   <th className="px-4 py-3 font-medium">Logged</th>
                   <th className="px-4 py-3 font-medium">First build</th>
                   <th className="px-4 py-3 font-medium">Latest build</th>
-                  <th className="px-4 py-3 font-medium">Resolved</th>
+                  <th className="px-4 py-3 font-medium">Fixed</th>
                   <th className="w-10 px-4 py-3" />
                 </tr>
               </thead>
@@ -483,13 +486,18 @@ function TaskRow({
         {task.latestBuildAt ? formatShortDate(task.latestBuildAt) : "—"}
       </td>
 
-      {/* Resolved — completion date + how long it took (logged → done) */}
+      {/* Fixed — when it was sent For Review + how long the fix took
+          (logged → for_review). This is our turnaround, not the wait for
+          sign-off. A ✓ marks tasks that have since been fully completed. */}
       <td className="px-4 py-3 align-top text-xs text-muted-foreground">
-        {task.completedAt ? (
+        {task.forReviewAt ? (
           <div>
-            <div>{formatShortDate(task.completedAt)}</div>
+            <div>
+              {task.completedAt ? "✓ " : ""}
+              {formatShortDate(task.forReviewAt)}
+            </div>
             {(() => {
-              const d = humanDuration(task.createdAt, task.completedAt);
+              const d = humanDuration(task.createdAt, task.forReviewAt);
               return d ? (
                 <div className="text-[10px] font-medium text-green-600 dark:text-green-400">
                   in {d}
