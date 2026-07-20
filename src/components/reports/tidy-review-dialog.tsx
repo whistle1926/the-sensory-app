@@ -141,11 +141,14 @@ export function TidyReviewDialog({
   const [frozen, setFrozen] = useState<Diff[]>([]);
   // Editable After text per section, seeded from Claude's version.
   const [afters, setAfters] = useState<Record<string, string>>({});
+  // Sections the OT has ticked off as approved. Only these get applied.
+  const [approved, setApproved] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!open) {
       setFrozen([]);
       setAfters({});
+      setApproved(new Set());
       return;
     }
     if (before && after) {
@@ -154,15 +157,32 @@ export function TidyReviewDialog({
       const seed: Record<string, string> = {};
       for (const d of diffs) seed[d.path] = d.after;
       setAfters(seed);
+      setApproved(new Set());
     }
     // Re-seeds only when a NEW tidy result arrives (after/before identity
     // changes) or on open — NOT on edits, which touch local state only.
   }, [open, before, after]);
 
+  function toggleApprove(path: string) {
+    setApproved((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }
+
+  const allApproved = frozen.length > 0 && approved.size === frozen.length;
+
   function handleApply() {
-    if (!after) return;
-    const final = JSON.parse(JSON.stringify(after)) as Record<string, unknown>;
-    for (const d of frozen) setPath(final, d.path, afters[d.path] ?? d.after);
+    if (!before) return;
+    // Base is the ORIGINAL draft; only approved sections get overwritten
+    // (with the OT's edited text). Unapproved sections keep the OT's
+    // original wording untouched.
+    const final = JSON.parse(JSON.stringify(before)) as Record<string, unknown>;
+    for (const d of frozen) {
+      if (approved.has(d.path)) setPath(final, d.path, afters[d.path] ?? d.after);
+    }
     onApply(final as unknown as ReportContent);
   }
 
@@ -194,59 +214,113 @@ export function TidyReviewDialog({
           </div>
         ) : (
           <div className="space-y-4">
-            <p className="text-xs text-muted-foreground">
-              {frozen.length} section{frozen.length === 1 ? "" : "s"} changed.
-              The <strong>After</strong> boxes are editable — tweak anything you
-              want, then <strong>Apply all</strong> to update your draft (your
-              edits included), or <strong>Discard</strong> to keep your version.
-              Nothing is saved until you click <strong>Save</strong> back on the
-              report.
-            </p>
-            <div className="space-y-3">
-              {frozen.map((d) => (
-                <div
-                  key={d.path}
-                  className="overflow-hidden rounded-xl border border-border"
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                {frozen.length} section{frozen.length === 1 ? "" : "s"} changed.
+                Edit each <strong>After</strong> box if you want, then{" "}
+                <strong>Approve</strong> the ones you&apos;re happy with as you
+                go. Only approved sections get applied. Nothing is saved until
+                you click <strong>Save</strong> back on the report.
+              </p>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                  {approved.size} / {frozen.length} approved
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setApproved(
+                      allApproved
+                        ? new Set()
+                        : new Set(frozen.map((d) => d.path)),
+                    )
+                  }
+                  className="text-[11px] font-semibold text-primary underline hover:brightness-110"
                 >
-                  <div className="border-b border-border bg-muted/30 px-3 py-1.5 text-xs font-semibold">
-                    {d.label}
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-x sm:divide-y-0 divide-border">
-                    <div className="p-4">
-                      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Before
-                      </p>
-                      <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground/80">
-                        {d.before || "(empty)"}
-                      </pre>
-                    </div>
-                    <div className="bg-primary/5 p-4">
-                      <div className="mb-2 flex items-center justify-between">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-primary">
-                          After — editable
-                        </p>
-                        {(afters[d.path] ?? d.after) !== d.after && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setAfters((prev) => ({ ...prev, [d.path]: d.after }))
-                            }
-                            className="text-[10px] font-semibold text-muted-foreground underline hover:text-foreground"
-                          >
-                            Reset to AI version
-                          </button>
+                  {allApproved ? "Clear all" : "Approve all"}
+                </button>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {frozen.map((d) => {
+                const isApproved = approved.has(d.path);
+                const edited = (afters[d.path] ?? d.after) !== d.after;
+                return (
+                  <div
+                    key={d.path}
+                    className={
+                      "overflow-hidden rounded-xl border transition-colors " +
+                      (isApproved
+                        ? "border-green-500/60 ring-1 ring-green-500/30"
+                        : "border-border")
+                    }
+                  >
+                    <div className="flex items-center justify-between border-b border-border bg-muted/30 px-3 py-1.5">
+                      <span className="text-xs font-semibold">
+                        {isApproved && (
+                          <CheckCircle2 className="mr-1 inline h-3.5 w-3.5 text-green-600 dark:text-green-400" />
                         )}
-                      </div>
-                      <GrowTextarea
-                        value={afters[d.path] ?? d.after}
-                        onChange={(v) =>
-                          setAfters((prev) => ({ ...prev, [d.path]: v }))
+                        {d.label}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => toggleApprove(d.path)}
+                        className={
+                          "inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors " +
+                          (isApproved
+                            ? "bg-green-600 text-white hover:bg-green-700"
+                            : "border border-primary text-primary hover:bg-primary/10")
                         }
-                      />
+                      >
+                        {isApproved ? (
+                          <>
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Approved
+                          </>
+                        ) : (
+                          "Approve section"
+                        )}
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-x sm:divide-y-0 divide-border">
+                      <div className="p-4">
+                        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Before
+                        </p>
+                        <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground/80">
+                          {d.before || "(empty)"}
+                        </pre>
+                      </div>
+                      <div className="bg-primary/5 p-4">
+                        <div className="mb-2 flex items-center justify-between">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                            After — editable
+                          </p>
+                          {edited && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setAfters((prev) => ({
+                                  ...prev,
+                                  [d.path]: d.after,
+                                }))
+                              }
+                              className="text-[10px] font-semibold text-muted-foreground underline hover:text-foreground"
+                            >
+                              Reset to AI version
+                            </button>
+                          )}
+                        </div>
+                        <GrowTextarea
+                          value={afters[d.path] ?? d.after}
+                          onChange={(v) =>
+                            setAfters((prev) => ({ ...prev, [d.path]: v }))
+                          }
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -258,10 +332,12 @@ export function TidyReviewDialog({
           </Button>
           <Button
             onClick={handleApply}
-            disabled={loading || !!error || frozen.length === 0}
+            disabled={loading || !!error || approved.size === 0}
           >
             <CheckCircle2 className="mr-2 h-4 w-4" />
-            Apply all
+            {approved.size > 0
+              ? `Apply ${approved.size} approved`
+              : "Approve sections to apply"}
           </Button>
         </DialogFooter>
       </DialogContent>
