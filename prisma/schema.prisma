@@ -775,10 +775,28 @@ model Task {
   subtasks      Subtask[]
   comments      TaskComment[]
   feedback      TaskFeedback[]
+  attachments   TaskAttachment[]
 
   @@index([status])
   @@index([dueDate])
   @@index([clientUserId])
+}
+
+/// Images/videos attached to a task itself (not to a comment) — e.g. a
+/// screenshot uploaded when logging the ticket to show the issue. Mirrors
+/// CommentAttachment; files live on Vercel Blob (uploaded via
+/// /api/uploads/comment-attachment) and only the URL + metadata are stored.
+model TaskAttachment {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  url       String
+  mimeType  String
+  filename  String
+  sizeBytes Int
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
 }
 
 /// Quick-tap feedback rows for the /tasks "Build Updates" view. Each row

@@ -32,6 +32,12 @@ interface Subtask {
   title: string;
   done: boolean;
 }
+interface Attachment {
+  id: string;
+  url: string;
+  mimeType: string;
+  filename: string;
+}
 interface Task {
   id: string;
   title: string;
@@ -43,6 +49,7 @@ interface Task {
   clientUser: { id: string; name: string; email: string } | null;
   assignees: Assignee[];
   subtasks: Subtask[];
+  attachments: Attachment[];
   comments: Comment[];
   createdAt: string;
   forReviewAt: string | null;
@@ -344,6 +351,48 @@ export default function TaskDetailPage({
               </div>
             </div>
           </div>
+
+          {task.attachments.length > 0 && (
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
+              <h2 className="text-sm font-semibold">
+                Attachments{" "}
+                <span className="text-xs font-normal text-muted-foreground">
+                  ({task.attachments.length})
+                </span>
+              </h2>
+              <div className="mt-3 flex flex-wrap gap-3">
+                {task.attachments.map((a) =>
+                  a.mimeType.startsWith("image/") ? (
+                    <a
+                      key={a.id}
+                      href={a.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block h-28 w-28 overflow-hidden rounded-lg border border-border transition-transform hover:scale-[1.02]"
+                      title={a.filename}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={a.url}
+                        alt={a.filename}
+                        className="h-full w-full object-cover"
+                      />
+                    </a>
+                  ) : (
+                    <a
+                      key={a.id}
+                      href={a.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs hover:bg-muted"
+                    >
+                      📎 {a.filename}
+                    </a>
+                  ),
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
             <div className="flex items-center justify-between">

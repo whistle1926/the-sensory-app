@@ -21,6 +21,7 @@ import {
   Filter,
   Loader2,
   MessageCircle,
+  Paperclip,
   Plus,
   Search,
   Trash2,
@@ -55,7 +56,7 @@ interface TaskRow {
   completedAt: string | null;
   createdBy: { id: string; name: string; email: string } | null;
   assignees: AssigneeShape[];
-  _count: { comments: number };
+  _count: { comments: number; attachments: number };
 }
 
 type FilterKey =
@@ -378,6 +379,7 @@ function TaskRow({
   const isDone = task.status === "done";
   const reqName = task.createdBy?.name ?? "—";
   const commentCount = task._count?.comments ?? 0;
+  const attachmentCount = task._count?.attachments ?? 0;
 
   return (
     <tr className="transition hover:bg-muted/20">
@@ -424,6 +426,14 @@ function TaskRow({
           {commentCount > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
               <MessageCircle className="h-2.5 w-2.5" /> {commentCount}
+            </span>
+          )}
+          {attachmentCount > 0 && (
+            <span
+              className="inline-flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground"
+              title={`${attachmentCount} image${attachmentCount === 1 ? "" : "s"} attached`}
+            >
+              <Paperclip className="h-2.5 w-2.5" /> {attachmentCount}
             </span>
           )}
         </Link>

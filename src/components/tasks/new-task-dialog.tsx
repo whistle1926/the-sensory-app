@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus, X, Trash2, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ImagePlus, Plus, X, Trash2, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,16 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
+}
+
+interface PendingAttachment {
+  tempId: string;
+  url?: string;
+  mimeType: string;
+  filename: string;
+  sizeBytes: number;
+  uploading: boolean;
+  error?: string;
 }
 
 const PRIORITY_DOT: Record<TaskPriority, string> = {
@@ -62,6 +72,8 @@ export function NewTaskDialog({ open, onOpenChange, onCreated }: Props) {
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [clientUserId, setClientUserId] = useState<string>("");
   const [subtasks, setSubtasks] = useState<string[]>([]);
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -83,9 +95,58 @@ export function NewTaskDialog({ open, onOpenChange, onCreated }: Props) {
       setAssigneeIds([]);
       setClientUserId("");
       setSubtasks([]);
+      setAttachments([]);
       setError("");
     }
   }, [open]);
+
+  async function uploadOne(file: File) {
+    const tempId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    setAttachments((prev) => [
+      ...prev,
+      {
+        tempId,
+        mimeType: file.type,
+        filename: file.name,
+        sizeBytes: file.size,
+        uploading: true,
+      },
+    ]);
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const res = await fetch("/api/uploads/comment-attachment", {
+        method: "POST",
+        body: fd,
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(
+          typeof data.error === "string" ? data.error : "Upload failed",
+        );
+      }
+      const data = (await res.json()) as { url: string };
+      setAttachments((prev) =>
+        prev.map((p) =>
+          p.tempId === tempId ? { ...p, uploading: false, url: data.url } : p,
+        ),
+      );
+    } catch (e) {
+      setAttachments((prev) =>
+        prev.map((p) =>
+          p.tempId === tempId
+            ? { ...p, uploading: false, error: (e as Error).message }
+            : p,
+        ),
+      );
+    }
+  }
+
+  function handleFiles(files: FileList | null) {
+    if (!files) return;
+    for (const f of Array.from(files).slice(0, 10)) uploadOne(f);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
 
   function toggleAssignee(id: string) {
     setAssigneeIds((prev) =>
@@ -113,6 +174,14 @@ export function NewTaskDialog({ open, onOpenChange, onCreated }: Props) {
         subtasks: subtasks
           .map((t) => ({ title: t.trim() }))
           .filter((s) => s.title.length > 0),
+        attachments: attachments
+          .filter((a) => !a.uploading && a.url && !a.error)
+          .map((a) => ({
+            url: a.url,
+            mimeType: a.mimeType,
+            filename: a.filename,
+            sizeBytes: a.sizeBytes,
+          })),
       }),
     });
     setSubmitting(false);
@@ -160,6 +229,74 @@ export function NewTaskDialog({ open, onOpenChange, onCreated }: Props) {
               rows={3}
               className="w-full resize-y rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
             />
+          </div>
+
+          {/* Image / screenshot attachments — a picture often explains an
+              issue far faster than words. Uploaded straight away; the URLs
+              are attached to the task on submit. */}
+          <div className="space-y-2">
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Screenshot / image <span className="text-muted-foreground/60">(optional)</span>
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => handleFiles(e.target.files)}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/40 px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <ImagePlus className="h-4 w-4" />
+              Upload an image to explain the issue
+            </button>
+            {attachments.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {attachments.map((a) => (
+                  <div
+                    key={a.tempId}
+                    className={cn(
+                      "group relative h-20 w-20 overflow-hidden rounded-lg border",
+                      a.error ? "border-red-300" : "border-border",
+                    )}
+                    title={a.error ? a.error : a.filename}
+                  >
+                    {a.url && !a.uploading ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={a.url}
+                        alt={a.filename}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-muted">
+                        {a.error ? (
+                          <X className="h-4 w-4 text-red-500" />
+                        ) : (
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAttachments((prev) =>
+                          prev.filter((p) => p.tempId !== a.tempId),
+                        )
+                      }
+                      className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                      aria-label="Remove image"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
@@ -332,7 +469,11 @@ export function NewTaskDialog({ open, onOpenChange, onCreated }: Props) {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={!title.trim() || submitting}
+              disabled={
+                !title.trim() ||
+                submitting ||
+                attachments.some((a) => a.uploading)
+              }
               className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary/80 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? (

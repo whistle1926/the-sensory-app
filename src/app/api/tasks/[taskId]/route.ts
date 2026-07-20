@@ -24,6 +24,7 @@ export async function GET(
       clientUser: { select: { id: true, name: true, email: true } },
       createdBy: { select: { id: true, name: true } },
       subtasks: { orderBy: { order: "asc" } },
+      attachments: { orderBy: { createdAt: "asc" } },
       comments: {
         orderBy: { createdAt: "asc" },
         include: {

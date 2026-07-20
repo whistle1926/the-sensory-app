@@ -41,7 +41,7 @@ export async function GET(_req: NextRequest) {
           resolvedAt: true,
         },
       },
-      _count: { select: { comments: true } },
+      _count: { select: { comments: true, attachments: true } },
     },
   });
 
@@ -120,6 +120,27 @@ export async function POST(req: NextRequest) {
         .filter((s: { title: string }) => s.title.length > 0)
     : [];
 
+  // Image/video attachments — each already uploaded to Vercel Blob via
+  // /api/uploads/comment-attachment, so we only persist url + metadata.
+  interface AttachmentInput {
+    url: string;
+    mimeType: string;
+    filename: string;
+    sizeBytes: number;
+  }
+  const attachments: AttachmentInput[] = Array.isArray(body.attachments)
+    ? body.attachments
+        .filter(
+          (a: unknown): a is AttachmentInput =>
+            !!a &&
+            typeof (a as AttachmentInput).url === "string" &&
+            typeof (a as AttachmentInput).mimeType === "string" &&
+            typeof (a as AttachmentInput).filename === "string" &&
+            typeof (a as AttachmentInput).sizeBytes === "number",
+        )
+        .slice(0, 10)
+    : [];
+
   // Validate that assignees are real non-CLIENT users and the client is a CLIENT.
   if (assigneeIds.length > 0) {
     const count = await prisma.user.count({
@@ -157,6 +178,14 @@ export async function POST(req: NextRequest) {
       subtasks: {
         create: subtasks.map((s, i) => ({ title: s.title, order: i })),
       },
+      attachments: {
+        create: attachments.map((a) => ({
+          url: a.url,
+          mimeType: a.mimeType,
+          filename: a.filename,
+          sizeBytes: a.sizeBytes,
+        })),
+      },
     },
     include: {
       assignees: {
@@ -164,6 +193,7 @@ export async function POST(req: NextRequest) {
       },
       clientUser: { select: { id: true, name: true, email: true } },
       subtasks: { orderBy: { order: "asc" } },
+      attachments: true,
     },
   });
 
