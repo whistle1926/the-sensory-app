@@ -30,7 +30,7 @@ import {
   PoundSterling,
 } from "lucide-react";
 import { Toolbar } from "@/components/ds";
-import { localDateKey } from "@/lib/date-key";
+import { localDateKey, londonDateKey } from "@/lib/date-key";
 import { AutomationsSection } from "@/components/bookings/automations-section";
 import { TermsSection } from "@/components/bookings/terms-section";
 import { ServicesSection } from "@/components/bookings/services-section";
@@ -168,6 +168,17 @@ function addDays(d: Date, n: number) {
 
 function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+/**
+ * Does a booking fall on the given grid-cell day? Booking `date` is stored
+ * as the London calendar day's midnight (23:00 UTC the night before in BST),
+ * so we compare its Europe/London day-key against the cell's local day-key.
+ * This shows the booking on the day staff intended, in any viewer timezone —
+ * unlike a plain local isSameDay, which drifts a day outside the UK.
+ */
+function bookingIsOnDay(bookingDate: Date, day: Date) {
+  return londonDateKey(bookingDate) === localDateKey(day);
 }
 
 /** The 42 days (6 weeks) of the month-view grid containing `anchor` —
@@ -607,7 +618,7 @@ export default function BookingsPage() {
   /* ------ Day helpers ------ */
   function getBookingsForDay(day: Date) {
     return bookings
-      .filter((b) => isSameDay(new Date(b.date), day) && b.status !== "cancelled")
+      .filter((b) => bookingIsOnDay(new Date(b.date), day) && b.status !== "cancelled")
       .sort((a, b) => a.time.localeCompare(b.time));
   }
 
@@ -653,7 +664,7 @@ export default function BookingsPage() {
       kind: "booking" | "google";
     }> = [];
     for (const b of bookings) {
-      if (isSameDay(new Date(b.date), day) && b.status !== "cancelled") {
+      if (bookingIsOnDay(new Date(b.date), day) && b.status !== "cancelled") {
         items.push({
           key: `b-${b.id}`,
           time: b.time,

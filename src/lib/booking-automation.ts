@@ -57,7 +57,7 @@ function addMinutesToClock(time: string, mins: number): string {
  * converting to UTC — Google applies the timezone, so this stays correct
  * across BST/GMT with no date-maths of our own.
  */
-function buildCalendarLink(args: {
+export function buildCalendarLink(args: {
   title: string;
   date: Date;
   time: string;

@@ -17,3 +17,23 @@ export function localDateKey(d: Date): string {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
+
+/**
+ * Calendar-day key ("YYYY-MM-DD") for an instant AS SEEN IN LONDON.
+ *
+ * Booking `date` values are stored as the London calendar day's midnight,
+ * which during BST is 23:00 UTC the night before (e.g. a 23 July booking is
+ * stored "2026-07-22T23:00:00Z"). Matching those with the viewer's LOCAL
+ * calendar day is correct in the UK but drifts a day in other timezones.
+ * Keying the booking by its Europe/London day — and comparing against the
+ * grid cell's `localDateKey` — pins it to the day staff actually intend, in
+ * ANY viewer timezone. `en-CA` formats as YYYY-MM-DD with no manual parsing.
+ */
+export function londonDateKey(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}

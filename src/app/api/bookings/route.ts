@@ -13,6 +13,7 @@ import {
   getEnabledAutomation,
   renderTemplate,
   variablesForBooking,
+  buildCalendarLink,
 } from "@/lib/booking-automation";
 import { sendTransactionalEmail } from "@/lib/email";
 
@@ -345,9 +346,15 @@ export async function GET() {
   return NextResponse.json(bookings);
 }
 
-/** Email the owning associate a short heads-up about a new booking.
- *  Best-effort: returns quietly if the service is unassigned or the
- *  owner has no email on file. */
+/** Email a "new booking" heads-up to the staff member responsible, with a
+ *  one-click "Add to Google Calendar" button so it lands in their Google
+ *  diary (our email provider can't attach a real .ics invite, so a Google
+ *  render link is the reliable no-login way to get it there).
+ *
+ *  Recipient: the owning associate if the service has one; otherwise the
+ *  practice admin inbox (emailSettings.senderEmail) so unassigned/practice
+ *  bookings still reach a calendar. Best-effort — returns quietly if there's
+ *  no usable recipient. */
 async function notifyOwnerOfBooking(args: {
   ownerId: string | null;
   clientName: string;
@@ -359,40 +366,71 @@ async function notifyOwnerOfBooking(args: {
    * therapist knows more dates are in their calendar. */
   extraSessions?: number;
 }) {
-  if (!args.ownerId) return;
-  const owner = await prisma.user.findUnique({
-    where: { id: args.ownerId },
-    select: { email: true, name: true },
-  });
-  if (!owner?.email) return;
+  // Resolve the recipient: owner if set, else the practice admin inbox.
+  let toEmail: string | null = null;
+  let toName: string | null = null;
+  if (args.ownerId) {
+    const owner = await prisma.user.findUnique({
+      where: { id: args.ownerId },
+      select: { email: true, name: true },
+    });
+    toEmail = owner?.email ?? null;
+    toName = owner?.name ?? null;
+  } else {
+    const settings = await prisma.emailSettings.findUnique({
+      where: { id: "default" },
+      select: { senderEmail: true },
+    });
+    toEmail = settings?.senderEmail ?? null;
+    toName = null; // practice inbox — no personal greeting
+  }
+  if (!toEmail) return;
 
   const svc = await prisma.bookingService.findUnique({
     where: { slug: args.service },
-    select: { title: true },
+    select: { title: true, durationMinutes: true },
   });
   const serviceTitle = svc?.title ?? args.service;
+  const durationMinutes = svc?.durationMinutes ?? 60;
+  // Label the calendar day AS SEEN IN LONDON — the stored instant can sit at
+  // 23:00 UTC the night before during BST, so formatting in UTC would show
+  // the wrong day. Europe/London keeps it on the day staff actually expect.
   const dateLabel = args.date.toLocaleDateString("en-GB", {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
-    timeZone: "UTC",
+    timeZone: "Europe/London",
   });
+
+  // One-click "add to Google Calendar" for THIS appointment (first session
+  // of a block). buildCalendarLink derives the London day + applies
+  // ctz=Europe/London, so it's correct across BST/GMT with no date-maths here.
+  const calLink = buildCalendarLink({
+    title: `${serviceTitle} — ${args.clientName}`,
+    date: args.date,
+    time: args.time,
+    durationMinutes,
+  });
+  const calButton = `<p style="margin:20px 0;">
+  <a href="${calLink}" style="display:inline-block;background:#1a1a2e;color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;">📅 Add to Google Calendar</a>
+</p>`;
 
   const extra = args.extraSessions ?? 0;
   await sendTransactionalEmail({
-    to: owner.email,
+    to: toEmail,
     subject: `New booking: ${serviceTitle} — ${dateLabel} at ${args.time}`,
-    html: `<p>Hi ${owner.name?.split(" ")[0] ?? "there"},</p>
+    html: `<p>Hi ${toName?.split(" ")[0] ?? "there"},</p>
 <p>You have a new booking for <strong>${serviceTitle}</strong>${
       extra > 0 ? ` — a block of ${extra + 1} sessions` : ""
     }.</p>
 <ul>
   <li><strong>${extra > 0 ? "First session" : "When"}:</strong> ${dateLabel} at ${args.time}</li>
-  ${extra > 0 ? `<li><strong>Plus:</strong> ${extra} further session${extra === 1 ? "" : "s"} — all ${extra + 1} are in your calendar</li>` : ""}
+  ${extra > 0 ? `<li><strong>Plus:</strong> ${extra} further session${extra === 1 ? "" : "s"} — add each of those from the portal's booking list</li>` : ""}
   <li><strong>Client:</strong> ${args.clientName} (${args.clientEmail})</li>
 </ul>
-<p>It's on your bookings page in the portal.</p>`,
+${calButton}
+<p style="font-size:12px;color:#777;">It's also on your bookings page in the portal. The button above adds it to your Google Calendar in one click${extra > 0 ? " (the first session — the block's other dates can be added from the portal)" : ""}.</p>`,
   });
 }
 

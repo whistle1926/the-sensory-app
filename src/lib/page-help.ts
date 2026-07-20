@@ -108,6 +108,7 @@ export const PAGE_HELP: Record<string, PageHelpContent> = {
     tips: [
       "To add a clinic location: Services → New service, set its Location and who runs it, add its dates under Availability, then switch it LIVE.",
       "Google Calendar events show here as read-only (tagged “Google”) — edit those in Google. Only portal bookings can be changed here.",
+      "Portal bookings don’t appear in Google automatically. When a booking is made, the therapist (or the practice inbox for unassigned services) gets a “New booking” email with a one-click ‘Add to Google Calendar’ button — that’s how it gets into your Google diary.",
       "Share the booking link at the top with clients so they can book themselves.",
     ],
   },
