@@ -45,7 +45,36 @@ interface Task {
   subtasks: Subtask[];
   comments: Comment[];
   createdAt: string;
+  completedAt: string | null;
   updatedAt: string;
+}
+
+/** e.g. "18 Jul 2026, 2:32 pm" — date + time for the audit trail. */
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+/**
+ * Human "time to fix" from logged → completed. Used to answer "how quick
+ * was this turned around". Coarse buckets keep it readable: minutes under
+ * 90m, hours under 2 days, otherwise whole days.
+ */
+function humanDuration(fromIso: string, toIso: string): string | null {
+  const ms = new Date(toIso).getTime() - new Date(fromIso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  const mins = Math.round(ms / 60000);
+  if (mins < 90) return `${mins} min`;
+  const hours = Math.round(mins / 60);
+  if (hours < 48) return `${hours} hr${hours === 1 ? "" : "s"}`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"}`;
 }
 
 function initials(name: string) {
@@ -228,12 +257,21 @@ export default function TaskDetailPage({
               }}
               className="w-full bg-transparent text-xl font-bold tracking-tight outline-none"
             />
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
               <PriorityBadge priority={task.priority} />
               <StatusBadge status={task.status} />
               <span className="text-[11px] text-muted-foreground">
-                Created by {task.createdBy.name}
+                Logged {formatDateTime(task.createdAt)} by {task.createdBy.name}
               </span>
+              {task.completedAt && (
+                <span className="text-[11px] font-medium text-green-600 dark:text-green-400">
+                  · Completed {formatDateTime(task.completedAt)}
+                  {(() => {
+                    const d = humanDuration(task.createdAt, task.completedAt);
+                    return d ? ` · fixed in ${d}` : "";
+                  })()}
+                </span>
+              )}
             </div>
             <div className="mt-4">
               <RichTextEditor

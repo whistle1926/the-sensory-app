@@ -170,6 +170,18 @@ export default function TasksPage() {
     return c;
   }, [rows]);
 
+  // Average "time to fix" across all completed tasks — logged → completed.
+  // This is the headline metric for tracking turnaround speed over time.
+  const avgFix = useMemo(() => {
+    const spans = rows
+      .filter((r) => r.completedAt)
+      .map((r) => new Date(r.completedAt!).getTime() - new Date(r.createdAt).getTime())
+      .filter((ms) => Number.isFinite(ms) && ms >= 0);
+    if (spans.length === 0) return null;
+    const mean = spans.reduce((a, b) => a + b, 0) / spans.length;
+    return { label: humanMs(mean), count: spans.length };
+  }, [rows]);
+
   async function changeStatus(id: string, status: Status) {
     setBusyId(id);
     try {
@@ -207,6 +219,14 @@ export default function TasksPage() {
             <span>🟣 {counts.for_review} for review</span>
             <span>✅ {counts.done} completed</span>
             {counts.deferred > 0 && <span>⚪ {counts.deferred} deferred</span>}
+            {avgFix?.label && (
+              <span
+                className="font-medium text-foreground"
+                title={`Average time from logged to completed across ${avgFix.count} completed task${avgFix.count === 1 ? "" : "s"}`}
+              >
+                ⏱ Avg fix: {avgFix.label}
+              </span>
+            )}
           </p>
         </div>
         <Button onClick={() => setShowNew(true)} className="rounded-xl">
@@ -296,7 +316,7 @@ export default function TasksPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px] text-sm">
+            <table className="w-full min-w-[1200px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
                   <th className="w-10 px-4 py-3" />
@@ -308,6 +328,7 @@ export default function TasksPage() {
                   <th className="px-4 py-3 font-medium">Logged</th>
                   <th className="px-4 py-3 font-medium">First build</th>
                   <th className="px-4 py-3 font-medium">Latest build</th>
+                  <th className="px-4 py-3 font-medium">Resolved</th>
                   <th className="w-10 px-4 py-3" />
                 </tr>
               </thead>
@@ -462,6 +483,25 @@ function TaskRow({
         {task.latestBuildAt ? formatShortDate(task.latestBuildAt) : "—"}
       </td>
 
+      {/* Resolved — completion date + how long it took (logged → done) */}
+      <td className="px-4 py-3 align-top text-xs text-muted-foreground">
+        {task.completedAt ? (
+          <div>
+            <div>{formatShortDate(task.completedAt)}</div>
+            {(() => {
+              const d = humanDuration(task.createdAt, task.completedAt);
+              return d ? (
+                <div className="text-[10px] font-medium text-green-600 dark:text-green-400">
+                  in {d}
+                </div>
+              ) : null;
+            })()}
+          </div>
+        ) : (
+          "—"
+        )}
+      </td>
+
       {/* Delete */}
       <td className="px-4 py-3 align-top text-right">
         <button
@@ -511,6 +551,33 @@ function formatShortDate(iso: string): string {
     year:
       d.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
   });
+}
+
+/**
+ * Human "time to fix" from logged → completed. Coarse buckets keep it
+ * scannable: minutes under 90m, hours under 2 days, otherwise whole days.
+ * Returns null for missing/negative spans so callers can render a dash.
+ */
+function humanDuration(fromIso: string, toIso: string): string | null {
+  const ms = new Date(toIso).getTime() - new Date(fromIso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  const mins = Math.round(ms / 60000);
+  if (mins < 90) return `${mins} min`;
+  const hours = Math.round(mins / 60);
+  if (hours < 48) return `${hours} hr${hours === 1 ? "" : "s"}`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"}`;
+}
+
+/** Same buckets as humanDuration but from a raw millisecond span (for averages). */
+function humanMs(ms: number): string | null {
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  const mins = Math.round(ms / 60000);
+  if (mins < 90) return `${mins} min`;
+  const hours = ms / 3_600_000;
+  if (hours < 48) return `${Math.round(hours)} hrs`;
+  const days = ms / 86_400_000;
+  return `${days.toFixed(days < 10 ? 1 : 0)} days`;
 }
 
 function stripHtml(html: string): string {
