@@ -168,7 +168,7 @@ export const PAGE_HELP: Record<string, PageHelpContent> = {
     summary: "Turn session notes into a structured OT report you can review, export and send.",
     steps: [
       "Start a report from a client, paste or dictate your session notes, and let the draft generate.",
-      "Edit any section, reorder them, and use Tidy with AI to clean up the writing — you review the before/after before anything changes.",
+      "Edit any section, reorder them, and use Tidy with AI to clean up the writing — you review the before/after first, and you can edit the AI's ‘After’ text yourself before applying.",
       "Word downloads a .docx. PDF opens a clean copy and brings up the print box — choose ‘Save as PDF’.",
       "Email sends the report to the parent. Use Add attachment there to include extras like a visual schedule.",
     ],

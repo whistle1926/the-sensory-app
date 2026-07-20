@@ -6,12 +6,12 @@
  * The OT clicked "Tidy with AI" while editing. We've already called
  * the tidy endpoint and have both the current draft + the tidied
  * version. This dialog shows the differences section-by-section so
- * the OT can decide whether to apply.
- *
- * Apply is all-or-nothing for v1 — Patrick can iterate to per-section
- * acceptance later if the volume of changes feels too coarse.
+ * the OT can review — and now EDIT — each cleaned-up "After" before
+ * applying. "Apply all" applies whatever is in the After boxes (their
+ * edits included) back onto the draft; nothing persists until they
+ * Save on the report itself.
  */
-import { useMemo } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Loader2, X } from "lucide-react";
 import {
   Dialog,
@@ -77,13 +77,53 @@ function collectDiffs(before: ReportContent, after: ReportContent): Diff[] {
   return out;
 }
 
+/** Set a nested value on an object by dotted path (mutates). */
+function setPath(obj: Record<string, unknown>, path: string, value: unknown) {
+  const keys = path.split(".");
+  let node: Record<string, unknown> = obj;
+  for (let i = 0; i < keys.length - 1; i++) {
+    const k = keys[i];
+    if (!node[k] || typeof node[k] !== "object") node[k] = {};
+    node = node[k] as Record<string, unknown>;
+  }
+  node[keys[keys.length - 1]] = value;
+}
+
+/** Textarea that grows to fit its content, so long sections aren't cramped. */
+function GrowTextarea({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (el) {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      rows={2}
+      className="w-full resize-y rounded-lg border border-primary/20 bg-background px-2.5 py-2 text-sm leading-relaxed text-foreground outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
+    />
+  );
+}
+
 interface Props {
   open: boolean;
   loading: boolean;
   error: string | null;
   before: ReportContent | null;
   after: ReportContent | null;
-  onApply: () => void;
+  /** Receives the final After content — INCLUDING any edits the OT made. */
+  onApply: (finalAfter: ReportContent) => void;
   onDiscard: () => void;
 }
 
@@ -96,10 +136,35 @@ export function TidyReviewDialog({
   onApply,
   onDiscard,
 }: Props) {
-  const diffs = useMemo(() => {
-    if (!before || !after) return [];
-    return collectDiffs(before, after);
-  }, [before, after]);
+  // The section list is FROZEN when results arrive so that editing an
+  // After box (even to match the Before) never makes a row vanish mid-edit.
+  const [frozen, setFrozen] = useState<Diff[]>([]);
+  // Editable After text per section, seeded from Claude's version.
+  const [afters, setAfters] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!open) {
+      setFrozen([]);
+      setAfters({});
+      return;
+    }
+    if (before && after) {
+      const diffs = collectDiffs(before, after);
+      setFrozen(diffs);
+      const seed: Record<string, string> = {};
+      for (const d of diffs) seed[d.path] = d.after;
+      setAfters(seed);
+    }
+    // Re-seeds only when a NEW tidy result arrives (after/before identity
+    // changes) or on open — NOT on edits, which touch local state only.
+  }, [open, before, after]);
+
+  function handleApply() {
+    if (!after) return;
+    const final = JSON.parse(JSON.stringify(after)) as Record<string, unknown>;
+    for (const d of frozen) setPath(final, d.path, afters[d.path] ?? d.after);
+    onApply(final as unknown as ReportContent);
+  }
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onDiscard()}>
@@ -118,7 +183,7 @@ export function TidyReviewDialog({
             <X className="mr-1 inline h-4 w-4" />
             {error}
           </div>
-        ) : !before || !after ? null : diffs.length === 0 ? (
+        ) : !before || !after ? null : frozen.length === 0 ? (
           <div className="py-12 text-center">
             <CheckCircle2 className="mx-auto h-10 w-10 text-green-500" />
             <p className="mt-3 text-sm font-semibold">Nothing to tidy.</p>
@@ -130,14 +195,15 @@ export function TidyReviewDialog({
         ) : (
           <div className="space-y-4">
             <p className="text-xs text-muted-foreground">
-              {diffs.length} section{diffs.length === 1 ? "" : "s"} changed.
-              Compare side by side and{" "}
-              <strong>Apply all</strong> to update your draft, or{" "}
-              <strong>Discard</strong> to keep your version. Nothing is saved
-              until you click <strong>Save</strong> back on the report.
+              {frozen.length} section{frozen.length === 1 ? "" : "s"} changed.
+              The <strong>After</strong> boxes are editable — tweak anything you
+              want, then <strong>Apply all</strong> to update your draft (your
+              edits included), or <strong>Discard</strong> to keep your version.
+              Nothing is saved until you click <strong>Save</strong> back on the
+              report.
             </p>
             <div className="space-y-3">
-              {diffs.map((d) => (
+              {frozen.map((d) => (
                 <div
                   key={d.path}
                   className="overflow-hidden rounded-xl border border-border"
@@ -155,12 +221,28 @@ export function TidyReviewDialog({
                       </pre>
                     </div>
                     <div className="bg-primary/5 p-4">
-                      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-primary">
-                        After
-                      </p>
-                      <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
-                        {d.after || "(empty)"}
-                      </pre>
+                      <div className="mb-2 flex items-center justify-between">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                          After — editable
+                        </p>
+                        {(afters[d.path] ?? d.after) !== d.after && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setAfters((prev) => ({ ...prev, [d.path]: d.after }))
+                            }
+                            className="text-[10px] font-semibold text-muted-foreground underline hover:text-foreground"
+                          >
+                            Reset to AI version
+                          </button>
+                        )}
+                      </div>
+                      <GrowTextarea
+                        value={afters[d.path] ?? d.after}
+                        onChange={(v) =>
+                          setAfters((prev) => ({ ...prev, [d.path]: v }))
+                        }
+                      />
                     </div>
                   </div>
                 </div>
@@ -175,8 +257,8 @@ export function TidyReviewDialog({
             Discard
           </Button>
           <Button
-            onClick={onApply}
-            disabled={loading || !!error || diffs.length === 0}
+            onClick={handleApply}
+            disabled={loading || !!error || frozen.length === 0}
           >
             <CheckCircle2 className="mr-2 h-4 w-4" />
             Apply all

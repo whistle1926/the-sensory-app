@@ -101,8 +101,10 @@ export default function ReportDetailPage() {
     }
   }
 
-  function applyTidy() {
-    if (tidyAfter) setDraftContent(tidyAfter);
+  // Receives the final After content from the review dialog — this includes
+  // any edits the OT made to the AI's suggestions before applying.
+  function applyTidy(finalAfter: ReportContent) {
+    setDraftContent(finalAfter);
     closeTidy();
   }
   function closeTidy() {
