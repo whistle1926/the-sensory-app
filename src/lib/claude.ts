@@ -10,35 +10,30 @@ import { createMessageResilient, getAnthropicClient } from "./ai-model";
  * OT will approve or discard, but Claude must NOT invent or remove
  * observations, change names/dates/numbers, or reword the meaning.
  */
-const TIDY_SYSTEM_PROMPT = `You are a paediatric occupational-therapy editor. The user will send you a structured OT report as JSON. Your job is ONLY to clean up the prose so it reads well in a finished clinical document.
+// Per-FIELD tidy prompt. The report tidy used to send the whole report JSON
+// in one call and ask for the whole thing back — ~6k output tokens, which
+// took ~2 minutes and read as "broken". We now tidy each prose field in its
+// own small, fast, PARALLEL call (plain text in/out — no giant JSON to
+// truncate or fail to parse), then reassemble. This prompt governs one field.
+const TIDY_FIELD_SYSTEM_PROMPT = `You are a paediatric occupational-therapy editor. You will be given the plain text of ONE section of a clinical OT report. Clean up ONLY the writing so it reads well in a finished clinical document.
 
-ABSOLUTE RULES — violating any of these makes the output unusable:
-1. Return JSON matching the input shape EXACTLY. Same keys, same nesting. No keys added or removed.
-2. NEVER change any of:
-   - Names (clientInfo.clientName, parentCarer, therapistName)
-   - Dates (dateOfBirth, sessionDate, reportDate, reviewDate)
-   - Numbers (age strings, session number, qualifications)
-   - Diagnosis text
-   - Referrer text
-   - sectionOrder array — copy verbatim if present
-3. NEVER add observations or findings that weren't already in the source. NEVER remove ones that were.
-4. NEVER change the meaning of any sentence. Preserve every clinical fact, every recommendation, every goal.
-5. "Suggested follow-up:" prefixed text in Functional Review fields must stay as suggestions — do NOT convert into observed findings.
-6. Field values that are exactly "Not assessed this session" must remain that exact phrase.
-7. Empty strings must remain empty strings.
+ABSOLUTE RULES — violating any makes the output unusable:
+1. NEVER change the meaning. Preserve every clinical fact, observation, finding, recommendation, goal, number, frequency and duration exactly.
+2. NEVER add anything that wasn't there, and NEVER remove anything that was.
+3. NEVER change names or dates.
+4. If the text is exactly "Not assessed this session", return it exactly unchanged.
+5. "Suggested follow-up:" prefixed text must stay as a suggestion — do NOT turn it into an observed finding.
+6. If the input is empty or whitespace, return it unchanged.
 
 WHAT YOU MAY DO:
-- Fix typos and grammar mistakes
+- Fix typos, spelling, grammar and punctuation
 - Standardise to UK English (behaviour, organisation, programme, colour, paediatric, recognise)
-- Smooth awkward phrasing into clear sentences
-- Apply consistent paragraph structure
-- Use professional clinical tone (warm but precise)
-- Standardise punctuation (single space after full stops, Oxford comma optional but consistent)
-- Replace casual contractions in narrative prose with formal forms (don't → do not) where it reads more professional
+- Smooth awkward phrasing into clear sentences and tidy paragraph structure
+- Professional clinical tone (warm but precise); expand casual contractions (don't → do not) where it reads more professionally
 - Tighten redundant phrasing
 
 OUTPUT FORMAT:
-Return ONLY the JSON object. No commentary, no markdown code fences, no preamble.`;
+Return ONLY the cleaned text of this one section. No labels, no quotes, no JSON, no markdown, no commentary, no preamble.`;
 
 /**
  * Summary prompts — one per audience. Used by the "Create Summary"
@@ -102,34 +97,129 @@ export async function summariseReport(
   return textBlock.text.trim();
 }
 
+// The dot-paths of every free-text PROSE field in a report — the only
+// things "Tidy with AI" should touch. Names, dates, numbers, diagnosis,
+// referrer, qualifications and sectionOrder are deliberately excluded so
+// they can never be altered. functionalReview.* is optional (older reports).
+const TIDY_FIELD_PATHS = [
+  "reasonForReferral",
+  "sessionOverview",
+  "observations.sensoryResponses",
+  "observations.engagementParticipation",
+  "observations.communicationSocial",
+  "observations.emotionalRegulation",
+  "assessmentFindings.sensoryProcessing",
+  "assessmentFindings.fineMotor",
+  "assessmentFindings.grossMotor",
+  "assessmentFindings.selfRegulation",
+  "assessmentFindings.playFunctional",
+  "functionalReview.feedingAndEating",
+  "functionalReview.personalCareAndDressing",
+  "functionalReview.toileting",
+  "functionalReview.sleep",
+  "functionalReview.school",
+  "functionalReview.otherConcerns",
+  "functionalReview.discussionWithParent",
+  "interventionsUsed",
+  "responseToIntervention",
+  "clinicalImpressions",
+  "recommendations",
+  "goals.shortTerm",
+  "goals.longTerm",
+  "goals.nextSessionPlan",
+  "homeProgrammeSuggestions",
+] as const;
+
+function getPath(obj: unknown, path: string): unknown {
+  return path.split(".").reduce<unknown>(
+    (acc, key) =>
+      acc && typeof acc === "object"
+        ? (acc as Record<string, unknown>)[key]
+        : undefined,
+    obj,
+  );
+}
+
+function setPath(obj: Record<string, unknown>, path: string, value: unknown) {
+  const keys = path.split(".");
+  let node: Record<string, unknown> = obj;
+  for (let i = 0; i < keys.length - 1; i++) {
+    const k = keys[i];
+    if (!node[k] || typeof node[k] !== "object") node[k] = {};
+    node = node[k] as Record<string, unknown>;
+  }
+  node[keys[keys.length - 1]] = value;
+}
+
+/** Run async `fn` over `items` with a bounded concurrency (a small pool). */
+async function mapPool<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i]);
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, worker),
+  );
+  return results;
+}
+
+/**
+ * Tidy a single report field. Small, fast call — plain text in, plain text
+ * out (no JSON to truncate or fail to parse). Best-effort: on ANY failure it
+ * returns the original text unchanged, so one flaky field never breaks the
+ * whole tidy or loses the OT's writing.
+ */
+async function tidyField(text: string): Promise<string> {
+  const trimmed = text.trim();
+  if (!trimmed || trimmed === "Not assessed this session") return text;
+  try {
+    const anthropic = await getAnthropicClient();
+    const { message } = await createMessageResilient(anthropic, {
+      max_tokens: 4096,
+      system: TIDY_FIELD_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: text }],
+    });
+    const block = message.content.find((b) => b.type === "text");
+    const out = block && block.type === "text" ? block.text.trim() : "";
+    return out || text;
+  } catch (err) {
+    console.error("[tidyField] failed — keeping original", err);
+    return text;
+  }
+}
+
+/**
+ * "Tidy with AI" for a report. Tidies every prose field CONCURRENTLY (small
+ * fast calls) and reassembles — replacing the old single ~6k-token call that
+ * regenerated the whole report and took ~2 minutes. Names/dates/numbers/
+ * structure are never sent for editing, so they can't change.
+ */
 export async function tidyReport(content: ReportContent): Promise<ReportContent> {
-  const anthropic = await getAnthropicClient();
-  // Model + fallback chain live in ai-model.ts. Structured text/JSON
-  // generation (not reasoning) — disable thinking and run at low effort
-  // to stay well under the 60s function limit.
-  const { message } = await createMessageResilient(anthropic, {
-    thinking: { type: "disabled" },
-    output_config: { effort: "low" },
-    max_tokens: 8192,
-    system: TIDY_SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: `Tidy this report. Return the JSON with the same shape:\n\n${JSON.stringify(content)}`,
-      },
-    ],
+  // Deep clone so untouched fields (names, dates, sectionOrder, etc.) pass
+  // through byte-for-byte.
+  const result = JSON.parse(JSON.stringify(content)) as Record<string, unknown>;
+
+  // Only tidy fields that actually hold non-empty text.
+  const targets = TIDY_FIELD_PATHS.filter((p) => {
+    const v = getPath(content, p);
+    return typeof v === "string" && v.trim().length > 0;
   });
-  const textBlock = message.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new Error("No text response from Claude");
-  }
-  // Tolerate a leading/trailing code-fence even though we told it
-  // not to use one — model occasionally drops a ```json wrapper.
-  let text = textBlock.text.trim();
-  if (text.startsWith("```")) {
-    text = text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "");
-  }
-  return JSON.parse(text) as ReportContent;
+
+  const tidied = await mapPool(targets, 8, async (path) => ({
+    path,
+    text: await tidyField(getPath(content, path) as string),
+  }));
+
+  for (const { path, text } of tidied) setPath(result, path, text);
+  return result as unknown as ReportContent;
 }
 
 /**

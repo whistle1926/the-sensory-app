@@ -79,7 +79,27 @@ export async function createMessageResilient(
   for (let i = 0; i < AI_MODELS.length; i++) {
     const model = AI_MODELS[i];
     try {
-      const message = await anthropic.messages.create({ ...params, model });
+      let message: Anthropic.Messages.Message;
+      try {
+        message = await anthropic.messages.create({ ...params, model });
+      } catch (err) {
+        // Some models (e.g. the haiku fallback) reject `output_config.effort`
+        // with a 400 "does not support the effort parameter". Rather than
+        // fail the whole call, transparently retry THIS model once without
+        // the effort/output_config knob — the request is still valid, just
+        // un-tuned. Only for that specific 400; anything else re-throws.
+        const status = (err as { status?: number } | null)?.status;
+        const emsg = (err as { message?: string } | null)?.message ?? "";
+        if (status === 400 && /effort/i.test(emsg) && "output_config" in params) {
+          const { output_config: _drop, ...rest } = params as CreateParams & {
+            output_config?: unknown;
+          };
+          void _drop;
+          message = await anthropic.messages.create({ ...rest, model });
+        } else {
+          throw err;
+        }
+      }
       if (i > 0) {
         console.warn(
           `[ai-model] primary "${AI_MODELS[0]}" unavailable — used fallback "${model}". Update src/lib/ai-model.ts.`,

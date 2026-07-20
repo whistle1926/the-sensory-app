@@ -111,7 +111,7 @@ export function TidyReviewDialog({
         {loading ? (
           <div className="flex items-center justify-center gap-3 py-12 text-sm text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
-            Claude is tidying the report… (typically 20-30 seconds)
+            Claude is tidying the report… (usually 25–40 seconds)
           </div>
         ) : error ? (
           <div className="rounded-md bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-400">
