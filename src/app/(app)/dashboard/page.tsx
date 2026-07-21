@@ -30,7 +30,8 @@ interface Kpi {
   key: string;
   label: string;
   value: string;
-  deltaPct: number;
+  /** null = no prior baseline to compare against → no % badge shown. */
+  deltaPct: number | null;
   helper: string;
   spark: number[];
 }
@@ -64,13 +65,13 @@ interface RevenueCell {
 }
 interface RangeMetrics {
   revenuePence: number;
-  revenueDeltaPct: number;
+  revenueDeltaPct: number | null;
   reports: number;
-  reportsDeltaPct: number;
+  reportsDeltaPct: number | null;
   bookings: number;
-  bookingsDeltaPct: number;
+  bookingsDeltaPct: number | null;
   newClients: number;
-  clientsDeltaPct: number;
+  clientsDeltaPct: number | null;
 }
 interface DashData {
   kpis: Kpi[];
@@ -166,7 +167,10 @@ export default function DashboardPage() {
         key: "active_clients",
         label: "Active Clients",
         value: String(data.activeClients ?? 0),
-        deltaPct: m?.clientsDeltaPct ?? 0,
+        // The headline is the TOTAL active count; a weekly % of a running
+        // total is misleading, so we show the "N new this period" helper
+        // instead of a percentage badge.
+        deltaPct: null,
         helper: `${m?.newClients ?? 0} new · ${low}`,
         spark: sp(0),
       },
@@ -174,7 +178,7 @@ export default function DashboardPage() {
         key: "reports",
         label: `Reports · ${rl}`,
         value: String(m?.reports ?? 0),
-        deltaPct: m?.reportsDeltaPct ?? 0,
+        deltaPct: m?.reportsDeltaPct ?? null,
         helper: `${m?.reports ?? 0} ${low}`,
         spark: sp(1),
       },
@@ -182,7 +186,7 @@ export default function DashboardPage() {
         key: "bookings",
         label: `Bookings · ${rl}`,
         value: String(m?.bookings ?? 0),
-        deltaPct: m?.bookingsDeltaPct ?? 0,
+        deltaPct: m?.bookingsDeltaPct ?? null,
         helper: `${data.agenda.length} today`,
         spark: sp(2),
       },
@@ -190,7 +194,7 @@ export default function DashboardPage() {
         key: "revenue",
         label: `Revenue · ${rl}`,
         value: formatCurrency((m?.revenuePence ?? 0) / 100),
-        deltaPct: m?.revenueDeltaPct ?? 0,
+        deltaPct: m?.revenueDeltaPct ?? null,
         helper: "Received in Fire",
         spark: sp(3),
       },
@@ -252,14 +256,12 @@ export default function DashboardPage() {
         {(loading ? Array.from({ length: 4 }) : displayKpis).map((raw, i) => {
           const k = raw as Kpi | undefined;
           const Icon = KPI_ICONS[i] ?? Users;
-          const Trend =
-            k && k.deltaPct > 0 ? TrendingUp : k && k.deltaPct < 0 ? TrendingDown : TrendingUp;
-          const deltaTone =
-            !k || k.deltaPct === 0
-              ? "flat"
-              : k.deltaPct > 0
-                ? "up"
-                : "down";
+          // Only show a % badge when there's a real number to show (null =
+          // no prior baseline, e.g. nothing happened in the previous period).
+          const hasDelta = !!k && k.deltaPct !== null && k.deltaPct !== undefined;
+          const dp = hasDelta ? (k!.deltaPct as number) : 0;
+          const Trend = dp < 0 ? TrendingDown : TrendingUp;
+          const deltaTone = !hasDelta || dp === 0 ? "flat" : dp > 0 ? "up" : "down";
           return (
             <div key={k?.key ?? i} className={`ds-kpi ${i === 3 ? "accent" : ""}`}>
               <div className="ds-kpi-head">
@@ -272,11 +274,11 @@ export default function DashboardPage() {
                 <span className="ds-kpi-value ds-tabular">
                   {loading ? "—" : k?.value ?? "0"}
                 </span>
-                {k && (
+                {hasDelta && (
                   <span className={`ds-kpi-delta ${deltaTone}`}>
                     <Trend className="h-3 w-3" />
-                    {k.deltaPct > 0 ? "+" : ""}
-                    {k.deltaPct}%
+                    {dp > 0 ? "+" : ""}
+                    {dp}%
                   </span>
                 )}
               </div>
@@ -286,7 +288,7 @@ export default function DashboardPage() {
               />
               <div className="ds-kpi-foot">
                 <span>{k?.helper ?? ""}</span>
-                <span>vs last period</span>
+                {hasDelta && <span>vs last period</span>}
               </div>
             </div>
           );

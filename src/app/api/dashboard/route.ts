@@ -221,9 +221,17 @@ async function computeDashboardAggregates() {
     const bookingsThisWeek = Number(row?.bookings_this_week ?? 0);
     const bookingsPrevWeek = Number(row?.bookings_prev_week ?? 0);
 
-    // ── % delta helper (used by the per-range metrics + legacy KPIs) ───
+    // ── % delta helpers ────────────────────────────────────────────────
+    // Legacy (unchanged) — used by the old `kpis` array further down.
     const pct = (cur: number, prev: number): number => {
       if (prev === 0) return cur === 0 ? 0 : 100;
+      return Math.round(((cur - prev) / prev) * 100);
+    };
+    // Period metrics: returns null when there's NO prior baseline, so the UI
+    // can show nothing rather than a misleading "+100%"/"-100%" (a jump from
+    // zero isn't a percentage change). Real changes still return a number.
+    const pctOrNull = (cur: number, prev: number): number | null => {
+      if (prev === 0) return null;
       return Math.round(((cur - prev) / prev) * 100);
     };
 
@@ -237,6 +245,40 @@ async function computeDashboardAggregates() {
     );
     type Range = "today" | "week" | "month" | "quarter";
     const periodStartOf: Record<Range, Date> = {
+      today: startOfToday,
+      week: weekStart,
+      month: monthStart,
+      quarter: quarterStart,
+    };
+    // Period ENDS (exclusive) — so forward-looking counts (bookings) can
+    // include what's still to come this period, and previous-period windows
+    // are the FULL equivalent period, not a mismatched slice.
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const nextQuarterStart = new Date(
+      now.getFullYear(),
+      Math.floor(now.getMonth() / 3) * 3 + 3,
+      1,
+    );
+    const prevQuarterStart = new Date(
+      now.getFullYear(),
+      Math.floor(now.getMonth() / 3) * 3 - 3,
+      1,
+    );
+    const yesterdayStart = new Date(startOfToday);
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+    const periodEndOf: Record<Range, Date> = {
+      today: endOfToday,
+      week: weekEnd,
+      month: nextMonthStart,
+      quarter: nextQuarterStart,
+    };
+    const prevStartOf: Record<Range, Date> = {
+      today: yesterdayStart,
+      week: prevWeekStart,
+      month: prevMonthStart,
+      quarter: prevQuarterStart,
+    };
+    const prevEndOf: Record<Range, Date> = {
       today: startOfToday,
       week: weekStart,
       month: monthStart,
@@ -269,8 +311,16 @@ async function computeDashboardAggregates() {
     const inWin = (d: Date, s: Date, e: Date) => d >= s && d < e;
     function metricsFor(range: Range) {
       const pStart = periodStartOf[range];
-      const pLen = now.getTime() - pStart.getTime();
-      const prevStart = new Date(pStart.getTime() - pLen);
+      const pEnd = periodEndOf[range];
+      const prevStart = prevStartOf[range];
+      const prevEnd = prevEndOf[range];
+      // "Same point last period": the elapsed slice of the PREVIOUS period,
+      // so "this week so far" compares against "same span last week" rather
+      // than a mismatched window.
+      const elapsed = now.getTime() - pStart.getTime();
+      const prevElapsedEnd = new Date(
+        Math.min(prevStart.getTime() + elapsed, prevEnd.getTime()),
+      );
       const rev = (s: Date, e: Date) =>
         incomeRows.filter((r) => inWin(r.occurredAt, s, e)).reduce((a, r) => a + r.amount, 0);
       const cnt = (rows: { d: Date }[], s: Date, e: Date) =>
@@ -279,14 +329,26 @@ async function computeDashboardAggregates() {
       const bks = periodBookings.map((b) => ({ d: b.date }));
       const cls = periodClients.map((c) => ({ d: c.createdAt }));
       return {
+        // Money already landed → measured up to now, vs the same span last period.
         revenuePence: rev(pStart, now),
-        revenueDeltaPct: pct(rev(pStart, now), rev(prevStart, pStart)),
+        revenueDeltaPct: pctOrNull(rev(pStart, now), rev(prevStart, prevElapsedEnd)),
         reports: cnt(reps, pStart, now),
-        reportsDeltaPct: pct(cnt(reps, pStart, now), cnt(reps, prevStart, pStart)),
-        bookings: cnt(bks, pStart, now),
-        bookingsDeltaPct: pct(cnt(bks, pStart, now), cnt(bks, prevStart, pStart)),
+        reportsDeltaPct: pctOrNull(
+          cnt(reps, pStart, now),
+          cnt(reps, prevStart, prevElapsedEnd),
+        ),
+        // Bookings are FORWARD-looking: count the whole period (incl. what's
+        // still upcoming this week) and compare against the whole prev period.
+        bookings: cnt(bks, pStart, pEnd),
+        bookingsDeltaPct: pctOrNull(
+          cnt(bks, pStart, pEnd),
+          cnt(bks, prevStart, prevEnd),
+        ),
         newClients: cnt(cls, pStart, now),
-        clientsDeltaPct: pct(cnt(cls, pStart, now), cnt(cls, prevStart, pStart)),
+        clientsDeltaPct: pctOrNull(
+          cnt(cls, pStart, now),
+          cnt(cls, prevStart, prevElapsedEnd),
+        ),
       };
     }
     const metricsByRange = {
