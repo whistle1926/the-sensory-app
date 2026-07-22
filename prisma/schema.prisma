@@ -908,6 +908,11 @@ model RecordingSync {
   sizeMb          Int?      @map("size_mb")
   vimeoUri        String?   @map("vimeo_uri")
   vimeoLink       String?   @map("vimeo_link")
+  /// The custom poster image we last applied to the Vimeo video (our Blob
+  /// URL). Null = never set, so Vimeo is showing an auto-picked frame.
+  /// Stored so the admin can see the current thumbnail without calling out
+  /// to Vimeo on every page load.
+  thumbnailUrl    String?   @map("thumbnail_url")
   /// pending | uploading | transcoding | ready | failed
   status          String    @default("pending")
   error           String?   @db.Text

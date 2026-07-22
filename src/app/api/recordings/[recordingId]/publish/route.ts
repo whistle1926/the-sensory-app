@@ -68,6 +68,14 @@ export async function POST(
   let thumbnailWarning: string | null = null;
   if (body.thumbnailUrl && rec.vimeoUri) {
     thumbnailWarning = await setThumbnail(rec.vimeoUri, body.thumbnailUrl);
+    // Remember it so the Recordings list can show the current poster and
+    // offer to change it later.
+    if (!thumbnailWarning) {
+      await prisma.recordingSync.update({
+        where: { id: rec.id },
+        data: { thumbnailUrl: body.thumbnailUrl },
+      });
+    }
   }
 
   // ── Live session replay ────────────────────────────────────────────

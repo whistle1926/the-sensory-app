@@ -32,6 +32,7 @@ interface Recording {
   durationMin: number;
   sizeMb: number | null;
   vimeoLink: string | null;
+  thumbnailUrl: string | null;
   status: string;
   error: string | null;
   publishedModuleId: string | null;
@@ -84,6 +85,7 @@ export default function RecordingsPage() {
   const [importing, setImporting] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [publishFor, setPublishFor] = useState<Recording | null>(null);
+  const [thumbFor, setThumbFor] = useState<Recording | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
   // Set after a successful publish — the page a learner actually sees.
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -242,6 +244,17 @@ export default function RecordingsPage() {
                   return (
                     <tr key={r.id} className="align-top transition hover:bg-muted/20">
                       <td className="px-4 py-3">
+                        <div className="flex items-start gap-3">
+                          {/* Current poster image, when one has been set. */}
+                          {r.thumbnailUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={r.thumbnailUrl}
+                              alt=""
+                              className="h-10 w-[70px] shrink-0 rounded border border-border object-cover"
+                            />
+                          )}
+                          <div>
                         <div className="font-medium">{r.topic}</div>
                         {r.vimeoLink && (
                           <a
@@ -258,6 +271,8 @@ export default function RecordingsPage() {
                             {r.error}
                           </div>
                         )}
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
                         {new Date(r.startedAt).toLocaleDateString("en-GB", {
@@ -325,14 +340,28 @@ export default function RecordingsPage() {
                             Retry
                           </Button>
                         ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={r.status !== "ready"}
-                            onClick={() => setPublishFor(r)}
-                          >
-                            {published ? "Re-publish" : "Publish"}
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Change the poster image without republishing —
+                                the lesson it's attached to is untouched. */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={r.status !== "ready"}
+                              onClick={() => setThumbFor(r)}
+                              title="Change the image shown before the video plays"
+                            >
+                              <ImagePlus className="mr-1.5 h-3.5 w-3.5" />
+                              {r.thumbnailUrl ? "Change image" : "Thumbnail"}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={r.status !== "ready"}
+                              onClick={() => setPublishFor(r)}
+                            >
+                              {published ? "Re-publish" : "Publish"}
+                            </Button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -343,6 +372,19 @@ export default function RecordingsPage() {
           </div>
         )}
       </div>
+
+      {thumbFor && (
+        <ThumbnailDialog
+          recording={thumbFor}
+          onClose={() => setThumbFor(null)}
+          onDone={async (m) => {
+            setThumbFor(null);
+            setMsg(m);
+            setPreviewUrl(null);
+            await load();
+          }}
+        />
+      )}
 
       {publishFor && data && (
         <PublishDialog
@@ -693,6 +735,177 @@ function PublishDialog({
               Publish
             </Button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Change the poster image on an already-synced recording.
+ *
+ * Separate from publishing on purpose: swapping artwork shouldn't mean
+ * re-publishing the lesson. This updates the video on Vimeo in place, so
+ * learners see the new image straight away wherever it's embedded.
+ */
+function ThumbnailDialog({
+  recording,
+  onClose,
+  onDone,
+}: {
+  recording: Recording;
+  onClose: () => void;
+  onDone: (msg: string) => void;
+}) {
+  const [url, setUrl] = useState<string | null>(recording.thumbnailUrl);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dirty = url !== recording.thumbnailUrl;
+
+  async function upload(file: File) {
+    setErr(null);
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/uploads/comment-attachment", {
+        method: "POST",
+        body: fd,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      setUrl(data.url as string);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  async function save() {
+    setSaving(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/recordings/${recording.id}/thumbnail`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ thumbnailUrl: url }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error ?? "Couldn't update the thumbnail");
+      onDone(
+        url
+          ? "Thumbnail updated — learners will see the new image."
+          : "Thumbnail cleared; Vimeo will show a frame from the video.",
+      );
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't update the thumbnail");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-5 shadow-lg">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold">Video thumbnail</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {recording.topic}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1 text-muted-foreground hover:bg-muted"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <p className="mt-4 text-[11px] text-muted-foreground">
+          The picture learners see before they press play. Use{" "}
+          <strong>1920 × 1080 pixels</strong> (16:9 widescreen) — a square
+          image will be cropped. JPG or PNG.
+        </p>
+
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) upload(f);
+          }}
+        />
+
+        <div className="mt-3">
+          {url ? (
+            <div className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={url}
+                alt="Thumbnail preview"
+                className="h-20 w-36 rounded-lg border border-border object-cover"
+              />
+              <div className="flex flex-col gap-1">
+                <button
+                  type="button"
+                  onClick={() => inputRef.current?.click()}
+                  className="text-left text-[11px] font-semibold text-primary hover:underline"
+                >
+                  Choose a different image
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUrl(null)}
+                  className="text-left text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+                >
+                  Remove (let Vimeo pick a frame)
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={uploading}
+              className="inline-flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/40 px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+            >
+              {uploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ImagePlus className="h-4 w-4" />
+              )}
+              {uploading ? "Uploading…" : "Upload an image"}
+            </button>
+          )}
+        </div>
+
+        {err && (
+          <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-950/40 dark:text-red-400">
+            {err}
+          </p>
+        )}
+
+        <div className="mt-5 flex items-center justify-end gap-2 border-t border-border pt-4">
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button onClick={save} disabled={saving || uploading || !dirty}>
+            {saving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+            )}
+            Save thumbnail
+          </Button>
         </div>
       </div>
     </div>
