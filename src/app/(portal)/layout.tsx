@@ -28,7 +28,16 @@ export default async function PortalLayout({ children }: { children: React.React
   if (!session?.user) redirect("/login");
 
   const role = session.user.role;
-  if (role !== "CLIENT") redirect("/dashboard");
+  // Staff are kept out of the client portal by the middleware in
+  // src/lib/auth.config.ts, which redirects SUPER_ADMIN/TEAM_MANAGER away
+  // from every /portal path EXCEPT /portal/training/* — the "View as a
+  // learner" course preview. Middleware runs on all pages (see
+  // middleware.ts matcher), so by the time a staff user reaches this layout
+  // they can only be on that preview route. Re-blocking them here would
+  // undo the exception, so we don't. CLIENT access is unchanged.
+  if (role !== "CLIENT" && role !== "SUPER_ADMIN" && role !== "TEAM_MANAGER") {
+    redirect("/dashboard");
+  }
 
   const name = session.user.name || session.user.email || "You";
   const isImpersonating = !!session.user.impersonatedBy;
