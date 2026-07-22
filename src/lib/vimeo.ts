@@ -95,6 +95,68 @@ export async function whitelistDomain(uri: string, domain: string): Promise<void
   if (!ok) console.error("[vimeo] whitelist domain failed", status, domain);
 }
 
+/**
+ * Set a custom thumbnail (poster frame) on a video from an image URL.
+ *
+ * Vimeo's picture flow is three steps: create a picture resource (which
+ * returns a one-time upload link), PUT the image bytes to that link, then
+ * mark it active. We fetch the image server-side from `imageUrl` (our own
+ * Blob storage) — thumbnails are small, so this is safe to proxy, unlike the
+ * videos themselves.
+ *
+ * Best-effort: returns an error string on failure, or null on success.
+ */
+export async function setThumbnail(
+  uri: string,
+  imageUrl: string,
+): Promise<string | null> {
+  if (!vimeoConfigured()) return "Vimeo is not configured.";
+  const id = uri.split("/").pop();
+  if (!id) return "Bad Vimeo video reference.";
+
+  try {
+    // 1. Create the picture resource → gives us a one-time upload link.
+    const created = await vimeoFetch(`/videos/${id}/pictures`, { method: "POST" });
+    const link = created.json.link as string | undefined;
+    const pictureUri = created.json.uri as string | undefined;
+    if (!created.ok || !link || !pictureUri) {
+      console.error("[vimeo] create picture failed", created.status, created.json.error);
+      return "Vimeo wouldn't accept a new thumbnail for this video.";
+    }
+
+    // 2. Fetch the image and PUT the bytes to Vimeo's upload link. The link
+    //    is pre-signed, so it takes no Authorization header.
+    const imgRes = await fetch(imageUrl);
+    if (!imgRes.ok) return "Couldn't read the uploaded image.";
+    const bytes = await imgRes.arrayBuffer();
+    const put = await fetch(link, {
+      method: "PUT",
+      body: bytes,
+      headers: {
+        "Content-Type": imgRes.headers.get("content-type") ?? "image/jpeg",
+      },
+    });
+    if (!put.ok) {
+      console.error("[vimeo] thumbnail PUT failed", put.status);
+      return "Uploading the thumbnail to Vimeo failed.";
+    }
+
+    // 3. Activate it — until this, the picture exists but isn't used.
+    const activated = await vimeoFetch(pictureUri, {
+      method: "PATCH",
+      body: JSON.stringify({ active: true }),
+    });
+    if (!activated.ok) {
+      console.error("[vimeo] thumbnail activate failed", activated.status);
+      return "The thumbnail uploaded but Vimeo wouldn't set it as active.";
+    }
+    return null;
+  } catch (err) {
+    console.error("[vimeo] setThumbnail threw", err);
+    return "Something went wrong setting the thumbnail.";
+  }
+}
+
 export interface VimeoStatus {
   /** Vimeo's transcode state: "in_progress" | "complete" | "error". */
   transcodeStatus: string | null;

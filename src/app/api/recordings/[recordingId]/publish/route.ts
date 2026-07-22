@@ -20,6 +20,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slug";
+import { setThumbnail } from "@/lib/vimeo";
 
 function isStaff(role: string | undefined): boolean {
   return role === "SUPER_ADMIN" || role === "TEAM_MANAGER";
@@ -57,7 +58,17 @@ export async function POST(
     newTitle?: string;
     newCourseTitle?: string;
     liveRoomId?: string;
+    /** Optional custom poster image (already uploaded to Blob). */
+    thumbnailUrl?: string;
   };
+
+  // Apply a custom thumbnail to the Vimeo video if one was chosen at publish
+  // time. Best-effort: a thumbnail problem must not block publishing the
+  // lesson, so we surface it as a warning alongside a successful publish.
+  let thumbnailWarning: string | null = null;
+  if (body.thumbnailUrl && rec.vimeoUri) {
+    thumbnailWarning = await setThumbnail(rec.vimeoUri, body.thumbnailUrl);
+  }
 
   // ── Live session replay ────────────────────────────────────────────
   if (body.target === "liveRoom") {
@@ -79,6 +90,7 @@ export async function POST(
       target: "liveRoom",
       id: room.id,
       previewUrl: `/live/${room.id}`,
+      thumbnailWarning,
     });
   }
 
@@ -164,6 +176,7 @@ export async function POST(
       courseId,
       // The exact page a learner sees for this lesson.
       previewUrl: `/portal/training/${courseId}/${moduleId}`,
+      thumbnailWarning,
     });
   }
 

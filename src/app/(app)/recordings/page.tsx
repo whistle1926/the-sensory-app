@@ -10,12 +10,13 @@
  * course player already renders Vimeo links, so publishing makes it instantly
  * watchable in the client portal.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
   Download,
   ExternalLink,
+  ImagePlus,
   Loader2,
   RefreshCw,
   Video,
@@ -383,6 +384,32 @@ function PublishDialog({
   const [liveRoomId, setLiveRoomId] = useState(liveRooms[0]?.id ?? "");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // Optional custom poster image for the video, chosen at publish time.
+  const [thumbUrl, setThumbUrl] = useState<string | null>(null);
+  const [thumbUploading, setThumbUploading] = useState(false);
+  const [thumbErr, setThumbErr] = useState<string | null>(null);
+  const thumbInputRef = useRef<HTMLInputElement>(null);
+
+  async function uploadThumb(file: File) {
+    setThumbErr(null);
+    setThumbUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/uploads/comment-attachment", {
+        method: "POST",
+        body: fd,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      setThumbUrl(data.url as string);
+    } catch (e) {
+      setThumbErr(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setThumbUploading(false);
+      if (thumbInputRef.current) thumbInputRef.current.value = "";
+    }
+  }
 
   const creatingCourse = courseId === NEW_COURSE;
   const course = courses.find((c) => c.id === courseId);
@@ -393,13 +420,14 @@ function PublishDialog({
     try {
       const body =
         target === "liveRoom"
-          ? { target, liveRoomId }
+          ? { target, liveRoomId, thumbnailUrl: thumbUrl ?? undefined }
           : {
               target,
               courseId: creatingCourse ? undefined : courseId,
               newCourseTitle: creatingCourse ? newCourseTitle : undefined,
               moduleId: creatingCourse ? undefined : moduleId || undefined,
               newTitle,
+              thumbnailUrl: thumbUrl ?? undefined,
             };
       const r = await fetch(`/api/recordings/${recording.id}/publish`, {
         method: "POST",
@@ -408,14 +436,18 @@ function PublishDialog({
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error ?? "Publish failed");
-      onDone(
+      const base =
         target === "liveRoom"
           ? "Published as the live-session replay."
           : creatingCourse
             ? `Created “${newCourseTitle}” with this video as its first lesson.`
             : moduleId
               ? "Video added to that lesson."
-              : "New lesson created with the video.",
+              : "New lesson created with the video.";
+      // The lesson published fine even if the thumbnail didn't take — say so
+      // rather than pretending everything worked.
+      onDone(
+        j.thumbnailWarning ? `${base} (Thumbnail: ${j.thumbnailWarning})` : base,
         j.previewUrl as string | undefined,
       );
     } catch (e) {
@@ -563,6 +595,74 @@ function PublishDialog({
             </div>
           )}
 
+          {/* Custom poster image — applied to the Vimeo video as you publish.
+              Optional: Vimeo picks a frame from the video otherwise. */}
+          <div className="border-t border-border pt-4">
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Thumbnail image <span className="text-muted-foreground/60">(optional)</span>
+            </label>
+            <p className="mb-2 text-[11px] text-muted-foreground">
+              The picture learners see before they press play. Use{" "}
+              <strong>1920 × 1080 pixels</strong> (16:9 widescreen) — a square
+              image will be cropped. JPG or PNG.
+            </p>
+            <input
+              ref={thumbInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) uploadThumb(f);
+              }}
+            />
+            {thumbUrl ? (
+              <div className="flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={thumbUrl}
+                  alt="Thumbnail preview"
+                  className="h-16 w-28 rounded-lg border border-border object-cover"
+                />
+                <div className="flex flex-col gap-1">
+                  <button
+                    type="button"
+                    onClick={() => thumbInputRef.current?.click()}
+                    className="text-left text-[11px] font-semibold text-primary hover:underline"
+                  >
+                    Choose a different image
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setThumbUrl(null)}
+                    className="text-left text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+                  >
+                    Remove (let Vimeo pick a frame)
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => thumbInputRef.current?.click()}
+                disabled={thumbUploading}
+                className="inline-flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/40 px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+              >
+                {thumbUploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ImagePlus className="h-4 w-4" />
+                )}
+                {thumbUploading ? "Uploading…" : "Upload a thumbnail"}
+              </button>
+            )}
+            {thumbErr && (
+              <p className="mt-1.5 text-[11px] text-red-600 dark:text-red-400">
+                {thumbErr}
+              </p>
+            )}
+          </div>
+
           {err && (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-950/40 dark:text-red-400">
               {err}
@@ -577,6 +677,7 @@ function PublishDialog({
               onClick={submit}
               disabled={
                 saving ||
+                thumbUploading ||
                 (target === "module"
                   ? creatingCourse
                     ? !newCourseTitle.trim()
