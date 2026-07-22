@@ -203,13 +203,17 @@ export default function PortalModulePage({
     );
   }
 
-  const hasQuiz = mod.questions.length > 0;
+  // Defensive: if the API ever returns an error shape instead of a module
+  // (e.g. a 403), these fields are missing — fall back rather than crashing
+  // the whole page with "Cannot read properties of undefined".
+  const questions = mod.questions ?? [];
+  const hasQuiz = questions.length > 0;
   const isCompleted = mod.status === "COMPLETED";
-  const hasContent = (mod.content.sections?.length ?? 0) > 0;
+  const hasContent = (mod.content?.sections?.length ?? 0) > 0;
   const hasVideo = !!mod.videoUrl;
   const allAnswered =
     hasQuiz &&
-    answers.length === mod.questions.length &&
+    answers.length === questions.length &&
     answers.every((a) => a !== null);
 
   const currentIndex = course.modules.findIndex((m) => m.id === moduleId);
@@ -285,7 +289,7 @@ export default function PortalModulePage({
           {hasQuiz && (
             <span className="inline-flex items-center gap-1.5">
               <Award className="h-4 w-4" />
-              {mod.questions.length}-question quiz
+              {questions.length}-question quiz
             </span>
           )}
           {isCompleted && (
@@ -323,7 +327,7 @@ export default function PortalModulePage({
       {result ? (
         <QuizResults
           result={result}
-          questions={mod.questions}
+          questions={questions}
           courseId={courseId}
           nextModule={nextModule && !nextLocked ? nextModule : null}
           onRetry={handleRetry}
@@ -353,7 +357,7 @@ export default function PortalModulePage({
                   Check your understanding
                 </p>
               </div>
-              {mod.questions.map((q, qi) => (
+              {questions.map((q, qi) => (
                 <div key={q.id} className="lp-quiz-card">
                   <p className="q-label">Question {qi + 1}</p>
                   <p className="q-text">{q.text}</p>

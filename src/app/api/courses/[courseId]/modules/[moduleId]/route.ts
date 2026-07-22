@@ -18,26 +18,37 @@ export async function GET(
 
   if (!mod) return NextResponse.json({ error: "Module not found" }, { status: 404 });
 
+  // Staff author this content, so they can preview any lesson without buying
+  // their own course. Used by "View as a learner" from Recordings — without
+  // this, an admin previewing got a 403 and the page crashed. Learners are
+  // still gated on enrolment + module unlock exactly as before.
+  const isStaff =
+    session.user.role === "SUPER_ADMIN" || session.user.role === "TEAM_MANAGER";
+
   const enrollment = await prisma.enrollment.findUnique({
     where: { userId_courseId: { userId: session.user.id, courseId } },
     include: {
       moduleProgress: { where: { moduleId } },
     },
   });
+  const progress = enrollment?.moduleProgress[0];
 
-  if (!enrollment) {
-    return NextResponse.json({ error: "Not enrolled in this course" }, { status: 403 });
+  if (!isStaff) {
+    if (!enrollment) {
+      return NextResponse.json({ error: "Not enrolled in this course" }, { status: 403 });
+    }
+    if (!progress || progress.status === "LOCKED") {
+      return NextResponse.json({ error: "Module is locked" }, { status: 403 });
+    }
   }
 
-  const progress = enrollment.moduleProgress[0];
-  if (!progress || progress.status === "LOCKED") {
-    return NextResponse.json({ error: "Module is locked" }, { status: 403 });
-  }
-
-  const questions = mod.questions as unknown as QuizQuestion[];
-  const strippedQuestions = progress.status === "COMPLETED"
-    ? questions
-    : questions.map(({ correctIndex: _ci, ...q }) => q);
+  const questions = (mod.questions as unknown as QuizQuestion[]) ?? [];
+  // Answers are hidden until a learner completes the module; staff (the
+  // authors) always see the full question set so they can check it.
+  const strippedQuestions =
+    isStaff || progress?.status === "COMPLETED"
+      ? questions
+      : questions.map(({ correctIndex: _ci, ...q }) => q);
 
   return NextResponse.json({
     id: mod.id,
@@ -47,9 +58,11 @@ export async function GET(
     questions: strippedQuestions,
     videoUrl: mod.videoUrl ?? null,
     coverImageUrl: mod.coverImageUrl ?? null,
-    status: progress.status,
-    score: progress.score,
-    attempts: progress.attempts,
+    // A previewing staff member has no progress row — report it as available
+    // so the lesson renders normally rather than looking locked.
+    status: progress?.status ?? "IN_PROGRESS",
+    score: progress?.score ?? null,
+    attempts: progress?.attempts ?? 0,
   });
 }
 
