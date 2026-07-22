@@ -140,7 +140,19 @@ export const authConfig: NextAuthConfig = {
         return Response.redirect(new URL("/portal", nextUrl));
       }
       if ((role === "SUPER_ADMIN" || role === "TEAM_MANAGER") && isPortal) {
-        return Response.redirect(new URL("/dashboard", nextUrl));
+        // Narrow exception: staff may PREVIEW course pages exactly as a
+        // learner sees them (/portal/training/*). Used by the "View as a
+        // learner" link after publishing a recording — otherwise staff got
+        // bounced to /dashboard and couldn't check their own work. This is
+        // their own course material with no client data on it, and the
+        // underlying /api/courses data is already open to staff. Every
+        // other /portal path still redirects.
+        const isCoursePreview =
+          pathname === "/portal/training" ||
+          pathname.startsWith("/portal/training/");
+        if (!isCoursePreview) {
+          return Response.redirect(new URL("/dashboard", nextUrl));
+        }
       }
 
       // SUPER_ADMIN-only gates (private area)
