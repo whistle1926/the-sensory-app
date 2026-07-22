@@ -81,6 +81,7 @@ export default function RecordingsPage() {
   const [importing, setImporting] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [publishFor, setPublishFor] = useState<Recording | null>(null);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -105,6 +106,25 @@ export default function RecordingsPage() {
     const t = setInterval(load, 20_000);
     return () => clearInterval(t);
   }, [data, load]);
+
+  async function retry(r: Recording) {
+    setRetryingId(r.id);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/recordings/${r.id}/retry`, { method: "POST" });
+      const j = await res.json().catch(() => ({}));
+      setMsg(
+        res.ok
+          ? `Retrying “${r.topic}” — it's uploading to Vimeo again.`
+          : (j.error ?? "Retry failed."),
+      );
+      await load();
+    } catch {
+      setMsg("Retry failed.");
+    } finally {
+      setRetryingId(null);
+    }
+  }
 
   async function runImport() {
     setImporting(true);
@@ -256,14 +276,33 @@ export default function RecordingsPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={r.status !== "ready"}
-                          onClick={() => setPublishFor(r)}
-                        >
-                          {published ? "Re-publish" : "Publish"}
-                        </Button>
+                        {/* A failed sync can't be picked up again by the
+                            webhook/import (idempotent on meeting UUID), so it
+                            gets an explicit Retry instead. */}
+                        {r.status === "failed" ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={retryingId === r.id}
+                            onClick={() => retry(r)}
+                          >
+                            {retryingId === r.id ? (
+                              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                            )}
+                            Retry
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={r.status !== "ready"}
+                            onClick={() => setPublishFor(r)}
+                          >
+                            {published ? "Re-publish" : "Publish"}
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   );

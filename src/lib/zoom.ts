@@ -158,6 +158,45 @@ export function buildDownloadUrl(downloadUrl: string, token: string): string {
   return `${downloadUrl}${sep}access_token=${encodeURIComponent(token)}`;
 }
 
+/**
+ * Fetch ONE meeting's cloud recording by UUID — used by the Retry action, so
+ * a failed sync can be re-attempted even if the meeting is older than the
+ * backfill window.
+ *
+ * Zoom quirk: a meeting UUID that starts with "/" or contains "//" must be
+ * DOUBLE url-encoded, otherwise the path is misread and you get a 404.
+ */
+export async function getMeetingRecording(
+  uuid: string,
+): Promise<ZoomRecordingMeeting | null> {
+  const token = await getZoomAccessToken();
+  if (!token) return null;
+  const needsDoubleEncode = uuid.startsWith("/") || uuid.includes("//");
+  const encoded = needsDoubleEncode
+    ? encodeURIComponent(encodeURIComponent(uuid))
+    : encodeURIComponent(uuid);
+  try {
+    const res = await fetch(`${API}/meetings/${encoded}/recordings`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const json = (await res.json().catch(() => ({}))) as
+      | ZoomRecordingMeeting
+      | { message?: string };
+    if (!res.ok) {
+      console.error(
+        "[zoom] get meeting recording failed",
+        res.status,
+        (json as { message?: string }).message,
+      );
+      return null;
+    }
+    return json as ZoomRecordingMeeting;
+  } catch (err) {
+    console.error("[zoom] get meeting recording threw", err);
+    return null;
+  }
+}
+
 /** List the account's recent cloud recordings (used for manual backfill). */
 export async function listRecentRecordings(
   fromDaysAgo = 60,

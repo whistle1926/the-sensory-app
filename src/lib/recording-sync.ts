@@ -13,6 +13,7 @@
 import { prisma } from "./prisma";
 import {
   buildDownloadUrl,
+  getMeetingRecording,
   getZoomAccessToken,
   pickBestRecordingFile,
   type ZoomRecordingMeeting,
@@ -73,22 +74,55 @@ export async function ingestZoomRecording(
   });
   if (!file?.download_url) return row.id;
 
+  await uploadMeetingToVimeo({
+    rowId: row.id,
+    meeting,
+    topic,
+    startedAt,
+    downloadToken,
+  });
+  return row.id;
+}
+
+/**
+ * Hand one meeting's video to Vimeo and record the outcome on `rowId`.
+ * Shared by the initial ingest and the Retry action, so both behave
+ * identically. Never throws — failures are written to the row.
+ */
+async function uploadMeetingToVimeo(args: {
+  rowId: string;
+  meeting: ZoomRecordingMeeting;
+  topic: string;
+  startedAt: Date;
+  downloadToken?: string;
+}): Promise<void> {
+  const { rowId, meeting, topic, startedAt, downloadToken } = args;
+  const file = pickBestRecordingFile(meeting.recording_files);
+
+  if (!file?.download_url) {
+    await prisma.recordingSync.update({
+      where: { id: rowId },
+      data: { status: "failed", error: "No MP4 video file found in this Zoom recording." },
+    });
+    return;
+  }
+
   if (!vimeoConfigured()) {
     await prisma.recordingSync.update({
-      where: { id: row.id },
+      where: { id: rowId },
       data: { status: "failed", error: "Vimeo is not configured (missing access token)." },
     });
-    return row.id;
+    return;
   }
 
   // Vimeo needs a URL it can fetch — Zoom download URLs require a token.
   const token = downloadToken || (await getZoomAccessToken());
   if (!token) {
     await prisma.recordingSync.update({
-      where: { id: row.id },
+      where: { id: rowId },
       data: { status: "failed", error: "Could not obtain a Zoom download token." },
     });
-    return row.id;
+    return;
   }
 
   const link = buildDownloadUrl(file.download_url, token);
@@ -100,17 +134,17 @@ export async function ingestZoomRecording(
 
   if (!result) {
     await prisma.recordingSync.update({
-      where: { id: row.id },
+      where: { id: rowId },
       data: { status: "failed", error: "Vimeo rejected the upload. Check the access token, plan and scopes." },
     });
-    return row.id;
+    return;
   }
 
   // Lock embedding to the portal so paid course content can't be re-embedded.
   await whitelistDomain(result.uri, portalDomain());
 
   await prisma.recordingSync.update({
-    where: { id: row.id },
+    where: { id: rowId },
     data: {
       vimeoUri: result.uri,
       vimeoLink: result.link,
@@ -118,7 +152,49 @@ export async function ingestZoomRecording(
       error: null,
     },
   });
-  return row.id;
+}
+
+/**
+ * Re-attempt a recording that previously failed. Re-fetches the recording
+ * from Zoom by meeting UUID (so it works even for meetings older than the
+ * backfill window) and re-runs the Vimeo upload on the SAME row — which is
+ * what the idempotency-on-UUID rule would otherwise prevent.
+ *
+ * Returns a human-readable error, or null on success.
+ */
+export async function retryRecording(id: string): Promise<string | null> {
+  const row = await prisma.recordingSync.findUnique({ where: { id } });
+  if (!row) return "Recording not found.";
+
+  // Mark it in-flight straight away so the UI reflects the retry.
+  await prisma.recordingSync.update({
+    where: { id },
+    data: { status: "pending", error: null },
+  });
+
+  const meeting = await getMeetingRecording(row.zoomMeetingUuid);
+  if (!meeting) {
+    const msg =
+      "Couldn't fetch this recording from Zoom — it may have been deleted there, or Zoom access isn't working.";
+    await prisma.recordingSync.update({
+      where: { id },
+      data: { status: "failed", error: msg },
+    });
+    return msg;
+  }
+
+  await uploadMeetingToVimeo({
+    rowId: id,
+    meeting,
+    topic: row.topic,
+    startedAt: row.startedAt,
+  });
+
+  const after = await prisma.recordingSync.findUnique({
+    where: { id },
+    select: { status: true, error: true },
+  });
+  return after?.status === "failed" ? (after.error ?? "Retry failed.") : null;
 }
 
 /**
