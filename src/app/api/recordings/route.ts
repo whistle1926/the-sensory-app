@@ -51,9 +51,35 @@ export async function GET() {
     }),
   ]);
 
+  // Resolve a "view as a learner" URL for anything already published, so the
+  // admin can jump straight to the page a client sees. Modules need their
+  // course id, which isn't on the recording row — look them up in one query.
+  const publishedModuleIds = recordings
+    .map((r) => r.publishedModuleId)
+    .filter((id): id is string => Boolean(id));
+  const modules = publishedModuleIds.length
+    ? await prisma.module.findMany({
+        where: { id: { in: publishedModuleIds } },
+        select: { id: true, courseId: true },
+      })
+    : [];
+  const courseIdByModule = Object.fromEntries(
+    modules.map((m) => [m.id, m.courseId]),
+  );
+
+  const withPreview = recordings.map((r) => {
+    let previewUrl: string | null = null;
+    if (r.publishedModuleId && courseIdByModule[r.publishedModuleId]) {
+      previewUrl = `/portal/training/${courseIdByModule[r.publishedModuleId]}/${r.publishedModuleId}`;
+    } else if (r.publishedLiveRoomId) {
+      previewUrl = `/live/${r.publishedLiveRoomId}`;
+    }
+    return { ...r, previewUrl };
+  });
+
   return NextResponse.json({
     configured: { zoom: zoomConfigured(), vimeo: vimeoConfigured() },
-    recordings,
+    recordings: withPreview,
     courses,
     liveRooms,
   });

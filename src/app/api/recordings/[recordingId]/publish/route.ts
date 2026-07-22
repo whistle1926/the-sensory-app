@@ -4,17 +4,22 @@
  * POST body (one of):
  *   { target: "module", moduleId }                 — attach to an existing lesson
  *   { target: "module", courseId, newTitle? }      — create a new lesson in a course
+ *   { target: "module", newCourseTitle, newTitle? }— create a NEW course + lesson
  *   { target: "liveRoom", liveRoomId }             — set as a live-session replay
  *
  * Sets the Vimeo link on the target (Module.videoUrl / LiveRoom.mediaUrl).
  * The course player already renders vimeo.com links as an embedded player,
  * so the video is watchable by clients immediately.
  *
+ * Returns a `previewUrl` — the page a learner would actually see — so the
+ * admin can check their work rather than guessing.
+ *
  * Staff-only.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { slugify } from "@/lib/slug";
 
 function isStaff(role: string | undefined): boolean {
   return role === "SUPER_ADMIN" || role === "TEAM_MANAGER";
@@ -50,6 +55,7 @@ export async function POST(
     moduleId?: string;
     courseId?: string;
     newTitle?: string;
+    newCourseTitle?: string;
     liveRoomId?: string;
   };
 
@@ -68,22 +74,58 @@ export async function POST(
       where: { id: rec.id },
       data: { publishedLiveRoomId: room.id, publishedModuleId: null, publishedAt: new Date() },
     });
-    return NextResponse.json({ ok: true, target: "liveRoom", id: room.id });
+    return NextResponse.json({
+      ok: true,
+      target: "liveRoom",
+      id: room.id,
+      previewUrl: `/live/${room.id}`,
+    });
   }
 
   // ── Course lesson (module) ─────────────────────────────────────────
   if (body.target === "module") {
     let moduleId = body.moduleId;
+    let courseId = body.courseId;
+
+    // Optionally spin up a brand-new course first (used for the "test
+    // course" flow). Created ARCHIVED, so it's hidden from the public
+    // storefront until it's deliberately published — safe to experiment in.
+    if (!moduleId && body.newCourseTitle?.trim()) {
+      const title = body.newCourseTitle.trim().slice(0, 200);
+      let slug = slugify(title);
+      for (let i = 0; i < 5; i++) {
+        const exists = await prisma.course.findUnique({ where: { slug } });
+        if (!exists) break;
+        slug = `${slugify(title)}-${Math.random().toString(36).slice(2, 6)}`;
+      }
+      const last = await prisma.course.findFirst({
+        orderBy: { order: "desc" },
+        select: { order: true },
+      });
+      const newCourse = await prisma.course.create({
+        data: {
+          title,
+          slug,
+          audience: "",
+          duration: "",
+          description: "",
+          status: "ARCHIVED", // hidden from the storefront until published
+          price: 0,
+          order: (last?.order ?? -1) + 1,
+        },
+      });
+      courseId = newCourse.id;
+    }
 
     // Create a new lesson at the end of the chosen course if none picked.
     if (!moduleId) {
-      if (!body.courseId) {
+      if (!courseId) {
         return NextResponse.json(
           { error: "Pick a course (or an existing lesson)." },
           { status: 400 },
         );
       }
-      const course = await prisma.course.findUnique({ where: { id: body.courseId } });
+      const course = await prisma.course.findUnique({ where: { id: courseId } });
       if (!course) return NextResponse.json({ error: "Course not found" }, { status: 404 });
       const last = await prisma.module.findFirst({
         where: { courseId: course.id },
@@ -104,6 +146,7 @@ export async function POST(
     } else {
       const mod = await prisma.module.findUnique({ where: { id: moduleId } });
       if (!mod) return NextResponse.json({ error: "Lesson not found" }, { status: 404 });
+      courseId = mod.courseId;
       await prisma.module.update({
         where: { id: moduleId },
         data: { videoUrl: rec.vimeoLink },
@@ -114,7 +157,14 @@ export async function POST(
       where: { id: rec.id },
       data: { publishedModuleId: moduleId, publishedLiveRoomId: null, publishedAt: new Date() },
     });
-    return NextResponse.json({ ok: true, target: "module", id: moduleId });
+    return NextResponse.json({
+      ok: true,
+      target: "module",
+      id: moduleId,
+      courseId,
+      // The exact page a learner sees for this lesson.
+      previewUrl: `/portal/training/${courseId}/${moduleId}`,
+    });
   }
 
   return NextResponse.json({ error: "Unknown target" }, { status: 400 });

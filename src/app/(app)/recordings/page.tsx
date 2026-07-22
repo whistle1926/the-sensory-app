@@ -36,6 +36,8 @@ interface Recording {
   publishedModuleId: string | null;
   publishedLiveRoomId: string | null;
   publishedAt: string | null;
+  /** The page a learner sees, once published. */
+  previewUrl: string | null;
 }
 interface CourseOpt {
   id: string;
@@ -82,6 +84,8 @@ export default function RecordingsPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [publishFor, setPublishFor] = useState<Recording | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
+  // Set after a successful publish — the page a learner actually sees.
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -186,7 +190,20 @@ export default function RecordingsPage() {
       )}
 
       {msg && (
-        <div className="rounded-xl bg-muted/60 p-3 text-sm">{msg}</div>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted/60 p-3 text-sm">
+          <span>{msg}</span>
+          {previewUrl && (
+            <a
+              href={previewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition hover:brightness-110"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              View it as a learner
+            </a>
+          )}
+        </div>
       )}
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-sm)]">
@@ -267,10 +284,23 @@ export default function RecordingsPage() {
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
                         {published ? (
-                          <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            {r.publishedModuleId ? "Course lesson" : "Live replay"}
-                          </span>
+                          <div className="space-y-0.5">
+                            <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              {r.publishedModuleId ? "Course lesson" : "Live replay"}
+                            </span>
+                            {r.previewUrl && (
+                              <a
+                                href={r.previewUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-[11px] text-primary hover:underline"
+                              >
+                                View as a learner{" "}
+                                <ExternalLink className="h-2.5 w-2.5" />
+                              </a>
+                            )}
+                          </div>
                         ) : (
                           "—"
                         )}
@@ -319,9 +349,10 @@ export default function RecordingsPage() {
           courses={data.courses}
           liveRooms={data.liveRooms}
           onClose={() => setPublishFor(null)}
-          onDone={async (m) => {
+          onDone={async (m, preview) => {
             setPublishFor(null);
             setMsg(m);
+            setPreviewUrl(preview ?? null);
             await load();
           }}
         />
@@ -341,16 +372,19 @@ function PublishDialog({
   courses: CourseOpt[];
   liveRooms: LiveRoomOpt[];
   onClose: () => void;
-  onDone: (msg: string) => void;
+  onDone: (msg: string, previewUrl?: string) => void;
 }) {
+  const NEW_COURSE = "__new__";
   const [target, setTarget] = useState<"module" | "liveRoom">("module");
-  const [courseId, setCourseId] = useState(courses[0]?.id ?? "");
+  const [courseId, setCourseId] = useState(courses[0]?.id ?? NEW_COURSE);
   const [moduleId, setModuleId] = useState(""); // "" = create a new lesson
   const [newTitle, setNewTitle] = useState(recording.topic);
+  const [newCourseTitle, setNewCourseTitle] = useState("Test course");
   const [liveRoomId, setLiveRoomId] = useState(liveRooms[0]?.id ?? "");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  const creatingCourse = courseId === NEW_COURSE;
   const course = courses.find((c) => c.id === courseId);
 
   async function submit() {
@@ -360,7 +394,13 @@ function PublishDialog({
       const body =
         target === "liveRoom"
           ? { target, liveRoomId }
-          : { target, courseId, moduleId: moduleId || undefined, newTitle };
+          : {
+              target,
+              courseId: creatingCourse ? undefined : courseId,
+              newCourseTitle: creatingCourse ? newCourseTitle : undefined,
+              moduleId: creatingCourse ? undefined : moduleId || undefined,
+              newTitle,
+            };
       const r = await fetch(`/api/recordings/${recording.id}/publish`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -371,9 +411,12 @@ function PublishDialog({
       onDone(
         target === "liveRoom"
           ? "Published as the live-session replay."
-          : moduleId
-            ? "Video added to that lesson."
-            : "New lesson created with the video.",
+          : creatingCourse
+            ? `Created “${newCourseTitle}” with this video as its first lesson.`
+            : moduleId
+              ? "Video added to that lesson."
+              : "New lesson created with the video.",
+        j.previewUrl as string | undefined,
       );
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Publish failed");
@@ -442,7 +485,7 @@ function PublishDialog({
                   }}
                   className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
                 >
-                  {courses.length === 0 && <option value="">No courses yet</option>}
+                  <option value={NEW_COURSE}>➕ Create a new course…</option>
                   {courses.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.title}
@@ -450,24 +493,42 @@ function PublishDialog({
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Lesson
-                </label>
-                <select
-                  value={moduleId}
-                  onChange={(e) => setModuleId(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">➕ Create a new lesson</option>
-                  {(course?.modules ?? []).map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.order + 1}. {m.title}
-                      {m.videoUrl ? " (has a video — will be replaced)" : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
+
+              {creatingCourse ? (
+                <div>
+                  <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    New course title
+                  </label>
+                  <input
+                    value={newCourseTitle}
+                    onChange={(e) => setNewCourseTitle(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
+                  />
+                  <p className="mt-1.5 text-[11px] text-muted-foreground">
+                    Created hidden (not on the public storefront), so it&apos;s
+                    safe to test with. You can publish it later from Courses.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Lesson
+                  </label>
+                  <select
+                    value={moduleId}
+                    onChange={(e) => setModuleId(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">➕ Create a new lesson</option>
+                    {(course?.modules ?? []).map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.order + 1}. {m.title}
+                        {m.videoUrl ? " (has a video — will be replaced)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {!moduleId && (
                 <div>
                   <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -516,7 +577,11 @@ function PublishDialog({
               onClick={submit}
               disabled={
                 saving ||
-                (target === "module" ? !courseId : !liveRoomId)
+                (target === "module"
+                  ? creatingCourse
+                    ? !newCourseTitle.trim()
+                    : !courseId
+                  : !liveRoomId)
               }
             >
               {saving ? (
