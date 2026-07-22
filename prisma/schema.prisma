@@ -889,6 +889,40 @@ model Note {
 // table names (live_rooms, live_recordings) are preserved via @@map
 // so the provided SQL migrations + webhook signatures still line up.
 
+/// A Zoom cloud recording that's been pulled across to Vimeo, ready to be
+/// published as course content. One row per Zoom recording.
+///
+/// Flow: Zoom `recording.completed` webhook → we hand Vimeo the Zoom download
+/// URL and Vimeo PULLS the file itself (so a multi-GB video never streams
+/// through a serverless function) → we poll transcode status → an admin
+/// publishes it onto a course Module (videoUrl) and/or a LiveRoom (mediaUrl).
+model RecordingSync {
+  id              String    @id @default(cuid())
+  /// Zoom meeting UUID — the idempotency key; Zoom can deliver a webhook twice.
+  zoomMeetingUuid String    @unique @map("zoom_meeting_uuid")
+  zoomMeetingId   String?   @map("zoom_meeting_id")
+  topic           String
+  startedAt       DateTime  @map("started_at")
+  durationMin     Int       @default(0) @map("duration_min")
+  /// Stored in MB (not bytes) to keep it a plain Int — recordings exceed 2^31 bytes.
+  sizeMb          Int?      @map("size_mb")
+  vimeoUri        String?   @map("vimeo_uri")
+  vimeoLink       String?   @map("vimeo_link")
+  /// pending | uploading | transcoding | ready | failed
+  status          String    @default("pending")
+  error           String?   @db.Text
+  /// Where it's been published (soft references — content can be deleted).
+  publishedModuleId   String?   @map("published_module_id")
+  publishedLiveRoomId String?   @map("published_live_room_id")
+  publishedAt         DateTime? @map("published_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([startedAt])
+  @@map("recording_sync")
+}
+
 model LiveRoom {
   id                String              @id @default(cuid())
   title             String

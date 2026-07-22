@@ -35,6 +35,13 @@ const AREA_NAV: ReadonlyArray<readonly [string, string]> = [
   ["/api/training", "nav_training"],
   // NB: /api/courses/public + /api/courses/checkout are whitelisted.
   ["/api/courses", "nav_training"],
+  // Zoom→Vimeo recordings (course content). Own key because the sidebar
+  // dedupes by navKey — sharing nav_training would hide one of the two tabs.
+  // Remember to add "nav_recordings" to DashTemplate.widgets in the DB, or
+  // templated users won't see it.
+  // NB: /api/webhooks/zoom is public (PUBLIC_PREFIXES) — Zoom can't auth.
+  ["/recordings", "nav_recordings"],
+  ["/api/recordings", "nav_recordings"],
 ];
 
 /** The nav key required to access `pathname`, or null if the area is
