@@ -51,6 +51,13 @@ export async function PATCH(
     data.mode = body.mode;
   if (typeof body.requireAuth === "boolean") data.requireAuth = body.requireAuth;
   if (typeof body.notes === "string") data.notes = body.notes.slice(0, 4000);
+  // Cover image for the session (16:9). Empty string clears it.
+  if ("posterUrl" in body) {
+    data.posterUrl =
+      typeof body.posterUrl === "string" && body.posterUrl.trim()
+        ? body.posterUrl.trim()
+        : null;
+  }
 
   if (Object.keys(data).length === 0)
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });

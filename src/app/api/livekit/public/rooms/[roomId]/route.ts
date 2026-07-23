@@ -26,6 +26,12 @@ export async function GET(
       requireAuth: true,
       brandingTitle: true,
       brandingLogoUrl: true,
+      posterUrl: true,
+      // Handouts/links for the session, shown to attendees on the join page.
+      resources: {
+        orderBy: { order: "asc" },
+        select: { id: true, title: true, url: true, kind: true, mimeType: true, sizeBytes: true },
+      },
       host: { select: { id: true, name: true } },
     },
   });

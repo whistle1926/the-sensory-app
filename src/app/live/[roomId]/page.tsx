@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertCircle, Loader2, Radio } from "lucide-react";
+import { AlertCircle, Link2, Loader2, Paperclip, Radio } from "lucide-react";
 import { LiveRoom } from "@/components/live/live-room";
 
 interface RoomInfo {
@@ -13,6 +13,14 @@ interface RoomInfo {
   status: "scheduled" | "live" | "ended" | "cancelled";
   brandingTitle: string | null;
   brandingLogoUrl: string | null;
+  posterUrl: string | null;
+  resources: {
+    id: string;
+    title: string;
+    url: string;
+    kind: string;
+    sizeBytes: number | null;
+  }[];
   host: { id: string; name: string } | null;
 }
 
@@ -116,6 +124,16 @@ export default function LiveViewerPage({
 
         {room && (
           <>
+            {/* Cover image — sets the scene before the session goes live.
+                Hidden once we're live, so it never competes with the stream. */}
+            {room.posterUrl && room.status !== "live" && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={room.posterUrl}
+                alt=""
+                className="mb-6 aspect-video w-full rounded-3xl border border-border object-cover shadow-[var(--shadow-sm)]"
+              />
+            )}
             <div className="mb-6">
               <h1 className="text-3xl font-bold tracking-tight">
                 {room.title}
@@ -167,6 +185,41 @@ export default function LiveViewerPage({
                 <h2 className="text-xl font-bold tracking-tight">
                   This session was cancelled
                 </h2>
+              </div>
+            )}
+
+            {/* Handouts and links for the session. Shown at every stage —
+                before (to prepare), during (to follow along) and after (to
+                take away) — since that's when each is actually useful. */}
+            {room.resources.length > 0 && (
+              <div className="mt-6 rounded-3xl border border-border bg-white p-6 shadow-[var(--shadow-sm)]">
+                <h2 className="text-sm font-bold tracking-tight">
+                  Resources for this session
+                </h2>
+                <ul className="mt-3 space-y-2">
+                  {room.resources.map((r) => (
+                    <li key={r.id}>
+                      <a
+                        href={r.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm transition hover:bg-muted/50"
+                      >
+                        {r.kind === "link" ? (
+                          <Link2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        ) : (
+                          <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        )}
+                        <span className="min-w-0 flex-1 truncate">{r.title}</span>
+                        {r.sizeBytes ? (
+                          <span className="shrink-0 text-[11px] text-muted-foreground">
+                            {Math.max(1, Math.round(r.sizeBytes / 1024))} KB
+                          </span>
+                        ) : null}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </>

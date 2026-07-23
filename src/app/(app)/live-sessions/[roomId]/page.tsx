@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useCallback, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -8,14 +8,27 @@ import {
   Check,
   Copy,
   ExternalLink,
+  ImagePlus,
+  Link2,
   Loader2,
+  Paperclip,
   Radio,
   Square,
+  Trash2,
   Users,
   Video,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Toolbar, Panel, Chip } from "@/components/ds";
+
+interface Resource {
+  id: string;
+  title: string;
+  url: string;
+  kind: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+}
 
 interface Room {
   id: string;
@@ -27,6 +40,8 @@ interface Room {
   actualStart: string | null;
   actualEnd: string | null;
   requireAuth: boolean;
+  posterUrl: string | null;
+  resources: Resource[];
   host: { id: string; name: string } | null;
 }
 
@@ -45,6 +60,14 @@ export default function LiveSessionDetailPage({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Cover image + resources
+  const [posterBusy, setPosterBusy] = useState(false);
+  const [resBusy, setResBusy] = useState(false);
+  const [resErr, setResErr] = useState<string | null>(null);
+  const [linkTitle, setLinkTitle] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const posterInputRef = useRef<HTMLInputElement>(null);
+  const resFileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/livekit/public/rooms/${roomId}`);
@@ -72,6 +95,112 @@ export default function LiveSessionDetailPage({
       }
     }
     setBusy(false);
+  }
+
+  /**
+   * Upload to Blob and return the URL. Two endpoints on purpose:
+   *  - comment-attachment accepts images/video only → right for the cover image
+   *  - email-attachment accepts PDFs, Word, PowerPoint, Excel, text too →
+   *    needed for handouts, which are usually PDFs
+   * Size/type come from the File itself, since the document endpoint only
+   * echoes back a url + filename.
+   */
+  async function uploadFile(
+    file: File,
+    endpoint: "comment-attachment" | "email-attachment",
+  ): Promise<{ url: string; mimeType: string; sizeBytes: number }> {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`/api/uploads/${endpoint}`, {
+      method: "POST",
+      body: fd,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error ?? "Upload failed");
+    return { url: data.url, mimeType: file.type, sizeBytes: file.size };
+  }
+
+  async function setPoster(url: string | null) {
+    await fetch(`/api/livekit/rooms/${roomId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ posterUrl: url ?? "" }),
+    });
+    await load();
+  }
+
+  async function onPosterPicked(file: File) {
+    setPosterBusy(true);
+    setResErr(null);
+    try {
+      const { url } = await uploadFile(file, "comment-attachment");
+      await setPoster(url);
+    } catch (e) {
+      setResErr(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setPosterBusy(false);
+      if (posterInputRef.current) posterInputRef.current.value = "";
+    }
+  }
+
+  async function addResource(payload: {
+    title: string;
+    url: string;
+    kind: "file" | "link";
+    mimeType?: string;
+    sizeBytes?: number;
+  }) {
+    const res = await fetch(`/api/livekit/rooms/${roomId}/resources`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error ?? "Couldn't add that");
+    await load();
+  }
+
+  async function onResourceFilePicked(file: File) {
+    setResBusy(true);
+    setResErr(null);
+    try {
+      const { url, mimeType, sizeBytes } = await uploadFile(file, "email-attachment");
+      await addResource({ title: file.name, url, kind: "file", mimeType, sizeBytes });
+    } catch (e) {
+      setResErr(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setResBusy(false);
+      if (resFileInputRef.current) resFileInputRef.current.value = "";
+    }
+  }
+
+  async function addLink() {
+    if (!linkUrl.trim()) return;
+    setResBusy(true);
+    setResErr(null);
+    try {
+      await addResource({
+        title: linkTitle.trim() || linkUrl.trim(),
+        url: linkUrl.trim(),
+        kind: "link",
+      });
+      setLinkTitle("");
+      setLinkUrl("");
+    } catch (e) {
+      setResErr(e instanceof Error ? e.message : "Couldn't add that link");
+    } finally {
+      setResBusy(false);
+    }
+  }
+
+  async function removeResource(id: string) {
+    setResBusy(true);
+    try {
+      await fetch(`/api/livekit/rooms/${roomId}/resources/${id}`, { method: "DELETE" });
+      await load();
+    } finally {
+      setResBusy(false);
+    }
   }
 
   if (loading || !room) {
@@ -267,6 +396,167 @@ export default function LiveSessionDetailPage({
             </div>
           )}
         </dl>
+      </Panel>
+
+      {/* Cover image — what attendees see on the join page before it starts. */}
+      <Panel title="Cover image" padded>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Shown on the join page before the session starts. Use{" "}
+          <strong>1920 × 1080 pixels</strong> (16:9 widescreen) — a square image
+          will be cropped. JPG or PNG.
+        </p>
+        <input
+          ref={posterInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) onPosterPicked(f);
+          }}
+        />
+        {room.posterUrl ? (
+          <div className="flex flex-wrap items-center gap-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={room.posterUrl}
+              alt="Session cover"
+              className="h-24 w-44 rounded-lg border border-border object-cover"
+            />
+            <div className="flex flex-col gap-1">
+              <button
+                type="button"
+                onClick={() => posterInputRef.current?.click()}
+                disabled={posterBusy}
+                className="text-left text-xs font-semibold text-primary hover:underline disabled:opacity-50"
+              >
+                Change image
+              </button>
+              <button
+                type="button"
+                onClick={() => setPoster(null)}
+                disabled={posterBusy}
+                className="text-left text-xs text-muted-foreground hover:text-foreground hover:underline disabled:opacity-50"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        ) : (
+          <Button
+            variant="outline"
+            onClick={() => posterInputRef.current?.click()}
+            disabled={posterBusy}
+          >
+            {posterBusy ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <ImagePlus className="mr-2 h-4 w-4" />
+            )}
+            Upload cover image
+          </Button>
+        )}
+      </Panel>
+
+      {/* Resources — handouts and links attendees can grab from the session. */}
+      <Panel title="Resources" padded>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Handouts, slides or links attendees can download from the session
+          page — so you don&apos;t have to email them round separately.
+        </p>
+
+        {room.resources.length > 0 && (
+          <ul className="mb-4 space-y-2">
+            {room.resources.map((r) => (
+              <li
+                key={r.id}
+                className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-3 py-2"
+              >
+                <a
+                  href={r.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-w-0 items-center gap-2 text-sm hover:underline"
+                >
+                  {r.kind === "link" ? (
+                    <Link2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  )}
+                  <span className="truncate">{r.title}</span>
+                  {r.sizeBytes ? (
+                    <span className="shrink-0 text-[11px] text-muted-foreground">
+                      {Math.max(1, Math.round(r.sizeBytes / 1024))} KB
+                    </span>
+                  ) : null}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => removeResource(r.id)}
+                  disabled={resBusy}
+                  className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:hover:bg-red-950/30"
+                  aria-label={`Remove ${r.title}`}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <input
+          ref={resFileInputRef}
+          type="file"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) onResourceFilePicked(f);
+          }}
+        />
+
+        <div className="space-y-3">
+          <Button
+            variant="outline"
+            onClick={() => resFileInputRef.current?.click()}
+            disabled={resBusy}
+          >
+            {resBusy ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Paperclip className="mr-2 h-4 w-4" />
+            )}
+            Upload a file
+          </Button>
+
+          <div className="rounded-xl border border-dashed border-border p-3">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              …or add a link
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <input
+                value={linkTitle}
+                onChange={(e) => setLinkTitle(e.target.value)}
+                placeholder="Label (optional)"
+                className="min-w-[140px] flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              />
+              <input
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                placeholder="https://…"
+                className="min-w-[200px] flex-[2] rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              />
+              <Button onClick={addLink} disabled={resBusy || !linkUrl.trim()}>
+                Add link
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {resErr && (
+          <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-950/40 dark:text-red-400">
+            {resErr}
+          </p>
+        )}
       </Panel>
     </div>
   );

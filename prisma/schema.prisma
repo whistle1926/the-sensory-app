@@ -949,14 +949,40 @@ model LiveRoom {
   mediaUrl          String?             @map("media_url")
   brandingTitle     String?             @map("branding_title")
   brandingLogoUrl   String?             @map("branding_logo_url")
+  /// Cover image for the session — shown on the join page before it starts
+  /// and as the thumbnail in listings. 16:9. Distinct from brandingLogoUrl
+  /// (a small logo overlaid on the stream).
+  posterUrl         String?             @map("poster_url")
   createdAt         DateTime            @default(now()) @map("created_at")
 
   recordings        LiveRecording[]
+  resources         LiveRoomResource[]
 
   @@index([hostId])
   @@index([status])
   @@index([scheduledStart])
   @@map("live_rooms")
+}
+
+/// Handouts, slides and links attached to a live session, so attendees can
+/// grab the relevant material without it being emailed round separately.
+/// Files live on Vercel Blob; `kind` distinguishes an uploaded file from a
+/// plain external link.
+model LiveRoomResource {
+  id        String   @id @default(cuid())
+  roomId    String   @map("room_id")
+  room      LiveRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  title     String
+  url       String
+  /// "file" (uploaded) | "link" (external URL)
+  kind      String   @default("file")
+  mimeType  String?  @map("mime_type")
+  sizeBytes Int?     @map("size_bytes")
+  order     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([roomId, order])
+  @@map("live_room_resources")
 }
 
 model LiveRecording {
