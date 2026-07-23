@@ -274,13 +274,13 @@ export default function RecordingsPage() {
                             href={r.vimeoLink}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                            className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-muted"
                           >
-                            View on Vimeo <ExternalLink className="h-3 w-3" />
+                            View on Vimeo <ExternalLink className="h-4 w-4" />
                           </a>
                         )}
                         {r.error && (
-                          <div className="mt-1 text-[11px] text-red-600 dark:text-red-400">
+                          <div className="mt-1 text-sm text-red-600 dark:text-red-400">
                             {r.error}
                           </div>
                         )}
@@ -314,8 +314,8 @@ export default function RecordingsPage() {
                       <td className="px-4 py-4 text-sm text-muted-foreground">
                         {published ? (
                           <div className="space-y-0.5">
-                            <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
-                              <CheckCircle2 className="h-3.5 w-3.5" />
+                            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-green-600 dark:text-green-400">
+                              <CheckCircle2 className="h-4 w-4" />
                               {r.publishedModuleId ? "Course lesson" : "Live replay"}
                             </span>
                             {r.previewUrl && (
@@ -323,10 +323,10 @@ export default function RecordingsPage() {
                                 href={r.previewUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="flex items-center gap-1 text-[11px] text-primary hover:underline"
+                                className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-muted"
                               >
                                 View as a learner{" "}
-                                <ExternalLink className="h-2.5 w-2.5" />
+                                <ExternalLink className="h-4 w-4" />
                               </a>
                             )}
                           </div>
