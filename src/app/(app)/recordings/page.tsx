@@ -242,11 +242,11 @@ export default function RecordingsPage() {
             <table className="w-full min-w-[900px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
-                  <th className="px-4 py-3 font-medium">Recording</th>
-                  <th className="px-4 py-3 font-medium">Recorded</th>
-                  <th className="px-4 py-3 font-medium">Length</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Published</th>
+                  <th className="px-4 py-3 text-xs font-semibold">Recording</th>
+                  <th className="px-4 py-3 text-xs font-semibold">Recorded</th>
+                  <th className="px-4 py-3 text-xs font-semibold">Length</th>
+                  <th className="px-4 py-3 text-xs font-semibold">Status</th>
+                  <th className="px-4 py-3 text-xs font-semibold">Published</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -256,7 +256,7 @@ export default function RecordingsPage() {
                   const published = r.publishedModuleId || r.publishedLiveRoomId;
                   return (
                     <tr key={r.id} className="align-top transition hover:bg-muted/20">
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-4">
                         <div className="flex items-start gap-3">
                           {/* Current poster image, when one has been set. */}
                           {r.thumbnailUrl && (
@@ -264,11 +264,11 @@ export default function RecordingsPage() {
                             <img
                               src={r.thumbnailUrl}
                               alt=""
-                              className="h-10 w-[70px] shrink-0 rounded border border-border object-cover"
+                              className="h-14 w-24 shrink-0 rounded-lg border border-border object-cover"
                             />
                           )}
                           <div>
-                        <div className="font-medium">{r.topic}</div>
+                        <div className="text-[15px] font-semibold">{r.topic}</div>
                         {r.vimeoLink && (
                           <a
                             href={r.vimeoLink}
@@ -287,21 +287,21 @@ export default function RecordingsPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                      <td className="px-4 py-4 text-sm text-muted-foreground">
                         {new Date(r.startedAt).toLocaleDateString("en-GB", {
                           day: "numeric",
                           month: "short",
                           year: "numeric",
                         })}
                       </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                      <td className="px-4 py-4 text-sm text-muted-foreground">
                         {r.durationMin ? `${r.durationMin} min` : "—"}
                         {r.sizeMb ? ` · ${r.sizeMb} MB` : ""}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-4">
                         <span
                           className={cn(
-                            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                            "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold",
                             st.cls,
                           )}
                         >
@@ -311,7 +311,7 @@ export default function RecordingsPage() {
                           {st.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                      <td className="px-4 py-4 text-sm text-muted-foreground">
                         {published ? (
                           <div className="space-y-0.5">
                             <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
@@ -334,21 +334,20 @@ export default function RecordingsPage() {
                           "—"
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-4 text-right">
                         {/* A failed sync can't be picked up again by the
                             webhook/import (idempotent on meeting UUID), so it
                             gets an explicit Retry instead. */}
                         {r.status === "failed" ? (
                           <Button
-                            variant="outline"
-                            size="sm"
                             disabled={retryingId === r.id}
                             onClick={() => retry(r)}
+                            className="h-10 px-4 text-sm"
                           >
                             {retryingId === r.id ? (
-                              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             ) : (
-                              <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                              <RefreshCw className="mr-2 h-4 w-4" />
                             )}
                             Retry
                           </Button>
@@ -358,18 +357,18 @@ export default function RecordingsPage() {
                                 want the lesson called. */}
                             <Button
                               variant="outline"
-                              size="sm"
                               onClick={() => setEditFor(r)}
-                              title="Rename this recording"
+                              title="Title, thumbnail and resources"
+                              className="h-10 px-4 text-sm"
                             >
-                              <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                              <Pencil className="mr-2 h-4 w-4" />
                               Edit
                             </Button>
                             <Button
-                              variant="outline"
-                              size="sm"
+                              variant={published ? "outline" : "default"}
                               disabled={r.status !== "ready"}
                               onClick={() => setPublishFor(r)}
+                              className="h-10 px-4 text-sm"
                             >
                               {published ? "Re-publish" : "Publish"}
                             </Button>
