@@ -274,7 +274,7 @@ export default function RecordingsPage() {
                             href={r.vimeoLink}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-muted"
+                            className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-muted px-3 py-2 text-sm font-semibold text-foreground transition hover:brightness-95"
                           >
                             View on Vimeo <ExternalLink className="h-4 w-4" />
                           </a>
@@ -313,7 +313,7 @@ export default function RecordingsPage() {
                       </td>
                       <td className="px-4 py-4 text-sm text-muted-foreground">
                         {published ? (
-                          <div className="space-y-0.5">
+                          <div className="flex flex-col items-start gap-2">
                             <span className="inline-flex items-center gap-1.5 text-sm font-medium text-green-600 dark:text-green-400">
                               <CheckCircle2 className="h-4 w-4" />
                               {r.publishedModuleId ? "Course lesson" : "Live replay"}
@@ -323,7 +323,7 @@ export default function RecordingsPage() {
                                 href={r.previewUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-muted"
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-xs)] transition hover:brightness-110"
                               >
                                 View as a learner{" "}
                                 <ExternalLink className="h-4 w-4" />
