@@ -50,6 +50,19 @@ export async function GET(
       ? questions
       : questions.map(({ correctIndex: _ci, ...q }) => q);
 
+  // Handouts/links attached to the recording that was published to this
+  // lesson. They live on the recording (so they can be prepared before
+  // publishing) and surface here so learners get them with the video.
+  const recording = await prisma.recordingSync.findFirst({
+    where: { publishedModuleId: moduleId },
+    select: {
+      resources: {
+        orderBy: { order: "asc" },
+        select: { id: true, title: true, url: true, kind: true, sizeBytes: true },
+      },
+    },
+  });
+
   return NextResponse.json({
     id: mod.id,
     title: mod.title,
@@ -58,6 +71,7 @@ export async function GET(
     questions: strippedQuestions,
     videoUrl: mod.videoUrl ?? null,
     coverImageUrl: mod.coverImageUrl ?? null,
+    resources: recording?.resources ?? [],
     // A previewing staff member has no progress row — report it as available
     // so the lesson renders normally rather than looking locked.
     status: progress?.status ?? "IN_PROGRESS",

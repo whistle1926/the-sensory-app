@@ -32,6 +32,12 @@ export async function GET() {
     prisma.recordingSync.findMany({
       orderBy: { startedAt: "desc" },
       take: 100,
+      include: {
+        resources: {
+          orderBy: { order: "asc" },
+          select: { id: true, title: true, url: true, kind: true, sizeBytes: true },
+        },
+      },
     }),
     prisma.course.findMany({
       orderBy: { title: "asc" },

@@ -17,9 +17,12 @@ import {
   Download,
   ExternalLink,
   ImagePlus,
+  Link2,
   Loader2,
+  Paperclip,
   Pencil,
   RefreshCw,
+  Trash2,
   Video,
   X,
 } from "lucide-react";
@@ -41,6 +44,13 @@ interface Recording {
   publishedAt: string | null;
   /** The page a learner sees, once published. */
   previewUrl: string | null;
+  resources: {
+    id: string;
+    title: string;
+    url: string;
+    kind: string;
+    sizeBytes: number | null;
+  }[];
 }
 interface CourseOpt {
   id: string;
@@ -354,18 +364,6 @@ export default function RecordingsPage() {
                               <Pencil className="mr-1.5 h-3.5 w-3.5" />
                               Edit
                             </Button>
-                            {/* Change the poster image without republishing —
-                                the lesson it's attached to is untouched. */}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={r.status !== "ready"}
-                              onClick={() => setThumbFor(r)}
-                              title="Change the image shown before the video plays"
-                            >
-                              <ImagePlus className="mr-1.5 h-3.5 w-3.5" />
-                              {r.thumbnailUrl ? "Change image" : "Thumbnail"}
-                            </Button>
                             <Button
                               variant="outline"
                               size="sm"
@@ -388,8 +386,11 @@ export default function RecordingsPage() {
 
       {editFor && (
         <EditDialog
-          recording={editFor}
+          recording={
+            data?.recordings.find((r) => r.id === editFor.id) ?? editFor
+          }
           onClose={() => setEditFor(null)}
+          onChanged={load}
           onDone={async (m) => {
             setEditFor(null);
             setMsg(m);
@@ -939,29 +940,142 @@ function ThumbnailDialog({
 }
 
 /**
- * Rename a recording. Zoom names everything "<host>'s Zoom Meeting", so this
- * is nearly always the first thing you want to change. By default the new
- * name is pushed to Vimeo too, and optionally to the published lesson, so the
- * title doesn't drift apart across the three places it appears.
+ * Full editor for a recording — title, thumbnail and resources in one place,
+ * rather than scattering them across separate buttons.
+ *
+ * Title changes save on "Save"; thumbnail and resource changes apply
+ * immediately (they're each a single action with its own feedback), so the
+ * dialog is safe to close at any point without half-finished state.
  */
 function EditDialog({
   recording,
   onClose,
   onDone,
+  onChanged,
 }: {
   recording: Recording;
   onClose: () => void;
   onDone: (msg: string) => void;
+  onChanged: () => Promise<void>;
 }) {
   const [title, setTitle] = useState(recording.topic);
   const [renameOnVimeo, setRenameOnVimeo] = useState(true);
   const [renameLesson, setRenameLesson] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+
+  const [thumb, setThumb] = useState<string | null>(recording.thumbnailUrl);
+  const [thumbBusy, setThumbBusy] = useState(false);
+  const [resBusy, setResBusy] = useState(false);
+  const [linkTitle, setLinkTitle] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const thumbRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
   const isPublishedLesson = Boolean(recording.publishedModuleId);
   const dirty = title.trim() !== recording.topic && title.trim().length > 0;
+  const isReady = recording.status === "ready";
 
-  async function save() {
+  /** Upload to Blob. Images go to the image-only endpoint; resources use the
+   *  document endpoint so PDFs and Office files are accepted. */
+  async function upload(file: File, endpoint: "comment-attachment" | "email-attachment") {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`/api/uploads/${endpoint}`, { method: "POST", body: fd });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error ?? "Upload failed");
+    return { url: data.url as string, mimeType: file.type, sizeBytes: file.size };
+  }
+
+  async function pickThumb(file: File) {
+    setThumbBusy(true);
+    setErr(null);
+    try {
+      const { url } = await upload(file, "comment-attachment");
+      const res = await fetch(`/api/recordings/${recording.id}/thumbnail`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ thumbnailUrl: url }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error ?? "Couldn't set the thumbnail");
+      setThumb(url);
+      setNote("Thumbnail updated.");
+      await onChanged();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't set the thumbnail");
+    } finally {
+      setThumbBusy(false);
+      if (thumbRef.current) thumbRef.current.value = "";
+    }
+  }
+
+  async function addResource(payload: {
+    title: string;
+    url: string;
+    kind: "file" | "link";
+    mimeType?: string;
+    sizeBytes?: number;
+  }) {
+    const res = await fetch(`/api/recordings/${recording.id}/resources`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error ?? "Couldn't add that");
+    await onChanged();
+  }
+
+  async function pickResourceFile(file: File) {
+    setResBusy(true);
+    setErr(null);
+    try {
+      const { url, mimeType, sizeBytes } = await upload(file, "email-attachment");
+      await addResource({ title: file.name, url, kind: "file", mimeType, sizeBytes });
+      setNote("Resource added.");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setResBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  async function addLink() {
+    if (!linkUrl.trim()) return;
+    setResBusy(true);
+    setErr(null);
+    try {
+      await addResource({
+        title: linkTitle.trim() || linkUrl.trim(),
+        url: linkUrl.trim(),
+        kind: "link",
+      });
+      setLinkTitle("");
+      setLinkUrl("");
+      setNote("Link added.");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't add that link");
+    } finally {
+      setResBusy(false);
+    }
+  }
+
+  async function removeResource(id: string) {
+    setResBusy(true);
+    try {
+      await fetch(`/api/recordings/${recording.id}/resources/${id}`, {
+        method: "DELETE",
+      });
+      await onChanged();
+    } finally {
+      setResBusy(false);
+    }
+  }
+
+  async function saveTitle() {
     setSaving(true);
     setErr(null);
     try {
@@ -976,7 +1090,7 @@ function EditDialog({
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(j.error ?? "Couldn't save");
-      onDone(j.warning ? `Renamed. (${j.warning})` : "Recording renamed.");
+      onDone(j.warning ? `Saved. (${j.warning})` : "Recording updated.");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Couldn't save");
     } finally {
@@ -985,10 +1099,15 @@ function EditDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-5 shadow-lg">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4">
+      <div className="my-8 w-full max-w-2xl rounded-2xl border border-border bg-card p-5 shadow-lg">
         <div className="flex items-start justify-between gap-3">
-          <h2 className="text-base font-semibold">Edit recording</h2>
+          <div>
+            <h2 className="text-base font-semibold">Edit recording</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Title, thumbnail and resources for this video.
+            </p>
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -999,7 +1118,8 @@ function EditDialog({
           </button>
         </div>
 
-        <div className="mt-4 space-y-4">
+        <div className="mt-5 space-y-6">
+          {/* ── Title ─────────────────────────────────────────────── */}
           <div>
             <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               Title
@@ -1007,67 +1127,225 @@ function EditDialog({
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              autoFocus
               className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
             />
             <p className="mt-1.5 text-[11px] text-muted-foreground">
               Zoom names recordings automatically — give it something learners
               will recognise.
             </p>
+            <div className="mt-2 space-y-1.5">
+              <label className="flex items-center gap-2 text-xs">
+                <input
+                  type="checkbox"
+                  checked={renameOnVimeo}
+                  onChange={(e) => setRenameOnVimeo(e.target.checked)}
+                  className="h-3.5 w-3.5 accent-primary"
+                />
+                Rename it on Vimeo too
+              </label>
+              {isPublishedLesson && (
+                <label className="flex items-center gap-2 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={renameLesson}
+                    onChange={(e) => setRenameLesson(e.target.checked)}
+                    className="h-3.5 w-3.5 accent-primary"
+                  />
+                  Rename the published lesson too
+                </label>
+              )}
+            </div>
           </div>
 
-          <label className="flex items-start gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={renameOnVimeo}
-              onChange={(e) => setRenameOnVimeo(e.target.checked)}
-              className="mt-0.5 h-4 w-4 accent-primary"
-            />
-            <span>
-              Rename it on Vimeo too
-              <span className="block text-[11px] text-muted-foreground">
-                Keeps the video title matching, rather than leaving the old
-                Zoom name on Vimeo.
-              </span>
-            </span>
-          </label>
-
-          {isPublishedLesson && (
-            <label className="flex items-start gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={renameLesson}
-                onChange={(e) => setRenameLesson(e.target.checked)}
-                className="mt-0.5 h-4 w-4 accent-primary"
-              />
-              <span>
-                Rename the published lesson too
-                <span className="block text-[11px] text-muted-foreground">
-                  Changes what learners see in the course. Off by default in
-                  case you&apos;ve already titled the lesson yourself.
-                </span>
-              </span>
+          {/* ── Thumbnail ─────────────────────────────────────────── */}
+          <div className="border-t border-border pt-5">
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Thumbnail
             </label>
-          )}
+            <p className="mb-2 text-[11px] text-muted-foreground">
+              Shown before learners press play. Use{" "}
+              <strong>1920 × 1080 pixels</strong> (16:9) — a square image will
+              be cropped. Applies as soon as you choose it.
+            </p>
+            <input
+              ref={thumbRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) pickThumb(f);
+              }}
+            />
+            {!isReady ? (
+              <p className="text-[11px] text-muted-foreground">
+                Available once the video has finished processing.
+              </p>
+            ) : thumb ? (
+              <div className="flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={thumb}
+                  alt="Thumbnail"
+                  className="h-20 w-36 rounded-lg border border-border object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => thumbRef.current?.click()}
+                  disabled={thumbBusy}
+                  className="text-xs font-semibold text-primary hover:underline disabled:opacity-50"
+                >
+                  {thumbBusy ? "Uploading…" : "Change image"}
+                </button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => thumbRef.current?.click()}
+                disabled={thumbBusy}
+              >
+                {thumbBusy ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <ImagePlus className="mr-2 h-4 w-4" />
+                )}
+                Upload thumbnail
+              </Button>
+            )}
+          </div>
 
+          {/* ── Resources ─────────────────────────────────────────── */}
+          <div className="border-t border-border pt-5">
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Resources
+            </label>
+            <p className="mb-2 text-[11px] text-muted-foreground">
+              Handouts, slides or links that go with this video. Learners see
+              them on the lesson page underneath it.
+            </p>
+
+            {recording.resources.length > 0 && (
+              <ul className="mb-3 space-y-2">
+                {recording.resources.map((r) => (
+                  <li
+                    key={r.id}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-3 py-2"
+                  >
+                    <a
+                      href={r.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex min-w-0 items-center gap-2 text-sm hover:underline"
+                    >
+                      {r.kind === "link" ? (
+                        <Link2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      ) : (
+                        <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      )}
+                      <span className="truncate">{r.title}</span>
+                      {r.sizeBytes ? (
+                        <span className="shrink-0 text-[11px] text-muted-foreground">
+                          {Math.max(1, Math.round(r.sizeBytes / 1024))} KB
+                        </span>
+                      ) : null}
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => removeResource(r.id)}
+                      disabled={resBusy}
+                      className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:hover:bg-red-950/30"
+                      aria-label={`Remove ${r.title}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <input
+              ref={fileRef}
+              type="file"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) pickResourceFile(f);
+              }}
+            />
+
+            <div className="space-y-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fileRef.current?.click()}
+                disabled={resBusy}
+              >
+                {resBusy ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Paperclip className="mr-2 h-4 w-4" />
+                )}
+                Upload a file
+              </Button>
+
+              <div className="rounded-xl border border-dashed border-border p-3">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  …or add a link
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    value={linkTitle}
+                    onChange={(e) => setLinkTitle(e.target.value)}
+                    placeholder="Label (optional)"
+                    className="min-w-[120px] flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  />
+                  <input
+                    value={linkUrl}
+                    onChange={(e) => setLinkUrl(e.target.value)}
+                    placeholder="https://…"
+                    className="min-w-[180px] flex-[2] rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={addLink}
+                    disabled={resBusy || !linkUrl.trim()}
+                  >
+                    Add
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {note && (
+            <p className="rounded-lg bg-green-50 px-3 py-2 text-xs text-green-700 dark:bg-green-950/40 dark:text-green-400">
+              {note}
+            </p>
+          )}
           {err && (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-950/40 dark:text-red-400">
               {err}
             </p>
           )}
 
-          <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-            <Button variant="outline" onClick={onClose} disabled={saving}>
-              Cancel
-            </Button>
-            <Button onClick={save} disabled={saving || !dirty}>
-              {saving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <CheckCircle2 className="mr-2 h-4 w-4" />
-              )}
-              Save
-            </Button>
+          <div className="flex items-center justify-between gap-2 border-t border-border pt-4">
+            <p className="text-[11px] text-muted-foreground">
+              Thumbnail and resources save straight away.
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={onClose} disabled={saving}>
+                Close
+              </Button>
+              <Button onClick={saveTitle} disabled={saving || !dirty}>
+                {saving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                )}
+                Save title
+              </Button>
+            </div>
           </div>
         </div>
       </div>

@@ -923,9 +923,32 @@ model RecordingSync {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
+  resources       RecordingResource[]
+
   @@index([status])
   @@index([startedAt])
   @@map("recording_sync")
+}
+
+/// Handouts, slides and links that belong with a recording. Attached to the
+/// recording rather than the lesson so they can be prepared before it's
+/// published — the lesson page looks them up via the recording that was
+/// published to it, so learners get them alongside the video.
+model RecordingResource {
+  id          String        @id @default(cuid())
+  recordingId String        @map("recording_id")
+  recording   RecordingSync @relation(fields: [recordingId], references: [id], onDelete: Cascade)
+  title       String
+  url         String
+  /// "file" (uploaded) | "link" (external URL)
+  kind        String        @default("file")
+  mimeType    String?       @map("mime_type")
+  sizeBytes   Int?          @map("size_bytes")
+  order       Int           @default(0)
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  @@index([recordingId, order])
+  @@map("recording_resources")
 }
 
 model LiveRoom {

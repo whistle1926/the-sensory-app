@@ -11,7 +11,9 @@ import {
   CheckCircle2,
   ChevronDown,
   Home,
+  Link2,
   List,
+  Paperclip,
   RotateCcw,
   Sparkles,
   XCircle,
@@ -58,6 +60,14 @@ interface ModuleData {
   questions: Question[];
   videoUrl: string | null;
   coverImageUrl?: string | null;
+  /** Handouts/links attached to the recording published to this lesson. */
+  resources?: {
+    id: string;
+    title: string;
+    url: string;
+    kind: string;
+    sizeBytes: number | null;
+  }[];
   status: "IN_PROGRESS" | "COMPLETED" | "FAILED";
   score: number | null;
   attempts: number;
@@ -322,6 +332,38 @@ export default function PortalModulePage({
           )}
         </div>
       </div>
+
+      {/* Handouts that go with this lesson, sitting right under the video
+          where a learner looks for them. */}
+      {(mod.resources?.length ?? 0) > 0 && (
+        <div className="mt-4 rounded-2xl border border-border bg-card p-4">
+          <h2 className="text-sm font-bold tracking-tight">Resources</h2>
+          <ul className="mt-3 space-y-2">
+            {mod.resources!.map((r) => (
+              <li key={r.id}>
+                <a
+                  href={r.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm transition hover:bg-muted/50"
+                >
+                  {r.kind === "link" ? (
+                    <Link2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  )}
+                  <span className="min-w-0 flex-1 truncate">{r.title}</span>
+                  {r.sizeBytes ? (
+                    <span className="shrink-0 text-[11px] text-muted-foreground">
+                      {Math.max(1, Math.round(r.sizeBytes / 1024))} KB
+                    </span>
+                  ) : null}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Body: lesson or quiz results */}
       {result ? (
