@@ -157,6 +157,27 @@ export async function setThumbnail(
   }
 }
 
+/**
+ * Rename the video on Vimeo so its title matches what we show in the app —
+ * otherwise the Zoom auto-name ("X's Zoom Meeting") sticks around on Vimeo
+ * forever. Best-effort: returns an error string, or null on success.
+ */
+export async function renameVideo(
+  uri: string,
+  name: string,
+): Promise<string | null> {
+  if (!vimeoConfigured()) return "Vimeo is not configured.";
+  const { ok, status } = await vimeoFetch(uri, {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+  });
+  if (!ok) {
+    console.error("[vimeo] rename failed", status);
+    return "Renamed here, but Vimeo wouldn't update the video title.";
+  }
+  return null;
+}
+
 export interface VimeoStatus {
   /** Vimeo's transcode state: "in_progress" | "complete" | "error". */
   transcodeStatus: string | null;

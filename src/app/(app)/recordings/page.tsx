@@ -18,6 +18,7 @@ import {
   ExternalLink,
   ImagePlus,
   Loader2,
+  Pencil,
   RefreshCw,
   Video,
   X,
@@ -86,6 +87,7 @@ export default function RecordingsPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [publishFor, setPublishFor] = useState<Recording | null>(null);
   const [thumbFor, setThumbFor] = useState<Recording | null>(null);
+  const [editFor, setEditFor] = useState<Recording | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
   // Set after a successful publish — the page a learner actually sees.
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -341,6 +343,17 @@ export default function RecordingsPage() {
                           </Button>
                         ) : (
                           <div className="flex items-center justify-end gap-2">
+                            {/* Rename — Zoom's auto title is rarely what you
+                                want the lesson called. */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEditFor(r)}
+                              title="Rename this recording"
+                            >
+                              <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                              Edit
+                            </Button>
                             {/* Change the poster image without republishing —
                                 the lesson it's attached to is untouched. */}
                             <Button
@@ -372,6 +385,19 @@ export default function RecordingsPage() {
           </div>
         )}
       </div>
+
+      {editFor && (
+        <EditDialog
+          recording={editFor}
+          onClose={() => setEditFor(null)}
+          onDone={async (m) => {
+            setEditFor(null);
+            setMsg(m);
+            setPreviewUrl(null);
+            await load();
+          }}
+        />
+      )}
 
       {thumbFor && (
         <ThumbnailDialog
@@ -906,6 +932,143 @@ function ThumbnailDialog({
             )}
             Save thumbnail
           </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Rename a recording. Zoom names everything "<host>'s Zoom Meeting", so this
+ * is nearly always the first thing you want to change. By default the new
+ * name is pushed to Vimeo too, and optionally to the published lesson, so the
+ * title doesn't drift apart across the three places it appears.
+ */
+function EditDialog({
+  recording,
+  onClose,
+  onDone,
+}: {
+  recording: Recording;
+  onClose: () => void;
+  onDone: (msg: string) => void;
+}) {
+  const [title, setTitle] = useState(recording.topic);
+  const [renameOnVimeo, setRenameOnVimeo] = useState(true);
+  const [renameLesson, setRenameLesson] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const isPublishedLesson = Boolean(recording.publishedModuleId);
+  const dirty = title.trim() !== recording.topic && title.trim().length > 0;
+
+  async function save() {
+    setSaving(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/recordings/${recording.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: title.trim(),
+          renameOnVimeo,
+          renameLesson: isPublishedLesson && renameLesson,
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error ?? "Couldn't save");
+      onDone(j.warning ? `Renamed. (${j.warning})` : "Recording renamed.");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't save");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-5 shadow-lg">
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="text-base font-semibold">Edit recording</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1 text-muted-foreground hover:bg-muted"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-4">
+          <div>
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Title
+            </label>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              autoFocus
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
+            />
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              Zoom names recordings automatically — give it something learners
+              will recognise.
+            </p>
+          </div>
+
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={renameOnVimeo}
+              onChange={(e) => setRenameOnVimeo(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-primary"
+            />
+            <span>
+              Rename it on Vimeo too
+              <span className="block text-[11px] text-muted-foreground">
+                Keeps the video title matching, rather than leaving the old
+                Zoom name on Vimeo.
+              </span>
+            </span>
+          </label>
+
+          {isPublishedLesson && (
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={renameLesson}
+                onChange={(e) => setRenameLesson(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-primary"
+              />
+              <span>
+                Rename the published lesson too
+                <span className="block text-[11px] text-muted-foreground">
+                  Changes what learners see in the course. Off by default in
+                  case you&apos;ve already titled the lesson yourself.
+                </span>
+              </span>
+            </label>
+          )}
+
+          {err && (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-950/40 dark:text-red-400">
+              {err}
+            </p>
+          )}
+
+          <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
+            <Button variant="outline" onClick={onClose} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={save} disabled={saving || !dirty}>
+              {saving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+              )}
+              Save
+            </Button>
+          </div>
         </div>
       </div>
     </div>
