@@ -26,6 +26,7 @@ import {
   Video,
   X,
 } from "lucide-react";
+import { upload as blobUpload } from "@vercel/blob/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -977,22 +978,26 @@ function EditDialog({
   const dirty = title.trim() !== recording.topic && title.trim().length > 0;
   const isReady = recording.status === "ready";
 
-  /** Upload to Blob. Images go to the image-only endpoint; resources use the
-   *  document endpoint so PDFs and Office files are accepted. */
-  async function upload(file: File, endpoint: "comment-attachment" | "email-attachment") {
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch(`/api/uploads/${endpoint}`, { method: "POST", body: fd });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error ?? "Upload failed");
-    return { url: data.url as string, mimeType: file.type, sizeBytes: file.size };
+  /**
+   * Upload straight from the browser to Blob storage.
+   *
+   * Deliberately NOT posted through an API route: Vercel caps request bodies
+   * at ~4.5 MB, which silently killed PowerPoint/PDF uploads at the edge (the
+   * handler never ran, so the UI just hung). Direct upload has no such limit.
+   */
+  async function upload(file: File) {
+    const blob = await blobUpload(file.name, file, {
+      access: "public",
+      handleUploadUrl: "/api/uploads/blob",
+    });
+    return { url: blob.url, mimeType: file.type, sizeBytes: file.size };
   }
 
   async function pickThumb(file: File) {
     setThumbBusy(true);
     setErr(null);
     try {
-      const { url } = await upload(file, "comment-attachment");
+      const { url } = await upload(file);
       const res = await fetch(`/api/recordings/${recording.id}/thumbnail`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1032,7 +1037,7 @@ function EditDialog({
     setResBusy(true);
     setErr(null);
     try {
-      const { url, mimeType, sizeBytes } = await upload(file, "email-attachment");
+      const { url, mimeType, sizeBytes } = await upload(file);
       await addResource({ title: file.name, url, kind: "file", mimeType, sizeBytes });
       setNote("Resource added.");
     } catch (e) {

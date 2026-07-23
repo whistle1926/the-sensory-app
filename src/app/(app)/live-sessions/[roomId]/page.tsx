@@ -18,6 +18,7 @@ import {
   Users,
   Video,
 } from "lucide-react";
+import { upload as blobUpload } from "@vercel/blob/client";
 import { Button } from "@/components/ui/button";
 import { Toolbar, Panel, Chip } from "@/components/ds";
 
@@ -98,26 +99,19 @@ export default function LiveSessionDetailPage({
   }
 
   /**
-   * Upload to Blob and return the URL. Two endpoints on purpose:
-   *  - comment-attachment accepts images/video only → right for the cover image
-   *  - email-attachment accepts PDFs, Word, PowerPoint, Excel, text too →
-   *    needed for handouts, which are usually PDFs
-   * Size/type come from the File itself, since the document endpoint only
-   * echoes back a url + filename.
+   * Upload straight from the browser to Blob storage. Not posted through an
+   * API route because Vercel caps request bodies at ~4.5 MB, which silently
+   * killed PDF/PowerPoint uploads at the edge — the handler never ran, so the
+   * UI just hung. Direct upload has no such limit.
    */
   async function uploadFile(
     file: File,
-    endpoint: "comment-attachment" | "email-attachment",
   ): Promise<{ url: string; mimeType: string; sizeBytes: number }> {
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch(`/api/uploads/${endpoint}`, {
-      method: "POST",
-      body: fd,
+    const blob = await blobUpload(file.name, file, {
+      access: "public",
+      handleUploadUrl: "/api/uploads/blob",
     });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error ?? "Upload failed");
-    return { url: data.url, mimeType: file.type, sizeBytes: file.size };
+    return { url: blob.url, mimeType: file.type, sizeBytes: file.size };
   }
 
   async function setPoster(url: string | null) {
@@ -133,7 +127,7 @@ export default function LiveSessionDetailPage({
     setPosterBusy(true);
     setResErr(null);
     try {
-      const { url } = await uploadFile(file, "comment-attachment");
+      const { url } = await uploadFile(file);
       await setPoster(url);
     } catch (e) {
       setResErr(e instanceof Error ? e.message : "Upload failed");
@@ -164,7 +158,7 @@ export default function LiveSessionDetailPage({
     setResBusy(true);
     setResErr(null);
     try {
-      const { url, mimeType, sizeBytes } = await uploadFile(file, "email-attachment");
+      const { url, mimeType, sizeBytes } = await uploadFile(file);
       await addResource({ title: file.name, url, kind: "file", mimeType, sizeBytes });
     } catch (e) {
       setResErr(e instanceof Error ? e.message : "Upload failed");
