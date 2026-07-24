@@ -1,7 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, FileText, Loader2, Calendar } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  FileText,
+  Loader2,
+  Calendar,
+  Sparkles,
+  Undo2,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -54,6 +63,11 @@ export function ProgressNotesSection({ clientId }: { clientId: string }) {
   const [body, setBody] = useState("");
   const [saving, setSaving] = useState(false);
   const [editorKey, setEditorKey] = useState(0);
+  // Tidy-with-AI state. `preTidyBody` holds the pre-tidy text so a tidy can
+  // always be undone (never silently rewrite the OT's note).
+  const [tidying, setTidying] = useState(false);
+  const [tidyError, setTidyError] = useState<string | null>(null);
+  const [preTidyBody, setPreTidyBody] = useState<string | null>(null);
 
   const fetchNotes = useCallback(async () => {
     setLoading(true);
@@ -72,11 +86,18 @@ export function ProgressNotesSection({ clientId }: { clientId: string }) {
     fetchNotes();
   }, [fetchNotes]);
 
+  function resetTidy() {
+    setTidying(false);
+    setTidyError(null);
+    setPreTidyBody(null);
+  }
+
   function openNew() {
     setEditingNote(null);
     setSessionDate(toDateTimeLocal(new Date().toISOString()));
     setBody("");
     setEditorKey((k) => k + 1);
+    resetTidy();
     setDialogOpen(true);
   }
 
@@ -85,7 +106,44 @@ export function ProgressNotesSection({ clientId }: { clientId: string }) {
     setSessionDate(toDateTimeLocal(note.sessionDate));
     setBody(note.body);
     setEditorKey((k) => k + 1);
+    resetTidy();
     setDialogOpen(true);
+  }
+
+  async function handleTidy() {
+    if (!body.replace(/<[^>]+>/g, "").trim()) return;
+    setTidying(true);
+    setTidyError(null);
+    try {
+      const res = await fetch(`/api/clients/${clientId}/notes/tidy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        body?: string;
+        error?: string;
+      };
+      if (!res.ok || !data.body) {
+        throw new Error(data.error ?? "Tidy failed");
+      }
+      // Keep the original so it can be restored, then swap in the tidied
+      // version (remount the editor so it picks up the new value).
+      setPreTidyBody(body);
+      setBody(data.body);
+      setEditorKey((k) => k + 1);
+    } catch (e) {
+      setTidyError(e instanceof Error ? e.message : "Tidy failed");
+    } finally {
+      setTidying(false);
+    }
+  }
+
+  function undoTidy() {
+    if (preTidyBody === null) return;
+    setBody(preTidyBody);
+    setPreTidyBody(null);
+    setEditorKey((k) => k + 1);
   }
 
   async function handleSave() {
@@ -199,7 +257,12 @@ export function ProgressNotesSection({ clientId }: { clientId: string }) {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        {/* Cap the height and let the whole dialog scroll, so the Save button
+            is always reachable — a long note used to push the footer off the
+            bottom of the screen with no way to scroll to it. The editor below
+            is also height-capped (maxHeight) so it scrolls internally rather
+            than ballooning the dialog in the first place. */}
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
               {editingNote ? "Edit Progress Note" : "Add Progress Note"}
@@ -219,7 +282,47 @@ export function ProgressNotesSection({ clientId }: { clientId: string }) {
             </div>
 
             <div className="space-y-2">
-              <Label>Note</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label>Note</Label>
+                <div className="flex items-center gap-2">
+                  {preTidyBody !== null && (
+                    <button
+                      type="button"
+                      onClick={undoTidy}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground hover:underline"
+                    >
+                      <Undo2 className="h-3 w-3" /> Undo tidy
+                    </button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleTidy}
+                    disabled={
+                      tidying || !body.replace(/<[^>]+>/g, "").trim()
+                    }
+                    title="Clean up the grammar and wording — you can undo it"
+                  >
+                    {tidying ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" data-icon="inline-start" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5" data-icon="inline-start" />
+                    )}
+                    {tidying ? "Tidying…" : "Tidy with AI"}
+                  </Button>
+                </div>
+              </div>
+              {tidyError && (
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-950/40 dark:text-red-400">
+                  {tidyError}
+                </p>
+              )}
+              {preTidyBody !== null && !tidyError && (
+                <p className="text-[11px] text-green-600 dark:text-green-400">
+                  Tidied with AI — review it, then Save. Nothing is saved until
+                  you do.
+                </p>
+              )}
               <VoiceNotesRecorder
                 value={body}
                 onChange={setBody}
@@ -231,6 +334,7 @@ export function ProgressNotesSection({ clientId }: { clientId: string }) {
                 onChange={setBody}
                 placeholder="Write your progress note, or use the recorder above to dictate it..."
                 minHeight={160}
+                maxHeight={340}
               />
             </div>
           </div>

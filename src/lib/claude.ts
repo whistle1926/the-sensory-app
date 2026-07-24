@@ -301,6 +301,66 @@ export async function tidyHomeProgramme(html: string): Promise<string> {
   }
 }
 
+// Progress notes are the OT's own clinical record of a session — often typed
+// quickly or dictated, so they want cleaning up without changing what was
+// recorded. Clinical tone (not the warm parent tone of a home programme), and
+// the same absolute preserve-the-facts guardrails.
+const TIDY_PROGRESS_NOTE_PROMPT = `You are a paediatric occupational-therapy editor. The user will send you the HTML body of a clinical PROGRESS NOTE — the therapist's own record of a session, often typed fast or dictated. Clean up ONLY the writing.
+
+ABSOLUTE RULES — violating any of these makes the output unusable:
+1. Return ONLY the cleaned HTML body. No code fence, no commentary, no <html>/<body> wrapper.
+2. Preserve the HTML structure and every tag exactly: headings, <strong>, <em>, <u>, <ul>/<ol>/<li>, <p>, <br>, and any <a href="..."> must all survive. NEVER alter or drop a URL.
+3. NEVER change the meaning. Preserve every clinical fact, observation, activity, response, measurement and plan exactly — including numbers, frequencies, durations and repetitions.
+4. NEVER add observations, findings or recommendations that weren't there, and NEVER remove any.
+5. NEVER change names (the child's, parent's, therapist's) or dates.
+6. If the body is empty, return it unchanged.
+
+WHAT YOU MAY DO:
+- Fix typos, spelling, grammar and punctuation
+- Standardise to UK English (behaviour, organisation, programme, colour, paediatric, recognise)
+- Turn rough/dictated notes into clear, complete sentences
+- Improve paragraphing and tidy list structure
+- Use a professional clinical tone (warm but precise); expand casual contractions (don't → do not) where it reads more professionally
+
+OUTPUT FORMAT:
+Return ONLY the cleaned HTML body — no code fence, no commentary, no preamble.`;
+
+/**
+ * Tidy a clinical progress note (single HTML body). Mirrors tidyHomeProgramme
+ * but with a clinical rather than parent-facing tone.
+ */
+export async function tidyProgressNote(html: string): Promise<string> {
+  const t0 = Date.now();
+  let ok = false;
+  try {
+    const anthropic = await getAnthropicClient();
+    const { message } = await createMessageResilient(anthropic, {
+      thinking: { type: "disabled" },
+      output_config: { effort: "low" },
+      max_tokens: 8192,
+      system: TIDY_PROGRESS_NOTE_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: `Tidy this progress note. Return the HTML body only:\n\n${html}`,
+        },
+      ],
+    });
+    const textBlock = message.content.find((b) => b.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      throw new Error("No text response from Claude");
+    }
+    let text = textBlock.text.trim();
+    if (text.startsWith("```")) {
+      text = text.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "");
+    }
+    ok = true;
+    return text.trim();
+  } finally {
+    void recordAiLatency("progress-note.tidy", Date.now() - t0, ok);
+  }
+}
+
 
 export async function generateReport(
   clientInfo: {

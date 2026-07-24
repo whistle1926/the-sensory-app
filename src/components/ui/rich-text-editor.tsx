@@ -378,6 +378,9 @@ export interface RichTextEditorProps {
   compact?: boolean;
   className?: string;
   minHeight?: number;
+  /** Cap the editor height; content scrolls inside instead of growing the
+   *  editor without bound (which can push a dialog's Save button off-screen). */
+  maxHeight?: number;
 }
 
 export function RichTextEditor({
@@ -388,6 +391,7 @@ export function RichTextEditor({
   compact = false,
   className,
   minHeight = 120,
+  maxHeight,
 }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -462,7 +466,12 @@ export function RichTextEditor({
     >
       <Toolbar editor={editor} />
       {compact ? null : null}
-      <div style={{ minHeight }}>
+      <div
+        style={{
+          minHeight,
+          ...(maxHeight ? { maxHeight, overflowY: "auto" } : {}),
+        }}
+      >
         <EditorContent editor={editor} />
       </div>
     </div>
