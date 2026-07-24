@@ -19,12 +19,21 @@ import {
   Eye,
   ExternalLink,
   Loader2,
+  MessageSquareQuote,
   PaintBucket,
+  Plus,
   Save,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
+interface Testimonial {
+  quote: string;
+  author: string;
+  meta?: string;
+}
 
 interface State {
   tagline: string;
@@ -34,6 +43,7 @@ interface State {
   showCoursesNav: boolean;
   showSignIn: boolean;
   showCreateAccount: boolean;
+  testimonials: Testimonial[];
 }
 
 const DEFAULT_TAGLINE = "Where expert knowledge meets playful, child-centred practice";
@@ -51,6 +61,7 @@ export function StorefrontSettingsSection() {
     showCoursesNav: true,
     showSignIn: true,
     showCreateAccount: true,
+    testimonials: [],
   });
   const [original, setOriginal] = useState<State | null>(null);
   const [saving, setSaving] = useState(false);
@@ -71,6 +82,7 @@ export function StorefrontSettingsSection() {
           showCoursesNav: data.showCoursesNav ?? true,
           showSignIn: data.showSignIn ?? true,
           showCreateAccount: data.showCreateAccount ?? true,
+          testimonials: Array.isArray(data.testimonials) ? data.testimonials : [],
         };
         setState(next);
         setOriginal(next);
@@ -286,6 +298,142 @@ export function StorefrontSettingsSection() {
                 Save hero copy
               </Button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Parent testimonials for the public booking page. */}
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <MessageSquareQuote className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold">Booking page testimonials</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              The “What families say” reviews shown on the public{" "}
+              <a
+                href="/book"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-0.5 text-primary underline"
+              >
+                booking page <ExternalLink className="h-3 w-3" />
+              </a>
+              . Paste real reviews (e.g. from Google) — a shortened excerpt is
+              fine.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 space-y-4">
+          {state.testimonials.length === 0 && (
+            <p className="rounded-xl border border-dashed border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
+              No testimonials yet — add one below.
+            </p>
+          )}
+
+          {state.testimonials.map((t, i) => (
+            <div
+              key={i}
+              className="space-y-2 rounded-xl border border-border/70 bg-background/40 p-3"
+            >
+              <div className="flex items-center justify-between">
+                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Review {i + 1}
+                </Label>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setState((s) => ({
+                      ...s,
+                      testimonials: s.testimonials.filter((_, idx) => idx !== i),
+                    }))
+                  }
+                  className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
+                  aria-label="Remove review"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <textarea
+                value={t.quote}
+                placeholder="The review text…"
+                onChange={(e) =>
+                  setState((s) => ({
+                    ...s,
+                    testimonials: s.testimonials.map((x, idx) =>
+                      idx === i ? { ...x, quote: e.target.value } : x,
+                    ),
+                  }))
+                }
+                rows={3}
+                maxLength={600}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+              <div className="flex flex-wrap gap-2">
+                <Input
+                  value={t.author}
+                  placeholder="Name (e.g. Sarah Donaghy)"
+                  onChange={(e) =>
+                    setState((s) => ({
+                      ...s,
+                      testimonials: s.testimonials.map((x, idx) =>
+                        idx === i ? { ...x, author: e.target.value } : x,
+                      ),
+                    }))
+                  }
+                  maxLength={120}
+                  className="min-w-[160px] flex-1"
+                />
+                <Input
+                  value={t.meta ?? ""}
+                  placeholder="Under the name (e.g. Google review)"
+                  onChange={(e) =>
+                    setState((s) => ({
+                      ...s,
+                      testimonials: s.testimonials.map((x, idx) =>
+                        idx === i ? { ...x, meta: e.target.value } : x,
+                      ),
+                    }))
+                  }
+                  maxLength={120}
+                  className="min-w-[160px] flex-1"
+                />
+              </div>
+            </div>
+          ))}
+
+          <Button
+            variant="outline"
+            onClick={() =>
+              setState((s) => ({
+                ...s,
+                testimonials: [...s.testimonials, { quote: "", author: "", meta: "" }],
+              }))
+            }
+            disabled={state.testimonials.length >= 12}
+            className="rounded-xl"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add a testimonial
+          </Button>
+
+          <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
+            {savedAt && Date.now() - savedAt < 5000 && !dirty && (
+              <span className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Saved
+              </span>
+            )}
+            <Button onClick={save} disabled={!dirty || saving} className="rounded-xl">
+              {saving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              Save testimonials
+            </Button>
           </div>
         </div>
       </div>

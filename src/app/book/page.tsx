@@ -226,6 +226,19 @@ function BookingPageInner() {
   const searchParams = useSearchParams();
   const preselectSlug = searchParams.get("service");
 
+  // Parent testimonials for the trust section under the booking card.
+  const [testimonials, setTestimonials] = useState<
+    { quote: string; author: string; meta?: string }[]
+  >([]);
+  useEffect(() => {
+    fetch("/api/settings/storefront")
+      .then((r) => r.json())
+      .then((d: { testimonials?: { quote: string; author: string; meta?: string }[] }) => {
+        if (Array.isArray(d.testimonials)) setTestimonials(d.testimonials);
+      })
+      .catch(() => undefined);
+  }, []);
+
   useEffect(() => {
     fetch("/api/booking-services")
       .then((r) => r.json())
@@ -1261,6 +1274,38 @@ function BookingPageInner() {
           </div>
         )}
       </main>
+
+      {/* Parent testimonials — social proof before/after booking. */}
+      {testimonials.length > 0 && (
+        <section className="border-t border-border/50 bg-muted/20 py-12">
+          <div className="mx-auto max-w-5xl px-4">
+            <h2 className="text-center text-lg font-bold tracking-tight sm:text-xl">
+              What families say
+            </h2>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {testimonials.map((t, i) => (
+                <figure
+                  key={i}
+                  className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]"
+                >
+                  <div className="mb-2 text-amber-400" aria-hidden>
+                    ★★★★★
+                  </div>
+                  <blockquote className="flex-1 text-sm leading-relaxed text-foreground/90">
+                    “{t.quote}”
+                  </blockquote>
+                  <figcaption className="mt-3 text-xs">
+                    <span className="font-semibold">{t.author}</span>
+                    {t.meta && (
+                      <span className="text-muted-foreground"> · {t.meta}</span>
+                    )}
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Footer */}
       <footer className="border-t border-border/50 py-6 text-center text-xs text-muted-foreground">

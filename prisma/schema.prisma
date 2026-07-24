@@ -1459,6 +1459,10 @@ model StorefrontConfig {
   /// header + footer. Disabling pauses new self-serve sign-ups
   /// without changing the /register endpoint itself.
   showCreateAccount  Boolean  @default(true) @map("show_create_account")
+  /// Parent testimonials shown on the public booking page. Editable in
+  /// Settings → Storefront. Array<{ quote, author, meta? }> — meta is an
+  /// optional line under the name, e.g. "Google review · 3 months ago".
+  testimonials       Json     @default("[]")
   updatedAt DateTime @updatedAt @map("updated_at")
   @@map("storefront_config")
 }

@@ -8,12 +8,38 @@
  * reads from here. POST is staff-only.
  */
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 const MAX_TAGLINE = 200;
 const MAX_TITLE = 240;
 const MAX_BLURB = 1_000;
+const MAX_QUOTE = 600;
+const MAX_NAME = 120;
+const MAX_TESTIMONIALS = 12;
+
+interface Testimonial {
+  quote: string;
+  author: string;
+  meta?: string;
+}
+
+/** Coerce arbitrary JSON into a clean, capped testimonials array. */
+function cleanTestimonials(raw: unknown): Testimonial[] {
+  if (!Array.isArray(raw)) return [];
+  const out: Testimonial[] = [];
+  for (const item of raw.slice(0, MAX_TESTIMONIALS)) {
+    if (!item || typeof item !== "object") continue;
+    const t = item as Record<string, unknown>;
+    const quote = typeof t.quote === "string" ? t.quote.trim().slice(0, MAX_QUOTE) : "";
+    const author = typeof t.author === "string" ? t.author.trim().slice(0, MAX_NAME) : "";
+    if (!quote) continue; // a testimonial with no quote is meaningless
+    const meta = typeof t.meta === "string" ? t.meta.trim().slice(0, MAX_NAME) : "";
+    out.push({ quote, author, ...(meta ? { meta } : {}) });
+  }
+  return out;
+}
 
 function isStaff(role: string | undefined): boolean {
   return role === "SUPER_ADMIN" || role === "TEAM_MANAGER";
@@ -37,6 +63,7 @@ export async function GET() {
     showCoursesNav: row?.showCoursesNav ?? true,
     showSignIn: row?.showSignIn ?? true,
     showCreateAccount: row?.showCreateAccount ?? true,
+    testimonials: cleanTestimonials(row?.testimonials),
   });
 }
 
@@ -53,7 +80,13 @@ export async function POST(req: NextRequest) {
     showCoursesNav?: boolean;
     showSignIn?: boolean;
     showCreateAccount?: boolean;
+    testimonials?: unknown;
   };
+
+  // Only replace testimonials when the field is present, so a save from a
+  // form that doesn't include them can't wipe them.
+  const testimonials =
+    "testimonials" in body ? cleanTestimonials(body.testimonials) : undefined;
 
   const tagline = trimOrNull(body.tagline, MAX_TAGLINE);
   const heroTitle = trimOrNull(body.heroTitle, MAX_TITLE);
@@ -80,6 +113,7 @@ export async function POST(req: NextRequest) {
       ...(showCoursesNav !== undefined && { showCoursesNav }),
       ...(showSignIn !== undefined && { showSignIn }),
       ...(showCreateAccount !== undefined && { showCreateAccount }),
+      ...(testimonials !== undefined && { testimonials: testimonials as unknown as Prisma.InputJsonValue }),
     },
     create: {
       id: "default",
@@ -90,6 +124,7 @@ export async function POST(req: NextRequest) {
       showCoursesNav: showCoursesNav ?? true,
       showSignIn: showSignIn ?? true,
       showCreateAccount: showCreateAccount ?? true,
+      ...(testimonials !== undefined && { testimonials: testimonials as unknown as Prisma.InputJsonValue }),
     },
   });
 
@@ -101,6 +136,7 @@ export async function POST(req: NextRequest) {
     showCoursesNav: row.showCoursesNav,
     showSignIn: row.showSignIn,
     showCreateAccount: row.showCreateAccount,
+    testimonials: cleanTestimonials(row.testimonials),
   });
 }
 
