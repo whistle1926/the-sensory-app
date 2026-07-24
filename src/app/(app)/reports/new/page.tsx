@@ -338,6 +338,31 @@ function NewReportPage() {
                   onChange={(e) => setRawNotes(e.target.value)}
                   placeholder="Paste your raw session notes here, or use Record voice notes above. Include observations about sensory responses, behaviours, interventions used, and the child's response. The more detail you provide, the better the report."
                 />
+                {/* A quick "what to cover" reminder so nothing gets missed
+                    during the assessment. Collapsible so it stays out of the
+                    way once you know it. */}
+                <details className="rounded-lg border border-border bg-background/60 p-3 text-xs" open>
+                  <summary className="cursor-pointer font-semibold text-foreground">
+                    What to cover (tap to hide)
+                  </summary>
+                  <ul className="mt-2 grid gap-x-4 gap-y-1 text-muted-foreground sm:grid-cols-2">
+                    <li>• <span className="font-medium text-foreground">Sensory needs</span> — touch, movement, sound, sight, taste/smell; seeking vs avoiding</li>
+                    <li>• <span className="font-medium text-foreground">Fine motor & handwriting</span> — grasp, scissors, threading, in-hand manipulation, hand dominance</li>
+                    <li>• <span className="font-medium text-foreground">Gross motor</span> — balance, coordination, core strength, ball skills</li>
+                    <li>• <span className="font-medium text-foreground">Play skills</span> — imaginative play, turn-taking, engagement, preferences</li>
+                    <li>• <span className="font-medium text-foreground">Clinical observations</span> — attention, regulation, communication, behaviour</li>
+                    <li>• <span className="font-medium text-foreground">Sleep</span> — routine, settling, night waking</li>
+                    <li>• <span className="font-medium text-foreground">Feeding</span> — food range, textures, mealtime routine</li>
+                    <li>• <span className="font-medium text-foreground">Toileting</span> — awareness, routine, independence</li>
+                    <li>• <span className="font-medium text-foreground">School</span> — attention, transitions, peers, sensory needs in class</li>
+                  </ul>
+                  <p className="mt-2 text-muted-foreground">
+                    Jot down whatever you observed for each — rough notes are
+                    fine, the AI turns them into clinical language, and each box
+                    in the report also shows its own prompt as you edit.
+                  </p>
+                </details>
+
                 <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
                   <p className="font-semibold text-foreground">Tip — AI will populate the Functional Review automatically.</p>
                   <p className="mt-1">

@@ -60,9 +60,12 @@ function setAtPath(
 function ProseTextarea({
   value,
   onChange,
+  placeholder,
 }: {
   value: string;
   onChange: (next: string) => void;
+  /** Prompt hint shown in an empty field, reminding the OT what to cover. */
+  placeholder?: string;
 }) {
   // Rough heuristic: enough rows for the existing content + a buffer so
   // the textarea doesn't feel cramped while typing.
@@ -71,11 +74,66 @@ function ProseTextarea({
     <textarea
       value={value}
       rows={rows}
+      placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed text-foreground outline-none focus:ring-2 focus:ring-primary/30"
+      className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed text-foreground outline-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-primary/30"
     />
   );
 }
+
+// "Wee prompts" for each report field — shown as placeholder text in an empty
+// box while editing, so the OT remembers what to cover during/after an
+// assessment. Keyed by the same dotted path as the field's setter. Placeholder
+// only, so nothing here is ever saved into the report.
+const FIELD_PROMPTS: Record<string, string> = {
+  reasonForReferral:
+    "Why referred? Main concerns from parent/school, who referred, relevant history.",
+  sessionOverview:
+    "What the session involved — setting, activities, and any standardised assessments used.",
+  "observations.sensoryResponses":
+    "Sensory needs — responses to touch, movement, sound, sight, taste/smell; seeking vs avoiding; regulating strategies.",
+  "observations.engagementParticipation":
+    "Engagement & attention — focus, participation, coping with transitions.",
+  "observations.communicationSocial":
+    "Communication & social interaction — eye contact, turn-taking, interaction with adults/peers, Makaton/AAC.",
+  "observations.emotionalRegulation":
+    "Emotional regulation & behaviour — mood, coping, triggers, response to challenge.",
+  "assessmentFindings.sensoryProcessing":
+    "Sensory processing — modulation across the sensory systems and impact on daily function.",
+  "assessmentFindings.fineMotor":
+    "Fine motor & handwriting — pencil grasp, scissor skills, threading/beads, in-hand manipulation, hand dominance, pre-writing/letter formation.",
+  "assessmentFindings.grossMotor":
+    "Gross motor — balance, coordination, core strength, ball skills, jumping/climbing, posture.",
+  "assessmentFindings.selfRegulation":
+    "Self-regulation — arousal levels, calming/alerting strategies, independence.",
+  "assessmentFindings.playFunctional":
+    "Play & functional skills — imaginative/symbolic play, turn-taking, play preferences, functional independence.",
+  "functionalReview.feedingAndEating":
+    "Feeding & eating — mealtime routine, food range, textures, utensils, sensory factors.",
+  "functionalReview.personalCareAndDressing":
+    "Personal care & dressing — dressing, fasteners, washing, level of independence.",
+  "functionalReview.toileting":
+    "Toileting — awareness, routine, independence, any difficulties.",
+  "functionalReview.sleep":
+    "Sleep — routine, settling, night waking, environment/sensory factors.",
+  "functionalReview.school":
+    "School — attention in class, following instructions, transitions, peer interaction, sensory needs, handwriting demands.",
+  "functionalReview.otherConcerns": "Any other concerns raised.",
+  "functionalReview.discussionWithParent":
+    "Discussion with parent/carer — priorities, questions, agreed next steps.",
+  interventionsUsed:
+    "What you tried in the session — activities, equipment, strategies.",
+  responseToIntervention: "How the child responded to each.",
+  clinicalImpressions:
+    "Clinical impressions — your professional summary tying the observations to the child's needs.",
+  recommendations:
+    "Recommendations — strategies, equipment, referrals, next steps.",
+  "goals.shortTerm": "Short-term goals (next few weeks).",
+  "goals.longTerm": "Long-term goals.",
+  "goals.nextSessionPlan": "Plan for the next session.",
+  homeProgrammeSuggestions:
+    "Home programme ideas for parents/carers to try between sessions.",
+};
 
 function Section({
   title,
@@ -219,11 +277,13 @@ function SubSection({
   text,
   editing,
   onChange,
+  prompt,
 }: {
   title: string;
   text: string;
   editing: boolean;
   onChange?: (next: string) => void;
+  prompt?: string;
 }) {
   // In view mode, skip rendering empty / "not assessed" sub-sections so
   // the printed report stays tidy. In edit mode we always show them so
@@ -233,7 +293,7 @@ function SubSection({
     <div className="mb-3">
       <h3 className="text-sm font-semibold text-foreground">{title}</h3>
       {editing ? (
-        <ProseTextarea value={text} onChange={(v) => onChange?.(v)} />
+        <ProseTextarea value={text} onChange={(v) => onChange?.(v)} placeholder={prompt} />
       ) : (
         <p className="whitespace-pre-line text-sm text-muted-foreground">{text}</p>
       )}
@@ -249,13 +309,15 @@ function Prose({
   value,
   editing,
   onChange,
+  prompt,
 }: {
   value: string;
   editing: boolean;
   onChange?: (next: string) => void;
+  prompt?: string;
 }) {
   return editing ? (
-    <ProseTextarea value={value} onChange={(v) => onChange?.(v)} />
+    <ProseTextarea value={value} onChange={(v) => onChange?.(v)} placeholder={prompt} />
   ) : (
     <p className="whitespace-pre-line">{value}</p>
   );
@@ -343,57 +405,57 @@ export function ReportViewer({ content, editing = false, onChange }: ReportViewe
     switch (key) {
       case "reasonForReferral":
         return (
-          <Prose value={c.reasonForReferral} editing={editing} onChange={set("reasonForReferral")} />
+          <Prose value={c.reasonForReferral} editing={editing} onChange={set("reasonForReferral")} prompt={FIELD_PROMPTS["reasonForReferral"]} />
         );
       case "sessionOverview":
         return (
-          <Prose value={c.sessionOverview} editing={editing} onChange={set("sessionOverview")} />
+          <Prose value={c.sessionOverview} editing={editing} onChange={set("sessionOverview")} prompt={FIELD_PROMPTS["sessionOverview"]} />
         );
       case "observations":
         return (
           <>
-            <SubSection title="Sensory Responses" text={c.observations.sensoryResponses} editing={editing} onChange={set("observations.sensoryResponses")} />
-            <SubSection title="Engagement and Participation" text={c.observations.engagementParticipation} editing={editing} onChange={set("observations.engagementParticipation")} />
-            <SubSection title="Communication and Social Interaction" text={c.observations.communicationSocial} editing={editing} onChange={set("observations.communicationSocial")} />
-            <SubSection title="Emotional Regulation and Behaviour" text={c.observations.emotionalRegulation} editing={editing} onChange={set("observations.emotionalRegulation")} />
+            <SubSection title="Sensory Responses" text={c.observations.sensoryResponses} editing={editing} onChange={set("observations.sensoryResponses")} prompt={FIELD_PROMPTS["observations.sensoryResponses"]} />
+            <SubSection title="Engagement and Participation" text={c.observations.engagementParticipation} editing={editing} onChange={set("observations.engagementParticipation")} prompt={FIELD_PROMPTS["observations.engagementParticipation"]} />
+            <SubSection title="Communication and Social Interaction" text={c.observations.communicationSocial} editing={editing} onChange={set("observations.communicationSocial")} prompt={FIELD_PROMPTS["observations.communicationSocial"]} />
+            <SubSection title="Emotional Regulation and Behaviour" text={c.observations.emotionalRegulation} editing={editing} onChange={set("observations.emotionalRegulation")} prompt={FIELD_PROMPTS["observations.emotionalRegulation"]} />
           </>
         );
       case "assessmentFindings":
         return (
           <>
-            <SubSection title="Sensory Processing" text={c.assessmentFindings.sensoryProcessing} editing={editing} onChange={set("assessmentFindings.sensoryProcessing")} />
-            <SubSection title="Fine Motor Skills" text={c.assessmentFindings.fineMotor} editing={editing} onChange={set("assessmentFindings.fineMotor")} />
-            <SubSection title="Gross Motor Skills" text={c.assessmentFindings.grossMotor} editing={editing} onChange={set("assessmentFindings.grossMotor")} />
-            <SubSection title="Self-Regulation" text={c.assessmentFindings.selfRegulation} editing={editing} onChange={set("assessmentFindings.selfRegulation")} />
-            <SubSection title="Play and Functional Skills" text={c.assessmentFindings.playFunctional} editing={editing} onChange={set("assessmentFindings.playFunctional")} />
+            <SubSection title="Sensory Processing" text={c.assessmentFindings.sensoryProcessing} editing={editing} onChange={set("assessmentFindings.sensoryProcessing")} prompt={FIELD_PROMPTS["assessmentFindings.sensoryProcessing"]} />
+            <SubSection title="Fine Motor Skills" text={c.assessmentFindings.fineMotor} editing={editing} onChange={set("assessmentFindings.fineMotor")} prompt={FIELD_PROMPTS["assessmentFindings.fineMotor"]} />
+            <SubSection title="Gross Motor Skills" text={c.assessmentFindings.grossMotor} editing={editing} onChange={set("assessmentFindings.grossMotor")} prompt={FIELD_PROMPTS["assessmentFindings.grossMotor"]} />
+            <SubSection title="Self-Regulation" text={c.assessmentFindings.selfRegulation} editing={editing} onChange={set("assessmentFindings.selfRegulation")} prompt={FIELD_PROMPTS["assessmentFindings.selfRegulation"]} />
+            <SubSection title="Play and Functional Skills" text={c.assessmentFindings.playFunctional} editing={editing} onChange={set("assessmentFindings.playFunctional")} prompt={FIELD_PROMPTS["assessmentFindings.playFunctional"]} />
           </>
         );
       case "functionalReview":
         return (
           <>
-            <SubSection title="Feeding and Eating" text={c.functionalReview?.feedingAndEating ?? ""} editing={editing} onChange={set("functionalReview.feedingAndEating")} />
-            <SubSection title="Personal Care and Dressing" text={c.functionalReview?.personalCareAndDressing ?? ""} editing={editing} onChange={set("functionalReview.personalCareAndDressing")} />
-            <SubSection title="Toileting" text={c.functionalReview?.toileting ?? ""} editing={editing} onChange={set("functionalReview.toileting")} />
-            <SubSection title="Sleep" text={c.functionalReview?.sleep ?? ""} editing={editing} onChange={set("functionalReview.sleep")} />
-            <SubSection title="School" text={c.functionalReview?.school ?? ""} editing={editing} onChange={set("functionalReview.school")} />
-            <SubSection title="Any Other Concerns" text={c.functionalReview?.otherConcerns ?? ""} editing={editing} onChange={set("functionalReview.otherConcerns")} />
-            <SubSection title="Discussion with Parent/Carer" text={c.functionalReview?.discussionWithParent ?? ""} editing={editing} onChange={set("functionalReview.discussionWithParent")} />
+            <SubSection title="Feeding and Eating" text={c.functionalReview?.feedingAndEating ?? ""} editing={editing} onChange={set("functionalReview.feedingAndEating")} prompt={FIELD_PROMPTS["functionalReview.feedingAndEating"]} />
+            <SubSection title="Personal Care and Dressing" text={c.functionalReview?.personalCareAndDressing ?? ""} editing={editing} onChange={set("functionalReview.personalCareAndDressing")} prompt={FIELD_PROMPTS["functionalReview.personalCareAndDressing"]} />
+            <SubSection title="Toileting" text={c.functionalReview?.toileting ?? ""} editing={editing} onChange={set("functionalReview.toileting")} prompt={FIELD_PROMPTS["functionalReview.toileting"]} />
+            <SubSection title="Sleep" text={c.functionalReview?.sleep ?? ""} editing={editing} onChange={set("functionalReview.sleep")} prompt={FIELD_PROMPTS["functionalReview.sleep"]} />
+            <SubSection title="School" text={c.functionalReview?.school ?? ""} editing={editing} onChange={set("functionalReview.school")} prompt={FIELD_PROMPTS["functionalReview.school"]} />
+            <SubSection title="Any Other Concerns" text={c.functionalReview?.otherConcerns ?? ""} editing={editing} onChange={set("functionalReview.otherConcerns")} prompt={FIELD_PROMPTS["functionalReview.otherConcerns"]} />
+            <SubSection title="Discussion with Parent/Carer" text={c.functionalReview?.discussionWithParent ?? ""} editing={editing} onChange={set("functionalReview.discussionWithParent")} prompt={FIELD_PROMPTS["functionalReview.discussionWithParent"]} />
           </>
         );
       case "interventionsUsed":
-        return <Prose value={c.interventionsUsed} editing={editing} onChange={set("interventionsUsed")} />;
+        return <Prose value={c.interventionsUsed} editing={editing} onChange={set("interventionsUsed")} prompt={FIELD_PROMPTS["interventionsUsed"]} />;
       case "responseToIntervention":
-        return <Prose value={c.responseToIntervention} editing={editing} onChange={set("responseToIntervention")} />;
+        return <Prose value={c.responseToIntervention} editing={editing} onChange={set("responseToIntervention")} prompt={FIELD_PROMPTS["responseToIntervention"]} />;
       case "clinicalImpressions":
-        return <Prose value={c.clinicalImpressions} editing={editing} onChange={set("clinicalImpressions")} />;
+        return <Prose value={c.clinicalImpressions} editing={editing} onChange={set("clinicalImpressions")} prompt={FIELD_PROMPTS["clinicalImpressions"]} />;
       case "recommendations":
-        return <Prose value={c.recommendations} editing={editing} onChange={set("recommendations")} />;
+        return <Prose value={c.recommendations} editing={editing} onChange={set("recommendations")} prompt={FIELD_PROMPTS["recommendations"]} />;
       case "goals":
         return (
           <>
-            <SubSection title="Short-Term Goals" text={c.goals.shortTerm} editing={editing} onChange={set("goals.shortTerm")} />
-            <SubSection title="Long-Term Goals" text={c.goals.longTerm} editing={editing} onChange={set("goals.longTerm")} />
-            <SubSection title="Next Session Plan" text={c.goals.nextSessionPlan} editing={editing} onChange={set("goals.nextSessionPlan")} />
+            <SubSection title="Short-Term Goals" text={c.goals.shortTerm} editing={editing} onChange={set("goals.shortTerm")} prompt={FIELD_PROMPTS["goals.shortTerm"]} />
+            <SubSection title="Long-Term Goals" text={c.goals.longTerm} editing={editing} onChange={set("goals.longTerm")} prompt={FIELD_PROMPTS["goals.longTerm"]} />
+            <SubSection title="Next Session Plan" text={c.goals.nextSessionPlan} editing={editing} onChange={set("goals.nextSessionPlan")} prompt={FIELD_PROMPTS["goals.nextSessionPlan"]} />
           </>
         );
       case "homeProgramme":
