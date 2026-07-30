@@ -599,6 +599,7 @@ model BookingService {
   /// `createsClient`). Used for OT assessments so the referral form goes
   /// out the moment payment lands. Admin-controlled per service.
   autoSendReferralForm Boolean @default(false) @map("auto_send_referral_form")
+  autoSendFeedbackForm Boolean @default(false) @map("auto_send_feedback_form")
 
   /// Delivery mode — drives the location/online wording shown to
   /// parents and in reminder emails. "in_person" | "online" | "home".
@@ -649,6 +650,10 @@ model Booking {
   // this client on payment (see src/lib/booking-referral.ts). Idempotency
   // key so the webhook firing twice never double-sends the form.
   referralFormSentAt DateTime? @map("referral_form_sent_at")
+  // Stamp set when the post-appointment feedback form was emailed (~1 week
+  // after the appointment). Idempotency key so the daily sweep never
+  // double-sends. NULL = not yet sent.
+  feedbackFormSentAt DateTime? @map("feedback_form_sent_at")
   // Google Calendar event id, set when this booking was written to the
   // owner's connected Google calendar (OAuth write sync). Used to delete
   // the event if the booking is cancelled. NULL = never synced.

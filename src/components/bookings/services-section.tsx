@@ -45,6 +45,7 @@ interface ServiceRow {
   depositPence: number;
   isActive: boolean;
   autoSendReferralForm: boolean;
+  autoSendFeedbackForm?: boolean;
   minSessions: number;
   maxSessions: number;
   order: number;
@@ -491,6 +492,9 @@ function EditorPanel({
   const [autoSendReferralForm, setAutoSendReferralForm] = useState(
     service.autoSendReferralForm,
   );
+  const [autoSendFeedbackForm, setAutoSendFeedbackForm] = useState(
+    service.autoSendFeedbackForm ?? false,
+  );
   const [minSessions, setMinSessions] = useState(service.minSessions ?? 1);
   const [maxSessions, setMaxSessions] = useState(service.maxSessions ?? 1);
   const isBlock = maxSessions > 1;
@@ -887,6 +891,25 @@ function EditorPanel({
             className="h-5 w-5 rounded border-border text-primary focus:ring-primary"
           />
         </label>
+
+        <label className="flex cursor-pointer items-center justify-between rounded-xl border border-border bg-muted/30 p-3 sm:col-span-2">
+          <div>
+            <p className="text-sm font-medium">
+              Send feedback form 1 week after appointment
+            </p>
+            <p className="text-xs text-muted-foreground">
+              A week after a booking for this service, the client is
+              automatically emailed the feedback form. Recommended for OT
+              assessments.
+            </p>
+          </div>
+          <input
+            type="checkbox"
+            checked={autoSendFeedbackForm}
+            onChange={(e) => setAutoSendFeedbackForm(e.target.checked)}
+            className="h-5 w-5 rounded border-border text-primary focus:ring-primary"
+          />
+        </label>
       </div>
 
       <div className="mt-5 flex items-center justify-end gap-2 border-t border-border pt-4">
@@ -911,6 +934,7 @@ function EditorPanel({
               durationMinutes,
               isActive,
               autoSendReferralForm,
+              autoSendFeedbackForm,
               minSessions,
               maxSessions,
               mode,

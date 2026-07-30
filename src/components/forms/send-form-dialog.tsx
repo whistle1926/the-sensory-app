@@ -71,6 +71,28 @@ export function SendFormDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // Pre-fill the subject/message from this form's saved email copy
+  // (settings.emailSubject / settings.emailBody) so each form carries its
+  // own wording — e.g. the feedback form's thank-you note vs. the referral
+  // form's pre-appointment ask. Falls back to the generic default above.
+  useEffect(() => {
+    if (!open) return;
+    fetch(`/api/forms/${formId}`)
+      .then((r) => r.json())
+      .then((form) => {
+        const s = (form?.settings ?? {}) as {
+          emailSubject?: string;
+          emailBody?: string;
+        };
+        if (typeof s.emailSubject === "string" && s.emailSubject.trim())
+          setSubject(s.emailSubject);
+        if (typeof s.emailBody === "string" && s.emailBody.trim())
+          setBody(s.emailBody);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, formId]);
+
   const filtered = search.trim()
     ? clients.filter((c) => {
         const q = search.toLowerCase();
@@ -158,7 +180,7 @@ export function SendFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Send form</DialogTitle>
         </DialogHeader>

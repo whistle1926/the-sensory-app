@@ -62,6 +62,8 @@ export async function PATCH(
   if (typeof body.isActive === "boolean") data.isActive = body.isActive;
   if (typeof body.autoSendReferralForm === "boolean")
     data.autoSendReferralForm = body.autoSendReferralForm;
+  if (typeof body.autoSendFeedbackForm === "boolean")
+    data.autoSendFeedbackForm = body.autoSendFeedbackForm;
 
   // How many dates the client picks in one booking (1/1 = a normal
   // appointment; 2/5 = a block priced per session).

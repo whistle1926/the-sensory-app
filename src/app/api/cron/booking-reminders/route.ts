@@ -36,6 +36,7 @@ import {
   renderTemplate,
   variablesForBooking,
 } from "@/lib/booking-automation";
+import { sendDueFeedbackForms } from "@/lib/booking-feedback";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -159,12 +160,24 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ── Post-appointment feedback sweep ────────────────────────────────
+  // Piggy-backed here (Hobby plan caps us at 2 crons). Emails the feedback
+  // form ~1 week after appointments for opted-in services. Wrapped so it can
+  // never break the reminder run.
+  let feedback: Awaited<ReturnType<typeof sendDueFeedbackForms>> | null = null;
+  try {
+    feedback = await sendDueFeedbackForms(now);
+  } catch (err) {
+    console.error("[booking-feedback] sweep failed (non-fatal)", err);
+  }
+
   return NextResponse.json({
     ranAt: now.toISOString(),
     candidates: candidates.length,
     due: due.length,
     sent,
     failed,
+    feedback,
     ai: aiHealth,
   });
 }
