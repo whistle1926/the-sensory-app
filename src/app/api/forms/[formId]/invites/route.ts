@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sendTransactionalEmail, escapeHtml } from "@/lib/email";
+import { sendTransactionalEmail } from "@/lib/email";
 import { brandedEmail } from "@/lib/email-layout";
+import { renderFormEmailBody, fallbackLinkHtml } from "@/lib/form-email";
 import { isEmail } from "@/lib/forms";
 
 function isStaff(role: string | undefined): boolean {
@@ -167,22 +168,24 @@ export async function POST(
       formUrl,
     };
     const subject = renderTemplate(subjectTemplate, vars);
-    const renderedBody = renderTemplate(bodyTemplate, vars);
+    // Deliberately DON'T substitute {{formUrl}} in the body here — leave the
+    // placeholder intact so renderFormEmailBody can swap it for the branded
+    // button in place. Substituting it first would inline a bare URL and the
+    // button would end up appended at the bottom instead.
+    const renderedBody = renderTemplate(bodyTemplate, {
+      formTitle: form.title,
+    });
 
     // Branded shell so form invites match the invoice/booking emails
     // (same font, logo header, footer) rather than being bare text.
+    // renderFormEmailBody handles **bold**, paragraphs, and drops the button
+    // where the admin put the link placeholder — so a body that already says
+    // "Complete the form here: [link]" reads properly instead of printing the
+    // raw placeholder above a separately-appended button.
     const html = brandedEmail({
-      bodyHtml: `
-        <div style="white-space:pre-wrap;">${escapeHtml(renderedBody)}</div>
-        <p style="margin:20px 0 0;">
-          <a href="${escapeHtml(formUrl)}" style="display:inline-block;background:#1a1a2e;color:#ffffff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:700;">
-            ${escapeHtml(form.title)}
-          </a>
-        </p>
-        <p style="margin:18px 0 0;font-size:11px;color:#999999;">
-          If the button doesn't work, copy and paste this link:<br/>
-          <a href="${escapeHtml(formUrl)}" style="color:#999999;">${escapeHtml(formUrl)}</a>
-        </p>`,
+      bodyHtml:
+        renderFormEmailBody(renderedBody, formUrl, form.title) +
+        fallbackLinkHtml(formUrl),
     });
 
     try {

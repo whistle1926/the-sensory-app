@@ -20,8 +20,9 @@
  */
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { sendTransactionalEmail, escapeHtml } from "@/lib/email";
+import { sendTransactionalEmail } from "@/lib/email";
 import { brandedEmail } from "@/lib/email-layout";
+import { renderFormEmailBody, fallbackLinkHtml } from "@/lib/form-email";
 
 /** How many days after the appointment to send feedback, and the trailing
  * window so a cron that missed a day or two still catches the booking. */
@@ -32,6 +33,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** Default copy, used only if the feedback form has no saved email copy. */
 export const DEFAULT_FEEDBACK_SUBJECT =
   "How was your OT assessment? — a quick bit of feedback";
+// `{{formUrl}}` marks where the branded button goes — it is replaced by the
+// button itself, so no placeholder text ever reaches the client.
 export const DEFAULT_FEEDBACK_BODY = `Hi,
 
 Thank you for recently attending an Occupational Therapy assessment with The Sensory Submarine.
@@ -40,8 +43,7 @@ We hope you found your appointment helpful. We are always evaluating our service
 
 Your feedback helps us continue to provide the very best support for children and families, and we genuinely value every response.
 
-**Complete the feedback form here:**
-[Insert Feedback Form Link]
+{{formUrl}}
 
 Thank you again for choosing The Sensory Submarine. We truly appreciate your support.
 
@@ -68,48 +70,6 @@ async function findFeedbackForm() {
   );
   if (byFlag) return byFlag;
   return forms.find((f) => /feedback/i.test(f.slug)) ?? null;
-}
-
-/**
- * Turn the stored plain-text body into HTML: substitute the link tokens
- * with a branded button, escape everything else, and keep paragraph breaks.
- * Supports `{{formUrl}}`, `{{formTitle}}`, and a literal
- * "[Insert Feedback Form Link]" placeholder from a pasted draft.
- */
-function bodyToHtml(body: string, formUrl: string, formTitle: string): string {
-  const button = `<a href="${escapeHtml(formUrl)}" style="display:inline-block;background:#1a1a2e;color:#ffffff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:700;">${escapeHtml(
-    formTitle,
-  )}</a>`;
-  // Split into paragraphs on blank lines; render each, swapping the link
-  // placeholders for the button and **bold** for <strong>.
-  const paras = body.replace(/\r\n/g, "\n").split(/\n{2,}/);
-  let linkPlaced = false;
-  const htmlParas = paras.map((p) => {
-    const linkPlaceholder =
-      /\{\{\s*formUrl\s*\}\}|\[insert feedback form link\]/i;
-    if (linkPlaceholder.test(p)) {
-      // A paragraph that is (or contains) the link → replace with the button.
-      linkPlaced = true;
-      const before = p.split(linkPlaceholder)[0].trim();
-      const prefix = before
-        ? `<p style="margin:0 0 12px;">${inline(before, formTitle)}</p>`
-        : "";
-      return `${prefix}<p style="margin:0 0 18px;">${button}</p>`;
-    }
-    return `<p style="margin:0 0 14px;">${inline(p, formTitle)}</p>`;
-  });
-  // Safety net: if the copy was edited to drop the link placeholder, still
-  // append the button so the email always has a working link.
-  if (!linkPlaced) htmlParas.push(`<p style="margin:0 0 18px;">${button}</p>`);
-  return htmlParas.join("\n");
-}
-
-/** Escape, then apply light inline formatting (**bold**, {{formTitle}}, line breaks). */
-function inline(text: string, formTitle: string): string {
-  let out = escapeHtml(text.replace(/\{\{\s*formTitle\s*\}\}/g, formTitle));
-  out = out.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  out = out.replace(/\n/g, "<br/>");
-  return out;
 }
 
 /**
@@ -169,10 +129,8 @@ export async function sendBookingFeedbackForm(bookingId: string): Promise<
 
   const html = brandedEmail({
     bodyHtml:
-      bodyToHtml(bodyTpl, formUrl, form.title) +
-      `<p style="margin:18px 0 0;font-size:11px;color:#999999;">If the button doesn't work, copy and paste this link:<br/><a href="${escapeHtml(
-        formUrl,
-      )}" style="color:#999999;">${escapeHtml(formUrl)}</a></p>`,
+      renderFormEmailBody(bodyTpl, formUrl, form.title) +
+      fallbackLinkHtml(formUrl),
   });
 
   await sendTransactionalEmail({ to: booking.clientEmail, subject, html });
