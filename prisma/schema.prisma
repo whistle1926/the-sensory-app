@@ -776,6 +776,14 @@ model Task {
   // which isn't a reflection of fix speed). Locked on first for_review.
   forReviewAt   DateTime? @map("for_review_at")
 
+  // Visual "how to check this" walkthrough, shown on the task once a build is
+  // ready for review — an ordered array of
+  //   { imageUrl?, title, caption, href?, hrefLabel? }
+  // so a non-technical reviewer can see exactly where the change landed and
+  // confirm it's what they asked for. Json (not a table) because it's always
+  // read and written whole, and the shape may grow.
+  reviewGuide   Json      @default("[]") @map("review_guide")
+
   assignees     TaskAssignee[]
   subtasks      Subtask[]
   comments      TaskComment[]

@@ -22,6 +22,8 @@ import {
   type Comment,
 } from "@/components/tasks/comment-thread";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { ReviewGuide } from "@/components/tasks/review-guide";
+import { cleanReviewGuide } from "@/lib/review-guide";
 import type { TaskPriority, TaskStatus } from "@/lib/tasks";
 
 interface Assignee {
@@ -50,6 +52,7 @@ interface Task {
   assignees: Assignee[];
   subtasks: Subtask[];
   attachments: Attachment[];
+  reviewGuide?: unknown;
   comments: Comment[];
   createdAt: string;
   forReviewAt: string | null;
@@ -351,6 +354,8 @@ export default function TaskDetailPage({
               </div>
             </div>
           </div>
+
+          <ReviewGuide steps={cleanReviewGuide(task.reviewGuide)} />
 
           {task.attachments.length > 0 && (
             <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
