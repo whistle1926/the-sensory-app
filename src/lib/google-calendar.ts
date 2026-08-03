@@ -94,7 +94,18 @@ export function googleRedirectUri(fallbackOrigin?: string): string {
     process.env.NEXTAUTH_URL ||
     fallbackOrigin ||
     "";
-  return `${base.replace(/\/$/, "")}/api/google/callback`;
+  // Trim surrounding whitespace, quotes and any trailing newline before
+  // building the URI. Env values pasted into a dashboard often arrive with a
+  // stray newline or wrapping quotes, and Google rejects the whole consent
+  // request with redirect_uri_mismatch if even one character is off — a
+  // miserable thing to debug, so normalise it here.
+  const clean = base
+    .trim()
+    .replace(/\\n$/, "")
+    .replace(/^["']|["']$/g, "")
+    .trim()
+    .replace(/\/$/, "");
+  return `${clean}/api/google/callback`;
 }
 
 /** Build the Google consent URL. `state` is our signed CSRF/user token. */

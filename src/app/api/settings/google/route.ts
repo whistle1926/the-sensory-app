@@ -10,7 +10,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { googleOAuthConfigured } from "@/lib/google-calendar";
+import { googleOAuthConfigured, googleRedirectUri } from "@/lib/google-calendar";
 
 function isStaff(role: string | undefined): boolean {
   return role === "SUPER_ADMIN" || role === "TEAM_MANAGER";
@@ -27,6 +27,10 @@ export async function GET() {
   });
   return NextResponse.json({
     configured: googleOAuthConfigured(),
+    // Surfaced so setup can be verified against what Google has registered.
+    // redirect_uri_mismatch is the classic failure and is invisible from the
+    // app side otherwise — this makes the expected value copy-pasteable.
+    redirectUri: googleRedirectUri(),
     connected: Boolean(user?.googleRefreshToken),
     email: user?.googleTokenEmail ?? null,
     connectedAt: user?.googleConnectedAt ?? null,
