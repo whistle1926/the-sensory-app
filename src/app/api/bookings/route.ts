@@ -215,9 +215,9 @@ export async function POST(req: NextRequest) {
   const firstTime = booking.time;
 
   // Notify the owning associate (best-effort) that they have a new
-  // booking. Routed to the service owner's email; falls back to silence
-  // for unassigned/practice services (Grace already gets the calendar
-  // view). Never blocks the booking.
+  // booking. Routed to the service owner's email; unassigned/practice
+  // services fall back to the practice inbox (EmailSettings.senderEmail)
+  // so they still reach someone. Never blocks the booking.
   void notifyOwnerOfBooking({
     ownerId,
     clientName,

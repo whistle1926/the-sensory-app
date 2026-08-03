@@ -103,7 +103,10 @@ export function CalendarHelpContent({ autoSyncOn }: { autoSyncOn: boolean }) {
             nobody assigned, it goes to the practice inbox instead.
           </Bullet>
           <Bullet>
-            The day before, the client automatically gets a reminder email.
+            The client gets a reminder email the day before — as long as the
+            booking was made before <strong>10am the previous day</strong>. The
+            reminders go out in one batch each morning, so a late booking made
+            after that sweep won&apos;t get one.
           </Bullet>
         </ol>
         <Note>
