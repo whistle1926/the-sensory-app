@@ -200,6 +200,29 @@ export default function CalendarPage() {
 
   return (
     <div className="space-y-6">
+      {/* People land here wondering why the calendar is empty or why their
+          Google events are missing — put the guide right where they look. */}
+      <a
+        href={connectedCount === 0 ? "/help/calendars/setup" : "/help/calendars"}
+        className="flex items-center justify-between gap-3 rounded-2xl border-2 border-primary/30 bg-primary/[0.04] p-4 transition hover:bg-primary/[0.08]"
+      >
+        <span>
+          <span className="block text-sm font-bold">
+            {connectedCount === 0
+              ? "Your calendar isn't connected yet — here's how, step by step"
+              : "Not sure how this connects to Google? Read the guide"}
+          </span>
+          <span className="mt-0.5 block text-xs text-muted-foreground">
+            {connectedCount === 0
+              ? "Takes about 5 minutes on a computer, and you only do it once."
+              : "What's automatic, what needs a click, and why Google events can lag."}
+          </span>
+        </span>
+        <span className="shrink-0 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground">
+          {connectedCount === 0 ? "Show me how" : "Open guide"}
+        </span>
+      </a>
+
       <Toolbar
         title="Team Calendar"
         subtitle={

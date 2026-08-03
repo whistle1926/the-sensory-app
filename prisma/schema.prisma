@@ -1482,6 +1482,10 @@ model StorefrontConfig {
   //   { enabled, eyebrow, title, blurb, bullets[], price, url, ctaLabel }
   // Stored as Json so the copy is admin-editable without a schema change.
   partnerCourse      Json     @default("{}") @map("partner_course")
+  // Screenshots used by the in-app help pages, keyed by name (e.g.
+  // { calendarSettings: "https://…png" }). Stored here so a screen can be
+  // re-captured and swapped without a code change.
+  helpAssets         Json     @default("{}") @map("help_assets")
   updatedAt DateTime @updatedAt @map("updated_at")
   @@map("storefront_config")
 }

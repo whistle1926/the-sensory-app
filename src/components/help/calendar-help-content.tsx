@@ -206,6 +206,16 @@ export function CalendarHelpContent({ autoSyncOn }: { autoSyncOn: boolean }) {
           </Bullet>
         </ol>
 
+        <div className="mt-4">
+          <Link
+            href="/help/calendars/setup"
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground transition hover:opacity-90"
+          >
+            Show me how, click by click
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+
         <div className="mt-4 space-y-3">
           <Warn icon={Clock} title="It is not live — expect a delay">
             Google only republishes that feed <strong>every few hours</strong>.
