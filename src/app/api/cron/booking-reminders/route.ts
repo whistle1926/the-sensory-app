@@ -23,7 +23,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { sendTransactionalEmail } from "@/lib/email";
 import { sendMail } from "@/lib/mailer";
 import {
   checkAiHealth,
@@ -31,12 +30,12 @@ import {
   resolveAiKeyTask,
   type AiHealth,
 } from "@/lib/ai-model";
-import {
-  getEnabledAutomation,
-  renderTemplate,
-  variablesForBooking,
-} from "@/lib/booking-automation";
 import { sendDueFeedbackForms } from "@/lib/booking-feedback";
+import {
+  appointmentTimestamp,
+  sendReminderFor,
+  ukDateString,
+} from "@/lib/booking-reminder";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -143,14 +142,11 @@ export async function GET(req: NextRequest) {
   let failed = 0;
   for (const b of due) {
     try {
-      const result = await sendReminderEmail(b);
-      if (result.ok) {
-        await prisma.booking.update({
-          where: { id: b.id },
-          data: { reminderSentAt: new Date() },
-        });
-        sent++;
-      } else {
+      // Shared with the late-booking path in src/lib/booking-reminder.ts so
+      // the copy and the reminderSentAt stamping can't drift apart.
+      const result = await sendReminderFor(b);
+      if (result.ok) sent++;
+      else {
         failed++;
         console.error("[booking-reminder] send failed", b.id, result.error);
       }
@@ -182,51 +178,6 @@ export async function GET(req: NextRequest) {
   });
 }
 
-/**
- * Combine the stored UTC midnight (e.g. "2026-04-16T23:00Z" for an April 17
- * BST booking) with the local-time string ("10:30") to get the actual UTC
- * appointment timestamp. Works for both BST and GMT because the stored
- * date already encodes the UK day boundary in UTC.
- */
-/** YYYY-MM-DD calendar string for the given timestamp in UK time. */
-function ukDateString(d: Date): string {
-  // 'en-CA' formats as YYYY-MM-DD by default — no manual parsing needed.
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/London",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
-}
 
-function appointmentTimestamp(date: Date, time: string): Date {
-  const [h, m] = time.split(":").map((n) => parseInt(n, 10));
-  if (Number.isNaN(h) || Number.isNaN(m)) {
-    // Defensive: a malformed time string shouldn't blow up the cron run.
-    return new Date(date);
-  }
-  const dt = new Date(date);
-  dt.setUTCMinutes(dt.getUTCMinutes() + h * 60 + m);
-  return dt;
-}
 
-async function sendReminderEmail(b: BookingForReminder) {
-  const automation = await getEnabledAutomation("reminder_24h");
-  if (!automation) {
-    return { ok: false, error: "reminder_24h automation disabled or missing" };
-  }
-  const vars = await variablesForBooking({
-    clientName: b.clientName,
-    service: b.service,
-    date: b.date,
-    time: b.time,
-    duration: b.duration,
-    pricePence: 0,
-  });
-  return sendTransactionalEmail({
-    to: b.clientEmail,
-    subject: renderTemplate(automation.subject, vars),
-    html: renderTemplate(automation.bodyHtml, vars),
-  });
-}
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sendLateBookingReminders } from "@/lib/booking-reminder";
 import { FireBuddy } from "@/lib/firebuddy";
 import { ensureParentAccount } from "@/lib/parent-account";
 import { DEPOSIT_SERVICES } from "@/lib/booking-terms";
@@ -227,6 +228,21 @@ export async function POST(req: NextRequest) {
     time: firstTime,
     extraSessions: created.length - 1,
   }).catch((err) => console.error("Owner booking notification failed:", err));
+
+  // The daily reminder sweep only looks a day ahead, so anything booked
+  // after this morning's run for tomorrow would never get a reminder. Send
+  // those now. Best-effort and non-blocking, like the notifications above.
+  void sendLateBookingReminders(
+    created.map((b) => ({
+      id: b.id,
+      service: b.service,
+      date: b.date,
+      time: b.time,
+      duration: b.duration,
+      clientName: b.clientName,
+      clientEmail: b.clientEmail,
+    })),
+  ).catch((err) => console.error("Late booking reminder failed:", err));
 
   // Write each session into the owner's Google Calendar if they've connected
   // OAuth write-sync (Settings → Calendar). Best-effort and non-blocking:
