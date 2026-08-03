@@ -43,10 +43,34 @@ export function CalendarSetupContent({
           Connect your calendar — step by step
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          This makes your own Google appointments show up in the portal. Takes
-          about 5 minutes, and you only ever do it once.
+          This makes your own Google appointments show up in the portal. There
+          are two ways — try the one-click one first.
         </p>
       </div>
+
+      {/* The easy route first — most people should never read the rest. */}
+      <section className="rounded-2xl border-2 border-green-500/40 bg-green-50 p-5 dark:bg-green-950/20">
+        <p className="text-base font-bold text-green-900 dark:text-green-300">
+          Try this first — it takes one click
+        </p>
+        <p className="mt-1.5 text-sm leading-relaxed text-green-900/80 dark:text-green-200/80">
+          Go to <strong>Settings → Calendar</strong> and press{" "}
+          <strong>Connect Google Calendar</strong>. Sign in, tap Allow, and
+          you&apos;re done — no hunting for hidden settings, no secret link, and
+          it works on your phone. It also sets up the other direction at the
+          same time, so your bookings go into Google automatically.
+        </p>
+        <Link
+          href="/settings?tab=calendar"
+          className="mt-3 inline-flex items-center gap-2 rounded-xl bg-green-700 px-4 py-2.5 text-sm font-bold text-white transition hover:opacity-90 dark:bg-green-600"
+        >
+          Take me there
+        </Link>
+        <p className="mt-3 text-xs text-green-900/70 dark:text-green-200/70">
+          Only carry on below if that button isn&apos;t there yet, or you&apos;d
+          rather not connect your Google account.
+        </p>
+      </section>
 
       {/* Before you start */}
       <section className="rounded-2xl border-2 border-amber-500/40 bg-amber-50 p-5 dark:bg-amber-950/20">

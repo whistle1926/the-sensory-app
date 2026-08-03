@@ -152,7 +152,7 @@ export function CalendarSettingsSection() {
           </div>
           <div>
             <h2 className="text-base font-semibold">
-              Show my Google events here (read-only)
+              Or: paste a secret iCal link instead
             </h2>
             <p className="text-xs text-muted-foreground">
               Paste your calendar&apos;s secret iCal link so your existing
@@ -396,12 +396,14 @@ function GoogleWriteSyncCard() {
         </div>
         <div>
           <h2 className="text-base font-semibold">
-            Add my bookings to Google automatically
+            Connect Google Calendar (recommended)
           </h2>
           <p className="text-xs text-muted-foreground">
-            Connect once and every new booking for you is written straight into
-            your Google Calendar — and removed if it&apos;s cancelled. No more
-            clicking &ldquo;Add to calendar&rdquo; in the email.
+            One click sets up <strong>both</strong> directions: new bookings are
+            written straight into your Google Calendar (and removed if
+            cancelled), and your Google appointments show on the portal
+            calendar — live, with no secret link to hunt for. Works from your
+            phone.
           </p>
         </div>
       </div>

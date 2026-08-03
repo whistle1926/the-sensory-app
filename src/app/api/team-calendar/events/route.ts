@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { fetchAndParseIcs, type IcsEvent } from "@/lib/ics-parser";
+import { listUpcomingEvents } from "@/lib/google-calendar";
 
 export const maxDuration = 30;
 
@@ -51,12 +52,22 @@ export async function GET(req: NextRequest) {
   // Everyone on staff who has connected their Google Calendar.
   // We fetch all of them — the admin view shows everyone overlaid;
   // a future filter UI can hide per-person.
+  // Anyone connected by EITHER route: the OAuth connection (preferred — live
+  // and needs no secret URL) or the older iCal feed. Someone with both is
+  // read via OAuth only, so their events don't appear twice.
   const staff = await prisma.user.findMany({
     where: {
       role: { in: ["SUPER_ADMIN", "TEAM_MANAGER"] },
-      calendarIcsUrl: { not: null },
+      OR: [{ calendarIcsUrl: { not: null } }, { googleRefreshToken: { not: null } }],
     },
-    select: { id: true, name: true, calendarIcsUrl: true, calendarColour: true },
+    select: {
+      id: true,
+      name: true,
+      calendarIcsUrl: true,
+      calendarColour: true,
+      googleRefreshToken: true,
+      googleCalendarId: true,
+    },
   });
 
   // Default colour palette so events still look distinct even if no
@@ -75,8 +86,21 @@ export async function GET(req: NextRequest) {
 
   const perStaff = await Promise.all(
     staff.map(async (u, idx) => {
-      if (!u.calendarIcsUrl) return [];
-      const events = await fetchAndParseIcs(u.calendarIcsUrl);
+      // Prefer the API: it's live, whereas Google only republishes the iCal
+      // feed every few hours. Fall back to iCal if the API call fails, so a
+      // revoked token doesn't blank someone who still has a feed configured.
+      let events: IcsEvent[] | null = null;
+      if (u.googleRefreshToken) {
+        events = await listUpcomingEvents({
+          refreshToken: u.googleRefreshToken,
+          calendarId: u.googleCalendarId,
+          from,
+          to,
+        });
+      }
+      if (!events && u.calendarIcsUrl) {
+        events = await fetchAndParseIcs(u.calendarIcsUrl);
+      }
       if (!events) return [];
       const colour = u.calendarColour ?? PALETTE[idx % PALETTE.length];
       const inWindow = events.filter((e) => {
@@ -105,7 +129,7 @@ export async function GET(req: NextRequest) {
       id: u.id,
       name: u.name,
       colour: u.calendarColour ?? PALETTE[idx % PALETTE.length],
-      connected: !!u.calendarIcsUrl,
+      connected: !!u.calendarIcsUrl || !!u.googleRefreshToken,
     })),
   });
 }

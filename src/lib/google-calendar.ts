@@ -319,3 +319,105 @@ export async function deleteBookingEvent(args: {
     return false;
   }
 }
+
+/**
+ * Read a connected user's upcoming events straight from the Calendar API.
+ *
+ * This is the read half of the OAuth connection, and it exists to replace the
+ * secret-iCal-URL route entirely. The iCal feed had three problems: the setting
+ * is buried in Google (and hidden altogether on some Workspace accounts), it
+ * can't be reached from the phone app at all, and Google only republishes it
+ * every few hours so the portal was always stale. The API has none of that —
+ * one consent click, live data.
+ *
+ * The `calendar.events` scope we already request covers reading events, so no
+ * new consent is needed for people who have connected.
+ *
+ * Returns events in the same shape as the iCal parser so the team calendar can
+ * merge both sources without caring which one a person uses. Returns null on
+ * any failure so a single broken connection can't take the calendar down.
+ */
+export async function listUpcomingEvents(args: {
+  refreshToken: string;
+  calendarId?: string | null;
+  from: Date;
+  to: Date;
+}): Promise<GoogleReadEvent[] | null> {
+  const accessToken = await getAccessToken(args.refreshToken);
+  if (!accessToken) return null;
+
+  const calendarId = encodeURIComponent(args.calendarId || "primary");
+  const params = new URLSearchParams({
+    timeMin: args.from.toISOString(),
+    timeMax: args.to.toISOString(),
+    // Expand recurring events into individual occurrences, otherwise a weekly
+    // clinic would show once instead of every week.
+    singleEvents: "true",
+    orderBy: "startTime",
+    maxResults: "250",
+  });
+
+  try {
+    const res = await fetch(`${CAL_BASE}/${calendarId}/events?${params}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) {
+      console.error("[google] events.list failed", res.status);
+      return null;
+    }
+    const json = (await res.json()) as { items?: GoogleApiEvent[] };
+    const items = json.items ?? [];
+    return items
+      .filter((e) => e.status !== "cancelled")
+      .map(toReadEvent)
+      .filter((e): e is GoogleReadEvent => e !== null);
+  } catch (err) {
+    console.error("[google] events.list threw", err);
+    return null;
+  }
+}
+
+/** Matches the iCal parser's event shape so both sources merge cleanly. */
+export interface GoogleReadEvent {
+  uid: string;
+  title: string;
+  description?: string;
+  location?: string;
+  startAt: string;
+  endAt: string;
+  allDay: boolean;
+}
+
+interface GoogleApiEvent {
+  id?: string;
+  status?: string;
+  summary?: string;
+  description?: string;
+  location?: string;
+  start?: { dateTime?: string; date?: string };
+  end?: { dateTime?: string; date?: string };
+}
+
+function toReadEvent(e: GoogleApiEvent): GoogleReadEvent | null {
+  // All-day events carry `date` (YYYY-MM-DD); timed ones carry `dateTime`.
+  const startRaw = e.start?.dateTime ?? e.start?.date;
+  const endRaw = e.end?.dateTime ?? e.end?.date;
+  if (!startRaw || !endRaw) return null;
+  const allDay = !e.start?.dateTime;
+  const start = new Date(startRaw);
+  const end = new Date(endRaw);
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
+    return null;
+  }
+  return {
+    uid: e.id ?? `${startRaw}-${e.summary ?? ""}`,
+    // Google omits summary on events with no title; the calendar shows
+    // "(No title)" for these, so mirror that rather than rendering blank.
+    title: e.summary?.trim() || "(No title)",
+    description: e.description,
+    location: e.location,
+    startAt: start.toISOString(),
+    endAt: end.toISOString(),
+    allDay,
+  };
+}

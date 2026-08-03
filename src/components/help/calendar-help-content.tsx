@@ -194,7 +194,24 @@ export function CalendarHelpContent({ autoSyncOn }: { autoSyncOn: boolean }) {
           stops the portal diary looking empty when most of your week actually
           lives in Google.
         </p>
-        <ol className="mt-3 space-y-3">
+
+        <div className="mt-3 rounded-xl border border-green-500/30 bg-green-50 p-4 dark:bg-green-950/20">
+          <p className="text-sm font-bold text-green-900 dark:text-green-300">
+            The easy way: it&apos;s included when you connect Google
+          </p>
+          <p className="mt-1 text-sm leading-relaxed text-green-900/80 dark:text-green-200/80">
+            Connecting Google Calendar (step 2 above) now sets up{" "}
+            <strong>both</strong> directions at once. Your appointments appear
+            in the portal automatically — live, not hours behind — and
+            there&apos;s no secret link to find. It works from your phone too.
+            The steps below are only needed if you&apos;d rather not connect
+            your account.
+          </p>
+        </div>
+        <p className="mt-4 text-sm font-semibold">
+          The other way — pasting a secret link:
+        </p>
+        <ol className="mt-2 space-y-3">
           <Bullet>
             Go to <strong>Settings → Calendar</strong>.
           </Bullet>
@@ -220,8 +237,10 @@ export function CalendarHelpContent({ autoSyncOn }: { autoSyncOn: boolean }) {
         </div>
 
         <div className="mt-4 space-y-3">
-          <Warn icon={Clock} title="It is not live — expect a delay">
-            Google only republishes that feed <strong>every few hours</strong>.
+          <Warn icon={Clock} title="The secret-link route is not live — expect a delay">
+            This applies to the pasted-link method only, not to connecting your
+            account. Google only republishes that feed{" "}
+            <strong>every few hours</strong>.
             A brand-new Google appointment will not show in the portal straight
             away, and that is normal, not a fault. If something is missing, it
             is nearly always just this delay.
