@@ -45,6 +45,8 @@ export interface PageHelpContent {
   steps: PageHelpStep[];
   /** Optional extra pointers (shortcuts, gotchas, good-to-knows). */
   tips?: string[];
+  /** Optional link to a fuller in-app guide, shown as a button in the panel. */
+  learnMore?: { href: string; label: string };
 }
 
 /** Normalise a step to its object form. */
@@ -111,6 +113,10 @@ export const PAGE_HELP: Record<string, PageHelpContent> = {
       "Portal bookings don’t appear in Google automatically. When a booking is made, the therapist (or the practice inbox for unassigned services) gets a “New booking” email with a one-click ‘Add to Google Calendar’ button — that’s how it gets into your Google diary.",
       "Share the booking link at the top with clients so they can book themselves.",
     ],
+    learnMore: {
+      href: "/help/calendars",
+      label: "Confused by the Google/calendar side? Read the full guide",
+    },
   },
 
   services: {

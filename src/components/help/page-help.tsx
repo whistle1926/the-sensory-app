@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useState } from "react";
 import {
+  ArrowRight,
   HelpCircle,
   X,
   Lightbulb,
@@ -238,6 +239,16 @@ export function PageHelp({ pageKey }: { pageKey: string }) {
                   ))}
                 </div>
               </div>
+            )}
+
+            {content.learnMore && (showAll || isLast) && (
+              <a
+                href={content.learnMore.href}
+                className="mt-3 flex items-center justify-between gap-2 rounded-xl border-2 border-primary/30 bg-primary/[0.04] p-3 text-xs font-bold transition hover:bg-primary/[0.08]"
+              >
+                <span>{content.learnMore.label}</span>
+                <ArrowRight className="h-3.5 w-3.5 shrink-0" />
+              </a>
             )}
 
             {content.tips && content.tips.length > 0 && (showAll || isLast) && (

@@ -120,6 +120,29 @@ export function CalendarSettingsSection() {
 
   return (
     <div className="space-y-4">
+      {/* People arrive here unsure which of the two connections does what —
+          point them at the full explainer before they start pasting URLs. */}
+      <a
+        href="/help/calendars"
+        className="flex items-center justify-between gap-3 rounded-2xl border-2 border-primary/30 bg-primary/[0.03] p-4 transition hover:bg-primary/[0.06]"
+      >
+        <span className="flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <HelpCircle className="h-5 w-5 text-primary" />
+          </span>
+          <span>
+            <span className="block text-sm font-bold">
+              Not sure how the calendars link up?
+            </span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">
+              There are two separate connections, pointing opposite ways — read
+              the plain-English guide first.
+            </span>
+          </span>
+        </span>
+        <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
+      </a>
+
       <GoogleWriteSyncCard />
 
       <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
