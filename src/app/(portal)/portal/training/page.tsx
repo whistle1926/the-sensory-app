@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import {
   Award,
   ArrowRight,
+  BadgeCheck,
   BookOpen,
   Clock,
   GraduationCap,
@@ -13,6 +14,11 @@ import {
   Users,
 } from "lucide-react";
 import { TrainingCatalogue } from "@/components/training/training-catalogue";
+import { PartnerCourseCard } from "@/components/training/partner-course-card";
+import {
+  cleanPartnerCourse,
+  partnerCourseIsVisible,
+} from "@/lib/partner-course";
 import "./training.css";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +39,14 @@ export default async function PortalTrainingPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   if (session.user.role !== "CLIENT") redirect("/dashboard");
+
+  // Partner/external course promo (admin-editable in Settings → Storefront).
+  const storefront = await prisma.storefrontConfig.findUnique({
+    where: { id: "default" },
+    select: { partnerCourse: true },
+  });
+  const partnerCourse = cleanPartnerCourse(storefront?.partnerCourse);
+  const showPartnerCourse = partnerCourseIsVisible(partnerCourse);
 
   const courses = await prisma.course.findMany({
     orderBy: [{ isFeatured: "desc" }, { order: "asc" }],
@@ -129,6 +143,20 @@ export default async function PortalTrainingPage() {
         </section>
       )}
 
+      {/* ── Partner course (external, e.g. Little Sensory Explorers) ─ */}
+      {showPartnerCourse && (
+        <section>
+          <SectionHeader
+            icon={BadgeCheck}
+            eyebrow="Go further"
+            title="Accredited training from our partners"
+          />
+          <div className="mt-4">
+            <PartnerCourseCard course={partnerCourse} />
+          </div>
+        </section>
+      )}
+
       {/* ── Coming soon ────────────────────────────────────────────── */}
       {comingSoon.length > 0 && (
         <section>
@@ -171,7 +199,7 @@ export default async function PortalTrainingPage() {
         </section>
       )}
 
-      {available.length === 0 && comingSoon.length === 0 && (
+      {available.length === 0 && comingSoon.length === 0 && !showPartnerCourse && (
         <div className="rounded-2xl border border-border bg-card p-12 text-center">
           <GraduationCap className="mx-auto h-10 w-10 text-muted-foreground/60" />
           <p className="mt-3 text-sm font-semibold">

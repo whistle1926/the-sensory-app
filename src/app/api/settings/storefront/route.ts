@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cleanPartnerCourse } from "@/lib/partner-course";
 
 const MAX_TAGLINE = 200;
 const MAX_TITLE = 240;
@@ -64,6 +65,7 @@ export async function GET() {
     showSignIn: row?.showSignIn ?? true,
     showCreateAccount: row?.showCreateAccount ?? true,
     testimonials: cleanTestimonials(row?.testimonials),
+    partnerCourse: cleanPartnerCourse(row?.partnerCourse),
   });
 }
 
@@ -81,12 +83,16 @@ export async function POST(req: NextRequest) {
     showSignIn?: boolean;
     showCreateAccount?: boolean;
     testimonials?: unknown;
+    partnerCourse?: unknown;
   };
 
   // Only replace testimonials when the field is present, so a save from a
   // form that doesn't include them can't wipe them.
   const testimonials =
     "testimonials" in body ? cleanTestimonials(body.testimonials) : undefined;
+  // Same guard for the partner-course card.
+  const partnerCourse =
+    "partnerCourse" in body ? cleanPartnerCourse(body.partnerCourse) : undefined;
 
   const tagline = trimOrNull(body.tagline, MAX_TAGLINE);
   const heroTitle = trimOrNull(body.heroTitle, MAX_TITLE);
@@ -114,6 +120,7 @@ export async function POST(req: NextRequest) {
       ...(showSignIn !== undefined && { showSignIn }),
       ...(showCreateAccount !== undefined && { showCreateAccount }),
       ...(testimonials !== undefined && { testimonials: testimonials as unknown as Prisma.InputJsonValue }),
+      ...(partnerCourse !== undefined && { partnerCourse: partnerCourse as unknown as Prisma.InputJsonValue }),
     },
     create: {
       id: "default",
@@ -125,6 +132,7 @@ export async function POST(req: NextRequest) {
       showSignIn: showSignIn ?? true,
       showCreateAccount: showCreateAccount ?? true,
       ...(testimonials !== undefined && { testimonials: testimonials as unknown as Prisma.InputJsonValue }),
+      ...(partnerCourse !== undefined && { partnerCourse: partnerCourse as unknown as Prisma.InputJsonValue }),
     },
   });
 
@@ -137,6 +145,7 @@ export async function POST(req: NextRequest) {
     showSignIn: row.showSignIn,
     showCreateAccount: row.showCreateAccount,
     testimonials: cleanTestimonials(row.testimonials),
+    partnerCourse: cleanPartnerCourse(row.partnerCourse),
   });
 }
 

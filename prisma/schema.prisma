@@ -1468,6 +1468,12 @@ model StorefrontConfig {
   /// Settings → Storefront. Array<{ quote, author, meta? }> — meta is an
   /// optional line under the name, e.g. "Google review · 3 months ago".
   testimonials       Json     @default("[]")
+  // Promo card for a partner/external course shown on the parent training
+  // portal (e.g. The Little Sensory Explorers CPD course, which is run as a
+  // partnership and sold on its own site). Shape:
+  //   { enabled, eyebrow, title, blurb, bullets[], price, url, ctaLabel }
+  // Stored as Json so the copy is admin-editable without a schema change.
+  partnerCourse      Json     @default("{}") @map("partner_course")
   updatedAt DateTime @updatedAt @map("updated_at")
   @@map("storefront_config")
 }

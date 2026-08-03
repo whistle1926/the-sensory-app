@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   Eye,
   ExternalLink,
+  GraduationCap,
   Loader2,
   MessageSquareQuote,
   PaintBucket,
@@ -28,6 +29,29 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+
+interface PartnerCourse {
+  enabled: boolean;
+  eyebrow: string;
+  title: string;
+  blurb: string;
+  bullets: string[];
+  price: string;
+  url: string;
+  ctaLabel: string;
+}
+
+const EMPTY_PARTNER_COURSE: PartnerCourse = {
+  enabled: false,
+  eyebrow: "",
+  title: "",
+  blurb: "",
+  bullets: [],
+  price: "",
+  url: "",
+  ctaLabel: "Find out more",
+};
 
 interface Testimonial {
   quote: string;
@@ -44,6 +68,7 @@ interface State {
   showSignIn: boolean;
   showCreateAccount: boolean;
   testimonials: Testimonial[];
+  partnerCourse: PartnerCourse;
 }
 
 const DEFAULT_TAGLINE = "Where expert knowledge meets playful, child-centred practice";
@@ -62,6 +87,7 @@ export function StorefrontSettingsSection() {
     showSignIn: true,
     showCreateAccount: true,
     testimonials: [],
+    partnerCourse: EMPTY_PARTNER_COURSE,
   });
   const [original, setOriginal] = useState<State | null>(null);
   const [saving, setSaving] = useState(false);
@@ -83,6 +109,7 @@ export function StorefrontSettingsSection() {
           showSignIn: data.showSignIn ?? true,
           showCreateAccount: data.showCreateAccount ?? true,
           testimonials: Array.isArray(data.testimonials) ? data.testimonials : [],
+          partnerCourse: { ...EMPTY_PARTNER_COURSE, ...(data.partnerCourse ?? {}) },
         };
         setState(next);
         setOriginal(next);
@@ -433,6 +460,171 @@ export function StorefrontSettingsSection() {
                 <Save className="mr-2 h-4 w-4" />
               )}
               Save testimonials
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Partner / external course promo shown on the parent training portal.
+          Editable here so the blurb and price can change without a deploy. */}
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <GraduationCap className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold">Partner course</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Promotes a course that isn&apos;t hosted in this app (e.g. the
+              Little Sensory Explorers CPD training). Shows as a card on the
+              parents&apos; Training page with a button through to the partner
+              site.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 space-y-4">
+          <label className="flex cursor-pointer items-center justify-between rounded-xl border border-border bg-muted/30 p-3">
+            <div>
+              <p className="text-sm font-medium">Show on the parent portal</p>
+              <p className="text-xs text-muted-foreground">
+                Turn off to hide the card without losing the copy below.
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              checked={state.partnerCourse.enabled}
+              onChange={(e) =>
+                setState((s) => ({
+                  ...s,
+                  partnerCourse: { ...s.partnerCourse, enabled: e.target.checked },
+                }))
+              }
+              className="h-5 w-5 rounded border-border text-primary focus:ring-primary"
+            />
+          </label>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Label above the title</Label>
+              <Input
+                value={state.partnerCourse.eyebrow}
+                placeholder="In partnership"
+                onChange={(e) =>
+                  setState((s) => ({
+                    ...s,
+                    partnerCourse: { ...s.partnerCourse, eyebrow: e.target.value },
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Price (shown beside the button)</Label>
+              <Input
+                value={state.partnerCourse.price}
+                placeholder="£360"
+                onChange={(e) =>
+                  setState((s) => ({
+                    ...s,
+                    partnerCourse: { ...s.partnerCourse, price: e.target.value },
+                  }))
+                }
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Course title</Label>
+            <Input
+              value={state.partnerCourse.title}
+              placeholder="CPD Accredited Sensory Play Practitioner Training"
+              onChange={(e) =>
+                setState((s) => ({
+                  ...s,
+                  partnerCourse: { ...s.partnerCourse, title: e.target.value },
+                }))
+              }
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Blurb</Label>
+            <Textarea
+              rows={4}
+              value={state.partnerCourse.blurb}
+              placeholder="A short description of the course and who it's for."
+              onChange={(e) =>
+                setState((s) => ({
+                  ...s,
+                  partnerCourse: { ...s.partnerCourse, blurb: e.target.value },
+                }))
+              }
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">
+              Key points (one per line, up to 6)
+            </Label>
+            <Textarea
+              rows={4}
+              value={state.partnerCourse.bullets.join("\n")}
+              placeholder={"20 hours of learning across 66 lessons\nCPD certificate on completion"}
+              onChange={(e) =>
+                setState((s) => ({
+                  ...s,
+                  partnerCourse: {
+                    ...s.partnerCourse,
+                    bullets: e.target.value.split("\n").slice(0, 6),
+                  },
+                }))
+              }
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Link</Label>
+              <Input
+                value={state.partnerCourse.url}
+                placeholder="https://www.thelittlesensoryexplorers.co.uk"
+                onChange={(e) =>
+                  setState((s) => ({
+                    ...s,
+                    partnerCourse: { ...s.partnerCourse, url: e.target.value },
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Button text</Label>
+              <Input
+                value={state.partnerCourse.ctaLabel}
+                placeholder="Find out more"
+                onChange={(e) =>
+                  setState((s) => ({
+                    ...s,
+                    partnerCourse: { ...s.partnerCourse, ctaLabel: e.target.value },
+                  }))
+                }
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
+            {savedAt && Date.now() - savedAt < 5000 && !dirty && (
+              <span className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Saved
+              </span>
+            )}
+            <Button onClick={save} disabled={!dirty || saving} className="rounded-xl">
+              {saving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              Save partner course
             </Button>
           </div>
         </div>
