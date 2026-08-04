@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -117,6 +118,7 @@ export default function TaskDetailPage({
 }) {
   const { taskId } = use(params);
   const router = useRouter();
+  const { data: session } = useSession();
   const [task, setTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
   const [newSubtask, setNewSubtask] = useState("");
@@ -485,6 +487,15 @@ export default function TaskDetailPage({
                 comments={task.comments}
                 otherRoleLabel="Client"
                 isOtherRole={(r) => r === "CLIENT"}
+                taskId={task.id}
+                // A SUPER_ADMIN can tidy any comment — including the ones the
+                // hourly maintenance agent posts under a service account.
+                // Everyone else edits only their own.
+                canModify={(c) =>
+                  session?.user?.role === "SUPER_ADMIN" ||
+                  c.author.id === session?.user?.id
+                }
+                onChanged={load}
               />
               <CommentComposer taskId={task.id} onPosted={load} />
             </div>

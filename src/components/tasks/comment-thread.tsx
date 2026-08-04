@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Loader2, Paperclip, Send, X, Play } from "lucide-react";
+import { Loader2, Paperclip, Send, X, Play, Pencil, Trash2, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { RichTextView } from "@/components/ui/rich-text-view";
@@ -87,12 +87,23 @@ export function CommentList({
   comments,
   otherRoleLabel,
   isOtherRole,
+  taskId,
+  canModify,
+  onChanged,
 }: {
   comments: Comment[];
   /** Label shown next to authors with the "other" role (e.g. "Client" on admin, "Therapist" on portal). */
   otherRoleLabel: string;
   /** Returns true if the author's role should get the "other" badge. */
   isOtherRole: (role: string) => boolean;
+  /** Needed to build the edit/delete URL. Omit to render read-only. */
+  taskId?: string;
+  /** Whether the signed-in user may edit/delete a given comment. Omit for
+   * read-only. Admins get this for every comment so they can correct the ones
+   * the hourly maintenance agent posts. */
+  canModify?: (c: Comment) => boolean;
+  /** Called after a successful edit or delete so the parent can refetch. */
+  onChanged?: () => void;
 }) {
   if (comments.length === 0) {
     return (
@@ -102,7 +113,80 @@ export function CommentList({
   return (
     <div className="space-y-3">
       {comments.map((c) => (
-        <div key={c.id} className="flex items-start gap-2">
+        <CommentRow
+          key={c.id}
+          c={c}
+          otherRoleLabel={otherRoleLabel}
+          isOtherRole={isOtherRole}
+          taskId={taskId}
+          editable={!!taskId && !!canModify && canModify(c)}
+          onChanged={onChanged}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CommentRow({
+  c,
+  otherRoleLabel,
+  isOtherRole,
+  taskId,
+  editable,
+  onChanged,
+}: {
+  c: Comment;
+  otherRoleLabel: string;
+  isOtherRole: (role: string) => boolean;
+  taskId?: string;
+  editable: boolean;
+  onChanged?: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(c.body);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function save() {
+    if (htmlIsEmpty(draft)) {
+      setError("A comment can't be empty — use Delete instead.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/comments/${c.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: draft }),
+      });
+      if (!res.ok) throw new Error("Save failed");
+      setEditing(false);
+      onChanged?.();
+    } catch {
+      setError("Couldn't save that — try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    if (!confirm("Delete this comment? This can't be undone.")) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/comments/${c.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Delete failed");
+      onChanged?.();
+    } catch {
+      setError("Couldn't delete that — try again.");
+      setBusy(false);
+    }
+  }
+
+  return (
+        <div className="group flex items-start gap-2">
           <span
             className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
             style={{ backgroundColor: `hsl(${avatarHue(c.author.id)} 70% 50%)` }}
@@ -126,8 +210,42 @@ export function CommentList({
                 })}
               </span>
             </div>
-            {c.body && (
-              <RichTextView html={c.body} className="mt-1 text-sm" />
+            {editing ? (
+              <div className="mt-2">
+                <RichTextEditor value={draft} onChange={setDraft} maxHeight={260} />
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={save}
+                    disabled={busy}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground disabled:opacity-50"
+                  >
+                    {busy ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Check className="h-3 w-3" />
+                    )}
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDraft(c.body);
+                      setEditing(false);
+                      setError("");
+                    }}
+                    disabled={busy}
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              c.body && <RichTextView html={c.body} className="mt-1 text-sm" />
+            )}
+            {error && (
+              <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">{error}</p>
             )}
             {c.attachments.length > 0 && (
               <div className="mt-2 grid gap-2">
@@ -137,9 +255,33 @@ export function CommentList({
               </div>
             )}
           </div>
+
+          {/* Edit / delete. Shown on hover on a mouse, always on touch — a
+              hover-only control is unreachable on a phone. */}
+          {editable && !editing && (
+            <div className="flex flex-shrink-0 gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                title="Edit this comment"
+                aria-label="Edit comment"
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={remove}
+                disabled={busy}
+                title="Delete this comment"
+                aria-label="Delete comment"
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:hover:bg-red-950/30"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
         </div>
-      ))}
-    </div>
   );
 }
 
