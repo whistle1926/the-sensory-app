@@ -33,6 +33,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // ── Resolve nav visibility from the user's dash template ──────
   let allowedNavKeys: string[] | null = null; // null = show everything (no template restriction)
   let navOrder: string[] = [];
+  // Read the display name from the DB rather than the session token: the name
+  // is stamped into the JWT at login, so a renamed account keeps showing the
+  // old name until that person next signs out and in. Getting this wrong is
+  // how "signed in as" would quietly lie.
+  let displayName: string | null = null;
+  let displayEmail: string | null = null;
 
   try {
     // Fetch user template, default template, and the user's nav order in parallel.
@@ -40,6 +46,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       prisma.user.findUnique({
         where: { id: session.user.id },
         select: {
+          name: true,
+          email: true,
           dashTemplate: { select: { widgets: true } },
           navOrder: true,
         },
@@ -55,6 +63,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       allowedNavKeys = template.widgets.filter((w: string) => w.startsWith("nav_"));
     }
     if (user?.navOrder) navOrder = user.navOrder;
+    displayName = user?.name ?? null;
+    displayEmail = user?.email ?? null;
   } catch {
     // If DB fails, show all nav — don't lock the user out
   }
@@ -67,7 +77,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="flex items-center gap-2 px-4 md:px-0">
           <MobileNav role={role} allowedNavKeys={allowedNavKeys} />
           <div className="flex-1">
-            <Header userName={session.user.name || "User"} userRole={role} />
+            <Header
+              userName={displayName || session.user.name || "User"}
+              userEmail={displayEmail}
+              userRole={role}
+            />
           </div>
         </div>
         <main className="flex-1 overflow-y-auto scroll-smooth bg-background p-6">
