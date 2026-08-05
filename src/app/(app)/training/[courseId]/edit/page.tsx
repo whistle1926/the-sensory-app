@@ -32,7 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CopyAssist } from "@/components/training/copy-assist";
-import { CoursePreview } from "@/components/training/course-preview";
+import { LivePreviewPane } from "@/components/training/live-preview-pane";
 import { CourseResources } from "@/components/training/course-resources";
 
 interface Testimonial {
@@ -273,8 +273,11 @@ export default function CourseEditPage({
       )}
 
       {/* ── Basic ─────────────────────────────────────────────────────── */}
-      <CoursePreview slug={course.slug} />
-
+      {/* Form on the left, live preview on the right. The preview sticks so it
+          stays in view while scrolling a long form, and stacks underneath on
+          narrower screens. */}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,620px)]">
+        <div className="space-y-6">
       <section className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
         <h2 className="text-sm font-semibold">Basic details</h2>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -703,6 +706,37 @@ export default function CourseEditPage({
           )}
         </div>
       </section>
+        </div>
+
+        <aside className="xl:sticky xl:top-6 xl:h-[calc(100vh-6rem)]">
+          <LivePreviewPane
+            isLive={course.isLive && course.status === "AVAILABLE"}
+            course={{
+              id: course.id,
+              title: course.title,
+              slug: course.slug,
+              audience: course.audience,
+              duration: course.duration,
+              description: course.description,
+              price: course.price,
+              level: course.level,
+              tagline: course.tagline,
+              shortDescription: course.shortDescription,
+              heroImageUrl: course.heroImageUrl,
+              thumbnailUrl: course.thumbnailUrl,
+              features: course.features,
+              instructorName: course.instructorName,
+              instructorRole: course.instructorRole,
+              instructorBio: course.instructorBio,
+              instructorImageUrl: course.instructorImageUrl,
+              audienceFor: course.audienceFor,
+              isBestseller: course.isBestseller,
+              testimonials: course.testimonials,
+              modules: course.modules,
+            }}
+          />
+        </aside>
+      </div>
     </div>
   );
 }
