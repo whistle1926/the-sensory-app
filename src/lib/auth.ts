@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
+import { verifyPasscode } from "@/lib/passcode";
 import { prisma } from "./prisma";
 import { authConfig } from "./auth.config";
 import { computeNavAccess } from "./nav-access";
@@ -9,6 +10,39 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
   trustHost: true,
   providers: [
+    // Quick sign-in on a device that has ALREADY completed a full password
+    // sign-in. The passcode alone is never enough on an unknown machine —
+    // verifyPasscode requires a valid trusted-device token and untrusts the
+    // device after five wrong tries. See src/lib/passcode.ts.
+    Credentials({
+      id: "passcode",
+      name: "Passcode",
+      credentials: {
+        code: { label: "Passcode", type: "password" },
+        deviceToken: { label: "Device", type: "text" },
+      },
+      async authorize(credentials) {
+        const code = typeof credentials?.code === "string" ? credentials.code : "";
+        const token =
+          typeof credentials?.deviceToken === "string" ? credentials.deviceToken : "";
+        if (!code || !token) return null;
+
+        const result = await verifyPasscode(token, code);
+        if (!result.ok) return null;
+
+        const user = await prisma.user.findUnique({ where: { id: result.userId } });
+        if (!user) return null;
+
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          impersonatedBy: null,
+          navAccess: await computeNavAccess(user.dashTemplateId),
+        };
+      },
+    }),
     Credentials({
       name: "credentials",
       credentials: {
