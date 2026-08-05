@@ -24,6 +24,8 @@ import {
   ShieldCheck,
   Upload,
   UserRound,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,6 +87,10 @@ export function TeamProfileDialog({
   onProfileSaved,
 }: Props) {
   const [password, setPassword] = useState(() => suggestPassword());
+  // Masked by default; revealed only when the admin needs to read it out.
+  const [revealed, setRevealed] = useState(false);
+  // For someone who can already log in, the reset control stays collapsed.
+  const [resetting, setResetting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
@@ -466,17 +472,46 @@ export function TeamProfileDialog({
             <div className="space-y-2">
               <Label htmlFor="reset-pw" className="flex items-center gap-1.5">
                 <KeyRound className="h-3.5 w-3.5" />
-                Set / reset password
+                {member.hasPassword ? "Reset password" : "Set password"}
               </Label>
+
+              {/* Once someone can already log in there is no reason to have a
+                  password sitting readable on screen — someone glancing at the
+                  laptop would see it. Kept behind a click, and masked until
+                  you choose to read it out. */}
+              {member.hasPassword && !resetting ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setResetting(true)}
+                  className="w-full rounded-xl"
+                >
+                  Reset {firstName}&apos;s password
+                </Button>
+              ) : (
+              <>
               <div className="flex gap-2">
                 <Input
                   id="reset-pw"
-                  type="text"
+                  type={revealed ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="font-mono"
                   minLength={8}
                 />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setRevealed((v) => !v)}
+                  title={revealed ? "Hide" : "Show so you can read it out"}
+                  className="shrink-0"
+                >
+                  {revealed ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
@@ -501,6 +536,8 @@ export function TeamProfileDialog({
               >
                 {saving ? "Saving…" : "Set password"}
               </Button>
+              </>
+              )}
             </div>
           )}
         </div>
