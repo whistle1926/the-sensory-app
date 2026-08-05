@@ -232,16 +232,20 @@ export default function CourseEditPage({
             Edit · {course.title}
           </h1>
           <p className="text-xs text-muted-foreground">
-            Changes apply immediately on save. Public detail page:{" "}
-            <Link
-              href={`/courses/${courseId}`}
-              target="_blank"
-              className="text-primary underline"
-            >
-              preview
-              <ExternalLink className="ml-0.5 inline h-3 w-3" />
-            </Link>
+            Changes apply immediately on save.
           </p>
+          {/* Opens the REAL public page. Staff can see it even before the
+              course is on sale, with a "not published" banner across the top —
+              so what you check is exactly what a parent gets. The route is
+              keyed by slug, not id. */}
+          <Link
+            href={`/courses/${course.slug}`}
+            target="_blank"
+            className="mt-2 inline-flex items-center gap-1.5 rounded-xl border-2 border-primary/30 bg-primary/[0.04] px-3 py-2 text-xs font-bold transition hover:bg-primary/[0.08]"
+          >
+            Preview what parents will see
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
         </div>
         <div className="flex items-center gap-3">
           {savedAt && Date.now() - savedAt < 5000 && (

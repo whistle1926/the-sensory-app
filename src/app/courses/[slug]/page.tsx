@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { courseAccessible } from "@/lib/storefront";
+import { auth } from "@/lib/auth";
 import { StorefrontHeader } from "@/components/courses/storefront-header";
 import { BuyPanel } from "@/components/courses/buy-panel";
 import {
@@ -30,8 +31,17 @@ export default async function CourseDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  // Courses paused → no public course pages (content isn't ready).
-  if (!(await courseAccessible({ slug }))) notFound();
+  // Courses paused → no public course pages (content isn't ready). Staff are
+  // the exception: they get a PREVIEW of the real page so they can see exactly
+  // what a parent will see before putting it on sale. Previewing the genuine
+  // page (rather than a mock-up) is the point — a separate preview screen
+  // would drift from reality.
+  const live = await courseAccessible({ slug });
+  const session = await auth();
+  const isStaff =
+    session?.user?.role === "SUPER_ADMIN" || session?.user?.role === "TEAM_MANAGER";
+  if (!live && !isStaff) notFound();
+  const previewing = !live && isStaff;
   const course = await prisma.course.findUnique({
     where: { slug },
     include: {
@@ -53,6 +63,15 @@ export default async function CourseDetailPage({
 
   return (
     <div className="min-h-screen bg-[#FBF8F3]">
+      {previewing && (
+        <div className="sticky top-0 z-50 border-b border-amber-500/40 bg-amber-100 px-4 py-2.5 text-center text-sm text-amber-900 dark:bg-amber-950/60 dark:text-amber-200">
+          <strong>Preview</strong> — this is what parents will see. It is{" "}
+          <strong>not published</strong>: nobody else can reach this page yet.
+          To put it on sale, set a price, choose status{" "}
+          <strong>Available</strong> and turn on{" "}
+          <strong>Sell this one now</strong> in the editor.
+        </div>
+      )}
       <StorefrontHeader />
 
       <div className="mx-auto max-w-6xl px-5 py-6">
