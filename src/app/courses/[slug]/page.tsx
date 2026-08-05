@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { coursesEnabled } from "@/lib/storefront";
+import { courseAccessible } from "@/lib/storefront";
 import { StorefrontHeader } from "@/components/courses/storefront-header";
 import { BuyPanel } from "@/components/courses/buy-panel";
 import {
@@ -31,7 +31,7 @@ export default async function CourseDetailPage({
 }) {
   const { slug } = await params;
   // Courses paused → no public course pages (content isn't ready).
-  if (!(await coursesEnabled())) notFound();
+  if (!(await courseAccessible({ slug }))) notFound();
   const course = await prisma.course.findUnique({
     where: { slug },
     include: {

@@ -3,8 +3,13 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // Runtime queries go through the transaction pooler (port 6543).
+  url       = env("DATABASE_URL")
+  // Schema changes (prisma db push) need a session connection — the
+  // transaction pooler cannot run DDL and simply hangs. Port 5432, same
+  // host, no pgbouncer flag.
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
@@ -322,9 +327,42 @@ model Course {
   /// Back-relation — courses that recommend THIS course as a follow-up.
   prevCourses  Course[] @relation("CourseProgression")
 
+  /// Publish this ONE course even while the whole Courses section is paused
+  /// (StorefrontConfig.showCoursesNav = false). Lets a finished course go on
+  /// sale without exposing the rest of the catalogue, which is mostly still
+  /// "Coming soon". Ignored when the section is on — then normal status rules
+  /// apply.
+  isLive      Boolean  @default(false) @map("is_live")
+
+  /// Free-text notes from the OT ("a few lines about this webinar") used as
+  /// the source material when drafting the storefront copy with AI. Kept so
+  /// the draft can be regenerated later without re-typing.
+  copyNotes   String?  @db.Text @map("copy_notes")
+
   modules     Module[]
   enrollments Enrollment[]
   purchases   CoursePurchase[]
+  resources   CourseResource[]
+}
+
+/// Downloadable handouts attached to a course — the "couple of resources with
+/// each webinar". Uploaded to Vercel Blob from the course editor, or added as
+/// a plain external link.
+model CourseResource {
+  id        String   @id @default(cuid())
+  courseId  String   @map("course_id")
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title     String
+  url       String
+  /// "file" (uploaded) | "link" (external URL)
+  kind      String   @default("file")
+  mimeType  String?  @map("mime_type")
+  sizeBytes Int?     @map("size_bytes")
+  order     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([courseId, order])
+  @@map("course_resources")
 }
 
 model Module {
@@ -1486,6 +1524,9 @@ model StorefrontConfig {
   // { calendarSettings: "https://…png" }). Stored here so a screen can be
   // re-captured and swapped without a code change.
   helpAssets         Json     @default("{}") @map("help_assets")
+  /// Heading shown above the individually-published courses while the main
+  /// Courses section is paused — { enabled, title, blurb }.
+  liveSection        Json     @default("{}") @map("live_section")
   updatedAt DateTime @updatedAt @map("updated_at")
   @@map("storefront_config")
 }

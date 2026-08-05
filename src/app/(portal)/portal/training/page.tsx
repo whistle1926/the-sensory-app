@@ -20,6 +20,7 @@ import {
   partnerCourseIsVisible,
 } from "@/lib/partner-course";
 import "./training.css";
+import { coursesEnabled } from "@/lib/storefront";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +49,10 @@ export default async function PortalTrainingPage() {
   const partnerCourse = cleanPartnerCourse(storefront?.partnerCourse);
   const showPartnerCourse = partnerCourseIsVisible(partnerCourse);
 
+  // Paused section → parents only see the individually-published courses.
+  const sectionOn = await coursesEnabled();
   const courses = await prisma.course.findMany({
+    where: sectionOn ? {} : { isLive: true, status: "AVAILABLE" },
     orderBy: [{ isFeatured: "desc" }, { order: "asc" }],
     include: {
       modules: { select: { id: true }, orderBy: { order: "asc" } },

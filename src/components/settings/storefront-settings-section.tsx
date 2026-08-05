@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ShareLinksSection } from "@/components/settings/share-links-section";
 
 interface PartnerCourse {
   enabled: boolean;
@@ -147,6 +148,7 @@ export function StorefrontSettingsSection() {
 
   return (
     <div className="space-y-4">
+      <ShareLinksSection />
       {/* Public-header visibility toggles. Keeps the hero edit form
           underneath unchanged — these are a separate concern (what's
           *shown* vs what *copy* is shown). */}

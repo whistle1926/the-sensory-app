@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { coursesEnabled } from "@/lib/storefront";
+import { coursesAreaVisible } from "@/lib/storefront";
 
 /**
  * Gate for ALL portal course routes. Courses can be paused (storefront
@@ -23,7 +23,7 @@ export default async function PortalTrainingLayout({
   const role = session?.user?.role;
   const isStaff = role === "SUPER_ADMIN" || role === "TEAM_MANAGER";
 
-  if (!isStaff && !(await coursesEnabled())) {
+  if (!isStaff && !(await coursesAreaVisible())) {
     redirect("/portal");
   }
   return <>{children}</>;

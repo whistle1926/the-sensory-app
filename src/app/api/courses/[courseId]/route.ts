@@ -126,6 +126,10 @@ export async function PATCH(
     data.status = body.status;
   }
   if (typeof body.isFeatured === "boolean") data.isFeatured = body.isFeatured;
+  // Publish this one course even while the whole Courses section is paused.
+  if (typeof body.isLive === "boolean") data.isLive = body.isLive;
+  if (typeof body.copyNotes === "string")
+    data.copyNotes = body.copyNotes.trim().slice(0, 5_000) || null;
   if (typeof body.isBestseller === "boolean") data.isBestseller = body.isBestseller;
 
   // ── Storefront copy ─────────────────────────────────────────────────

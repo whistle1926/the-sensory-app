@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { StorefrontHeader } from "@/components/courses/storefront-header";
 import { CourseCard, type StorefrontCourse } from "@/components/courses/course-card";
 import { Star, ShieldCheck, Award, Sparkles } from "lucide-react";
+import { coursesEnabled } from "@/lib/storefront";
 
 // Fetch fresh on every request — new courses should show up immediately
 // after the seed script runs, without waiting for a cache bust.
@@ -41,8 +42,13 @@ export default async function CoursesStorefrontPage({
   const heroTitle = config?.heroTitle?.trim() || DEFAULT_HERO_TITLE;
   const heroBlurb = config?.heroBlurb?.trim() || DEFAULT_HERO_BLURB;
 
+  // When the Courses section is paused, only individually-published courses
+  // (the finished parent webinars) are listed — the rest stay hidden.
+  const sectionOn = await coursesEnabled();
   const courses = await prisma.course.findMany({
-    where: { status: "AVAILABLE" },
+    where: sectionOn
+      ? { status: "AVAILABLE" }
+      : { status: "AVAILABLE", isLive: true },
     orderBy: [
       { isFeatured: "desc" },
       { order: "asc" },

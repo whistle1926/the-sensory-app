@@ -11,9 +11,10 @@
  *  • Next-course recommendation for the post-completion screen
  *  • Module video URLs (Loom / YouTube / Vimeo share links)
  *
- * Anything not exposed here (title, slug, price, status, hero image,
- * features list, etc.) still lives in the seed scripts — intentional
- * trade-off to keep the first editor focused and safe.
+ * Since extended to cover pricing, status, storefront copy and imagery, an
+ * AI copy assistant that drafts the course page from a few plain lines, and
+ * downloadable handouts. Slug is still fixed after creation — changing it
+ * would break any link already shared.
  */
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
@@ -30,6 +31,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CopyAssist } from "@/components/training/copy-assist";
+import { CourseResources } from "@/components/training/course-resources";
 
 interface Testimonial {
   quote: string;
@@ -58,6 +61,8 @@ interface CourseShape {
   price: number;
   isFeatured: boolean;
   isBestseller: boolean;
+  isLive: boolean;
+  copyNotes: string | null;
   tagline: string | null;
   shortDescription: string | null;
   heroImageUrl: string | null;
@@ -158,6 +163,8 @@ export default function CourseEditPage({
           status: course.status,
           isFeatured: course.isFeatured,
           isBestseller: course.isBestseller,
+          isLive: course.isLive,
+          copyNotes: course.copyNotes ?? "",
           // Storefront copy
           tagline: course.tagline ?? "",
           shortDescription: course.shortDescription ?? "",
@@ -388,7 +395,51 @@ export default function CourseEditPage({
             />
           </label>
         </div>
+
+        {/* Lets a finished course go on sale while the rest of the catalogue
+            stays hidden — the reason the whole section is paused. */}
+        <label className="mt-3 flex cursor-pointer items-center justify-between gap-3 rounded-xl border-2 border-primary/30 bg-primary/[0.04] p-3">
+          <div>
+            <p className="text-sm font-bold">Sell this one now</p>
+            <p className="text-xs text-muted-foreground">
+              Put this course on sale even while the Courses section is switched
+              off. Use it to launch a finished course without showing the ones
+              still being written. Needs status &ldquo;Available&rdquo;.
+            </p>
+          </div>
+          <Toggle
+            checked={course.isLive}
+            onChange={(v) => patchCourse({ isLive: v })}
+          />
+        </label>
+        {course.isLive && course.status !== "AVAILABLE" && (
+          <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+            This is set to sell now, but its status is{" "}
+            {course.status === "COMING_SOON" ? "Coming soon" : "Archived"} — so
+            nobody can see it. Set the status to Available.
+          </p>
+        )}
       </section>
+
+      {/* ── AI copy assist ────────────────────────────────────────────── */}
+      <CopyAssist
+        courseId={courseId}
+        notes={course.copyNotes ?? ""}
+        onNotesChange={(v) => patchCourse({ copyNotes: v })}
+        onApply={(d) =>
+          patchCourse({
+            tagline: d.tagline || course.tagline,
+            shortDescription: d.shortDescription || course.shortDescription,
+            description: d.description || course.description,
+            audience: d.audience || course.audience,
+            audienceFor: d.audienceFor || course.audienceFor,
+            features: d.features.length ? d.features : course.features,
+          })
+        }
+      />
+
+      {/* ── Handouts ──────────────────────────────────────────────────── */}
+      <CourseResources courseId={courseId} />
 
       {/* ── Storefront copy ───────────────────────────────────────────── */}
       <section className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">

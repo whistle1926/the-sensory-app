@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { FireBuddy } from "@/lib/firebuddy";
 import { ensureEnrollment } from "@/lib/course-enrollment";
-import { coursesEnabled } from "@/lib/storefront";
+import { courseAccessible } from "@/lib/storefront";
 import { sendTransactionalEmail, escapeHtml } from "@/lib/email";
 
 // Lightweight in-memory per-IP rate limit — good enough while we're on a
@@ -67,14 +67,6 @@ function baseUrl(req: NextRequest): string {
  * out from the webhook on payment.paid, or from here on free-course enrol.
  */
 export async function POST(req: NextRequest) {
-  // Courses paused → no purchases (content isn't released yet).
-  if (!(await coursesEnabled())) {
-    return NextResponse.json(
-      { error: "Courses aren't available yet. Please check back soon." },
-      { status: 403 },
-    );
-  }
-
   const body = await req.json().catch(() => ({}));
 
   // Honeypot — bots tend to fill a field named "website". Quietly 200 them.
@@ -116,6 +108,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: "This course isn't available." },
       { status: 404 },
+    );
+  }
+  // Courses paused → only individually-published ones can be bought. Checked
+  // here rather than up front because it depends on WHICH course: the parent
+  // webinars are on sale while the rest of the catalogue is still being written.
+  if (!(await courseAccessible({ id: course.id }))) {
+    return NextResponse.json(
+      { error: "Courses aren't available yet. Please check back soon." },
+      { status: 403 },
     );
   }
   if (course.modules.length === 0) {

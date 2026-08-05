@@ -451,3 +451,91 @@ function parseReportJson(raw: string): ReportContent {
     throw new Error("Claude returned a response we couldn't parse");
   }
 }
+
+// ── Course storefront copy ────────────────────────────────────────────
+// Grace writes a few plain lines about a webinar; this turns them into the
+// fields the course page needs. It deliberately does NOT invent clinical
+// claims — the prompt tells it to work only from what she wrote, because the
+// output is sales copy for a paid product and an invented promise is worse
+// than a thin one. Everything comes back editable for her to approve.
+
+const COURSE_COPY_PROMPT = `You write short, warm marketing copy for a paediatric occupational therapy practice in Northern Ireland (The Sensory Submarine). The audience is parents and carers of young children — often tired, often worried, not clinicians.
+
+You will be given: a course title, and a few rough lines the therapist wrote about it.
+
+Write the storefront copy for it. Rules:
+- Work ONLY from what the therapist wrote plus the title. Do NOT invent facts, outcomes, durations, credentials, statistics or promises she did not make. If her notes are thin, keep the copy thin.
+- Never claim a therapeutic outcome ("this will fix…", "guaranteed to…"). Say what the session covers, not what it cures.
+- Plain, warm, everyday English. UK spelling. No jargon, no hype, no exclamation marks.
+- Speak to "you" and "your child".
+
+Return ONLY a JSON object, no markdown fence, with exactly these keys:
+{
+  "tagline": "one short line, max 12 words, sits under the title",
+  "shortDescription": "1-2 sentences for the course card, max 200 characters",
+  "description": "2-3 short paragraphs for the course page, plain text with \\n\\n between paragraphs",
+  "audience": "who it is for, max 12 words, e.g. 'Parents of children aged 3-6'",
+  "audienceFor": "2-3 sentences expanding on who would benefit",
+  "features": ["4 to 6 short bullet points of what is covered — each max 12 words"]
+}`;
+
+export interface CourseCopyDraft {
+  tagline: string;
+  shortDescription: string;
+  description: string;
+  audience: string;
+  audienceFor: string;
+  features: string[];
+}
+
+export async function draftCourseCopy(args: {
+  title: string;
+  notes: string;
+}): Promise<CourseCopyDraft> {
+  const t0 = Date.now();
+  let ok = false;
+  try {
+    const anthropic = await getAnthropicClient();
+    const { message } = await createMessageResilient(anthropic, {
+      thinking: { type: "disabled" },
+      output_config: { effort: "low" },
+      max_tokens: 2048,
+      system: COURSE_COPY_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: `Course title: ${args.title}\n\nWhat the therapist wrote about it:\n${args.notes}`,
+        },
+      ],
+    });
+    const textBlock = message.content.find((b) => b.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      throw new Error("No text response from Claude");
+    }
+    let text = textBlock.text.trim();
+    if (text.startsWith("```")) {
+      text = text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "");
+    }
+    const raw = JSON.parse(text) as Partial<CourseCopyDraft>;
+    const str = (v: unknown, max: number) =>
+      typeof v === "string" ? v.trim().slice(0, max) : "";
+    const draft: CourseCopyDraft = {
+      tagline: str(raw.tagline, 240),
+      shortDescription: str(raw.shortDescription, 500),
+      description: str(raw.description, 5_000),
+      audience: str(raw.audience, 120),
+      audienceFor: str(raw.audienceFor, 2_000),
+      features: Array.isArray(raw.features)
+        ? raw.features
+            .filter((f): f is string => typeof f === "string")
+            .map((f) => f.trim().slice(0, 300))
+            .filter(Boolean)
+            .slice(0, 8)
+        : [],
+    };
+    ok = true;
+    return draft;
+  } finally {
+    void recordAiLatency("course.copy", Date.now() - t0, ok);
+  }
+}
