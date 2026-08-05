@@ -339,6 +339,16 @@ model Course {
   /// the draft can be regenerated later without re-typing.
   copyNotes   String?  @db.Text @map("copy_notes")
 
+  /// Unpublished edits. The columns above are what the public sees; this holds
+  /// work in progress as a partial overlay of them. The editor autosaves here,
+  /// so someone can rewrite a course that is currently on sale without a
+  /// half-finished sentence appearing on the live page mid-edit. Publishing
+  /// copies these values onto the real columns and clears this. Empty = no
+  /// unpublished changes.
+  draft          Json      @default("{}")
+  draftUpdatedAt DateTime? @map("draft_updated_at")
+  publishedAt    DateTime? @map("published_at")
+
   modules     Module[]
   enrollments Enrollment[]
   purchases   CoursePurchase[]
