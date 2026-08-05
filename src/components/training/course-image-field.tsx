@@ -30,11 +30,38 @@ export function CourseImageField({
 }) {
   const [busy, setBusy] = useState<"upload" | "ai" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sizeWarning, setSizeWarning] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Stated up front, because otherwise the only way to find out is to upload
+  // something and see it cropped.
+  const spec =
+    kind === "hero"
+      ? { w: 1920, h: 1080, ratio: 16 / 9, shape: "wide (16:9)" }
+      : { w: 800, h: 600, ratio: 4 / 3, shape: "landscape (4:3)" };
+
+  /** Warn when a picture is the wrong shape — it will be cropped to fit. */
+  function checkShape(file: File) {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const r = img.width / img.height;
+      const off = Math.abs(r - spec.ratio) / spec.ratio;
+      setSizeWarning(
+        off > 0.12
+          ? `That picture is ${img.width} × ${img.height}. It'll be cropped to fit ${spec.shape} — resize it to about ${spec.w} × ${spec.h} for the best result.`
+          : null,
+      );
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => URL.revokeObjectURL(url);
+    img.src = url;
+  }
 
   async function onPick(file: File) {
     setBusy("upload");
     setError(null);
+    checkShape(file);
     try {
       const blob = await blobUpload(file.name, file, {
         access: "public",
@@ -70,8 +97,16 @@ export function CourseImageField({
 
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium">{label}</label>
-      <p className="text-xs text-muted-foreground">{hint}</p>
+      <label className="flex flex-wrap items-center gap-2 text-sm font-medium">
+        {label}
+        <span className="rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[11px] font-bold text-primary">
+          {spec.w} × {spec.h} px
+        </span>
+      </label>
+      <p className="text-xs text-muted-foreground">
+        {hint} Best at <strong>{spec.w} × {spec.h}</strong> — any {spec.shape}
+        {" "}picture works, and anything else gets cropped to fit.
+      </p>
 
       {value && (
         <div className="relative overflow-hidden rounded-xl border border-border bg-muted/30">
@@ -141,6 +176,11 @@ export function CourseImageField({
       {busy === "ai" && (
         <p className="text-xs text-muted-foreground">
           This takes about 20 seconds.
+        </p>
+      )}
+      {sizeWarning && (
+        <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+          {sizeWarning}
         </p>
       )}
       {error && (

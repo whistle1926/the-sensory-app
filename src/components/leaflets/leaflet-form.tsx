@@ -365,6 +365,10 @@ export function LeafletForm({ leafletId, initial, suggestedCategories }: Props) 
           <CardTitle className="text-base">Cover image</CardTitle>
         </CardHeader>
         <CardContent>
+          <p className="mb-3 text-xs text-muted-foreground">
+            Use <strong>800 × 600 pixels</strong> (4:3 landscape) — anything a
+            different shape gets cropped to fit. JPG or PNG.
+          </p>
           {coverImageUrl ? (
             <div className="grid gap-3 sm:grid-cols-[240px_1fr]">
               <div className="overflow-hidden rounded-xl border border-border bg-muted">

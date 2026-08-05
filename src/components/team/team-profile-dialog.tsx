@@ -382,6 +382,10 @@ export function TeamProfileDialog({
                   )}
                   {photoUrl ? "Change photo" : "Upload photo"}
                 </Button>
+                <p className="text-[11px] text-muted-foreground">
+                  Square works best — about <strong>400 × 400 px</strong>. It&apos;s
+                  shown as a circle, so keep the face centred.
+                </p>
                 {photoUrl && (
                   <button
                     type="button"
