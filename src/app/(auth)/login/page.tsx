@@ -26,26 +26,7 @@ function LoginInner() {
   const justRegistered = searchParams.get("registered") === "1";
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  // A browser that has already signed in fully and whose owner set a passcode
-  // gets the short unlock instead of the full form. Anything unrecognised
-  // falls straight through to email + password.
-  const [known, setKnown] = useState<{ name: string; emailHint: string } | null>(null);
-  const [usePassword, setUsePassword] = useState(false);
-  const [code, setCode] = useState("");
-
-  useEffect(() => {
-    fetch("/api/passcode/device")
-      .then((r) => r.json())
-      .then((d: { known?: boolean; name?: string; emailHint?: string }) => {
-        if (d.known && d.name) setKnown({ name: d.name, emailHint: d.emailHint ?? "" });
-      })
-      .catch(() => {});
-  }, []);
-
   async function afterSignIn() {
-    // Remember this browser so the passcode works here next time (no-op if
-    // they haven't set one).
-    await fetch("/api/passcode/device", { method: "POST" }).catch(() => {});
     const session = await getSession();
     const role = session?.user?.role;
     window.location.href = role === "CLIENT" ? "/portal" : "/dashboard";
@@ -82,24 +63,6 @@ function LoginInner() {
     }
   }
 
-  async function submitPasscode(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-    try {
-      const result = await signIn("passcode", { code, redirect: false });
-      if (result?.error || !result?.ok) {
-        setError("That passcode wasn't right.");
-        setCode("");
-        setLoading(false);
-        return;
-      }
-      await afterSignIn();
-    } catch {
-      setError("Something went wrong. Please try again.");
-      setLoading(false);
-    }
-  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -170,63 +133,6 @@ function LoginInner() {
                 Account created. Sign in to continue.
               </div>
             )}
-            {known && !usePassword ? (
-              /* Recognised browser + a passcode set → offer the short unlock.
-                 The full form is always one click away, because a passcode is
-                 a shortcut and must never be the only way in. */
-              <form onSubmit={submitPasscode} className="space-y-5">
-                <div className="rounded-xl border border-border bg-muted/30 p-4 text-center">
-                  <p className="text-sm font-bold">Welcome back, {known.name.split(" ")[0]}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {known.emailHint}
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="code">Your 6-digit passcode</Label>
-                  <Input
-                    id="code"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    autoFocus
-                    maxLength={6}
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-                    className="text-center font-mono text-2xl tracking-[0.4em]"
-                    placeholder="••••••"
-                  />
-                </div>
-                {error && (
-                  <p className="rounded-md bg-red-50 p-2 text-sm text-red-600 dark:bg-red-950/30 dark:text-red-400">
-                    {error}
-                  </p>
-                )}
-                <Button
-                  type="submit"
-                  disabled={loading || code.length !== 6}
-                  className="w-full rounded-xl"
-                >
-                  {loading ? "Signing in…" : "Sign in"}
-                </Button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUsePassword(true);
-                    setError("");
-                  }}
-                  className="w-full text-center text-xs font-semibold text-muted-foreground hover:text-foreground"
-                >
-                  Use my email and password instead
-                </button>
-                <button
-                  type="button"
-                  onClick={signInWithPasskey}
-                  disabled={loading}
-                  className="w-full rounded-xl border border-border py-2.5 text-sm font-semibold hover:bg-muted disabled:opacity-50"
-                >
-                  🔑 Sign in with passkey
-                </button>
-              </form>
-            ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
               {error && (
                 <div className="rounded-xl bg-red-50 p-3 text-sm font-medium text-red-600 dark:bg-red-950/50 dark:text-red-400">
@@ -296,7 +202,6 @@ function LoginInner() {
                 🔑 Sign in with passkey
               </button>
 </form>
-            )}
           </div>
 
           <div className="mt-6 text-center text-sm text-muted-foreground">

@@ -24,7 +24,6 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { PasscodeSection } from "@/components/settings/passcode-section";
 import { PasskeySection } from "@/components/settings/passkey-section";
 
 const PRESETS = [
@@ -123,7 +122,6 @@ export function CalendarSettingsSection() {
   return (
     <div className="space-y-4">
       <PasskeySection />
-      <PasscodeSection />
       {/* People arrive here unsure which of the two connections does what —
           point them at the full explainer before they start pasting URLs. */}
       <a
