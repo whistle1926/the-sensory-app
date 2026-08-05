@@ -33,6 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CopyAssist } from "@/components/training/copy-assist";
 import { CourseImageField } from "@/components/training/course-image-field";
+import { InstructorPhotoField } from "@/components/training/instructor-photo-field";
 import { LivePreviewPane } from "@/components/training/live-preview-pane";
 import { PublishBar } from "@/components/training/publish-bar";
 import { DRAFT_FIELDS, withDraft } from "@/lib/course-draft";
@@ -154,6 +155,27 @@ export default function CourseEditPage({
         setModuleVideos(map);
       });
   }, [courseId]);
+
+  /** Pull the instructor block from the signed-in user's own Team profile, so
+   *  a bio written once can be reused across every course. */
+  async function fillInstructorFromProfile() {
+    try {
+      const res = await fetch("/api/users/me");
+      if (!res.ok) return;
+      const me = (await res.json()) as {
+        name?: string;
+        bio?: string | null;
+        photoUrl?: string | null;
+      };
+      patchCourse({
+        instructorName: me.name ?? course?.instructorName ?? "",
+        instructorBio: me.bio ?? course?.instructorBio ?? "",
+        instructorImageUrl: me.photoUrl ?? course?.instructorImageUrl ?? "",
+      });
+    } catch {
+      /* leave the fields as they are */
+    }
+  }
 
   function patchCourse(p: Partial<CourseShape>) {
     setCourse((c) => (c ? { ...c, ...p } : c));
@@ -543,11 +565,23 @@ export default function CourseEditPage({
 
       {/* ── Instructor ────────────────────────────────────────────────── */}
       <section className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
-        <h2 className="text-sm font-semibold">Instructor</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Shown on the public course detail page. Override per course
-          if a different therapist teaches it.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold">Instructor</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Shown on the public course detail page. Change it per course only
+              if a different therapist teaches that one.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={fillInstructorFromProfile}
+            className="shrink-0 rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold hover:bg-muted"
+            title="Copies your name, role, bio and photo from your Team profile"
+          >
+            Use my details
+          </button>
+        </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="ins-name">Name</Label>
@@ -581,15 +615,10 @@ export default function CourseEditPage({
             className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
-        <div className="mt-4 space-y-2">
-          <Label htmlFor="ins-img">Photo URL</Label>
-          <Input
-            id="ins-img"
+        <div className="mt-4">
+          <InstructorPhotoField
             value={course.instructorImageUrl ?? ""}
-            placeholder="https://..."
-            onChange={(e) =>
-              patchCourse({ instructorImageUrl: e.target.value })
-            }
+            onChange={(url) => patchCourse({ instructorImageUrl: url })}
           />
         </div>
       </section>

@@ -30,6 +30,9 @@ export function LivePreviewPane({
   const [device, setDevice] = useState<"phone" | "desktop">("desktop");
 
   const frameWidth = device === "phone" ? 390 : 1100;
+  // A phone lays the page out much taller, so give it more room before the
+  // wrapper starts scrolling.
+  const contentHeight = device === "phone" ? 2600 : 1800;
   // Scale the rendered page down to fit the pane without clipping.
   const scale = device === "phone" ? 0.9 : 0.52;
 
@@ -92,9 +95,12 @@ export function LivePreviewPane({
       {/* The preview is display-only: pointer-events are off so nothing in it
           can be clicked or focused by mistake while editing. */}
       <div className="flex-1 overflow-auto rounded-xl border border-border bg-muted/30 p-3">
+        {/* The scaled page is taller than the pane, so the wrapper scrolls.
+            It used to be clipped at a fixed height, which cut the phone view
+            off partway down. */}
         <div
           className="mx-auto overflow-hidden rounded-lg border border-border bg-white shadow-sm"
-          style={{ width: frameWidth * scale }}
+          style={{ width: frameWidth * scale, height: contentHeight * scale }}
         >
           <div
             className="pointer-events-none origin-top-left"
@@ -102,8 +108,6 @@ export function LivePreviewPane({
               width: frameWidth,
               transform: `scale(${scale})`,
               transformOrigin: "top left",
-              // Keep the scaled box from leaving a huge gap underneath.
-              height: 1400 * scale,
             }}
             aria-hidden
           >

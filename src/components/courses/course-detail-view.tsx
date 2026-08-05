@@ -146,10 +146,13 @@ export function CourseDetailView({
               <img
                 src={heroImage}
                 alt={course.title}
-                className="aspect-[4/3] w-full object-cover"
+                /* 16:9 — matches the size the editor asks for and what the
+                   image generator produces. It used to be 4:3 here while the
+                   field said 16:9, so every wide cover got its sides cut off. */
+                className="aspect-video w-full object-cover"
               />
             ) : (
-              <div className="flex aspect-[4/3] items-center justify-center bg-gradient-to-br from-primary/10 to-primary/30">
+              <div className="flex aspect-video items-center justify-center bg-gradient-to-br from-primary/10 to-primary/30">
                 <span className="text-5xl font-black text-primary/40">
                   {course.title.slice(0, 2).toUpperCase()}
                 </span>
