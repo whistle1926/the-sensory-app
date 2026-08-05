@@ -135,6 +135,49 @@ model User {
   passcodeHash   String?   @map("passcode_hash")
   passcodeSetAt  DateTime? @map("passcode_set_at")
   trustedDevices TrustedDevice[]
+  passkeys       Passkey[]
+}
+
+/// A registered passkey — Touch ID, Face ID, Windows Hello or a security key.
+///
+/// Only the PUBLIC key is stored. The private half never leaves the device, so
+/// there is nothing here worth stealing: a copy of this table cannot be used
+/// to sign in as anyone. Passkeys are also bound to the site, which is why
+/// they cannot be phished the way a password or a code can.
+model Passkey {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Base64url credential id issued by the authenticator.
+  credentialId String   @unique @map("credential_id")
+  publicKey    Bytes    @map("public_key")
+  /// Signature counter, used to spot a cloned authenticator.
+  counter      BigInt   @default(0)
+  /// "platform" (built into the device) or "cross-platform" (security key).
+  deviceType   String   @default("platform") @map("device_type")
+  backedUp     Boolean  @default(false) @map("backed_up")
+  transports   String[] @default([])
+  /// What the user calls it, e.g. "Grace's MacBook".
+  label        String?
+  lastUsedAt   DateTime? @map("last_used_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("passkeys")
+}
+
+/// Short-lived challenge for a passkey registration or sign-in. Stored server
+/// side so the browser cannot choose its own, which is what stops a replay.
+model WebauthnChallenge {
+  id        String   @id @default(cuid())
+  challenge String   @unique
+  /// Null while signing in — we do not know who it is until they answer.
+  userId    String?  @map("user_id")
+  kind      String   // "register" | "login"
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("webauthn_challenges")
 }
 
 /// A browser the user has already signed into with their full password.

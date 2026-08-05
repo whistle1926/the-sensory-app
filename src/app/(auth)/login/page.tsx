@@ -51,6 +51,37 @@ function LoginInner() {
     window.location.href = role === "CLIENT" ? "/portal" : "/dashboard";
   }
 
+  async function signInWithPasskey() {
+    setError("");
+    setLoading(true);
+    try {
+      const optRes = await fetch("/api/passkey/login");
+      if (!optRes.ok) throw new Error("start failed");
+      const options = await optRes.json();
+      const { startAuthentication } = await import("@simplewebauthn/browser");
+      const answer = await startAuthentication(options);
+      const result = await signIn("passkey", {
+        response: JSON.stringify(answer),
+        redirect: false,
+      });
+      if (result?.error || !result?.ok) {
+        setError("That passkey wasn't recognised.");
+        setLoading(false);
+        return;
+      }
+      await afterSignIn();
+    } catch (e) {
+      // A user who closes the Touch ID prompt isn't an error worth shouting about.
+      const name = (e as { name?: string })?.name;
+      setError(
+        name === "NotAllowedError" || name === "AbortError"
+          ? ""
+          : "Couldn't use a passkey on this device.",
+      );
+      setLoading(false);
+    }
+  }
+
   async function submitPasscode(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
@@ -186,6 +217,14 @@ function LoginInner() {
                 >
                   Use my email and password instead
                 </button>
+                <button
+                  type="button"
+                  onClick={signInWithPasskey}
+                  disabled={loading}
+                  className="w-full rounded-xl border border-border py-2.5 text-sm font-semibold hover:bg-muted disabled:opacity-50"
+                >
+                  🔑 Sign in with passkey
+                </button>
               </form>
             ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -235,7 +274,28 @@ function LoginInner() {
               >
                 {loading ? "Signing in…" : "Sign in"}
               </Button>
-            </form>
+            
+              {/* Always offered, on any device. A passkey is the strongest
+                  option available and needs no password at all. */}
+              <div className="relative py-1">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-card px-2 text-xs text-muted-foreground">
+                    or
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={signInWithPasskey}
+                disabled={loading}
+                className="w-full rounded-xl border border-border py-2.5 text-sm font-semibold hover:bg-muted disabled:opacity-50"
+              >
+                🔑 Sign in with passkey
+              </button>
+</form>
             )}
           </div>
 

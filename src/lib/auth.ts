@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { verifyPasscode } from "@/lib/passcode";
+import { verifyAuthentication } from "@/lib/passkey";
 import { prisma } from "./prisma";
 import { authConfig } from "./auth.config";
 import { computeNavAccess } from "./nav-access";
@@ -10,6 +11,41 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
   trustHost: true,
   providers: [
+    // Passkey sign-in — Touch ID, Face ID, Windows Hello or a security key.
+    // The browser proves possession of a private key that never leaves the
+    // device, so nothing secret crosses the wire and there is nothing to
+    // phish. Verification (challenge, origin and signature) is in
+    // src/lib/passkey.ts.
+    Credentials({
+      id: "passkey",
+      name: "Passkey",
+      credentials: { response: { label: "Passkey", type: "text" } },
+      async authorize(credentials) {
+        const raw = typeof credentials?.response === "string" ? credentials.response : "";
+        if (!raw) return null;
+        let parsed;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          return null;
+        }
+
+        const result = await verifyAuthentication(parsed);
+        if (!result.ok) return null;
+
+        const user = await prisma.user.findUnique({ where: { id: result.userId } });
+        if (!user) return null;
+
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          impersonatedBy: null,
+          navAccess: await computeNavAccess(user.dashTemplateId),
+        };
+      },
+    }),
     // Quick sign-in on a device that has ALREADY completed a full password
     // sign-in. The passcode alone is never enough on an unknown machine —
     // verifyPasscode requires a valid trusted-device token and untrusts the
