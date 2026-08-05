@@ -20,7 +20,12 @@ function client(): Replicate {
  * Returns the temporary CDN URL of the generated image. Caller should re-host
  * to durable storage before persisting.
  */
-export async function runFluxSchnell(prompt: string): Promise<string> {
+export async function runFluxSchnell(
+  prompt: string,
+  /** Defaults to square, which is what the programme demo steps use. Course
+   *  covers need a wide banner or a 4:3 card instead. */
+  aspectRatio: "1:1" | "16:9" | "4:3" = "1:1",
+): Promise<string> {
   const output = (await client().run("black-forest-labs/flux-schnell", {
     input: {
       prompt,
@@ -28,7 +33,7 @@ export async function runFluxSchnell(prompt: string): Promise<string> {
       // WebP keeps the image small and modern browsers all support it.
       output_format: "webp",
       output_quality: 85,
-      aspect_ratio: "1:1",
+      aspect_ratio: aspectRatio,
       // Schnell defaults to 4 inference steps — fine for a flat illustration.
     },
   })) as unknown;

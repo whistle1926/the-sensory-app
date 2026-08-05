@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CopyAssist } from "@/components/training/copy-assist";
+import { CourseImageField } from "@/components/training/course-image-field";
 import { LivePreviewPane } from "@/components/training/live-preview-pane";
 import { PublishBar } from "@/components/training/publish-bar";
 import { DRAFT_FIELDS, withDraft } from "@/lib/course-draft";
@@ -496,28 +497,22 @@ export default function CourseEditPage({
             />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="c-hero">Hero image URL (16:9)</Label>
-              <Input
-                id="c-hero"
-                value={course.heroImageUrl ?? ""}
-                placeholder="https://blob.vercel.com/..."
-                onChange={(e) =>
-                  patchCourse({ heroImageUrl: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="c-thumb">Thumbnail URL (4:3)</Label>
-              <Input
-                id="c-thumb"
-                value={course.thumbnailUrl ?? ""}
-                placeholder="https://blob.vercel.com/..."
-                onChange={(e) =>
-                  patchCourse({ thumbnailUrl: e.target.value })
-                }
-              />
-            </div>
+            <CourseImageField
+              label="Cover image (wide)"
+              hint="The big picture at the top of the course page. Upload one, or have one drawn from this course's own words."
+              value={course.heroImageUrl ?? ""}
+              onChange={(url) => patchCourse({ heroImageUrl: url })}
+              courseId={courseId}
+              kind="hero"
+            />
+            <CourseImageField
+              label="Card picture"
+              hint="The smaller picture on the courses list. Falls back to the cover image if you leave it empty."
+              value={course.thumbnailUrl ?? ""}
+              onChange={(url) => patchCourse({ thumbnailUrl: url })}
+              courseId={courseId}
+              kind="thumbnail"
+            />
           </div>
           <div className="space-y-2">
             <Label>&ldquo;What you&rsquo;ll learn&rdquo; bullets</Label>
