@@ -238,7 +238,10 @@ export function TeamProfileDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
+      {/* Wide enough to actually read, and scrollable so the Save buttons at
+          the bottom are always reachable — the default width squashed this to
+          an unusable column. */}
+      <DialogContent className="max-h-[90vh] w-[95vw] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{member.name}</DialogTitle>
         </DialogHeader>

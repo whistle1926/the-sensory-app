@@ -19,6 +19,10 @@ import {
   Plus,
   ShieldCheck,
   Users,
+  MoreVertical,
+  Pencil,
+  Copy,
+  KeyRound,
 } from "lucide-react";
 import { Toolbar } from "@/components/ds";
 import { TeamProfileDialog } from "@/components/team/team-profile-dialog";
@@ -68,6 +72,8 @@ export default function TeamPage() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Which card's ⋯ menu is open, if any.
+  const [menuFor, setMenuFor] = useState<string | null>(null);
   // The member whose "View Profile" dialog is open, if any.
   const [profileUser, setProfileUser] = useState<User | null>(null);
 
@@ -344,8 +350,9 @@ export default function TeamPage() {
                 </div>
               )}
 
-              {/* Action Buttons */}
-              <div className="mt-4 flex gap-2">
+              {/* Action Buttons. The common jobs are here on the card so the
+                  profile dialog is only needed for the fuller edit. */}
+              <div className="mt-4 flex items-center gap-2">
                 <a
                   href={`mailto:${user.email}`}
                   className="flex-1 rounded-xl bg-primary px-3 py-2 text-center text-sm font-semibold text-white transition-colors hover:bg-primary/80"
@@ -359,6 +366,71 @@ export default function TeamPage() {
                 >
                   View Profile
                 </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setMenuFor(menuFor === user.id ? null : user.id)}
+                    aria-label={`More options for ${user.name}`}
+                    className="rounded-xl border border-border bg-card px-2.5 py-2 text-foreground transition-colors hover:bg-muted"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </button>
+                  {menuFor === user.id && (
+                    <>
+                      {/* Click anywhere else to dismiss. */}
+                      <button
+                        type="button"
+                        aria-hidden
+                        tabIndex={-1}
+                        onClick={() => setMenuFor(null)}
+                        className="fixed inset-0 z-10 cursor-default"
+                      />
+                      <div className="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded-xl border border-border bg-card py-1 shadow-lg">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuFor(null);
+                            setProfileUser(user);
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Edit name &amp; profile
+                        </button>
+                        <a
+                          href={`mailto:${user.email}`}
+                          onClick={() => setMenuFor(null)}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
+                        >
+                          <Mail className="h-3.5 w-3.5" />
+                          Email {user.name.split(" ")[0]}
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard?.writeText(user.email);
+                            setMenuFor(null);
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          Copy login email
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuFor(null);
+                            setProfileUser(user);
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
+                        >
+                          <KeyRound className="h-3.5 w-3.5" />
+                          Reset password
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           );
