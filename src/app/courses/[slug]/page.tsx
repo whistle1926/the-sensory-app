@@ -53,7 +53,11 @@ export default async function CourseDetailPage({
     },
   });
 
-  if (!course || course.status !== "AVAILABLE") notFound();
+  if (!course) notFound();
+  // Staff previewing an unpublished course get through here too — otherwise a
+  // draft (Archived / Coming soon) would 404 before the preview banner ever
+  // rendered, which is exactly the case the preview exists for.
+  if (course.status !== "AVAILABLE" && !isStaff) notFound();
 
   const testimonials = Array.isArray(course.testimonials)
     ? (course.testimonials as Testimonial[])

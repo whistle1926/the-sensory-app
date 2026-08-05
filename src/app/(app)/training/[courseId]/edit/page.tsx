@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CopyAssist } from "@/components/training/copy-assist";
+import { CoursePreview } from "@/components/training/course-preview";
 import { CourseResources } from "@/components/training/course-resources";
 
 interface Testimonial {
@@ -272,6 +273,8 @@ export default function CourseEditPage({
       )}
 
       {/* ── Basic ─────────────────────────────────────────────────────── */}
+      <CoursePreview slug={course.slug} />
+
       <section className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
         <h2 className="text-sm font-semibold">Basic details</h2>
         <p className="mt-1 text-xs text-muted-foreground">
