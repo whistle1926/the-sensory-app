@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Clock,
   Mail,
+  FileText,
   PlayCircle,
   RefreshCw,
   ShieldCheck,
@@ -20,6 +21,8 @@ interface Props {
   price: number;
   duration: string;
   moduleCount: number;
+  /** Titles of the handouts attached to the course, shown as what you get. */
+  resources?: string[];
 }
 
 /**
@@ -36,6 +39,7 @@ export function BuyPanel({
   price,
   duration,
   moduleCount,
+  resources,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [enrolledEmail, setEnrolledEmail] = useState<string | null>(null);
@@ -102,10 +106,17 @@ export function BuyPanel({
             <Clock className="h-4 w-4 text-primary" />
             {duration}
           </li>
-          <li className="flex items-center gap-2.5 text-muted-foreground">
-            <PlayCircle className="h-4 w-4 text-primary" />
-            {moduleCount} module{moduleCount === 1 ? "" : "s"} with quizzes
-          </li>
+          {resources && resources.length > 0 && (
+            <li className="flex items-start gap-2.5 text-muted-foreground">
+              <FileText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <span>
+                Includes{" "}
+                {resources.length === 1
+                  ? resources[0]
+                  : `${resources.length} downloads: ${resources.join(", ")}`}
+              </span>
+            </li>
+          )}
           <li className="flex items-center gap-2.5 text-muted-foreground">
             <RefreshCw className="h-4 w-4 text-primary" />
             Work through it at your own pace

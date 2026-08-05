@@ -37,6 +37,7 @@ export default async function CourseDetailPage({
         select: { id: true, title: true, order: true, videoUrl: true },
         orderBy: { order: "asc" },
       },
+      resources: { select: { title: true }, orderBy: { order: "asc" } },
       _count: { select: { enrollments: true } },
     },
   });

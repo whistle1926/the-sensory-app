@@ -44,6 +44,7 @@ export interface CourseView {
   audienceFor?: string | null;
   testimonials?: CourseTestimonial[];
   modules: Array<{ id: string; title: string; order: number; videoUrl?: string | null }>;
+  resources?: Array<{ title: string }>;
   _count?: { enrollments: number };
 }
 
@@ -334,6 +335,7 @@ export function CourseDetailView({
               price={course.price}
               duration={course.duration}
               moduleCount={course.modules.length}
+              resources={(course.resources ?? []).map((r) => r.title)}
             />
           </div>
         </aside>
