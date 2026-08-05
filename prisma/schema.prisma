@@ -129,6 +129,25 @@ model User {
   passkeys       Passkey[]
 }
 
+/// A one-time sign-in code emailed to someone who can't use a passkey.
+///
+/// Hashed, single use, short-lived and attempt-limited, so a code sitting in
+/// an inbox is only briefly useful and can't be brute-forced. Keyed by email
+/// rather than user id so requesting one never reveals whether an account
+/// exists.
+model LoginCode {
+  id        String    @id @default(cuid())
+  email     String
+  codeHash  String    @map("code_hash")
+  attempts  Int       @default(0)
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([email, createdAt])
+  @@map("login_codes")
+}
+
 /// A registered passkey — Touch ID, Face ID, Windows Hello or a security key.
 ///
 /// Only the PUBLIC key is stored. The private half never leaves the device, so

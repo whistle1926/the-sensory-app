@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { verifyAuthentication } from "@/lib/passkey";
+import { verifyLoginCode } from "@/lib/login-code";
 import { prisma } from "./prisma";
 import { authConfig } from "./auth.config";
 import { computeNavAccess } from "./nav-access";
@@ -10,6 +11,38 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
   trustHost: true,
   providers: [
+    // Sign in with a code emailed to you — the fallback when a passkey isn't
+    // an option. Weaker than a passkey by nature, so the code is hashed,
+    // single use, expires in ten minutes and dies after five wrong guesses.
+    // See src/lib/login-code.ts.
+    Credentials({
+      id: "login-code",
+      name: "Email code",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        code: { label: "Code", type: "text" },
+      },
+      async authorize(credentials) {
+        const email = typeof credentials?.email === "string" ? credentials.email : "";
+        const code = typeof credentials?.code === "string" ? credentials.code : "";
+        if (!email || !code) return null;
+
+        const result = await verifyLoginCode(email, code);
+        if (!result.ok) return null;
+
+        const user = await prisma.user.findUnique({ where: { id: result.userId } });
+        if (!user) return null;
+
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          impersonatedBy: null,
+          navAccess: await computeNavAccess(user.dashTemplateId),
+        };
+      },
+    }),
     // Passkey sign-in — Touch ID, Face ID, Windows Hello or a security key.
     // The browser proves possession of a private key that never leaves the
     // device, so nothing secret crosses the wire and there is nothing to

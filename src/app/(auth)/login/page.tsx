@@ -26,6 +26,55 @@ function LoginInner() {
   const justRegistered = searchParams.get("registered") === "1";
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // Email-code fallback: "ask" collects the address, "enter" collects the code.
+  const [codeStep, setCodeStep] = useState<"off" | "ask" | "enter">("off");
+  const [codeEmail, setCodeEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [notice, setNotice] = useState("");
+
+  async function requestCode() {
+    setError("");
+    setNotice("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/login-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: codeEmail }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+      if (!res.ok) throw new Error(j.error ?? "Couldn't send a code.");
+      setNotice(j.message ?? "If that address has an account, the code is on its way.");
+      setCodeStep("enter");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't send a code.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitCode(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const result = await signIn("login-code", {
+        email: codeEmail,
+        code,
+        redirect: false,
+      });
+      if (result?.error || !result?.ok) {
+        setError("That code wasn't right, or it's expired.");
+        setCode("");
+        setLoading(false);
+        return;
+      }
+      await afterSignIn();
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setLoading(false);
+    }
+  }
   async function afterSignIn() {
     const session = await getSession();
     const role = session?.user?.role;
@@ -133,6 +182,101 @@ function LoginInner() {
                 Account created. Sign in to continue.
               </div>
             )}
+            {codeStep !== "off" ? (
+              /* Fallback for anyone who can't use a passkey — a borrowed
+                 computer, no biometrics, or a lost phone. */
+              <form
+                onSubmit={(e) => {
+                  if (codeStep === "ask") {
+                    e.preventDefault();
+                    requestCode();
+                  } else {
+                    submitCode(e);
+                  }
+                }}
+                className="space-y-5"
+              >
+                {codeStep === "ask" ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="code-email">Your email address</Label>
+                    <Input
+                      id="code-email"
+                      type="email"
+                      autoFocus
+                      value={codeEmail}
+                      onChange={(e) => setCodeEmail(e.target.value)}
+                      placeholder="you@example.com"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      We&apos;ll email you a 6-digit code. It lasts 10 minutes.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="code-input">Code from your email</Label>
+                    <Input
+                      id="code-input"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      autoFocus
+                      maxLength={6}
+                      value={code}
+                      onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                      className="text-center font-mono text-2xl tracking-[0.4em]"
+                      placeholder="••••••"
+                    />
+                    <button
+                      type="button"
+                      onClick={requestCode}
+                      disabled={loading}
+                      className="text-xs font-semibold text-primary hover:underline disabled:opacity-50"
+                    >
+                      Send another code
+                    </button>
+                  </div>
+                )}
+
+                {notice && (
+                  <p className="rounded-md bg-blue-50 p-2 text-sm text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
+                    {notice}
+                  </p>
+                )}
+                {error && (
+                  <p className="rounded-md bg-red-50 p-2 text-sm text-red-600 dark:bg-red-950/30 dark:text-red-400">
+                    {error}
+                  </p>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={
+                    loading ||
+                    (codeStep === "ask" ? !codeEmail.includes("@") : code.length !== 6)
+                  }
+                  className="w-full rounded-xl"
+                >
+                  {loading
+                    ? "Please wait…"
+                    : codeStep === "ask"
+                      ? "Email me a code"
+                      : "Sign in"}
+                </Button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCodeStep("off");
+                    setError("");
+                    setNotice("");
+                    setCode("");
+                  }}
+                  className="w-full text-center text-xs font-semibold text-muted-foreground hover:text-foreground"
+                >
+                  Back to the usual sign in
+                </button>
+              </form>
+            ) : (
+              <>
             <form onSubmit={handleSubmit} className="space-y-5">
               {error && (
                 <div className="rounded-xl bg-red-50 p-3 text-sm font-medium text-red-600 dark:bg-red-950/50 dark:text-red-400">
@@ -202,6 +346,18 @@ function LoginInner() {
                 🔑 Sign in with passkey
               </button>
 </form>
+              <button
+                type="button"
+                onClick={() => {
+                  setCodeStep("ask");
+                  setError("");
+                }}
+                className="w-full text-center text-xs font-semibold text-muted-foreground hover:text-foreground"
+              >
+                Can&apos;t use a passkey? Email me a sign-in code
+              </button>
+              </>
+            )}
           </div>
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
