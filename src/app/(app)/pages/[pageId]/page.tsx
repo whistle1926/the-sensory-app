@@ -131,7 +131,7 @@ export default function PageEditor({
             placeholder="Page title"
           />
           <a
-            href={`/p/${page.slug}`}
+            href={`/${page.slug}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 rounded-xl border-2 border-primary/30 bg-primary/[0.04] px-3 py-2 text-xs font-bold hover:bg-primary/[0.08]"
@@ -140,7 +140,7 @@ export default function PageEditor({
           </a>
         </div>
         <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-          thesensorysubmarine.com/p/{page.slug}
+          thesensorysubmarine.com/{page.slug}
         </p>
       </div>
 

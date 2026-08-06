@@ -4,6 +4,16 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/page-blocks";
 
+/** Slugs that would collide with a real part of the app. */
+const RESERVED = new Set([
+  "activities", "bookings", "calendar", "clients", "dashboard", "forms",
+  "help", "home-programmes", "invoices", "leaflets", "live-sessions",
+  "pages", "payments", "private", "programmes", "recordings", "reports",
+  "services", "settings", "tasks", "team", "training", "website-users",
+  "portal", "api", "book", "courses", "f", "impersonate", "live", "logout",
+  "p", "set-password", "login", "register", "admin",
+]);
+
 function isStaff(role: string | undefined): boolean {
   return role === "SUPER_ADMIN" || role === "TEAM_MANAGER";
 }
@@ -36,6 +46,7 @@ export async function POST(req: NextRequest) {
   // Slugs are permanent once shared, so make it unique at creation and never
   // change it afterwards — a renamed URL is a broken link for anyone who already shared it.
   let slug = slugify(title) || "page";
+  if (RESERVED.has(slug)) slug = `${slug}-page`;
   for (let i = 0; i < 6; i++) {
     const clash = await prisma.page.findUnique({ where: { slug } });
     if (!clash) break;

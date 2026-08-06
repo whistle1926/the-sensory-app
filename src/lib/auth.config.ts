@@ -3,6 +3,32 @@ import Credentials from "next-auth/providers/credentials";
 import { requiredNavKey } from "./nav-areas";
 
 // Routes that never require auth (prefix match)
+
+/**
+ * Every top-level path the app itself owns. A single-segment URL that is NOT
+ * in here is treated as a candidate editable page (About, Services…), which is
+ * what makes clean URLs like /about work without a login.
+ *
+ * Kept explicit rather than inferred: if a new area is added and forgotten
+ * here, the worst case is middleware lets the request through and the page's
+ * own layout still requires a session — the (app) layout redirects to /login.
+ */
+const APP_AREAS = [
+  "activities", "bookings", "calendar", "clients", "dashboard", "forms",
+  "help", "home-programmes", "invoices", "leaflets", "live-sessions",
+  "pages", "payments", "private", "programmes", "recordings", "reports",
+  "services", "settings", "tasks", "team", "training", "website-users",
+  "portal", "api", "book", "courses", "f", "impersonate", "live", "logout",
+  "p", "set-password", "login", "register", "admin",
+];
+
+/** A bare "/something" that isn't one of ours — i.e. maybe a page Grace wrote. */
+function looksLikeEditablePage(pathname: string): boolean {
+  const m = /^\/([a-z0-9-]+)\/?$/.exec(pathname);
+  if (!m) return false;
+  return !APP_AREAS.includes(m[1]);
+}
+
 const PUBLIC_PREFIXES = [
   // Editable public pages (About, Services...).
   "/p/",
@@ -114,7 +140,9 @@ export const authConfig: NextAuthConfig = {
       // to let the request through the middleware.
       const isHome = pathname === "/";
       const isPublic =
-        isHome || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
+        isHome ||
+        PUBLIC_PREFIXES.some((p) => pathname.startsWith(p)) ||
+        looksLikeEditablePage(pathname);
       const isPortal = pathname === "/portal" || pathname.startsWith("/portal/") || pathname.startsWith("/api/portal");
       const isAdminArea = ADMIN_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
       const isApi = pathname.startsWith("/api/");

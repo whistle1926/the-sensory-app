@@ -108,12 +108,12 @@ export default function PagesListPage() {
                     ) : null}
                   </p>
                   <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                    /p/{p.slug}
+                    /{p.slug}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <a
-                    href={`/p/${p.slug}`}
+                    href={`/${p.slug}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="rounded-lg border border-border p-2 hover:bg-muted"
