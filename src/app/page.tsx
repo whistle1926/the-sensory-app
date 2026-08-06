@@ -46,8 +46,16 @@ export default async function Home() {
       showCoursesNav: true,
       showSignIn: true,
       showCreateAccount: true,
+      testimonials: true,
     },
   });
+  const testimonials = Array.isArray(storefrontConfig?.testimonials)
+    ? (storefrontConfig.testimonials as Array<{
+        quote: string;
+        author: string;
+        meta?: string;
+      }>)
+    : [];
   const showCoursesNav = storefrontConfig?.showCoursesNav ?? true;
   const showSignIn = storefrontConfig?.showSignIn ?? true;
   const showCreateAccount = storefrontConfig?.showCreateAccount ?? true;
@@ -102,13 +110,16 @@ export default async function Home() {
               The Sensory Submarine
             </span>
             <h1 className="text-4xl font-black tracking-tight sm:text-5xl md:text-6xl">
-              Practical support for children with sensory and regulation needs
+              Practical support for children and families
             </h1>
             <p className="max-w-xl text-lg text-muted-foreground">
-              Paediatric OT Grace Magennis brings over a decade of hands-on
-              experience to families across Northern Ireland. Evidence-based
-              1:1 sessions, online courses, and home programmes you can start
-              today.
+              The Sensory Submarine provides expert, evidence-based
+              Occupational Therapy support for children and families across
+              Northern Ireland. Founded by Paediatric Occupational Therapist
+              Grace Magennis, we support children with a wide range of
+              developmental needs, functional difficulties and disabilities,
+              helping them build the skills and confidence to participate in
+              everyday life at home, in school and in their communities.
             </p>
             <div className="flex flex-wrap gap-3">
               {showCoursesNav && (
@@ -202,8 +213,8 @@ export default async function Home() {
           {[
             {
               icon: Video,
-              title: "1:1 sessions",
-              body: "Video consultations and in-person visits for assessment, support, and personalised recommendations.",
+              title: "Private children's occupational therapy",
+              body: "Assessment clinics and one-to-one sessions with Grace and our team of Associate Specialist Occupational Therapists across Northern Ireland.",
               cta: "Book a session",
               href: "/book",
               show: true,
@@ -218,8 +229,8 @@ export default async function Home() {
             },
             {
               icon: Heart,
-              title: "Home programmes",
-              body: "Structured at-home routines, tailored activities, and troubleshooting built around your child's day.",
+              title: "Education and training",
+              body: "Training for parents, schools and early years professionals, plus practical home programmes built around your day.",
               cta: "Talk to us",
               href: "/book",
               show: true,
@@ -307,22 +318,35 @@ export default async function Home() {
       </section>
       )}
 
-      {/* ── Simple pull quote (if we ever swap to real data, easy) ─── */}
-      <section className="mx-auto max-w-4xl px-5 py-14">
-        <blockquote className="relative rounded-3xl border border-border/70 bg-white p-8 text-center shadow-[var(--shadow-sm)] sm:p-12">
-          <Quote className="mx-auto h-6 w-6 text-primary/40" />
-          <p className="mt-4 text-xl font-medium leading-relaxed tracking-tight sm:text-2xl">
-            &ldquo;Practical, warm, and never preachy. I recommend it to every
-            new client.&rdquo;
-          </p>
-          <footer className="mt-5 text-sm text-muted-foreground">
-            <span className="font-semibold text-foreground">
-              Ciara O&apos;Sullivan
-            </span>
-            {" "}— Speech &amp; Language Therapist
-          </footer>
-        </blockquote>
-      </section>
+      {/* ── What families say ─────────────────────────────────────
+          Real reviews, edited in Settings → Storefront so Grace can change
+          them without a deploy. Same source as the booking page, so the two
+          can't drift. The whole section disappears if there are none, rather
+          than showing a placeholder as it used to. */}
+      {testimonials.length > 0 && (
+        <section className="mx-auto max-w-5xl px-5 py-14">
+          <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">
+            What families say
+          </h2>
+          <div className="mt-8 grid gap-5 md:grid-cols-2">
+            {testimonials.slice(0, 4).map((t, i) => (
+              <blockquote
+                key={i}
+                className="relative rounded-3xl border border-border/70 bg-white p-6 shadow-[var(--shadow-sm)] sm:p-8"
+              >
+                <Quote className="h-5 w-5 text-primary/40" />
+                <p className="mt-3 whitespace-pre-line text-base leading-relaxed">
+                  {t.quote}
+                </p>
+                <footer className="mt-4 text-sm text-muted-foreground">
+                  <span className="font-semibold text-foreground">{t.author}</span>
+                  {t.meta ? ` — ${t.meta}` : ""}
+                </footer>
+              </blockquote>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ── Trust strip ────────────────────────────────────────────── */}
       {allBadges.length > 0 && (
