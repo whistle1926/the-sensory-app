@@ -18,6 +18,7 @@ import Link from "next/link";
 import { ClientProfileEditor } from "@/components/clients/client-profile-editor";
 import { ViewAsButton } from "@/components/impersonate/view-as-button";
 import { ProgressNotesSection } from "@/components/clients/progress-notes-section";
+import { ParentEntriesSection } from "@/components/clients/parent-entries-section";
 import { GoalsSection } from "@/components/clients/goals-section";
 import { ClientAssessmentsSection } from "@/components/clients/client-assessments-section";
 import { Toolbar, Panel, Chip, Empty } from "@/components/ds";
@@ -527,6 +528,7 @@ export default async function ClientDetailPage({
         </Panel>
       )}
 
+      <ParentEntriesSection clientId={client.id} />
       <ProgressNotesSection clientId={client.id} />
 
       <GoalsSection clientId={client.id} isAdmin={adminCanEdit} />

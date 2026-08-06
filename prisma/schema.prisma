@@ -127,6 +127,7 @@ model User {
   personalNotePresets Json @default("[]")
 
   passkeys       Passkey[]
+  parentEntries  ParentEntry[] @relation("ParentEntries")
 }
 
 /// A one-time sign-in code emailed to someone who can't use a passkey.
@@ -267,6 +268,7 @@ model Client {
   intakeItems   ClientIntakeItem[]
   invoices      Invoice[]
   formInvites   FormInvite[]
+  parentEntries ParentEntry[]
 
   @@index([stageId])
   // Dashboard filters active clients, often within a recent window.
@@ -1154,6 +1156,35 @@ model LiveRecording {
 }
 
 // ─── Progress Notes (SOAP format) ───────────────────────────────────
+
+/// Something a parent wrote between sessions — a win they want to share, or
+/// a question for their OT.
+///
+/// Stored against the CLIENT rather than the parent's user account, because
+/// the therapist reads it while looking at that child's record, and a parent
+/// can have more than one child. Deliberately not a message thread: it is a
+/// note the OT picks up when they open the record, which is what was agreed
+/// for the first version.
+model ParentEntry {
+  id        String   @id @default(cuid())
+  clientId  String   @map("client_id")
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  /// The parent who wrote it. Kept so the record shows who, when a child has
+  /// two carers with logins.
+  authorId  String   @map("author_id")
+  author    User     @relation("ParentEntries", fields: [authorId], references: [id], onDelete: Cascade)
+  /// "win" | "question"
+  kind      String
+  body      String   @db.Text
+  /// Set when a therapist has read it, so the client record can show what is
+  /// new since they last looked.
+  seenAt    DateTime? @map("seen_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([clientId, createdAt])
+  @@map("parent_entries")
+}
 
 model ProgressNote {
   id          String   @id @default(cuid())
