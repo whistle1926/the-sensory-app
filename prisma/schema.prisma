@@ -400,6 +400,11 @@ model Course {
   /// apply.
   isLive      Boolean  @default(false) @map("is_live")
 
+  /// Offer a certificate when someone finishes. Off by default: it suits the
+  /// accredited school trainings, but promises more than intended on a
+  /// one-hour parent webinar.
+  hasCertificate Boolean @default(false) @map("has_certificate")
+
   /// Free-text notes from the OT ("a few lines about this webinar") used as
   /// the source material when drafting the storefront copy with AI. Kept so
   /// the draft can be regenerated later without re-typing.

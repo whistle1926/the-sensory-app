@@ -23,6 +23,8 @@ interface Props {
   moduleCount: number;
   /** Titles of the handouts attached to the course, shown as what you get. */
   resources?: string[];
+  /** Only promise a certificate when the course actually gives one. */
+  hasCertificate?: boolean;
 }
 
 /**
@@ -40,6 +42,7 @@ export function BuyPanel({
   duration,
   moduleCount,
   resources,
+  hasCertificate,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [enrolledEmail, setEnrolledEmail] = useState<string | null>(null);
@@ -121,10 +124,12 @@ export function BuyPanel({
             <RefreshCw className="h-4 w-4 text-primary" />
             Work through it at your own pace
           </li>
-          <li className="flex items-center gap-2.5 text-muted-foreground">
-            <ShieldCheck className="h-4 w-4 text-primary" />
-            Certificate on completion
-          </li>
+          {hasCertificate && (
+            <li className="flex items-center gap-2.5 text-muted-foreground">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              Certificate on completion
+            </li>
+          )}
         </ul>
       </div>
 

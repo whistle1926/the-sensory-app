@@ -33,6 +33,7 @@ export const DRAFT_FIELDS = [
   "testimonials",
   "isFeatured",
   "isBestseller",
+  "hasCertificate",
 ] as const;
 
 export type DraftField = (typeof DRAFT_FIELDS)[number];
@@ -99,4 +100,5 @@ export const FIELD_LABELS: Record<DraftField, string> = {
   testimonials: "Testimonials",
   isFeatured: "Featured",
   isBestseller: "Bestseller",
+  hasCertificate: "Certificate",
 };

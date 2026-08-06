@@ -67,6 +67,8 @@ interface CourseShape {
   isFeatured: boolean;
   isBestseller: boolean;
   isLive: boolean;
+  hasCertificate: boolean;
+  resources?: Array<{ title: string }>;
   copyNotes: string | null;
   tagline: string | null;
   shortDescription: string | null;
@@ -202,6 +204,7 @@ export default function CourseEditPage({
           isFeatured: course.isFeatured,
           isBestseller: course.isBestseller,
           isLive: course.isLive,
+          hasCertificate: course.hasCertificate,
           copyNotes: course.copyNotes ?? "",
           // Storefront copy
           tagline: course.tagline ?? "",
@@ -459,6 +462,20 @@ export default function CourseEditPage({
             onChange={(v) => patchCourse({ isLive: v })}
           />
         </label>
+        <label className="mt-3 flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-border bg-muted/20 p-3">
+          <div>
+            <p className="text-sm font-medium">Give a certificate on completion</p>
+            <p className="text-xs text-muted-foreground">
+              Shown in the buy box and offered when someone finishes. Best left
+              off for a short parent webinar — it suits accredited training.
+            </p>
+          </div>
+          <Toggle
+            checked={course.hasCertificate}
+            onChange={(v) => patchCourse({ hasCertificate: v })}
+          />
+        </label>
+
         {course.isLive && course.status !== "AVAILABLE" && (
           <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
             This is set to sell now, but its status is{" "}
@@ -782,6 +799,8 @@ export default function CourseEditPage({
               isBestseller: course.isBestseller,
               testimonials: course.testimonials,
               modules: course.modules,
+              resources: course.resources ?? [],
+              hasCertificate: course.hasCertificate,
             }}
           />
         </aside>

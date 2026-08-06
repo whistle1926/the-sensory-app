@@ -45,6 +45,7 @@ export interface CourseView {
   testimonials?: CourseTestimonial[];
   modules: Array<{ id: string; title: string; order: number; videoUrl?: string | null }>;
   resources?: Array<{ title: string }>;
+  hasCertificate?: boolean;
   _count?: { enrollments: number };
 }
 
@@ -336,6 +337,7 @@ export function CourseDetailView({
               duration={course.duration}
               moduleCount={course.modules.length}
               resources={(course.resources ?? []).map((r) => r.title)}
+              hasCertificate={course.hasCertificate}
             />
           </div>
         </aside>
