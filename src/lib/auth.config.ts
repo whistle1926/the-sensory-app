@@ -4,6 +4,8 @@ import { requiredNavKey } from "./nav-areas";
 
 // Routes that never require auth (prefix match)
 const PUBLIC_PREFIXES = [
+  // Editable public pages (About, Services...).
+  "/p/",
   "/book",
   "/api/bookings",
   // Public read of booking services + terms — the /book form fetches

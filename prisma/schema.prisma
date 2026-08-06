@@ -1588,6 +1588,36 @@ model TrackingSettings {
 /// Admin-editable copy for the public courses storefront. Singleton
 /// (id="default") for parity with EmailSettings / PaymentSettings.
 /// Becomes per-tenant in Phase 1c of the white-label plan.
+/// An editable public page — About, Services, whatever Grace needs.
+///
+/// Content is an ordered list of blocks rather than raw HTML, so the page
+/// stays on-brand no matter what is typed: each block renders through the
+/// site's own styles. Same draft/publish split as courses, so a live page
+/// cannot change under a visitor mid-edit.
+model Page {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  /// Ordered blocks — see src/lib/page-blocks.ts for the shapes.
+  blocks      Json     @default("[]")
+  /// Unpublished edits, applied over the fields above on publish.
+  draft       Json     @default("{}")
+  isPublished Boolean  @default(false) @map("is_published")
+  /// Show in the public site navigation.
+  showInNav   Boolean  @default(false) @map("show_in_nav")
+  navLabel    String?  @map("nav_label")
+  order       Int      @default(0)
+  /// Search-engine title and description; falls back to the page title.
+  seoTitle       String? @map("seo_title")
+  seoDescription String? @map("seo_description") @db.Text
+  publishedAt DateTime? @map("published_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([isPublished, order])
+  @@map("pages")
+}
+
 model StorefrontConfig {
   id        String   @id @default("default")
   /// Small text above the big title — was "Training that makes a
