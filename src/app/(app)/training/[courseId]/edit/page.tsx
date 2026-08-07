@@ -102,6 +102,7 @@ export default function CourseEditPage({
   const [moduleVideos, setModuleVideos] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [instructorNote, setInstructorNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   /** (Re)load the course, opening on the unpublished draft when there is one.
@@ -174,8 +175,41 @@ export default function CourseEditPage({
         instructorBio: me.bio ?? course?.instructorBio ?? "",
         instructorImageUrl: me.photoUrl ?? course?.instructorImageUrl ?? "",
       });
+      // Say plainly when a field was empty — otherwise only the name appears
+      // and it looks like the button half-worked.
+      const missing = [
+        !me.bio ? "bio" : null,
+        !me.photoUrl ? "photo" : null,
+      ].filter(Boolean);
+      setInstructorNote(
+        missing.length
+          ? `Your name came across. You haven't saved a ${missing.join(" or ")} yet — write it below and press "Save these as my details" so it carries across next time.`
+          : "Your name, bio and photo have been filled in.",
+      );
     } catch {
       /* leave the fields as they are */
+    }
+  }
+
+  /** Push what's on this course into your own profile, so the next course
+   *  starts from it. This is what makes the bio reusable. */
+  async function saveInstructorToProfile() {
+    try {
+      const res = await fetch("/api/users/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bio: course?.instructorBio ?? "",
+          photoUrl: course?.instructorImageUrl ?? "",
+        }),
+      });
+      setInstructorNote(
+        res.ok
+          ? "Saved. Every new course can now pull this in with \"Use my details\"."
+          : "Couldn't save that just now.",
+      );
+    } catch {
+      setInstructorNote("Couldn't save that just now.");
     }
   }
 
@@ -590,15 +624,30 @@ export default function CourseEditPage({
               if a different therapist teaches that one.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={fillInstructorFromProfile}
-            className="shrink-0 rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold hover:bg-muted"
-            title="Copies your name, role, bio and photo from your Team profile"
-          >
-            Use my details
-          </button>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={fillInstructorFromProfile}
+              className="rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold hover:bg-muted"
+              title="Fills these fields from your saved details"
+            >
+              Use my details
+            </button>
+            <button
+              type="button"
+              onClick={saveInstructorToProfile}
+              className="rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold hover:bg-muted"
+              title="Remembers what's below, so other courses can reuse it"
+            >
+              Save these as my details
+            </button>
+          </div>
         </div>
+        {instructorNote && (
+          <p className="mt-2 rounded-lg bg-muted/50 p-2 text-xs text-muted-foreground">
+            {instructorNote}
+          </p>
+        )}
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="ins-name">Name</Label>
