@@ -7,6 +7,9 @@ import { prisma } from "./prisma";
 import { authConfig } from "./auth.config";
 import { computeNavAccess } from "./nav-access";
 
+/** How often to re-check a signed-in user's nav entitlement. */
+const NAV_REFRESH_MS = 5 * 60 * 1000;
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
   trustHost: true,
@@ -163,4 +166,43 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
     }),
   ],
+
+  callbacks: {
+    ...authConfig.callbacks,
+    /**
+     * The edge callback stamps nav access at sign-in and never again, so
+     * changing someone's dashboard template did nothing until they happened
+     * to log out — which for a non-technical user is indistinguishable from
+     * the change not working. This node-side wrapper re-derives it from the
+     * database periodically, so a template change lands on its own.
+     */
+    async jwt(params) {
+      const base = await authConfig.callbacks!.jwt!(params);
+      const token = (base ?? params.token) as typeof params.token & {
+        id?: string;
+        nav?: string[] | null;
+        navAt?: number;
+      };
+      const now = Date.now();
+
+      if (params.user) {
+        token.navAt = now; // just stamped by the sign-in path
+        return token;
+      }
+
+      if (token.id && (!token.navAt || now - token.navAt > NAV_REFRESH_MS)) {
+        try {
+          const u = await prisma.user.findUnique({
+            where: { id: token.id },
+            select: { dashTemplateId: true },
+          });
+          if (u) token.nav = await computeNavAccess(u.dashTemplateId);
+          token.navAt = now;
+        } catch {
+          // Keep whatever we already had rather than locking someone out.
+        }
+      }
+      return token;
+    },
+  },
 });
