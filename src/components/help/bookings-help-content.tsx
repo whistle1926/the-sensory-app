@@ -132,7 +132,7 @@ export function BookingsHelpContent({ state }: { state: BookingsSetupState }) {
               <li className="flex gap-2 text-amber-900/90 dark:text-amber-200/90">
                 <span>•</span>
                 <span>
-                  <strong>No service has its own hours.</strong> They all share
+                  <strong>No service has its own hours.</strong>{" "}They all share
                   one schedule, so every service looks available at the same
                   times.
                 </span>
@@ -171,8 +171,8 @@ export function BookingsHelpContent({ state }: { state: BookingsSetupState }) {
       {/* ── Steps ─────────────────────────────────────────────────── */}
       <Card n={1} icon={UserCog} title="Say who runs each service">
         <p className="text-sm leading-relaxed text-muted-foreground">
-          On the <strong>Services</strong> tab, press <strong>Edit</strong> on a
-          service and set the <strong>Run by</strong> dropdown. That person is
+          On the <strong>Services</strong> tab, press <strong>Edit</strong>{" "}on a
+          service and set the <strong>Run by</strong>{" "}dropdown. That person is
           who the booking belongs to: it&apos;s their diary it blocks, and they
           get the &ldquo;New booking&rdquo; email. Left on &ldquo;The practice
           (default calendar)&rdquo; it still works — the email just goes to the
@@ -188,7 +188,7 @@ export function BookingsHelpContent({ state }: { state: BookingsSetupState }) {
 
       <Card n={2} icon={Clock} title="Set the hours for each service">
         <p className="text-sm leading-relaxed text-muted-foreground">
-          On the <strong>Availability</strong> tab, pick the service from
+          On the <strong>Availability</strong>{" "}tab, pick the service from
           &ldquo;Which service&apos;s availability?&rdquo;, then switch on the
           days and set the times underneath. This is how you get &ldquo;9 to 2
           on a Tuesday for assessments, Wednesdays for school visits&rdquo; —
@@ -206,7 +206,7 @@ export function BookingsHelpContent({ state }: { state: BookingsSetupState }) {
       <Card n={3} icon={CalendarDays} title="Change one particular day">
         <p className="text-sm leading-relaxed text-muted-foreground">
           For &ldquo;Tuesday 11th only 10–12&rdquo; or &ldquo;away that
-          Thursday&rdquo;, scroll to <strong>Date-specific overrides</strong> at
+          Thursday&rdquo;, scroll to <strong>Date-specific overrides</strong>{" "}at
           the bottom of Availability. Pick the date, choose Unavailable or
           Custom hours, and press Add Override. It beats the weekly pattern for
           that day only.

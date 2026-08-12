@@ -498,7 +498,7 @@ export function ReportViewer({ content, editing = false, onChange }: ReportViewe
       {editing && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/30 px-3 py-2 text-xs">
           <span className="text-muted-foreground">
-            Tip: <strong>Collapse all</strong> to make reordering easier, then expand the one you want to edit.
+            Tip: <strong>Collapse all</strong>{" "}to make reordering easier, then expand the one you want to edit.
           </span>
           <div className="flex items-center gap-1.5">
             <button

@@ -266,7 +266,7 @@ export default function HomeProgrammePage() {
               <ProgrammeBodyView body={programme.body} />
             ) : (
               <p className="text-sm italic text-muted-foreground">
-                This home programme is empty. Click <strong>Edit</strong> to add
+                This home programme is empty. Click <strong>Edit</strong>{" "}to add
                 activities, templates and leaflets.
               </p>
             )}

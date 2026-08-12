@@ -172,7 +172,7 @@ export function EmailSignaturesSection() {
 
       {list.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          No signatures yet. Click <strong>Use starter set</strong> for three
+          No signatures yet. Click <strong>Use starter set</strong>{" "}for three
           ready-to-edit templates (formal, warm, brief) with your name
           pre-filled — just tweak the qualifications and contact details.
         </div>

@@ -62,7 +62,7 @@ export function CalendarHelpContent({ autoSyncOn }: { autoSyncOn: boolean }) {
             </p>
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
               Getting appointments people book with you{" "}
-              <em>out of</em> the portal and <em>into</em> your Google Calendar.
+              <em>out of</em> the portal and <em>into</em>{" "}your Google Calendar.
             </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-4">
@@ -75,7 +75,7 @@ export function CalendarHelpContent({ autoSyncOn }: { autoSyncOn: boolean }) {
             </p>
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
               Seeing your existing Google appointments{" "}
-              <em>inside</em> the portal, so the diary isn&apos;t half-empty.
+              <em>inside</em>{" "}the portal, so the diary isn&apos;t half-empty.
             </p>
           </div>
         </div>
@@ -99,7 +99,7 @@ export function CalendarHelpContent({ autoSyncOn }: { autoSyncOn: boolean }) {
           <Bullet>The client gets a confirmation email.</Bullet>
           <Bullet>
             The therapist who owns that service gets a{" "}
-            <strong>&ldquo;New booking&rdquo;</strong> email. If the service has
+            <strong>&ldquo;New booking&rdquo;</strong>{" "}email. If the service has
             nobody assigned, it goes to the practice inbox instead.
           </Bullet>
           <Bullet>
@@ -111,7 +111,7 @@ export function CalendarHelpContent({ autoSyncOn }: { autoSyncOn: boolean }) {
         </ol>
         <Note>
           So the portal always knows about every booking. Your{" "}
-          <em>Google</em> calendar is the part that needs the extra step below.
+          <em>Google</em>{" "}calendar is the part that needs the extra step below.
         </Note>
       </Card>
 
@@ -129,7 +129,7 @@ export function CalendarHelpContent({ autoSyncOn }: { autoSyncOn: boolean }) {
             </p>
             <p className="mt-1.5 text-sm leading-relaxed text-green-900/80 dark:text-green-200/80">
               Connect your Google account once in{" "}
-              <strong>Settings → Calendar</strong> and every new booking for you
+              <strong>Settings → Calendar</strong>{" "}and every new booking for you
               is written straight into your Google Calendar — and removed again
               if it&apos;s cancelled. You&apos;ll still get the email, but you
               won&apos;t need to click anything.
@@ -143,7 +143,7 @@ export function CalendarHelpContent({ autoSyncOn }: { autoSyncOn: boolean }) {
               on yet
             </p>
             <p className="mt-1.5 text-sm leading-relaxed text-amber-900/80 dark:text-amber-200/80">
-              Bookings made in the portal do <strong>not</strong> appear in
+              Bookings made in the portal do <strong>not</strong>{" "}appear in
               Google on their own. This is almost certainly the thing that has
               been confusing people.
             </p>
@@ -155,7 +155,7 @@ export function CalendarHelpContent({ autoSyncOn }: { autoSyncOn: boolean }) {
         </p>
         <ol className="mt-2 space-y-3">
           <Bullet>
-            Open the <strong>&ldquo;New booking&rdquo;</strong> email you were
+            Open the <strong>&ldquo;New booking&rdquo;</strong>{" "}email you were
             sent.
           </Bullet>
           <Bullet>
@@ -201,7 +201,7 @@ export function CalendarHelpContent({ autoSyncOn }: { autoSyncOn: boolean }) {
           </p>
           <p className="mt-1 text-sm leading-relaxed text-green-900/80 dark:text-green-200/80">
             Connecting Google Calendar (step 2 above) now sets up{" "}
-            <strong>both</strong> directions at once. Your appointments appear
+            <strong>both</strong>{" "}directions at once. Your appointments appear
             in the portal automatically — live, not hours behind — and
             there&apos;s no secret link to find. It works from your phone too.
             The steps below are only needed if you&apos;d rather not connect
@@ -246,7 +246,7 @@ export function CalendarHelpContent({ autoSyncOn }: { autoSyncOn: boolean }) {
             is nearly always just this delay.
           </Warn>
           <Warn icon={AlertTriangle} title="Those events are read-only here">
-            Google events show tagged <strong>&ldquo;Google&rdquo;</strong> and
+            Google events show tagged <strong>&ldquo;Google&rdquo;</strong>{" "}and
             can&apos;t be edited or deleted in the portal — change them in
             Google itself. Only portal bookings can be changed here.
           </Warn>
@@ -267,7 +267,7 @@ export function CalendarHelpContent({ autoSyncOn }: { autoSyncOn: boolean }) {
         <dl className="mt-4 space-y-4">
           <QA q="A booking was made but it's not in my Google calendar.">
             Expected{!autoSyncOn && " for now"} — you need to click{" "}
-            <strong>Add to Google Calendar</strong> in the &ldquo;New
+            <strong>Add to Google Calendar</strong>{" "}in the &ldquo;New
             booking&rdquo; email. The booking is safe in the portal either way.
           </QA>
           <QA q="I added something in Google but the portal doesn't show it.">

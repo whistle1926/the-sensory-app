@@ -202,7 +202,7 @@ export function CalendarSetupContent({
         </p>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           Your appointments can take anywhere from <strong>15 minutes to a
-          few hours</strong> to show up the first time. That is normal and does
+          few hours</strong>{" "}to show up the first time. That is normal and does
           not mean you&apos;ve done it wrong. Go and do something else, then
           come back and open <Q>Calendar</Q> in the menu.
         </p>
@@ -249,7 +249,7 @@ export function CalendarSetupContent({
           </QA>
           <QA q="Will this put my bookings into Google?">
             No — that&apos;s the other direction and it&apos;s separate. This
-            only brings your Google appointments <em>into</em> the portal.
+            only brings your Google appointments <em>into</em>{" "}the portal.
           </QA>
         </dl>
         <Link

@@ -396,7 +396,7 @@ export default function LiveSessionDetailPage({
       <Panel title="Cover image" padded>
         <p className="mb-3 text-xs text-muted-foreground">
           Shown on the join page before the session starts. Use{" "}
-          <strong>1920 × 1080 pixels</strong> (16:9 widescreen) — a square image
+          <strong>1920 × 1080 pixels</strong>{" "}(16:9 widescreen) — a square image
           will be cropped. JPG or PNG.
         </p>
         <input

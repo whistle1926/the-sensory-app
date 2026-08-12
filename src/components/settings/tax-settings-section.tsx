@@ -147,7 +147,7 @@ export function TaxSettingsSection() {
           <h2 className="text-base font-semibold">Tax Rates</h2>
           <p className="text-muted-foreground">
             Add one or more tax rates per currency. Rates marked{" "}
-            <em>Show on invoice</em> appear as options when creating a new
+            <em>Show on invoice</em>{" "}appear as options when creating a new
             invoice.
           </p>
         </div>

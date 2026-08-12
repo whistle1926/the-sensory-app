@@ -166,8 +166,8 @@ export function NotePresetsSection() {
 
       {list.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          No presets yet. Click <strong>Use starter set</strong> for three
-          ready-made templates, or <strong>Add preset</strong> to write your own.
+          No presets yet. Click <strong>Use starter set</strong>{" "}for three
+          ready-made templates, or <strong>Add preset</strong>{" "}to write your own.
         </div>
       ) : (
         <div className="space-y-4">

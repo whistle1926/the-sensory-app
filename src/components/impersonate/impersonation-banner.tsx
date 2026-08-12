@@ -36,7 +36,7 @@ export function ImpersonationBanner({ targetName }: Props) {
       <div className="flex items-center gap-2">
         <Eye className="h-4 w-4" />
         <span>
-          Viewing as <strong>{targetName}</strong> (admin impersonation)
+          Viewing as <strong>{targetName}</strong>{" "}(admin impersonation)
         </span>
       </div>
       <button

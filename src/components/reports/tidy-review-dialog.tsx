@@ -226,10 +226,10 @@ export function TidyReviewDialog({
               <p className="text-xs text-muted-foreground">
                 {frozen.length} section{frozen.length === 1 ? "" : "s"} changed.
                 Edit each <strong>After</strong> box if you want, then{" "}
-                <strong>Approve</strong> it — the change drops straight into your
-                report the moment you click. <strong>Undo</strong> any section to
+                <strong>Approve</strong>{" "}it — the change drops straight into your
+                report the moment you click. <strong>Undo</strong>{" "}any section to
                 put it back. Nothing is permanently saved until you click{" "}
-                <strong>Save</strong> back on the report.
+                <strong>Save</strong>{" "}back on the report.
               </p>
               <div className="flex shrink-0 items-center gap-2">
                 <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
@@ -326,7 +326,7 @@ export function TidyReviewDialog({
                         />
                         {isApproved && (
                           <p className="mt-1.5 text-[10px] text-muted-foreground">
-                            Locked in. Click <strong>Undo</strong> above to edit
+                            Locked in. Click <strong>Undo</strong>{" "}above to edit
                             this section again.
                           </p>
                         )}

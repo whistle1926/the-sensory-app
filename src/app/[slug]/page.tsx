@@ -52,7 +52,7 @@ export default async function EditablePage({
     <div className="min-h-screen bg-[#FBF8F3]">
       {!page.isPublished && (
         <div className="border-b border-amber-500/40 bg-amber-100 px-4 py-2.5 text-center text-sm text-amber-900">
-          <strong>Preview</strong> — this page isn&apos;t published, so nobody
+          <strong>Preview</strong>{" "}— this page isn&apos;t published, so nobody
           else can see it yet.
         </div>
       )}

@@ -722,7 +722,7 @@ function EditorPanel({
                 />
                 <p className="text-[11px] text-muted-foreground">
                   We&apos;ll email them a link to set their own password. Tick{" "}
-                  <strong>Active</strong> below once they&apos;re assigned to
+                  <strong>Active</strong>{" "}below once they&apos;re assigned to
                   take the clinic live.
                 </p>
                 {addError && (
@@ -810,7 +810,7 @@ function EditorPanel({
             <p className="text-sm font-medium">Active</p>
             <p className="text-xs text-muted-foreground">
               When off, the service is hidden from <code>/book</code> and{" "}
-              <code>/book/&lt;slug&gt;</code> 404s. Existing bookings remain.
+              <code>/book/&lt;slug&gt;</code>{" "}404s. Existing bookings remain.
             </p>
           </div>
           <input

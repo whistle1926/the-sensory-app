@@ -72,7 +72,7 @@ export function CopyAssist({
         it&apos;s for, anything a parent would want to know. Press the button and
         it fills in the tagline, blurb, description, who-it&apos;s-for and the
         &ldquo;what&apos;s covered&rdquo; points underneath. <strong>Nothing is
-        published</strong> — read it, change anything you like, then Save.
+        published</strong>{" "}— read it, change anything you like, then Save.
       </p>
 
       <textarea
@@ -108,7 +108,7 @@ export function CopyAssist({
         <p className="mt-3 rounded-lg bg-green-50 p-3 text-sm text-green-800 dark:bg-green-950/30 dark:text-green-300">
           Done — the fields below have been filled in. Have a read, change
           anything that doesn&apos;t sound like you, then press{" "}
-          <strong>Save changes</strong> at the bottom.
+          <strong>Save changes</strong>{" "}at the bottom.
         </p>
       )}
       {error && (

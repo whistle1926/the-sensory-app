@@ -239,7 +239,7 @@ export function HomeProgrammeEditor({ value, onChange }: Props) {
         </Button>
         <span className="text-xs text-muted-foreground">
           Inserts append to the bottom — edit, format and reorder freely. Use
-          the toolbar to <strong>bold</strong> or underline titles. Demo photos
+          the toolbar to <strong>bold</strong>{" "}or underline titles. Demo photos
           come through and show in the PDF &amp; email.
         </span>
       </div>

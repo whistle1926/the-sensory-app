@@ -335,7 +335,7 @@ export default function SubmissionDetailPage({
           {(submission.forwardLog ?? []).length === 0 && (
             <li className="text-xs text-muted-foreground">
               Not yet forwarded to anyone. Use{" "}
-              <strong>Forward to OT</strong> above to share it.
+              <strong>Forward to OT</strong>{" "}above to share it.
             </li>
           )}
         </ul>

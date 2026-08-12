@@ -59,7 +59,7 @@ export default async function LiveSessionsPage() {
             />
             <p style={{ marginTop: 10, fontWeight: 600 }}>No sessions yet</p>
             <p style={{ marginTop: 4, fontSize: 12 }}>
-              Click <strong>New session</strong> to schedule your first
+              Click <strong>New session</strong>{" "}to schedule your first
               broadcast.
             </p>
           </div>

@@ -902,7 +902,7 @@ function SettingsTab({
               </span>
               <span className="mt-1 block text-xs text-muted-foreground">
                 For referral forms. Each submission auto-creates a client in
-                your <strong>New / Awaiting Assessment</strong> stage, mapping
+                your <strong>New / Awaiting Assessment</strong>{" "}stage, mapping
                 the child&apos;s name &amp; date of birth, parent/carer name
                 &amp; email, and reason for referral. The completed form is
                 filed in the client&apos;s folder. A repeat submission from the

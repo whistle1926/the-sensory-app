@@ -221,7 +221,7 @@ export default function ServicesPage() {
           </p>
           {!search && (
             <p className="mt-1 text-xs text-muted-foreground">
-              Click <strong>New service</strong> to add your first one.
+              Click <strong>New service</strong>{" "}to add your first one.
             </p>
           )}
         </div>

@@ -672,7 +672,7 @@ function PublishDialog({
             </label>
             <p className="mb-2 text-[11px] text-muted-foreground">
               The picture learners see before they press play. Use{" "}
-              <strong>1920 × 1080 pixels</strong> (16:9 widescreen) — a square
+              <strong>1920 × 1080 pixels</strong>{" "}(16:9 widescreen) — a square
               image will be cropped. JPG or PNG.
             </p>
             <input
@@ -857,7 +857,7 @@ function ThumbnailDialog({
 
         <p className="mt-4 text-[11px] text-muted-foreground">
           The picture learners see before they press play. Use{" "}
-          <strong>1920 × 1080 pixels</strong> (16:9 widescreen) — a square
+          <strong>1920 × 1080 pixels</strong>{" "}(16:9 widescreen) — a square
           image will be cropped. JPG or PNG.
         </p>
 
@@ -1168,7 +1168,7 @@ function EditDialog({
             </label>
             <p className="mb-2 text-[11px] text-muted-foreground">
               Shown before learners press play. Use{" "}
-              <strong>1920 × 1080 pixels</strong> (16:9) — a square image will
+              <strong>1920 × 1080 pixels</strong>{" "}(16:9) — a square image will
               be cropped. Applies as soon as you choose it.
             </p>
             <input

@@ -366,7 +366,7 @@ export function LeafletForm({ leafletId, initial, suggestedCategories }: Props) 
         </CardHeader>
         <CardContent>
           <p className="mb-3 text-xs text-muted-foreground">
-            Use <strong>800 × 600 pixels</strong> (4:3 landscape) — anything a
+            Use <strong>800 × 600 pixels</strong>{" "}(4:3 landscape) — anything a
             different shape gets cropped to fit. JPG or PNG.
           </p>
           {coverImageUrl ? (

@@ -82,7 +82,7 @@ export function CourseDetailView({
           <strong>not published</strong>: nobody else can reach this page yet.
           To put it on sale, set a price, choose status{" "}
           <strong>Available</strong> and turn on{" "}
-          <strong>Sell this one now</strong> in the editor.
+          <strong>Sell this one now</strong>{" "}in the editor.
         </div>
       )}
       <StorefrontHeader />

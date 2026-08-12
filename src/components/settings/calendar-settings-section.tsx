@@ -185,7 +185,7 @@ export function CalendarSettingsSection() {
                 Google Calendar Settings <ExternalLink className="h-3 w-3" />
               </a>{" "}
               → click your calendar in the left rail → scroll to{" "}
-              <em>&ldquo;Secret address in iCal format&rdquo;</em> → copy.
+              <em>&ldquo;Secret address in iCal format&rdquo;</em>{" "}→ copy.
               Don&apos;t share this URL — anyone with it can see your events.
             </p>
 
@@ -212,7 +212,7 @@ export function CalendarSettingsSection() {
                   <ol className="mt-1 list-decimal space-y-1 pl-5">
                     <li>
                       On a computer, go to{" "}
-                      <strong>calendar.google.com</strong> and sign in.
+                      <strong>calendar.google.com</strong>{" "}and sign in.
                     </li>
                     <li>
                       On the left under <em>&ldquo;My calendars&rdquo;</em>,
@@ -224,7 +224,7 @@ export function CalendarSettingsSection() {
                     </li>
                     <li>
                       Scroll down to the{" "}
-                      <strong>&ldquo;Integrate calendar&rdquo;</strong> section.
+                      <strong>&ldquo;Integrate calendar&rdquo;</strong>{" "}section.
                     </li>
                     <li>
                       Find{" "}
@@ -252,7 +252,7 @@ export function CalendarSettingsSection() {
                   Your events can take 15 minutes to a few hours to first appear,
                   and Google refreshes every few hours — so it&apos;s not live to
                   the second. On a phone? Open{" "}
-                  <strong>calendar.google.com</strong> in your browser (not the
+                  <strong>calendar.google.com</strong>{" "}in your browser (not the
                   app), turn on <em>&ldquo;Desktop site&rdquo;</em>, then follow
                   the steps — but it&apos;s much easier on a computer.
                 </p>
@@ -401,7 +401,7 @@ function GoogleWriteSyncCard() {
             Connect Google Calendar (recommended)
           </h2>
           <p className="text-xs text-muted-foreground">
-            One click sets up <strong>both</strong> directions: new bookings are
+            One click sets up <strong>both</strong>{" "}directions: new bookings are
             written straight into your Google Calendar (and removed if
             cancelled), and your Google appointments show on the portal
             calendar — live, with no secret link to hunt for. Works from your
