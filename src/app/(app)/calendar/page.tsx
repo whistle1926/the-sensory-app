@@ -443,8 +443,8 @@ export default function CalendarPage() {
             })}
 
           {members.some((m) => m.hidden) && (
-            <span className="ml-auto flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-              Removed:
+            <span className="mt-1 flex w-full flex-wrap items-center gap-1.5 border-t border-border pt-2 text-xs text-muted-foreground">
+              Removed from this calendar:
               {members
                 .filter((m) => m.hidden)
                 .map((m) => (
