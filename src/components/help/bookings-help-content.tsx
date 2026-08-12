@@ -107,7 +107,8 @@ export function BookingsHelpContent({ state }: { state: BookingsSetupState }) {
                 <span>•</span>
                 <span>
                   <strong>{unowned} of {state.totalServices} services have no
-                  owner.</strong> Nobody&apos;s diary is attached, so bookings
+                  owner.</strong>{" "}
+                  Nobody&apos;s diary is attached, so bookings
                   can&apos;t be told apart by OT and the &ldquo;new
                   booking&rdquo; email goes to the practice inbox instead of a
                   person. Unassigned: {state.servicesWithoutOwner.join(", ")}.
@@ -212,7 +213,8 @@ export function BookingsHelpContent({ state }: { state: BookingsSetupState }) {
           </Bullet>
           <Bullet>
             For services set to do so, the <strong>referral form is emailed to
-            the client automatically</strong> once the booking is paid. That&apos;s
+            the client automatically</strong>{" "}
+            once the booking is paid. That&apos;s
             a switch per service in the Services editor.
           </Bullet>
           <Bullet>
@@ -224,7 +226,8 @@ export function BookingsHelpContent({ state }: { state: BookingsSetupState }) {
 
       <Card n={5} icon={CalendarDays} title="Adding something yourself">
         <p className="text-sm leading-relaxed text-muted-foreground">
-          <strong>Bookings → New booking</strong> creates an appointment on
+          <strong>Bookings → New booking</strong>{" "}
+          creates an appointment on
           someone&apos;s behalf — for a phone enquiry, say. It skips the terms
           tick-boxes, since the parent isn&apos;t sitting at the form, and
           otherwise behaves exactly like a client booking.
