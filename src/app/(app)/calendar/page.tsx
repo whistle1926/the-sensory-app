@@ -37,6 +37,8 @@ interface Member {
   name: string;
   colour: string;
   connected: boolean;
+  /** Removed from this calendar for everyone (not just this browser). */
+  hidden?: boolean;
 }
 
 interface TeamEvent {
@@ -179,6 +181,24 @@ export default function CalendarPage() {
       setRemoveError("Couldn't reach the server. Try again.");
     } finally {
       setRemoving(false);
+    }
+  }
+
+  /**
+   * Take someone off the shared calendar for everyone — not the same as the
+   * chip toggle, which only hides them in this browser. Their connection and
+   * their own booking sync are untouched.
+   */
+  async function setMemberShown(id: string, show: boolean) {
+    try {
+      const res = await fetch("/api/team-calendar/members", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: id, show }),
+      });
+      if (res.ok) setRefreshKey((k) => k + 1);
+    } catch {
+      /* leave the list as it is — the next refresh will show the truth */
     }
   }
 
@@ -383,29 +403,64 @@ export default function CalendarPage() {
       {members.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-3 shadow-[var(--shadow-sm)]">
           <span className="mr-2 text-xs font-medium text-muted-foreground">Showing:</span>
-          {members.map((m) => {
-            const hidden = hiddenMemberIds.has(m.id);
-            return (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => toggleMember(m.id)}
-                disabled={!m.connected}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${
-                  hidden
-                    ? "border-border text-muted-foreground/60 line-through"
-                    : "border-border text-foreground hover:bg-muted/40"
-                } ${!m.connected ? "opacity-40" : ""}`}
-                title={m.connected ? "Click to hide / show" : "Not connected yet"}
-              >
-                <span className="h-2.5 w-2.5 rounded-full" style={{ background: m.colour }} />
-                {m.name}
-                {!m.connected && (
-                  <span className="text-[10px] uppercase tracking-wider">· off</span>
-                )}
-              </button>
-            );
-          })}
+          {members
+            .filter((m) => !m.hidden)
+            .map((m) => {
+              const hidden = hiddenMemberIds.has(m.id);
+              return (
+                <span
+                  key={m.id}
+                  className={`inline-flex items-center gap-1.5 rounded-full border py-1 pl-2.5 pr-1 text-xs font-medium transition-all ${
+                    hidden
+                      ? "border-border text-muted-foreground/60"
+                      : "border-border text-foreground"
+                  } ${!m.connected ? "opacity-40" : ""}`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleMember(m.id)}
+                    disabled={!m.connected}
+                    className={`inline-flex items-center gap-1.5 ${hidden ? "line-through" : ""}`}
+                    title={m.connected ? "Click to hide / show just for you" : "Not connected yet"}
+                  >
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: m.colour }} />
+                    {m.name}
+                    {!m.connected && (
+                      <span className="text-[10px] uppercase tracking-wider">· off</span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMemberShown(m.id, false)}
+                    aria-label={`Remove ${m.name} from the team calendar`}
+                    title="Remove from the team calendar for everyone"
+                    className="ml-0.5 rounded-full p-0.5 text-muted-foreground/60 hover:bg-muted hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              );
+            })}
+
+          {members.some((m) => m.hidden) && (
+            <span className="ml-auto flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              Removed:
+              {members
+                .filter((m) => m.hidden)
+                .map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setMemberShown(m.id, true)}
+                    className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 font-medium hover:bg-muted/40"
+                    title="Put them back on the team calendar"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    {m.name}
+                  </button>
+                ))}
+            </span>
+          )}
         </div>
       )}
 

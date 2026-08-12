@@ -94,6 +94,12 @@ model User {
   // assigned to a robot's diary.
   isAutomation    Boolean  @default(false) @map("is_automation")
 
+  // Off = keep this person off the shared Team Calendar entirely. For people
+  // whose diary isn't the practice's business — a tester account, someone
+  // who only uses the portal for admin — without disconnecting their
+  // calendar or losing their own booking sync.
+  showOnTeamCalendar Boolean @default(true) @map("show_on_team_calendar")
+
   calendarIcsUrl  String?
   calendarColour  String? // e.g. "#3b82f6" — defaults applied at render
 

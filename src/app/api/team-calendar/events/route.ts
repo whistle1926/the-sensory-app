@@ -68,6 +68,7 @@ export async function GET(req: NextRequest) {
       calendarColour: true,
       googleRefreshToken: true,
       googleCalendarId: true,
+      showOnTeamCalendar: true,
     },
   });
 
@@ -85,8 +86,18 @@ export async function GET(req: NextRequest) {
   const fromMs = from.getTime();
   const toMs = to.getTime();
 
+  // People removed from this calendar keep their connection and their own
+  // booking sync — we simply don't read their diary here.
+  const shown = staff.filter((u) => u.showOnTeamCalendar);
+
+  // Colour comes from a person's place in the FULL list, so hiding someone
+  // doesn't recolour everyone below them.
+  const colourFor = new Map(
+    staff.map((u, idx) => [u.id, u.calendarColour ?? PALETTE[idx % PALETTE.length]]),
+  );
+
   const perStaff = await Promise.all(
-    staff.map(async (u, idx) => {
+    shown.map(async (u) => {
       // Prefer the API: it's live, whereas Google only republishes the iCal
       // feed every few hours. Fall back to iCal if the API call fails, so a
       // revoked token doesn't blank someone who still has a feed configured.
@@ -103,7 +114,7 @@ export async function GET(req: NextRequest) {
         events = await fetchAndParseIcs(u.calendarIcsUrl);
       }
       if (!events) return [];
-      const colour = u.calendarColour ?? PALETTE[idx % PALETTE.length];
+      const colour = colourFor.get(u.id)!;
       const inWindow = events.filter((e) => {
         const start = new Date(e.startAt).getTime();
         const end = new Date(e.endAt).getTime();
@@ -126,11 +137,14 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     events: merged,
-    members: staff.map((u, idx) => ({
+    // Hidden people are still listed so they can be put back — otherwise
+    // removing someone would leave no way to undo it.
+    members: staff.map((u) => ({
       id: u.id,
       name: u.name,
-      colour: u.calendarColour ?? PALETTE[idx % PALETTE.length],
+      colour: colourFor.get(u.id)!,
       connected: !!u.calendarIcsUrl || !!u.googleRefreshToken,
+      hidden: !u.showOnTeamCalendar,
     })),
   });
 }
