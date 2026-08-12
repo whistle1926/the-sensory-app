@@ -278,7 +278,25 @@ export default function BookingsPage() {
     clientEmail: "",
     clientPhone: "",
     notes: "",
+    // Who the appointment belongs to. Defaults to the service's owner when a
+    // service is picked; "" means fall back to whatever the service says.
+    ownerId: "",
   });
+  // Staff to offer as the therapist on a manual booking.
+  const [nbStaff, setNbStaff] = useState<Array<{ id: string; name: string }>>([]);
+  useEffect(() => {
+    if (!nbOpen || nbStaff.length) return;
+    fetch("/api/users")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((users: Array<{ id: string; name: string; role: string }>) =>
+        setNbStaff(
+          users
+            .filter((u) => u.role === "SUPER_ADMIN" || u.role === "TEAM_MANAGER")
+            .map((u) => ({ id: u.id, name: u.name })),
+        ),
+      )
+      .catch(() => {});
+  }, [nbOpen, nbStaff.length]);
   // Existing-client typeahead for the name field.
   type ClientHit = { id: string; childName: string; parentName: string; parentEmail: string };
   const [nbHits, setNbHits] = useState<ClientHit[]>([]);
@@ -337,6 +355,7 @@ export default function BookingsPage() {
           clientEmail: nb.clientEmail.trim(),
           clientPhone: nb.clientPhone.trim() || undefined,
           notes: nb.notes.trim() || undefined,
+          ownerId: nb.ownerId || undefined,
         }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
@@ -344,7 +363,7 @@ export default function BookingsPage() {
         throw new Error(data.error ?? `Booking failed (${res.status})`);
       }
       setNbOpen(false);
-      setNb({ service: "", date: "", time: "", duration: "", clientName: "", clientEmail: "", clientPhone: "", notes: "" });
+      setNb({ service: "", date: "", time: "", duration: "", clientName: "", clientEmail: "", clientPhone: "", notes: "", ownerId: "" });
       await fetchBookings();
     } catch (e) {
       setNbError(e instanceof Error ? e.message : "Booking failed");
@@ -1413,7 +1432,12 @@ export default function BookingsPage() {
               <select
                 id="nb-service"
                 value={nb.service}
-                onChange={(e) => setNb({ ...nb, service: e.target.value })}
+                onChange={(e) => {
+                  const slug = e.target.value;
+                  const svc = allServices.find((x) => x.slug === slug);
+                  // Pre-select whoever normally runs it; still overridable.
+                  setNb({ ...nb, service: slug, ownerId: svc?.ownerId ?? "" });
+                }}
                 className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
               >
                 <option value="">Choose a service…</option>
@@ -1424,6 +1448,26 @@ export default function BookingsPage() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="nb-owner">Therapist</Label>
+              <select
+                id="nb-owner"
+                value={nb.ownerId}
+                onChange={(e) => setNb({ ...nb, ownerId: e.target.value })}
+                className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="">The practice (nobody in particular)</option>
+                {nbStaff.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Whose diary this lands in, and who gets the email. Fills in from
+                the service, but you can hand it to someone else.
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">

@@ -16,7 +16,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { insertBookingEvent } from "@/lib/google-calendar";
+import { insertBookingEvent, deleteBookingEvent } from "@/lib/google-calendar";
 
 const ADMIN_ROLES = ["SUPER_ADMIN", "TEAM_MANAGER"];
 
@@ -102,4 +102,85 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true, eventId, addedFor: target.name });
+}
+
+/**
+ * DELETE /api/team-calendar/event
+ *
+ * Remove an event from a connected Google Calendar. Same permission rule as
+ * adding: admins can act on anyone's diary, everyone else only their own.
+ *
+ * Refuses to touch an event that belongs to a booking. Deleting the Google
+ * copy would leave the appointment still standing in the portal with the
+ * client expecting it — cancelling the booking is the safe path, and that
+ * removes the Google event as part of the cancellation.
+ */
+export async function DELETE(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  }
+  const role = session.user.role;
+  if (role === "CLIENT") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const body = await req.json().catch(() => ({}));
+  const eventId = typeof body.eventId === "string" ? body.eventId.trim() : "";
+  const requestedUserId = typeof body.userId === "string" ? body.userId : "";
+  if (!eventId) {
+    return NextResponse.json({ error: "No event given." }, { status: 400 });
+  }
+
+  if (requestedUserId && requestedUserId !== session.user.id && !ADMIN_ROLES.includes(role)) {
+    return NextResponse.json(
+      { error: "You can only remove events from your own calendar." },
+      { status: 403 },
+    );
+  }
+  const targetId = requestedUserId || session.user.id;
+
+  // A booking's event must be dealt with as a booking, not as a diary entry.
+  const linked = await prisma.booking.findFirst({
+    where: { googleEventId: eventId },
+    select: { id: true, clientName: true },
+  });
+  if (linked) {
+    return NextResponse.json(
+      {
+        error: `That's ${linked.clientName}'s appointment, not a diary entry. Cancel it under Bookings and it'll come out of Google automatically.`,
+      },
+      { status: 409 },
+    );
+  }
+
+  const target = await prisma.user.findUnique({
+    where: { id: targetId },
+    select: { name: true, role: true, googleRefreshToken: true, googleCalendarId: true },
+  });
+  if (!target || target.role === "CLIENT") {
+    return NextResponse.json({ error: "No such team member." }, { status: 404 });
+  }
+  if (!target.googleRefreshToken) {
+    return NextResponse.json(
+      {
+        error: `${target.name || "That person"}'s calendar is a read-only iCal feed, so events can only be removed in Google itself.`,
+      },
+      { status: 400 },
+    );
+  }
+
+  const ok = await deleteBookingEvent({
+    refreshToken: target.googleRefreshToken,
+    calendarId: target.googleCalendarId,
+    eventId,
+  });
+  if (!ok) {
+    return NextResponse.json(
+      { error: "Google wouldn't remove that event. Try deleting it in Google directly." },
+      { status: 502 },
+    );
+  }
+
+  return NextResponse.json({ ok: true });
 }

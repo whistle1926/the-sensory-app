@@ -25,6 +25,7 @@ import {
   MapPin,
   RotateCcw,
   Plus,
+  Trash2,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -99,6 +100,8 @@ export default function CalendarPage() {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<TeamEvent | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
   // Bumped after adding an event so the window refetches and the new
   // entry appears without a manual reload.
   const [refreshKey, setRefreshKey] = useState(0);
@@ -147,6 +150,37 @@ export default function CalendarPage() {
       })
       .finally(() => setLoading(false));
   }, [windowFrom, windowTo, refreshKey]);
+
+  /**
+   * Take an event back out of Google. The API refuses anything attached to a
+   * booking and says so — that has to be cancelled under Bookings instead.
+   */
+  async function removeEvent() {
+    if (!selectedEvent) return;
+    setRemoving(true);
+    setRemoveError(null);
+    try {
+      const res = await fetch("/api/team-calendar/event", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventId: selectedEvent.uid,
+          userId: selectedEvent.userId,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setRemoveError(json.error || "Couldn't remove that event.");
+        return;
+      }
+      setSelectedEvent(null);
+      setRefreshKey((k) => k + 1);
+    } catch {
+      setRemoveError("Couldn't reach the server. Try again.");
+    } finally {
+      setRemoving(false);
+    }
+  }
 
   function toggleMember(id: string) {
     setHiddenMemberIds((prev) => {
@@ -578,7 +612,7 @@ export default function CalendarPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedEvent(null)}
+                onClick={() => { setSelectedEvent(null); setRemoveError(null); }}
                 className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                 aria-label="Close"
               >
@@ -630,6 +664,32 @@ export default function CalendarPage() {
                 </div>
               )}
             </div>
+
+            {removeError && (
+              <p className="mt-4 rounded-xl border border-red-500/40 bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/20 dark:text-red-300">
+                {removeError}
+              </p>
+            )}
+
+            {/* Only offered where we can actually act: an iCal-only calendar
+                is read-only, and a non-admin can only touch their own. */}
+            {(canPickPerson || selectedEvent.userId === currentUserId) && (
+              <div className="mt-5 flex justify-end">
+                <button
+                  type="button"
+                  onClick={removeEvent}
+                  disabled={removing}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/40 px-3 py-2 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-950/30"
+                >
+                  {removing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5" />
+                  )}
+                  Remove from calendar
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

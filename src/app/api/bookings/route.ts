@@ -113,7 +113,24 @@ export async function POST(req: NextRequest) {
       locationLabel: true,
     },
   });
-  const ownerId = svc?.ownerId ?? null;
+  // A staff member booking manually can hand the appointment to a specific
+  // therapist, overriding the service's usual owner — the phone enquiry that
+  // Grace will actually see, on a service nobody is assigned to. Only honoured
+  // for staff bookings; a public booking always follows the service.
+  let ownerId = svc?.ownerId ?? null;
+  if (isStaffBooking && typeof body.ownerId === "string" && body.ownerId) {
+    const chosen = await prisma.user.findUnique({
+      where: { id: body.ownerId },
+      select: { id: true, role: true },
+    });
+    if (!chosen || chosen.role === "CLIENT") {
+      return NextResponse.json(
+        { error: "That therapist doesn't exist." },
+        { status: 400 },
+      );
+    }
+    ownerId = chosen.id;
+  }
 
   // How many dates is this service allowed in one booking? 1/1 for an
   // ordinary appointment; a block is e.g. 2..5.
