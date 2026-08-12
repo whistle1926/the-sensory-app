@@ -14,6 +14,7 @@
  * colour-coded by person. Member chips toggle people on/off.
  */
 import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import {
   CalendarDays,
   ChevronLeft,
@@ -23,10 +24,12 @@ import {
   Loader2,
   MapPin,
   RotateCcw,
+  Plus,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import { Toolbar, Panel, Empty } from "@/components/ds";
+import { AddEventDialog } from "@/components/calendar/add-event-dialog";
 
 interface Member {
   id: string;
@@ -95,6 +98,16 @@ export default function CalendarPage() {
   const [hiddenMemberIds, setHiddenMemberIds] = useState<Set<string>>(new Set());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<TeamEvent | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  // Bumped after adding an event so the window refetches and the new
+  // entry appears without a manual reload.
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id ?? "";
+  // Claire needs to put time in the OTs' diaries, not just her own.
+  const canPickPerson =
+    session?.user?.role === "SUPER_ADMIN" || session?.user?.role === "TEAM_MANAGER";
 
   /** Jump to a focused agenda window. */
   function showAgenda(span: number, from: Date) {
@@ -133,7 +146,7 @@ export default function CalendarPage() {
         setMembers([]);
       })
       .finally(() => setLoading(false));
-  }, [windowFrom, windowTo]);
+  }, [windowFrom, windowTo, refreshKey]);
 
   function toggleMember(id: string) {
     setHiddenMemberIds((prev) => {
@@ -232,6 +245,14 @@ export default function CalendarPage() {
         }
         actions={
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setAddOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground transition hover:opacity-90"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add event
+            </button>
             {/* View toggle */}
             <div className="mr-1 inline-flex rounded-lg border border-border bg-card p-0.5 text-xs">
               {(["month", "agenda"] as View[]).map((v) => (
@@ -612,6 +633,16 @@ export default function CalendarPage() {
           </div>
         </div>
       )}
+
+      <AddEventDialog
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        onAdded={() => setRefreshKey((k) => k + 1)}
+        members={members}
+        currentUserId={currentUserId}
+        canPickPerson={canPickPerson}
+        defaultDate={selectedDay ?? undefined}
+      />
     </div>
   );
 }
