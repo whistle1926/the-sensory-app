@@ -121,9 +121,9 @@ export async function POST(req: NextRequest) {
   if (isStaffBooking && typeof body.ownerId === "string" && body.ownerId) {
     const chosen = await prisma.user.findUnique({
       where: { id: body.ownerId },
-      select: { id: true, role: true },
+      select: { id: true, role: true, isAutomation: true },
     });
-    if (!chosen || chosen.role === "CLIENT") {
+    if (!chosen || chosen.role === "CLIENT" || chosen.isAutomation) {
       return NextResponse.json(
         { error: "That therapist doesn't exist." },
         { status: 400 },

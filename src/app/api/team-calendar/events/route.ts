@@ -58,6 +58,7 @@ export async function GET(req: NextRequest) {
   const staff = await prisma.user.findMany({
     where: {
       role: { in: ["SUPER_ADMIN", "TEAM_MANAGER"] },
+      isAutomation: false,
       OR: [{ calendarIcsUrl: { not: null } }, { googleRefreshToken: { not: null } }],
     },
     select: {

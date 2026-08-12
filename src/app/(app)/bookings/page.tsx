@@ -288,10 +288,14 @@ export default function BookingsPage() {
     if (!nbOpen || nbStaff.length) return;
     fetch("/api/users")
       .then((r) => (r.ok ? r.json() : []))
-      .then((users: Array<{ id: string; name: string; role: string }>) =>
+      .then((users: Array<{ id: string; name: string; role: string; isAutomation?: boolean }>) =>
         setNbStaff(
           users
-            .filter((u) => u.role === "SUPER_ADMIN" || u.role === "TEAM_MANAGER")
+            .filter(
+              (u) =>
+                (u.role === "SUPER_ADMIN" || u.role === "TEAM_MANAGER") &&
+                !u.isAutomation,
+            )
             .map((u) => ({ id: u.id, name: u.name })),
         ),
       )

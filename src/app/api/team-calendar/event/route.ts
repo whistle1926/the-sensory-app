@@ -64,9 +64,9 @@ export async function POST(req: NextRequest) {
 
   const target = await prisma.user.findUnique({
     where: { id: targetId },
-    select: { name: true, role: true, googleRefreshToken: true, googleCalendarId: true },
+    select: { name: true, role: true, isAutomation: true, googleRefreshToken: true, googleCalendarId: true },
   });
-  if (!target || target.role === "CLIENT") {
+  if (!target || target.role === "CLIENT" || target.isAutomation) {
     return NextResponse.json({ error: "No such team member." }, { status: 404 });
   }
   if (!target.googleRefreshToken) {
@@ -156,9 +156,9 @@ export async function DELETE(req: NextRequest) {
 
   const target = await prisma.user.findUnique({
     where: { id: targetId },
-    select: { name: true, role: true, googleRefreshToken: true, googleCalendarId: true },
+    select: { name: true, role: true, isAutomation: true, googleRefreshToken: true, googleCalendarId: true },
   });
-  if (!target || target.role === "CLIENT") {
+  if (!target || target.role === "CLIENT" || target.isAutomation) {
     return NextResponse.json({ error: "No such team member." }, { status: 404 });
   }
   if (!target.googleRefreshToken) {

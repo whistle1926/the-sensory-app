@@ -16,6 +16,7 @@ export async function GET() {
       name: true,
       role: true,
       business: true,
+      isAutomation: true,
       dashTemplateId: true,
       createdAt: true,
       photoUrl: true,

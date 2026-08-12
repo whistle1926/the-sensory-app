@@ -88,6 +88,12 @@ model User {
   // MVP over full OAuth (zero Google Cloud setup, ~15-min freshness
   // is fine for ops planning). Colour is a hex string for the chip
   // shown next to each person's events on the agenda.
+  // Not a person. Service identities the app posts as (e.g. the build-board
+  // author). They never log in, so they're kept out of team counts, the
+  // therapist pickers and the calendar — otherwise a booking could be
+  // assigned to a robot's diary.
+  isAutomation    Boolean  @default(false) @map("is_automation")
+
   calendarIcsUrl  String?
   calendarColour  String? // e.g. "#3b82f6" — defaults applied at render
 

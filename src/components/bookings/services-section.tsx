@@ -98,10 +98,15 @@ export function ServicesSection() {
         id: string;
         name: string;
         role: string;
+        isAutomation?: boolean;
       }>;
       setStaff(
         users
-          .filter((u) => u.role === "SUPER_ADMIN" || u.role === "TEAM_MANAGER")
+          .filter(
+            (u) =>
+              (u.role === "SUPER_ADMIN" || u.role === "TEAM_MANAGER") &&
+              !u.isAutomation,
+          )
           .map((u) => ({ id: u.id, name: u.name })),
       );
     } catch {

@@ -12,6 +12,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  Bot,
   Building2,
   LayoutDashboard,
   Mail,
@@ -38,12 +39,29 @@ interface User {
   name: string;
   role: string;
   business: string | null;
+  isAutomation?: boolean;
   dashTemplateId: string | null;
   hasPassword?: boolean;
   createdAt: string;
   photoUrl?: string | null;
   bio?: string | null;
   phone?: string | null;
+}
+
+/**
+ * First letters of the first two real words. Punctuation-only tokens are
+ * skipped and it stops at two, so "Paddy — Offload Team Lead" gives "PO"
+ * rather than the "P—OTL" that used to wrap across two lines.
+ */
+function initialsOf(name: string): string {
+  return name
+    .split(/\s+/)
+    .map((w) => w.replace(/[^\p{L}\p{N}]/gu, ""))
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
 }
 
 const roleColour: Record<string, string> = {
@@ -143,10 +161,15 @@ export default function TeamPage() {
   const staffUsers = users.filter(
     (u) => u.role === "SUPER_ADMIN" || u.role === "TEAM_MANAGER",
   );
-  const staff = staffUsers.length;
+  // Service identities the app posts as aren't people: they'd inflate the
+  // headcount and offer a Message button to nobody. Listed separately below.
+  const people = staffUsers.filter((u) => !u.isAutomation);
+  const automations = staffUsers.filter((u) => u.isAutomation);
+  const staff = people.length;
   const clients = users.filter((u) => u.role === "CLIENT").length;
-  const admins = users.filter((u) => u.role === "SUPER_ADMIN").length;
-  const visibleUsers = staffUsers;
+  const admins = people.filter((u) => u.role === "SUPER_ADMIN").length;
+  const managers = people.filter((u) => u.role === "TEAM_MANAGER").length;
+  const visibleUsers = people;
 
   return (
     <div className="space-y-6">
@@ -223,13 +246,19 @@ export default function TeamPage() {
             {
               label: "Team members",
               value: String(staff),
-              helper: "Admins + managers",
+              helper:
+                automations.length > 0
+                  ? "People (automations listed below)"
+                  : "Admins + managers",
               icon: Users,
             },
             {
               label: "Admins",
               value: String(admins),
-              helper: "Super Admin role",
+              helper:
+                managers > 0
+                  ? `Plus ${managers} team manager${managers === 1 ? "" : "s"}`
+                  : "Full access to everything",
               icon: ShieldCheck,
             },
             {
@@ -261,11 +290,7 @@ export default function TeamPage() {
       {/* Profile Card Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {visibleUsers.map((user) => {
-          const initials = user.name
-            .split(" ")
-            .map((n) => n[0])
-            .join("")
-            .toUpperCase();
+          const initials = initialsOf(user.name);
           const roleLabel = user.role
             .replace(/_/g, " ")
             .toLowerCase()
@@ -276,7 +301,7 @@ export default function TeamPage() {
           return (
             <div
               key={user.id}
-              className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)] card-lift"
+              className="flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)] card-lift"
             >
               {/* Top row: avatar + menu */}
               <div className="flex items-start justify-between">
@@ -352,7 +377,7 @@ export default function TeamPage() {
 
               {/* Action Buttons. The common jobs are here on the card so the
                   profile dialog is only needed for the fuller edit. */}
-              <div className="mt-4 flex items-center gap-2">
+              <div className="mt-auto flex items-center gap-2 pt-4">
                 <a
                   href={`mailto:${user.email}`}
                   className="flex-1 rounded-xl bg-primary px-3 py-2 text-center text-sm font-semibold text-white transition-colors hover:bg-primary/80"
@@ -442,6 +467,39 @@ export default function TeamPage() {
           <p className="text-muted-foreground">
             No team members yet. Click “Add team member” above to invite an admin or associate.
           </p>
+        </div>
+      )}
+
+      {/* Service identities — the app's own accounts. Kept apart from the
+          people so nobody tries to email one or hand it an appointment. */}
+      {automations.length > 0 && (
+        <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-5">
+          <div className="flex items-center gap-2">
+            <Bot className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-sm font-bold">Automations</h2>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Not people — these are the names the system posts under. They can&apos;t
+            log in, hold appointments or be assigned a calendar.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {automations.map((a) => (
+              <li
+                key={a.id}
+                className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold">
+                  {initialsOf(a.name)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold">{a.name}</span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    Posts comments on the build board
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
