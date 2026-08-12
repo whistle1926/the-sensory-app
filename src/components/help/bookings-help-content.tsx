@@ -10,6 +10,19 @@ import {
   UserCog,
 } from "lucide-react";
 
+/**
+ * Screen recordings of each step, taken in the live portal. Nobody reads a
+ * wall of instructions — a five-second clip of the actual clicks lands far
+ * better. Re-record and swap the URLs if the screens change.
+ */
+const BLOB = "https://s8drav6ybdgfs9gv.public.blob.vercel-storage.com/help-clips/";
+const CLIPS = {
+  runBy: BLOB + "step1-run-by-8UUook7DIPSIBMJqo8xqwfzTIfSkft.mp4",
+  hours: BLOB + "step2-hours-7OHEBk2cRLnhmh6yrCmwRRi9Xx9lay.mp4",
+  override: BLOB + "step3-override-bflw7EQmQYWYQAJ6lLlUHrHoprFbCn.mp4",
+  newBooking: BLOB + "step4-new-booking-w2PtKGeNZLD76sLelypR97tyhYDfMn.mp4",
+};
+
 export interface BookingsSetupState {
   totalServices: number;
   servicesWithoutOwner: string[];
@@ -156,14 +169,16 @@ export function BookingsHelpContent({ state }: { state: BookingsSetupState }) {
       )}
 
       {/* ── Steps ─────────────────────────────────────────────────── */}
-      <Card n={1} icon={UserCog} title="Give every service an owner">
+      <Card n={1} icon={UserCog} title="Say who runs each service">
         <p className="text-sm leading-relaxed text-muted-foreground">
-          <strong>Bookings → Services → Edit</strong>, then set who runs it.
-          The owner is who the booking belongs to: it&apos;s their diary it
-          blocks, and they get the &ldquo;New booking&rdquo; email. A service
-          with nobody assigned still works — the email just goes to the
+          On the <strong>Services</strong> tab, press <strong>Edit</strong> on a
+          service and set the <strong>Run by</strong> dropdown. That person is
+          who the booking belongs to: it&apos;s their diary it blocks, and they
+          get the &ldquo;New booking&rdquo; email. Left on &ldquo;The practice
+          (default calendar)&rdquo; it still works — the email just goes to the
           practice inbox instead.
         </p>
+        <Clip src={CLIPS.runBy} label="Services → Edit → Run by" />
         <Tip>
           Two OTs can hold the same slot as long as they&apos;re on different
           services. One OT can never be double-booked.
@@ -173,25 +188,30 @@ export function BookingsHelpContent({ state }: { state: BookingsSetupState }) {
 
       <Card n={2} icon={Clock} title="Set the hours for each service">
         <p className="text-sm leading-relaxed text-muted-foreground">
-          <strong>Bookings → Availability</strong>. Pick the service, then set
-          the days and times it can be booked. This is how you get &ldquo;9 to 2
+          On the <strong>Availability</strong> tab, pick the service from
+          &ldquo;Which service&apos;s availability?&rdquo;, then switch on the
+          days and set the times underneath. This is how you get &ldquo;9 to 2
           on a Tuesday for assessments, Wednesdays for school visits&rdquo; —
           you set it on each service separately, not on the person.
         </p>
+        <Clip src={CLIPS.hours} label="Availability → pick a service → weekly hours" />
         <Tip>
-          Until a service has hours of its own, it falls back to the shared
-          default schedule — which is why everything currently looks open at
-          the same times.
+          Each block of hours is one bookable appointment, so 9:15–10:00 offers
+          a 9:15 slot. Until a service has hours of its own it falls back to the
+          shared default schedule — which is why everything currently looks open
+          at the same times.
         </Tip>
       </Card>
 
       <Card n={3} icon={CalendarDays} title="Change one particular day">
         <p className="text-sm leading-relaxed text-muted-foreground">
           For &ldquo;Tuesday 11th only 10–12&rdquo; or &ldquo;away that
-          Thursday&rdquo;, use a <strong>date override</strong> under
-          Availability. Choose the date, then either mark it unavailable or give
-          it custom hours. It beats the weekly pattern for that day only.
+          Thursday&rdquo;, scroll to <strong>Date-specific overrides</strong> at
+          the bottom of Availability. Pick the date, choose Unavailable or
+          Custom hours, and press Add Override. It beats the weekly pattern for
+          that day only.
         </p>
+        <Clip src={CLIPS.override} label="Availability → Date-specific overrides" />
         <Tip>
           This is also how you block time out — an override marked unavailable
           stops anyone booking, without creating a fake appointment.
@@ -226,12 +246,14 @@ export function BookingsHelpContent({ state }: { state: BookingsSetupState }) {
 
       <Card n={5} icon={CalendarDays} title="Adding something yourself">
         <p className="text-sm leading-relaxed text-muted-foreground">
-          <strong>Bookings → New booking</strong>{" "}
-          creates an appointment on
-          someone&apos;s behalf — for a phone enquiry, say. It skips the terms
-          tick-boxes, since the parent isn&apos;t sitting at the form, and
-          otherwise behaves exactly like a client booking.
+          <strong>New booking</strong>, top right, creates an appointment on
+          someone&apos;s behalf — for a phone enquiry, say. Pick the service and
+          the price fills in for itself; start typing a name to find an existing
+          client. It skips the terms tick-boxes, since the parent isn&apos;t
+          sitting at the form, and otherwise behaves exactly like a client
+          booking.
         </p>
+        <Clip src={CLIPS.newBooking} label="New booking" />
         <Tip>
           To hold time without inventing a client, use a date override marked
           unavailable instead.
@@ -283,6 +305,30 @@ function Bullet({ children }: { children: React.ReactNode }) {
       <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
       <span>{children}</span>
     </li>
+  );
+}
+
+/**
+ * A silent, looping screen recording of the step. Autoplays and repeats so
+ * there is nothing to press — if you miss it, it comes round again.
+ */
+function Clip({ src, label }: { src: string; label: string }) {
+  return (
+    <figure className="overflow-hidden rounded-xl border border-border bg-muted/30">
+      <video
+        src={src}
+        autoPlay
+        loop
+        muted
+        playsInline
+        preload="metadata"
+        aria-label={label}
+        className="block w-full"
+      />
+      <figcaption className="border-t border-border bg-card px-3 py-2 text-xs font-semibold text-muted-foreground">
+        {label}
+      </figcaption>
+    </figure>
   );
 }
 
