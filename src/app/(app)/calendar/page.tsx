@@ -248,10 +248,26 @@ export default function CalendarPage() {
   // The day's events render in a panel UNDER the month grid, which on most
   // screens is below the fold — so clicking a day (or "+2 more") looked like
   // it did nothing at all. Bring the panel to the user instead.
+  //
+  // Scrolling the container by hand rather than via scrollIntoView: the app
+  // shell scrolls <main>, not the window, and scrollIntoView on a panel that
+  // has only just mounted was a no-op there. One frame's wait lets the panel
+  // lay out so its offset is real.
   const dayPanelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!selectedDay) return;
-    dayPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const frame = requestAnimationFrame(() => {
+      const el = dayPanelRef.current;
+      const scroller = el?.closest("main");
+      if (!el || !scroller) return;
+      const top =
+        scroller.scrollTop +
+        el.getBoundingClientRect().top -
+        scroller.getBoundingClientRect().top -
+        16;
+      scroller.scrollTo({ top, behavior: "smooth" });
+    });
+    return () => cancelAnimationFrame(frame);
   }, [selectedDay]);
 
   return (
