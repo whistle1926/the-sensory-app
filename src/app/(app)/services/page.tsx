@@ -1,7 +1,11 @@
 "use client";
 
 /**
- * Services — billing catalogue editor.
+ * Price list — billing catalogue editor.
+ *
+ * Named 'Price list', not 'Services': Bookings has its own Services tab for
+ * bookable appointments, and two menu items with the same name sent people
+ * looking for booking settings in here.
  *
  * Patrick maintains a list of priced services here (sessions, reports,
  * materials, training packages…). The invoice builder pulls from this
@@ -174,9 +178,10 @@ export default function ServicesPage() {
           <PoundSterling className="h-5 w-5 text-primary" />
         </div>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight">Services</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Price list</h1>
           <p className="text-sm text-muted-foreground">
-            Your price list. Items here appear in the invoice picker.
+            Items here appear in the invoice picker. Not the same as the
+            services clients book — those live under Bookings.
           </p>
         </div>
       </div>

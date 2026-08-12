@@ -61,7 +61,7 @@ const navItems: NavItem[] = [
   { href: "/recordings", label: "Recordings", icon: Video, navKey: "nav_recordings", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
   { href: "/tasks", label: "Tasks", icon: ListChecks, navKey: "nav_tasks", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
   { href: "/invoices", label: "Invoices", icon: Receipt, navKey: "nav_invoices", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
-  { href: "/services", label: "Services", icon: PoundSterling, navKey: "nav_services", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
+  { href: "/services", label: "Price list", icon: PoundSterling, navKey: "nav_services", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
   { href: "/forms", label: "Forms", icon: ClipboardList, navKey: "nav_forms", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
   { href: "/leaflets", label: "Leaflets", icon: FileStack, navKey: "nav_leaflets", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
   { href: "/pages", label: "Website pages", icon: FileText, navKey: "nav_pages", roles: ["SUPER_ADMIN", "TEAM_MANAGER"] },
