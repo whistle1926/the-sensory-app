@@ -114,8 +114,8 @@ export const PAGE_HELP: Record<string, PageHelpContent> = {
       "Share the booking link at the top with clients so they can book themselves.",
     ],
     learnMore: {
-      href: "/help/calendars",
-      label: "Confused by the Google/calendar side? Read the full guide",
+      href: "/help/bookings",
+      label: "New to this? Read the full walk-through",
     },
   },
 
