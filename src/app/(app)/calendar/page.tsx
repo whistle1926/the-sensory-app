@@ -13,7 +13,7 @@
  * Each member's events come from their saved iCal URL on their profile,
  * colour-coded by person. Member chips toggle people on/off.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
   CalendarDays,
@@ -244,6 +244,15 @@ export default function CalendarPage() {
   }
 
   const selectedDayEvents = selectedDay ? eventsByDay.get(selectedDay) ?? [] : [];
+
+  // The day's events render in a panel UNDER the month grid, which on most
+  // screens is below the fold — so clicking a day (or "+2 more") looked like
+  // it did nothing at all. Bring the panel to the user instead.
+  const dayPanelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!selectedDay) return;
+    dayPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [selectedDay]);
 
   return (
     <div className="space-y-6">
@@ -530,6 +539,7 @@ export default function CalendarPage() {
 
           {/* Selected-day detail */}
           {selectedDay && (
+            <div ref={dayPanelRef} className="scroll-mt-4">
             <Panel
               title={formatDayHeader(new Date(`${selectedDay}T00:00:00`))}
               subtitle={`${selectedDayEvents.length} event${selectedDayEvents.length === 1 ? "" : "s"}`}
@@ -546,6 +556,7 @@ export default function CalendarPage() {
                 </div>
               )}
             </Panel>
+            </div>
           )}
         </>
       ) : /* ── Agenda view ────────────────────────────────────────── */
