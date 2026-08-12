@@ -13,7 +13,7 @@
  * Each member's events come from their saved iCal URL on their profile,
  * colour-coded by person. Member chips toggle people on/off.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
   CalendarDays,
@@ -245,30 +245,12 @@ export default function CalendarPage() {
 
   const selectedDayEvents = selectedDay ? eventsByDay.get(selectedDay) ?? [] : [];
 
-  // The day's events render in a panel UNDER the month grid, which on most
-  // screens is below the fold — so clicking a day (or "+2 more") looked like
-  // it did nothing at all. Bring the panel to the user instead.
-  //
-  // Scrolling the container by hand rather than via scrollIntoView: the app
-  // shell scrolls <main>, not the window, and scrollIntoView on a panel that
-  // has only just mounted was a no-op there. One frame's wait lets the panel
-  // lay out so its offset is real.
-  const dayPanelRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (!selectedDay) return;
-    const frame = requestAnimationFrame(() => {
-      const el = dayPanelRef.current;
-      const scroller = el?.closest("main");
-      if (!el || !scroller) return;
-      const top =
-        scroller.scrollTop +
-        el.getBoundingClientRect().top -
-        scroller.getBoundingClientRect().top -
-        16;
-      scroller.scrollTo({ top, behavior: "smooth" });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [selectedDay]);
+  // The day's events used to render in a panel under the month grid, which
+  // is below the fold on most screens — clicking a day, or "+2 more", looked
+  // like a dead button. Two attempts at scrolling the panel into view failed
+  // (the app shell's scroll container silently reverts programmatic scrolls),
+  // so the day now opens as a popup over the grid, like the event detail
+  // already does. Nothing to scroll, nothing to miss.
 
   return (
     <div className="space-y-6">
@@ -553,27 +535,6 @@ export default function CalendarPage() {
             </div>
           </div>
 
-          {/* Selected-day detail */}
-          {selectedDay && (
-            <div ref={dayPanelRef} className="scroll-mt-4">
-            <Panel
-              title={formatDayHeader(new Date(`${selectedDay}T00:00:00`))}
-              subtitle={`${selectedDayEvents.length} event${selectedDayEvents.length === 1 ? "" : "s"}`}
-            >
-              {selectedDayEvents.length === 0 ? (
-                <div className="px-5 py-6 text-center text-sm text-muted-foreground">
-                  No events on this day.
-                </div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {selectedDayEvents.map((e) => (
-                    <EventRow key={`${e.userId}:${e.uid}`} event={e} onClick={() => setSelectedEvent(e)} />
-                  ))}
-                </div>
-              )}
-            </Panel>
-            </div>
-          )}
         </>
       ) : /* ── Agenda view ────────────────────────────────────────── */
       agendaGroups.length === 0 ? (
@@ -717,6 +678,68 @@ export default function CalendarPage() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Selected-day popup — opened by clicking a day cell or "+N more". */}
+      {selectedDay && !selectedEvent && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setSelectedDay(null)}
+        >
+          <div
+            className="flex max-h-[80vh] w-full max-w-md flex-col rounded-2xl border border-border bg-card shadow-[var(--shadow-xl)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-border p-5">
+              <div>
+                <h3 className="text-base font-bold leading-snug">
+                  {formatDayHeader(new Date(`${selectedDay}T00:00:00`))}
+                </h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {selectedDayEvents.length} event
+                  {selectedDayEvents.length === 1 ? "" : "s"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedDay(null)}
+                className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {selectedDayEvents.length === 0 ? (
+                <p className="px-5 py-8 text-center text-sm text-muted-foreground">
+                  Nothing on this day.
+                </p>
+              ) : (
+                <div className="divide-y divide-border">
+                  {selectedDayEvents.map((e) => (
+                    <EventRow
+                      key={`${e.userId}:${e.uid}`}
+                      event={e}
+                      onClick={() => setSelectedEvent(e)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-border p-4">
+              <button
+                type="button"
+                onClick={() => setAddOpen(true)}
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-primary-foreground transition hover:opacity-90"
+              >
+                <Plus className="h-4 w-4" />
+                Add an event on this day
+              </button>
+            </div>
           </div>
         </div>
       )}
