@@ -60,6 +60,14 @@ export async function GET(
     price: course.price,
     isFeatured: course.isFeatured,
     isBestseller: course.isBestseller,
+    // These were missing from the whitelist, so the editor loaded them as
+    // undefined: "Sell this one now" and the certificate switch always drew
+    // themselves OFF however the course was actually set, and the preview
+    // insisted a live course was "not on sale yet".
+    isLive: course.isLive,
+    hasCertificate: course.hasCertificate,
+    copyNotes: course.copyNotes,
+    resources: course.resources,
     tagline: course.tagline,
     shortDescription: course.shortDescription,
     heroImageUrl: course.heroImageUrl,
