@@ -324,10 +324,10 @@ export async function POST(req: NextRequest) {
       returnUrl: `${origin}/courses/thanks?purchase=${purchase.id}`,
     });
 
-    // paymentRef is unique, so only the primary row carries the Fire code —
-    // the rest of the group is found via groupId.
-    await prisma.coursePurchase.update({
-      where: { id: purchase.id },
+    // Every row of the group carries the Fire code now that paymentRef is
+    // no longer unique — it's the reference a human will quote.
+    await prisma.coursePurchase.updateMany({
+      where: groupId ? { groupId } : { id: purchase.id },
       data: { paymentRef: payment.code },
     });
 

@@ -94,12 +94,23 @@ async function ensureEnrollment(userId: string, courseId: string, moduleIds: str
 }
 
 async function ensurePurchase(userId: string, courseId: string, amount: number) {
-  // Use a deterministic payment ref so re-running doesn't create dupes.
+  // paymentRef is no longer unique (one payment can cover several courses),
+  // so find-then-write rather than upsert on it. Still idempotent: re-running
+  // updates the existing seeded row instead of adding another.
   const paymentRef = `test-seed-${userId}-${courseId}`;
-  await prisma.coursePurchase.upsert({
+  const existing = await prisma.coursePurchase.findFirst({
     where: { paymentRef },
-    update: { paymentStatus: "paid", amount, completedAt: new Date() },
-    create: {
+    select: { id: true },
+  });
+  if (existing) {
+    await prisma.coursePurchase.update({
+      where: { id: existing.id },
+      data: { paymentStatus: "paid", amount, completedAt: new Date() },
+    });
+    return;
+  }
+  await prisma.coursePurchase.create({
+    data: {
       userId,
       courseId,
       amount,
