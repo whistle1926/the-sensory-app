@@ -76,6 +76,7 @@ export async function sendCoursePurchaseEmail(purchaseId: string): Promise<void>
       createdAt: true,
       receiptSentAt: true,
       currency: true,
+      groupId: true,
       paymentStatus: true,
       userId: true,
       courseId: true,
@@ -89,11 +90,27 @@ export async function sendCoursePurchaseEmail(purchaseId: string): Promise<void>
   if (purchase.receiptSentAt) return; // already told them
   if (!purchase.user?.email) return;
 
-  // Claim it first: a second webhook arriving mid-send must not double up.
-  await prisma.coursePurchase.update({
-    where: { id: purchaseId },
+  // A checkout with add-ons is several rows and one payment. Every row runs
+  // through here, so gather the group and send ONE email listing all of it.
+  const lines = purchase.groupId
+    ? await prisma.coursePurchase.findMany({
+        where: { groupId: purchase.groupId, paymentStatus: "paid" },
+        select: { id: true, amount: true, course: { select: { title: true } } },
+        orderBy: { amount: "desc" },
+      })
+    : [{ id: purchase.id, amount: purchase.amount, course: { title: purchase.course.title } }];
+
+  // Claim the whole group first: a second webhook arriving mid-send, or the
+  // sibling rows being processed in turn, must not each fire an email.
+  const claimed = await prisma.coursePurchase.updateMany({
+    where: purchase.groupId
+      ? { groupId: purchase.groupId, receiptSentAt: null }
+      : { id: purchaseId, receiptSentAt: null },
     data: { receiptSentAt: new Date() },
   });
+  if (claimed.count === 0) return; // someone else got there first
+
+  const total = lines.reduce((sum, l) => sum + l.amount, 0);
 
   const settings = await prisma.emailSettings.findUnique({
     where: { id: "default" },
@@ -134,15 +151,18 @@ export async function sendCoursePurchaseEmail(purchaseId: string): Promise<void>
 
   const paid: Currency = isCurrency(purchase.currency) ? purchase.currency : "GBP";
   const next = await pickNextCourse(purchase.userId, purchase.courseId, purchase.course.nextCourseId);
-  const nextPrice = next
-    ? paid === "EUR" && typeof next.priceEur === "number"
-      ? formatPrice(next.priceEur, "EUR")
-      : formatPrice(next.price, "GBP")
+  // Never suggest a course they can't actually buy in the currency they just
+  // paid in — offering a euro buyer a sterling-only course is a dead end.
+  const nextBuyable = next && (paid === "GBP" || typeof next.priceEur === "number");
+  const nextPrice = nextBuyable
+    ? paid === "EUR"
+      ? formatPrice(next!.priceEur!, "EUR")
+      : formatPrice(next!.price, "GBP")
     : "";
   const paidOn = ukDate(purchase.completedAt ?? purchase.createdAt);
   const reference = purchase.id.slice(-8).toUpperCase();
 
-  const upsell = next
+  const upsell = nextBuyable && next
     ? `
       <div style="margin-top:28px;border-top:1px solid #e6e8ee;padding-top:20px">
         <p style="margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#7a8194">
@@ -194,13 +214,17 @@ export async function sendCoursePurchaseEmail(purchaseId: string): Promise<void>
         Your receipt
       </p>
       <table style="width:100%;border-collapse:collapse;font-size:14px;color:#1a1d26">
-        <tr>
-          <td style="padding:4px 0;color:#4a5061">${escapeHtml(purchase.course.title)}</td>
-          <td style="padding:4px 0;text-align:right;font-weight:600">${formatExact(purchase.amount, paid)}</td>
-        </tr>
+        ${lines
+          .map(
+            (l) => `<tr>
+          <td style="padding:4px 0;color:#4a5061">${escapeHtml(l.course.title)}</td>
+          <td style="padding:4px 0;text-align:right;font-weight:600">${formatExact(l.amount, paid)}</td>
+        </tr>`,
+          )
+          .join("")}
         <tr>
           <td style="padding:10px 0 4px;border-top:1px solid #e6e8ee;font-weight:700">Total paid</td>
-          <td style="padding:10px 0 4px;border-top:1px solid #e6e8ee;text-align:right;font-weight:700">${formatExact(purchase.amount, paid)}</td>
+          <td style="padding:10px 0 4px;border-top:1px solid #e6e8ee;text-align:right;font-weight:700">${formatExact(total, paid)}</td>
         </tr>
       </table>
       <p style="margin:12px 0 0;font-size:12px;line-height:1.7;color:#7a8194">

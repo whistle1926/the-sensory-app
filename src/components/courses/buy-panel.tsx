@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
   Clock,
@@ -20,6 +21,8 @@ interface Props {
   courseTitle: string;
   price: number;
   priceEur?: number | null;
+  /** Used to link to the checkout page rather than open a dialog. */
+  courseSlug: string;
   duration: string;
   moduleCount: number;
   /** Titles of the handouts attached to the course, shown as what you get. */
@@ -41,11 +44,13 @@ export function BuyPanel({
   courseTitle,
   price,
   priceEur,
+  courseSlug,
   duration,
   moduleCount,
   resources,
   hasCertificate,
 }: Props) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [enrolledEmail, setEnrolledEmail] = useState<string | null>(null);
   const isFree = price === 0;
@@ -83,7 +88,7 @@ export function BuyPanel({
                 variant="outline"
                 className="flex-1"
                 size="sm"
-                onClick={() => setOpen(true)}
+                onClick={() => router.push(`/courses/${courseSlug}/checkout`)}
               >
                 <Mail className="mr-1.5 h-3.5 w-3.5" />
                 Didn&apos;t get it?
@@ -100,7 +105,7 @@ export function BuyPanel({
           <Button
             className="mt-5 w-full"
             size="lg"
-            onClick={() => setOpen(true)}
+            onClick={() => router.push(`/courses/${courseSlug}/checkout`)}
           >
             {isFree ? "Enrol for free" : `Buy — ${formatPrice(price)}`}
           </Button>
@@ -153,7 +158,7 @@ export function BuyPanel({
               Sign in
             </Link>
           ) : (
-            <Button onClick={() => setOpen(true)}>
+            <Button onClick={() => router.push(`/courses/${courseSlug}/checkout`)}>
               {isFree ? "Enrol free" : "Buy"}
             </Button>
           )}

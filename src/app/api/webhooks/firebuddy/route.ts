@@ -48,6 +48,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true });
   }
 
+  // A checkout with add-ons settles as ONE payment covering several course
+  // rows; fan it back out so each grants its own enrolment.
+  if (reference.startsWith("courseGroup:")) {
+    const groupId = reference.slice("courseGroup:".length);
+    try {
+      const rows = await prisma.coursePurchase.findMany({
+        where: { groupId },
+        select: { id: true },
+      });
+      for (const row of rows) {
+        await handleCoursePayment(row.id, event.paymentId);
+      }
+    } catch (err) {
+      console.error("[WEBHOOK] Course group handling failed:", err);
+      return NextResponse.json({ error: "Internal error" }, { status: 500 });
+    }
+    return NextResponse.json({ received: true });
+  }
+
   // Invoice branch: reference format is "invoice:<invoiceId>".
   if (reference.startsWith("invoice:")) {
     const invoiceId = reference.slice("invoice:".length);

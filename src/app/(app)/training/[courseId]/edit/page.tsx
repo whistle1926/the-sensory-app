@@ -84,6 +84,7 @@ interface CourseShape {
   instructorImageUrl: string | null;
   audienceFor: string | null;
   nextCourseId: string | null;
+  upsellCourseIds: string[];
   testimonials: Testimonial[];
   modules: ModuleRow[];
 }
@@ -262,6 +263,7 @@ export default function CourseEditPage({
           instructorImageUrl: course.instructorImageUrl ?? "",
           audienceFor: course.audienceFor ?? "",
           nextCourseId: course.nextCourseId,
+          upsellCourseIds: course.upsellCourseIds,
           testimonials: course.testimonials,
         }),
       });
@@ -792,6 +794,48 @@ export default function CourseEditPage({
             </option>
           ))}
         </select>
+      </section>
+
+      {/* ── Checkout add-ons ──────────────────────────────────────────── */}
+      <section className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
+        <h2 className="text-sm font-semibold">Offer alongside at checkout</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Tick the courses to offer as add-ons on this course&apos;s checkout
+          page. The buyer can add them with one tick and pay for everything in
+          one go. Leave all unticked for a plain checkout.
+        </p>
+        <div className="mt-4 space-y-2">
+          {otherCourses.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              No other courses to offer yet.
+            </p>
+          )}
+          {otherCourses.map((c) => {
+            const on = (course.upsellCourseIds ?? []).includes(c.id);
+            return (
+              <label
+                key={c.id}
+                className="flex cursor-pointer items-center gap-3 rounded-xl border border-border p-3 text-sm hover:bg-muted/40"
+              >
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={(e) => {
+                    const set = new Set(course.upsellCourseIds ?? []);
+                    if (e.target.checked) set.add(c.id);
+                    else set.delete(c.id);
+                    patchCourse({ upsellCourseIds: [...set] });
+                  }}
+                />
+                <span className="font-medium">{c.title}</span>
+              </label>
+            );
+          })}
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Anything not on sale, or with no modules yet, is skipped
+          automatically — so a half-finished course can&apos;t appear.
+        </p>
       </section>
 
       {/* ── Modules ───────────────────────────────────────────────────── */}

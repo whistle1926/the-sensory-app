@@ -59,6 +59,7 @@ export async function GET(
     level: course.level,
     price: course.price,
     priceEur: course.priceEur,
+    upsellCourseIds: course.upsellCourseIds,
     isFeatured: course.isFeatured,
     isBestseller: course.isBestseller,
     // These were missing from the whitelist, so the editor loaded them as
@@ -124,6 +125,11 @@ export async function PATCH(
     data.level = body.level.trim().slice(0, 60) || null;
 
   // ── Pricing & visibility ─────────────────────────────────────────────
+  if (Array.isArray(body.upsellCourseIds)) {
+    data.upsellCourseIds = body.upsellCourseIds
+      .filter((x: unknown): x is string => typeof x === "string")
+      .slice(0, 6);
+  }
   // Euro price: a number sets it, null clears it back to sterling-only.
   if (body.priceEur === null) {
     data.priceEur = null;

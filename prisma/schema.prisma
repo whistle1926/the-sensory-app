@@ -381,6 +381,11 @@ model Course {
   /// Deliberately not an FX conversion: a fixed price stays a clean number
   /// and can't drift into selling at a loss when the rate moves.
   priceEur    Int?         @map("price_eur")
+  /// Courses offered as tick-box add-ons on this course's checkout page.
+  /// Chosen per course by an OT rather than picked automatically, so the
+  /// pairing is a decision ("sensory basics → school readiness") instead of
+  /// whatever happens to be on sale. Ignored if an entry isn't purchasable.
+  upsellCourseIds String[]  @map("upsell_course_ids")
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
@@ -522,6 +527,10 @@ model CoursePurchase {
   /// Which currency `amount` is in — "GBP" or "EUR". Without this a euro
   /// sale would be filed as pounds and quietly overstate the takings.
   currency      String    @default("GBP")
+  /// Ties the lines of one checkout together — a course plus any add-ons
+  /// bought with it are separate rows (each grants its own enrolment) but
+  /// are paid for in a single payment. NULL on a lone purchase.
+  groupId       String?   @map("group_id")
   paymentStatus String    @default("pending") // "pending" | "paid" | "failed"
   paymentRef    String?   @unique // FireBuddy transaction id
   createdAt     DateTime  @default(now())

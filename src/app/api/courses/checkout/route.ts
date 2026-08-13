@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { randomBytes } from "crypto";
+import { randomBytes, randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -127,6 +127,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Tick-box add-ons chosen on the checkout page. Each becomes its own
+  // purchase row (so it grants its own enrolment and can be refunded on its
+  // own) but they're all covered by one payment.
+  const addonIds: string[] = Array.isArray(body?.addonCourseIds)
+    ? body.addonCourseIds.filter((x: unknown): x is string => typeof x === "string").slice(0, 6)
+    : [];
+
   // Which currency they're paying in. Fire settles like-for-like, so this
   // decides which of the practice's accounts the money can land in. Defaults
   // to sterling; a course with no euro price simply can't be bought in euro.
@@ -138,6 +145,21 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
+
+  // Only offer what this course actually lists, and only what's genuinely
+  // purchasable in the chosen currency — a stale id in the list is ignored
+  // rather than failing the whole checkout.
+  const allowedAddonIds = addonIds.filter(
+    (id) => id !== courseId && course.upsellCourseIds.includes(id),
+  );
+  const addons = allowedAddonIds.length
+    ? (
+        await prisma.course.findMany({
+          where: { id: { in: allowedAddonIds }, status: "AVAILABLE" },
+          select: { id: true, title: true, price: true, priceEur: true, modules: { select: { id: true } } },
+        })
+      ).filter((a) => a.modules.length > 0 && priceIn(a, requested) !== null)
+    : [];
 
   // ── Resolve the buyer ────────────────────────────────────────────
   const session = await auth();
@@ -203,9 +225,26 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // Anything they already have is silently dropped — nobody should be able
+  // to pay twice for the same course by leaving a box ticked.
+  const ownedIds = new Set(
+    (
+      await prisma.enrollment.findMany({
+        where: { userId, courseId: { in: addons.map((a) => a.id) } },
+        select: { courseId: true },
+      })
+    ).map((e) => e.courseId),
+  );
+  const paidAddons = addons
+    .filter((a) => !ownedIds.has(a.id))
+    .map((a) => ({ id: a.id, title: a.title, amount: priceIn(a, requested)! }));
+
+  const total = amount + paidAddons.reduce((sum, a) => sum + a.amount, 0);
+
   // ── Free course → enrol immediately ─────────────────────────────
-  if (amount === 0) {
+  if (total === 0) {
     await ensureEnrollment(userId, courseId);
+    for (const a of paidAddons) await ensureEnrollment(userId, a.id);
 
     if (wasNewUser) {
       await sendSetPasswordEmail({
@@ -241,6 +280,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // One row per course so each grants its own enrolment and can be refunded
+  // separately; a shared groupId ties them to the single payment.
+  const groupId = paidAddons.length ? randomUUID() : null;
   const purchase = await prisma.coursePurchase.create({
     data: {
       userId,
@@ -248,22 +290,42 @@ export async function POST(req: NextRequest) {
       amount,
       paymentStatus: "pending",
       currency: requested,
+      groupId,
       ...utm,
     },
   });
+  for (const a of paidAddons) {
+    await prisma.coursePurchase.create({
+      data: {
+        userId,
+        courseId: a.id,
+        amount: a.amount,
+        paymentStatus: "pending",
+        currency: requested,
+        groupId,
+        ...utm,
+      },
+    });
+  }
 
   try {
     const fb = new FireBuddy(paymentSettings.apiKey);
     const origin = baseUrl(req);
+    const description = paidAddons.length
+      ? `${course.title} + ${paidAddons.length} more`
+      : `${course.title} — CPD course`;
     const payment = await fb.createPayment({
-      amount,
+      amount: total,
       currency: requested,
-      description: `${course.title} — CPD course`,
-      reference: `course:${purchase.id}`,
+      description,
+      // A group is settled as one payment; the webhook fans it back out.
+      reference: groupId ? `courseGroup:${groupId}` : `course:${purchase.id}`,
       email: userEmail,
       returnUrl: `${origin}/courses/thanks?purchase=${purchase.id}`,
     });
 
+    // paymentRef is unique, so only the primary row carries the Fire code —
+    // the rest of the group is found via groupId.
     await prisma.coursePurchase.update({
       where: { id: purchase.id },
       data: { paymentRef: payment.code },
@@ -276,8 +338,8 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[courses/checkout] FireBuddy failed:", err);
-    await prisma.coursePurchase.update({
-      where: { id: purchase.id },
+    await prisma.coursePurchase.updateMany({
+      where: groupId ? { groupId } : { id: purchase.id },
       data: { paymentStatus: "failed" },
     });
     return NextResponse.json(

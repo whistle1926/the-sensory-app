@@ -334,6 +334,7 @@ export function CourseDetailView({
             <BuyPanel
               courseId={course.id}
               courseTitle={course.title}
+              courseSlug={course.slug}
               price={course.price}
               priceEur={course.priceEur}
               duration={course.duration}
