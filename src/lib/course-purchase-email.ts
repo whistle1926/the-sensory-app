@@ -82,7 +82,7 @@ export async function sendCoursePurchaseEmail(purchaseId: string): Promise<void>
       userId: true,
       courseId: true,
       course: { select: { id: true, title: true, slug: true, nextCourseId: true } },
-      user: { select: { email: true, name: true, role: true, passwordHash: true } },
+      user: { select: { email: true, name: true, role: true } },
     },
   });
   if (!purchase || purchase.paymentStatus !== "paid") return;
@@ -104,12 +104,19 @@ export async function sendCoursePurchaseEmail(purchaseId: string): Promise<void>
   const base = baseUrl();
   const courseUrl = `${base}/portal/training/${purchase.course.id}`;
 
-  // A buyer with no password can't sign in, so the access button has to be a
-  // set-password link. Everyone else gets sent straight to the course.
+  // A buyer with no working password can't sign in, so the access button has
+  // to be a set-password link. Note that passwordHash is NOT the signal: a
+  // guest account is created with a deliberately unusable random hash, so the
+  // column is always populated. Having *used* a setup token is what actually
+  // means "this person has a password they know".
   let accessUrl = courseUrl;
   let accessLabel = "Open your course";
   let accessNote = "";
-  const needsPassword = !purchase.user.passwordHash && purchase.user.role === "CLIENT";
+  const usedToken = await prisma.passwordSetupToken.findFirst({
+    where: { userId: purchase.userId, usedAt: { not: null } },
+    select: { id: true },
+  });
+  const needsPassword = !usedToken && purchase.user.role === "CLIENT";
   if (needsPassword) {
     const token = randomBytes(18).toString("base64url");
     await prisma.passwordSetupToken.create({
