@@ -129,41 +129,42 @@ export function CheckoutView({
     "h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30";
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:py-12">
-      <Link
-        href={`/courses/${course.slug}`}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to the course
-      </Link>
+    /* Top of the page is kept deliberately tight. The add-ons are the part
+       most people never scroll to, so the heading, the back link and the
+       "what you're buying" row are compressed to lift the first offer — and
+       its Add button — above the fold on a laptop. */
+    <div className="mx-auto max-w-5xl px-4 py-5 sm:py-7">
+      <div className="flex items-baseline gap-3">
+        <h1 className="text-2xl font-black tracking-tight sm:text-3xl">
+          Checkout
+        </h1>
+        <Link
+          href={`/courses/${course.slug}`}
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to the course
+        </Link>
+      </div>
 
-      <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">
-        Checkout
-      </h1>
-
-      <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_380px]">
+      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_380px]">
         {/* ── Left: what you're buying, and what else you could add ── */}
-        <div className="space-y-6">
-          <section className="rounded-2xl border border-border bg-card p-5">
-            <h2 className="text-sm font-bold">Your order</h2>
-            <div className="mt-3 flex items-start gap-3 rounded-xl bg-muted/40 p-3">
+        <div className="space-y-4">
+          <section className="rounded-2xl border border-border bg-card p-4">
+            <div className="flex items-center gap-3">
               {course.thumbnailUrl && (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={course.thumbnailUrl}
                   alt=""
-                  className="h-16 w-24 shrink-0 rounded-lg object-cover"
+                  className="h-12 w-20 shrink-0 rounded-lg object-cover"
                 />
               )}
               <div className="min-w-0 flex-1">
-                <p className="font-bold leading-snug">{course.title}</p>
-                {course.blurb && (
-                  <p className="mt-0.5 text-sm text-muted-foreground">{course.blurb}</p>
-                )}
-                {course.duration && (
-                  <p className="mt-1 text-xs text-muted-foreground">{course.duration}</p>
-                )}
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Your order
+                </p>
+                <p className="truncate font-bold leading-snug">{course.title}</p>
               </div>
               <p className="shrink-0 font-bold">
                 {formatPrice(lineTotal(course), currency)}
@@ -172,15 +173,14 @@ export function CheckoutView({
           </section>
 
           {addons.length > 0 && (
-            <section className="rounded-2xl border-2 border-primary/30 bg-primary/[0.03] p-5">
+            <section className="rounded-2xl border-2 border-primary/30 bg-primary/[0.03] p-4">
               <h2 className="text-base font-black">
                 Parents usually add these too
               </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Added to the same order and paid in one go — no second
-                checkout, and they&apos;re yours to keep just the same.
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Same order, one payment — and yours to keep just the same.
               </p>
-              <div className="mt-4 space-y-3">
+              <div className="mt-3 space-y-3">
                 {addons.map((a) => {
                   const on = picked.has(a.id);
                   const price = formatPrice(priceIn(a, currency) ?? a.price, currency);
