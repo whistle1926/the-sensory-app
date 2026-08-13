@@ -20,7 +20,9 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
+  Check,
   CheckCircle2,
+  Copy,
   ExternalLink,
   Loader2,
   Plus,
@@ -101,6 +103,9 @@ export default function CourseEditPage({
   const [allCourses, setAllCourses] = useState<CourseOption[]>([]);
   const [moduleVideos, setModuleVideos] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [origin, setOrigin] = useState("");
+  useEffect(() => setOrigin(window.location.origin), []);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [instructorNote, setInstructorNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -213,6 +218,8 @@ export default function CourseEditPage({
     }
   }
 
+  const publicUrl = `${origin}/courses/${course?.slug ?? ""}`;
+
   function patchCourse(p: Partial<CourseShape>) {
     setCourse((c) => (c ? { ...c, ...p } : c));
   }
@@ -321,6 +328,53 @@ export default function CourseEditPage({
             Preview what parents will see
             <ExternalLink className="h-3.5 w-3.5" />
           </Link>
+
+          {/* The address to actually send people. While the Courses section
+              is switched off this link is the ONLY way in — the course won't
+              be listed anywhere — so it needs to be easy to grab. */}
+          <div className="mt-3 max-w-xl rounded-xl border border-border bg-muted/30 p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {course.isLive && course.status === "AVAILABLE"
+                ? "Live link — send this to parents"
+                : "Link once it's on sale"}
+            </p>
+            <div className="mt-1.5 flex items-center gap-2">
+              <code className="min-w-0 flex-1 truncate rounded-lg bg-background px-2 py-1.5 text-xs">
+                {publicUrl}
+              </code>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(publicUrl);
+                    setLinkCopied(true);
+                    setTimeout(() => setLinkCopied(false), 2000);
+                  } catch {
+                    /* clipboard blocked — the text is on screen to copy by hand */
+                  }
+                }}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-semibold hover:bg-muted"
+              >
+                {linkCopied ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 text-green-600" />
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy
+                  </>
+                )}
+              </button>
+            </div>
+            {!(course.isLive && course.status === "AVAILABLE") && (
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Not reachable yet — needs status &ldquo;Available&rdquo; and
+                &ldquo;Sell this one now&rdquo; switched on, then Save.
+              </p>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-3">
           {savedAt && Date.now() - savedAt < 5000 && (
