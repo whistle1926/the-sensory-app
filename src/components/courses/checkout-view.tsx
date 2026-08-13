@@ -30,12 +30,20 @@ interface Item {
   thumbnailUrl?: string | null;
 }
 
+interface Addon extends Item {
+  /** Benefit-led line written for this moment. */
+  headline: string;
+  /** A few concrete things they'd get. */
+  features: string[];
+  duration: string;
+}
+
 export function CheckoutView({
   course,
   addons,
 }: {
   course: Item & { slug: string; duration: string };
-  addons: Item[];
+  addons: Addon[];
 }) {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -165,43 +173,97 @@ export function CheckoutView({
 
           {addons.length > 0 && (
             <section className="rounded-2xl border-2 border-primary/30 bg-primary/[0.03] p-5">
-              <h2 className="text-sm font-bold">Add to your order</h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Bought together, paid in one go. Tick anything you&apos;d like.
+              <h2 className="text-base font-black">
+                Parents usually add these too
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Added to the same order and paid in one go — no second
+                checkout, and they&apos;re yours to keep just the same.
               </p>
               <div className="mt-4 space-y-3">
                 {addons.map((a) => {
                   const on = picked.has(a.id);
+                  const price = formatPrice(priceIn(a, currency) ?? a.price, currency);
                   return (
-                    <button
+                    <div
                       key={a.id}
-                      type="button"
-                      onClick={() => toggle(a.id)}
-                      className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left transition ${
-                        on
-                          ? "border-primary bg-card shadow-[var(--shadow-sm)]"
-                          : "border-border bg-card/60 hover:bg-card"
+                      className={`overflow-hidden rounded-2xl border-2 bg-card transition ${
+                        on ? "border-primary shadow-[var(--shadow-sm)]" : "border-border"
                       }`}
                     >
-                      <span
-                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
-                          on ? "border-primary bg-primary text-primary-foreground" : "border-input"
+                      <div className="flex gap-4 p-4">
+                        {a.thumbnailUrl && (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={a.thumbnailUrl}
+                            alt=""
+                            className="hidden h-28 w-40 shrink-0 rounded-xl border border-border object-cover sm:block"
+                          />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          {a.headline && (
+                            <p className="text-base font-black leading-snug">
+                              {a.headline}
+                            </p>
+                          )}
+                          <p
+                            className={
+                              a.headline
+                                ? "mt-0.5 text-xs font-semibold uppercase tracking-wider text-primary"
+                                : "text-base font-black leading-snug"
+                            }
+                          >
+                            {a.title}
+                          </p>
+                          {a.blurb && a.blurb !== a.headline && (
+                            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                              {a.blurb}
+                            </p>
+                          )}
+                          {a.features.length > 0 && (
+                            <ul className="mt-2 space-y-1">
+                              {a.features.map((f, i) => (
+                                <li
+                                  key={i}
+                                  className="flex items-start gap-1.5 text-sm text-muted-foreground"
+                                >
+                                  <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                                  <span>{f}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => toggle(a.id)}
+                        className={`flex w-full items-center justify-between gap-3 border-t px-4 py-3 text-left transition ${
+                          on
+                            ? "border-primary/30 bg-primary/10"
+                            : "border-border bg-muted/30 hover:bg-muted/60"
                         }`}
                       >
-                        {on ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5 opacity-40" />}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block font-bold leading-snug">{a.title}</span>
-                        {a.blurb && (
-                          <span className="mt-0.5 block text-sm text-muted-foreground">
-                            {a.blurb}
+                        <span className="flex items-center gap-2 text-sm font-bold">
+                          <span
+                            className={`flex h-5 w-5 items-center justify-center rounded-md border ${
+                              on
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-input bg-background"
+                            }`}
+                          >
+                            {on ? (
+                              <Check className="h-3.5 w-3.5" />
+                            ) : (
+                              <Plus className="h-3.5 w-3.5 opacity-50" />
+                            )}
                           </span>
-                        )}
-                      </span>
-                      <span className="shrink-0 font-bold">
-                        {formatPrice(priceIn(a, currency) ?? a.price, currency)}
-                      </span>
-                    </button>
+                          {on ? "Added to your order" : `Add for ${price}`}
+                        </span>
+                        <span className="text-sm font-black">{price}</span>
+                      </button>
+                    </div>
                   );
                 })}
               </div>

@@ -60,6 +60,7 @@ export async function GET(
     price: course.price,
     priceEur: course.priceEur,
     upsellCourseIds: course.upsellCourseIds,
+    upsellHeadline: course.upsellHeadline,
     isFeatured: course.isFeatured,
     isBestseller: course.isBestseller,
     // These were missing from the whitelist, so the editor loaded them as
@@ -125,6 +126,9 @@ export async function PATCH(
     data.level = body.level.trim().slice(0, 60) || null;
 
   // ── Pricing & visibility ─────────────────────────────────────────────
+  if (typeof body.upsellHeadline === "string") {
+    data.upsellHeadline = body.upsellHeadline.trim().slice(0, 160) || null;
+  }
   if (Array.isArray(body.upsellCourseIds)) {
     data.upsellCourseIds = body.upsellCourseIds
       .filter((x: unknown): x is string => typeof x === "string")

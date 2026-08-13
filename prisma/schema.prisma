@@ -381,6 +381,12 @@ model Course {
   /// Deliberately not an FX conversion: a fixed price stays a clean number
   /// and can't drift into selling at a loss when the rate moves.
   priceEur    Int?         @map("price_eur")
+  /// A benefit-led line used when THIS course is offered as an add-on on
+  /// someone else's checkout. The course's own tagline sells it to someone
+  /// already reading its page; at checkout it has one line to earn a tick
+  /// from a person who came for something else. Falls back to the tagline.
+  upsellHeadline  String?   @map("upsell_headline")
+
   /// Courses offered as tick-box add-ons on this course's checkout page.
   /// Chosen per course by an OT rather than picked automatically, so the
   /// pairing is a decision ("sensory basics → school readiness") instead of

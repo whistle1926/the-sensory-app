@@ -58,9 +58,13 @@ export default async function CourseCheckoutPage({
           title: true,
           tagline: true,
           shortDescription: true,
+          upsellHeadline: true,
+          features: true,
+          duration: true,
           price: true,
           priceEur: true,
           thumbnailUrl: true,
+          heroImageUrl: true,
           modules: { select: { id: true } },
         },
       })
@@ -73,10 +77,16 @@ export default async function CourseCheckoutPage({
     addons.push({
       id: a.id,
       title: a.title,
-      blurb: a.tagline || a.shortDescription || "",
+      // The pitch line written for this exact moment, falling back to the
+      // course's own tagline when nobody has written one yet.
+      headline: a.upsellHeadline || a.tagline || "",
+      blurb: a.shortDescription || a.tagline || "",
+      // A few concrete things they'd get — a tick needs more than a title.
+      features: (a.features ?? []).slice(0, 3),
+      duration: a.duration,
       price: a.price,
       priceEur: a.priceEur,
-      thumbnailUrl: a.thumbnailUrl,
+      thumbnailUrl: a.thumbnailUrl || a.heroImageUrl,
     });
   }
 

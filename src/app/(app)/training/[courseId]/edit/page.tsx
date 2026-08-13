@@ -85,6 +85,7 @@ interface CourseShape {
   audienceFor: string | null;
   nextCourseId: string | null;
   upsellCourseIds: string[];
+  upsellHeadline: string | null;
   testimonials: Testimonial[];
   modules: ModuleRow[];
 }
@@ -264,6 +265,7 @@ export default function CourseEditPage({
           audienceFor: course.audienceFor ?? "",
           nextCourseId: course.nextCourseId,
           upsellCourseIds: course.upsellCourseIds,
+          upsellHeadline: course.upsellHeadline,
           testimonials: course.testimonials,
         }),
       });
@@ -836,6 +838,26 @@ export default function CourseEditPage({
           Anything not on sale, or with no modules yet, is skipped
           automatically — so a half-finished course can&apos;t appear.
         </p>
+
+        <div className="mt-5 border-t border-border pt-5">
+          <Label htmlFor="c-upsell-headline">
+            How THIS course is pitched on someone else&apos;s checkout
+          </Label>
+          <Input
+            id="c-upsell-headline"
+            value={course.upsellHeadline ?? ""}
+            maxLength={160}
+            placeholder="e.g. Getting bedtime back on track"
+            onChange={(e) => patchCourse({ upsellHeadline: e.target.value })}
+            className="mt-2"
+          />
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            One benefit-led line. The person reading it came for a different
+            course, so lead with what changes for them and their child, not the
+            course title — that&apos;s shown underneath anyway. Blank falls back
+            to the tagline.
+          </p>
+        </div>
       </section>
 
       {/* ── Modules ───────────────────────────────────────────────────── */}
