@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { FireBuddy } from "@/lib/firebuddy";
 import { ensureEnrollment } from "@/lib/course-enrollment";
-import { sendTransactionalEmail, escapeHtml } from "@/lib/email";
+import { sendCoursePurchaseEmail } from "@/lib/course-purchase-email";
 import { sendBookingReferralForm } from "@/lib/booking-referral";
 
 export async function POST(req: NextRequest) {
@@ -206,16 +205,13 @@ async function handleCoursePayment(purchaseId: string, paymentId: string) {
     console.error("[WEBHOOK] ensureEnrollment failed:", err);
   }
 
-  // Guest purchase follow-up — if this buyer came through the public
-  // storefront without signing in, they have no password set yet. Fire
-  // a set-password email so they can access their course. We detect them
-  // by the absence of *any* prior PasswordSetupToken usage AND the lack
-  // of sign-in activity (best proxy: user has no other enrolments + no
-  // tokens already used).
+  // Receipt + access + what-next, to EVERY buyer. This used to be a
+  // set-password email that only reached first-time guests, so a returning
+  // customer paid and heard nothing at all.
   try {
-    await maybeSendSetPasswordEmail(purchase.userId, purchase.course.id, purchase.course.title);
+    await sendCoursePurchaseEmail(purchase.id);
   } catch (err) {
-    console.error("[WEBHOOK] set-password email failed:", err);
+    console.error("[WEBHOOK] purchase email failed:", err);
   }
 
   // Credit the private income tracker. Idempotent via (source, reference).
@@ -326,71 +322,3 @@ async function handleInvoicePayment(
   }
 }
 
-/**
- * Send a set-password link to a freshly-created guest buyer. Idempotent in
- * practice — we check whether the user has ever used a token before. If they
- * already have a real password (i.e. they've logged in), skip; their existing
- * session/auth still works and spamming emails would be noisy.
- */
-async function maybeSendSetPasswordEmail(
-  userId: string,
-  courseId: string,
-  courseTitle: string,
-) {
-  const [user, usedToken] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true, role: true },
-    }),
-    prisma.passwordSetupToken.findFirst({
-      where: { userId, usedAt: { not: null } },
-      select: { id: true },
-    }),
-  ]);
-  if (!user) return;
-  // They've previously set a password — they're a known client, don't resend.
-  if (usedToken) return;
-  // Only email CLIENTs (staff log in normally).
-  if (user.role !== "CLIENT") return;
-
-  const token = randomBytes(18).toString("base64url");
-  const expires = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-
-  await prisma.passwordSetupToken.create({
-    data: { userId, token, expiresAt: expires },
-  });
-
-  const base =
-    (process.env.NEXTAUTH_URL ??
-      process.env.AUTH_URL ??
-      process.env.NEXT_PUBLIC_BASE_URL ??
-      "").replace(/\/$/, "") || "https://sensory.aiworldexperts.com";
-  const setUrl = `${base}/set-password?token=${token}`;
-  const courseUrl = `${base}/portal/training/${courseId}`;
-
-  const html = `<!doctype html><html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f8f9fb;margin:0;padding:24px">
-    <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;padding:24px">
-      <h1 style="margin:0 0 16px;font-size:22px">Your course is ready</h1>
-      <p style="font-size:14px;color:#333;line-height:1.6">
-        Thanks for purchasing <strong>${escapeHtml(courseTitle)}</strong>. Set a
-        password and you can jump in straight away — you'll also be able to
-        revisit the course any time.
-      </p>
-      <div style="margin-top:20px">
-        <a href="${escapeHtml(setUrl)}" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">
-          Set password &amp; start course
-        </a>
-      </div>
-      <p style="margin-top:20px;font-size:12px;color:#888;line-height:1.5">
-        Already set a password? <a href="${escapeHtml(courseUrl)}">Open the course</a>.
-        This set-password link expires in 14 days.
-      </p>
-    </div>
-  </body></html>`;
-
-  await sendTransactionalEmail({
-    to: user.email,
-    subject: `Your course is ready — ${courseTitle}`,
-    html,
-  });
-}

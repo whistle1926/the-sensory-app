@@ -517,6 +517,9 @@ model CoursePurchase {
   paymentRef    String?   @unique // FireBuddy transaction id
   createdAt     DateTime  @default(now())
   completedAt   DateTime?
+  /// Stamped when the receipt / access email went out. Idempotency key —
+  /// the webhook can fire twice and a buyer must not be emailed twice.
+  receiptSentAt DateTime? @map("receipt_sent_at")
 
   // ── Paid-traffic attribution ───────────────────────────────────────
   // Captured client-side when the visitor first lands on /courses (or
