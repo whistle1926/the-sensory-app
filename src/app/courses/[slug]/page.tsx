@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { courseAccessible } from "@/lib/storefront";
+import { courseAccessible, coursesEnabled } from "@/lib/storefront";
 import { auth } from "@/lib/auth";
 import { CourseDetailView } from "@/components/courses/course-detail-view";
 
@@ -56,6 +56,7 @@ export default async function CourseDetailPage({
   return (
     <CourseDetailView
       previewing={previewing}
+      showCoursesLink={await coursesEnabled()}
       course={{
         ...course,
         testimonials,

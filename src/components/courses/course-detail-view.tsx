@@ -64,9 +64,15 @@ export interface CourseView {
 export function CourseDetailView({
   course,
   previewing = false,
+  showCoursesLink = false,
 }: {
   course: CourseView;
   previewing?: boolean;
+  /** Only offer "Back to courses" when that listing actually shows this
+   *  course. With the Courses section switched off an individually-live
+   *  course is reachable by link alone, so the link would send a buyer to a
+   *  page that doesn't list what they were just reading. */
+  showCoursesLink?: boolean;
 }) {
   const testimonials = course.testimonials ?? [];
   const features = course.features ?? [];
@@ -88,15 +94,17 @@ export function CourseDetailView({
       )}
       <StorefrontHeader />
 
-      <div className="mx-auto max-w-6xl px-5 py-6">
-        <Link
-          href="/courses"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to courses
-        </Link>
-      </div>
+      {showCoursesLink && (
+        <div className="mx-auto max-w-6xl px-5 py-6">
+          <Link
+            href="/courses"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to courses
+          </Link>
+        </div>
+      )}
 
       {/* Hero */}
       <section className="mx-auto max-w-6xl px-5 pb-8">
