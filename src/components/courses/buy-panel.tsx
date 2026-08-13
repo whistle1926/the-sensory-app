@@ -19,6 +19,7 @@ interface Props {
   courseId: string;
   courseTitle: string;
   price: number;
+  priceEur?: number | null;
   duration: string;
   moduleCount: number;
   /** Titles of the handouts attached to the course, shown as what you get. */
@@ -39,6 +40,7 @@ export function BuyPanel({
   courseId,
   courseTitle,
   price,
+  priceEur,
   duration,
   moduleCount,
   resources,
@@ -164,6 +166,7 @@ export function BuyPanel({
         courseId={courseId}
         courseTitle={courseTitle}
         price={price}
+        priceEur={priceEur}
         onEnrolled={(email) => setEnrolledEmail(email)}
       />
     </>

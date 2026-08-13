@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { FireBuddy } from "@/lib/firebuddy";
 import { ensureEnrollment } from "@/lib/course-enrollment";
+import { isCurrency, priceIn, type Currency } from "@/lib/course-currency";
 import { courseAccessible } from "@/lib/storefront";
 import { sendTransactionalEmail, escapeHtml } from "@/lib/email";
 
@@ -126,6 +127,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Which currency they're paying in. Fire settles like-for-like, so this
+  // decides which of the practice's accounts the money can land in. Defaults
+  // to sterling; a course with no euro price simply can't be bought in euro.
+  const requested: Currency = isCurrency(body?.currency) ? body.currency : "GBP";
+  const amount = priceIn(course, requested);
+  if (amount === null) {
+    return NextResponse.json(
+      { error: "This course isn't sold in euro yet." },
+      { status: 400 },
+    );
+  }
+
   // ── Resolve the buyer ────────────────────────────────────────────
   const session = await auth();
   let userId: string;
@@ -191,7 +204,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Free course → enrol immediately ─────────────────────────────
-  if (course.price === 0) {
+  if (amount === 0) {
     await ensureEnrollment(userId, courseId);
 
     if (wasNewUser) {
@@ -232,8 +245,9 @@ export async function POST(req: NextRequest) {
     data: {
       userId,
       courseId,
-      amount: course.price,
+      amount,
       paymentStatus: "pending",
+      currency: requested,
       ...utm,
     },
   });
@@ -242,8 +256,8 @@ export async function POST(req: NextRequest) {
     const fb = new FireBuddy(paymentSettings.apiKey);
     const origin = baseUrl(req);
     const payment = await fb.createPayment({
-      amount: course.price,
-      currency: "GBP",
+      amount,
+      currency: requested,
       description: `${course.title} — CPD course`,
       reference: `course:${purchase.id}`,
       email: userEmail,

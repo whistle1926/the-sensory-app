@@ -23,7 +23,7 @@ import {
   Mail,
   Sparkles,
 } from "lucide-react";
-import { formatPrice } from "./course-card";
+import { CURRENCY_SYMBOL, type Currency } from "@/lib/course-currency";
 
 interface Props {
   open: boolean;
@@ -31,6 +31,9 @@ interface Props {
   courseId: string;
   courseTitle: string;
   price: number;
+  /** Fixed euro price. Present = the buyer may choose €; Fire settles
+   *  like-for-like, so this is what makes a euro account able to pay. */
+  priceEur?: number | null;
   /** Called when a free-course guest successfully enrols and receives an
    *  email. Lets the parent page swap the "Enrol for free" CTA for a
    *  "Check your inbox" state so the user doesn't double-submit. */
@@ -52,11 +55,16 @@ export function BuyDialog({
   courseId,
   courseTitle,
   price,
+  priceEur,
   onEnrolled,
 }: Props) {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const isFree = price === 0;
+  const [currency, setCurrency] = useState<Currency>("GBP");
+  const canPayEuro = typeof priceEur === "number";
+  const shownPrice = currency === "EUR" && canPayEuro ? priceEur! : price;
+  const priceLabel = `${CURRENCY_SYMBOL[currency]}${shownPrice}`;
+  const isFree = shownPrice === 0;
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -77,6 +85,7 @@ export function BuyDialog({
       setSuccess(null);
       setSubmitting(false);
       setResendMsg(null);
+      setCurrency("GBP");
     }
   }, [open]);
 
@@ -84,7 +93,7 @@ export function BuyDialog({
     setError("");
     setSubmitting(true);
     try {
-      const payload: Record<string, unknown> = { courseId, website: honeypot };
+      const payload: Record<string, unknown> = { courseId, currency, website: honeypot };
       if (!session?.user) {
         if (!name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
           setError("Please enter your name and a valid email.");
@@ -270,8 +279,34 @@ export function BuyDialog({
             <p className="mt-1 text-muted-foreground">
               {isFree
                 ? "Free — enrol instantly"
-                : `${formatPrice(price)} · one-time`}
+                : `${priceLabel} · one-time`}
             </p>
+
+            {canPayEuro && !isFree && (
+              <div className="mt-3">
+                <p className="mb-1.5 text-xs text-muted-foreground">
+                  Paying from an Irish (euro) account? Choose € — a sterling
+                  request can&apos;t be paid from a euro account.
+                </p>
+                <div className="inline-flex rounded-lg border border-border p-0.5">
+                  {(["GBP", "EUR"] as Currency[]).map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setCurrency(c)}
+                      className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${
+                        currency === c
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {CURRENCY_SYMBOL[c]}
+                      {c === "EUR" ? priceEur : price}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {status === "loading" ? (
@@ -355,7 +390,7 @@ export function BuyDialog({
             </p>
             <Button onClick={submit} disabled={submitting}>
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isFree ? "Enrol now" : `Pay ${formatPrice(price)}`}
+              {isFree ? "Enrol now" : `Pay ${priceLabel}`}
             </Button>
           </div>
         </div>

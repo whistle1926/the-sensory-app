@@ -29,6 +29,7 @@ export interface CourseView {
   duration: string;
   description: string;
   price: number;
+  priceEur?: number | null;
   level?: string | null;
   tagline?: string | null;
   shortDescription?: string | null;
@@ -334,6 +335,7 @@ export function CourseDetailView({
               courseId={course.id}
               courseTitle={course.title}
               price={course.price}
+              priceEur={course.priceEur}
               duration={course.duration}
               moduleCount={course.modules.length}
               resources={(course.resources ?? []).map((r) => r.title)}

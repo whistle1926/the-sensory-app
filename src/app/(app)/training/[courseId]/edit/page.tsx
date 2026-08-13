@@ -66,6 +66,7 @@ interface CourseShape {
   status: CourseStatus;
   level: string | null;
   price: number;
+  priceEur: number | null;
   isFeatured: boolean;
   isBestseller: boolean;
   isLive: boolean;
@@ -241,6 +242,7 @@ export default function CourseEditPage({
           level: course.level ?? "",
           // Pricing + visibility
           price: course.price,
+          priceEur: course.priceEur,
           status: course.status,
           isFeatured: course.isFeatured,
           isBestseller: course.isBestseller,
@@ -489,6 +491,25 @@ export default function CourseEditPage({
               {course.price === 0
                 ? "✓ Free course — no payment required."
                 : `Buyers pay £${course.price} via FireBuddy at checkout.`}
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="c-price-eur">Price (€) — optional</Label>
+            <Input
+              id="c-price-eur"
+              type="number"
+              min={0}
+              placeholder="Leave blank for £ only"
+              value={course.priceEur ?? ""}
+              onChange={(e) => {
+                const raw = e.target.value.trim();
+                patchCourse({ priceEur: raw === "" ? null : Number(raw) || 0 });
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              {course.priceEur == null
+                ? "Sterling only. Fire can't take a euro payment against a £ price, so buyers with a euro account can't pay."
+                : `Buyers can choose € — €${course.priceEur} lands in the Euro account. Set by hand, not converted.`}
             </p>
           </div>
           <div className="space-y-2">

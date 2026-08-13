@@ -223,10 +223,13 @@ async function handleCoursePayment(purchaseId: string, paymentId: string) {
         },
         update: {
           amount: purchase.amount,
+          currency: purchase.currency,
           description: `${purchase.course.title} — course purchase`,
         },
         create: {
           amount: purchase.amount,
+          // Without this a euro sale is filed as pounds and overstates income.
+          currency: purchase.currency,
           source: "FIREBUDDY",
           reference: purchase.id,
           description: `${purchase.course.title} — course purchase`,

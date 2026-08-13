@@ -18,6 +18,7 @@
 import { randomBytes } from "crypto";
 import { prisma } from "./prisma";
 import { sendTransactionalEmail, escapeHtml } from "./email";
+import { formatExact, formatPrice, isCurrency, type Currency } from "./course-currency";
 
 function baseUrl(): string {
   const raw =
@@ -26,10 +27,6 @@ function baseUrl(): string {
     process.env.NEXT_PUBLIC_BASE_URL ??
     "";
   return raw.replace(/\/$/, "") || "https://portal.thesensorysubmarine.com";
-}
-
-function money(pounds: number): string {
-  return `£${pounds.toFixed(2)}`;
 }
 
 function ukDate(d: Date): string {
@@ -57,14 +54,14 @@ async function pickNextCourse(userId: string, boughtCourseId: string, nextCourse
   if (nextCourseId && !ownedIds.has(nextCourseId)) {
     const chosen = await prisma.course.findFirst({
       where: { id: nextCourseId, isLive: true, status: "AVAILABLE" },
-      select: { title: true, slug: true, price: true, tagline: true, shortDescription: true },
+      select: { title: true, slug: true, price: true, priceEur: true, tagline: true, shortDescription: true },
     });
     if (chosen) return chosen;
   }
 
   return prisma.course.findFirst({
     where: { id: { notIn: [...ownedIds] }, isLive: true, status: "AVAILABLE" },
-    select: { title: true, slug: true, price: true, tagline: true, shortDescription: true },
+    select: { title: true, slug: true, price: true, priceEur: true, tagline: true, shortDescription: true },
     orderBy: { isFeatured: "desc" },
   });
 }
@@ -78,10 +75,13 @@ export async function sendCoursePurchaseEmail(purchaseId: string): Promise<void>
       completedAt: true,
       createdAt: true,
       receiptSentAt: true,
+      currency: true,
       paymentStatus: true,
       userId: true,
       courseId: true,
-      course: { select: { id: true, title: true, slug: true, nextCourseId: true } },
+      course: {
+        select: { id: true, title: true, slug: true, nextCourseId: true },
+      },
       user: { select: { email: true, name: true, role: true } },
     },
   });
@@ -132,7 +132,13 @@ export async function sendCoursePurchaseEmail(purchaseId: string): Promise<void>
       "This link sets up your account so you can come back to the course whenever you like. It expires in 14 days.";
   }
 
+  const paid: Currency = isCurrency(purchase.currency) ? purchase.currency : "GBP";
   const next = await pickNextCourse(purchase.userId, purchase.courseId, purchase.course.nextCourseId);
+  const nextPrice = next
+    ? paid === "EUR" && typeof next.priceEur === "number"
+      ? formatPrice(next.priceEur, "EUR")
+      : formatPrice(next.price, "GBP")
+    : "";
   const paidOn = ukDate(purchase.completedAt ?? purchase.createdAt);
   const reference = purchase.id.slice(-8).toUpperCase();
 
@@ -155,7 +161,7 @@ export async function sendCoursePurchaseEmail(purchaseId: string): Promise<void>
         <p style="margin:14px 0 0">
           <a href="${escapeHtml(`${base}/courses/${next.slug}`)}"
              style="display:inline-block;border:1px solid #2563eb;color:#2563eb;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">
-            Have a look${next.price > 0 ? ` — ${money(next.price)}` : ""}
+            Have a look${next.price > 0 ? ` — ${nextPrice}` : ""}
           </a>
         </p>
       </div>`
@@ -190,11 +196,11 @@ export async function sendCoursePurchaseEmail(purchaseId: string): Promise<void>
       <table style="width:100%;border-collapse:collapse;font-size:14px;color:#1a1d26">
         <tr>
           <td style="padding:4px 0;color:#4a5061">${escapeHtml(purchase.course.title)}</td>
-          <td style="padding:4px 0;text-align:right;font-weight:600">${money(purchase.amount)}</td>
+          <td style="padding:4px 0;text-align:right;font-weight:600">${formatExact(purchase.amount, paid)}</td>
         </tr>
         <tr>
           <td style="padding:10px 0 4px;border-top:1px solid #e6e8ee;font-weight:700">Total paid</td>
-          <td style="padding:10px 0 4px;border-top:1px solid #e6e8ee;text-align:right;font-weight:700">${money(purchase.amount)}</td>
+          <td style="padding:10px 0 4px;border-top:1px solid #e6e8ee;text-align:right;font-weight:700">${formatExact(purchase.amount, paid)}</td>
         </tr>
       </table>
       <p style="margin:12px 0 0;font-size:12px;line-height:1.7;color:#7a8194">

@@ -375,6 +375,12 @@ model Course {
   status      CourseStatus @default(AVAILABLE)
   order       Int          @default(0)
   price       Int          @default(0) // pounds; 0 = free
+  /// Fixed euro price, set by hand rather than converted from sterling —
+  /// Fire settles GBP→GBP and EUR→EUR only, so a euro buyer needs a euro
+  /// request. NULL = sterling only, and the euro option isn't offered.
+  /// Deliberately not an FX conversion: a fixed price stays a clean number
+  /// and can't drift into selling at a loss when the rate moves.
+  priceEur    Int?         @map("price_eur")
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
@@ -512,7 +518,10 @@ model CoursePurchase {
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   courseId      String
   course        Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  amount        Int // snapshot of Course.price at purchase time (pounds)
+  amount        Int // snapshot of the course price at purchase time
+  /// Which currency `amount` is in — "GBP" or "EUR". Without this a euro
+  /// sale would be filed as pounds and quietly overstate the takings.
+  currency      String    @default("GBP")
   paymentStatus String    @default("pending") // "pending" | "paid" | "failed"
   paymentRef    String?   @unique // FireBuddy transaction id
   createdAt     DateTime  @default(now())
@@ -867,7 +876,10 @@ model PrivateConfig {
 
 model IncomeEntry {
   id          String   @id @default(cuid())
-  amount      Int // amount in GBP (pounds)
+  amount      Int // amount in the currency below
+  /// "GBP" | "EUR". Kept alongside the amount so euro takings aren't
+  /// silently added to sterling ones in the totals.
+  currency    String   @default("GBP")
   source      String // "BOOKING" | "MANUAL" | "FIREBUDDY"
   reference   String? // e.g. booking id, external payment id
   description String?

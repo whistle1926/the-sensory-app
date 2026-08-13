@@ -58,6 +58,7 @@ export async function GET(
     status: course.status,
     level: course.level,
     price: course.price,
+    priceEur: course.priceEur,
     isFeatured: course.isFeatured,
     isBestseller: course.isBestseller,
     // These were missing from the whitelist, so the editor loaded them as
@@ -123,6 +124,12 @@ export async function PATCH(
     data.level = body.level.trim().slice(0, 60) || null;
 
   // ── Pricing & visibility ─────────────────────────────────────────────
+  // Euro price: a number sets it, null clears it back to sterling-only.
+  if (body.priceEur === null) {
+    data.priceEur = null;
+  } else if (typeof body.priceEur === "number" && Number.isFinite(body.priceEur)) {
+    data.priceEur = Math.max(0, Math.floor(body.priceEur));
+  }
   if (typeof body.price === "number" && Number.isFinite(body.price)) {
     const p = Math.max(0, Math.floor(body.price));
     data.price = p;
