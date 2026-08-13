@@ -57,8 +57,14 @@ export async function POST(req: NextRequest) {
         where: { groupId },
         select: { id: true },
       });
+      // One row failing must not strand the rest of a paid order — the
+      // buyer has been charged for all of it.
       for (const row of rows) {
-        await handleCoursePayment(row.id, event.paymentId);
+        try {
+          await handleCoursePayment(row.id, event.paymentId);
+        } catch (err) {
+          console.error("[WEBHOOK] group line failed:", row.id, err);
+        }
       }
     } catch (err) {
       console.error("[WEBHOOK] Course group handling failed:", err);

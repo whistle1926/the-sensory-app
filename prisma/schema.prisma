@@ -532,7 +532,11 @@ model CoursePurchase {
   /// are paid for in a single payment. NULL on a lone purchase.
   groupId       String?   @map("group_id")
   paymentStatus String    @default("pending") // "pending" | "paid" | "failed"
-  paymentRef    String?   @unique // FireBuddy transaction id
+  /// FireBuddy transaction id. NOT unique: one payment can now settle a
+  /// course plus its add-ons, so the same code legitimately appears on every
+  /// row of the group. Double-processing is prevented by the paymentStatus
+  /// check in the webhook, not by this column.
+  paymentRef    String?
   createdAt     DateTime  @default(now())
   completedAt   DateTime?
   /// Stamped when the receipt / access email went out. Idempotency key —
