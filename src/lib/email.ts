@@ -112,15 +112,41 @@ export async function sendTransactionalEmail(
  * Plain-text fallback generated from HTML. Strips tags, preserves newlines
  * between block elements, collapses whitespace.
  */
+/**
+ * The plain-text alternative to an HTML email.
+ *
+ * Two things this has to get right, both of which it used to get wrong and
+ * which only show up in clients that prefer text:
+ *
+ *   - Entities beyond the basic five. Curly quotes, apostrophes and dashes
+ *     are all over our copy, so readers were seeing "It&apos;s yours" and
+ *     "&ldquo;Sleep Better&rdquo;".
+ *   - The source indentation of a nicely-formatted HTML template, which
+ *     arrived as a ragged left margin.
+ *
+ * &amp; is decoded LAST, otherwise "&amp;lt;" would decode twice and turn
+ * back into a real "<".
+ */
 export function stripHtml(html: string): string {
   return html
     .replace(/<\/?(p|div|br|tr|li|h[1-6])[^>]*>/gi, "\n")
     .replace(/<[^>]+>/g, "")
     .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
+    .replace(/&(?:apos|#39|lsquo|rsquo);/g, "'")
+    .replace(/&(?:ldquo|rdquo|quot);/g, '"')
+    .replace(/&(?:mdash|#8212);/g, "—")
+    .replace(/&(?:ndash|#8211);/g, "–")
+    .replace(/&(?:hellip|#8230);/g, "…")
+    .replace(/&(?:pound|#163);/g, "£")
+    .replace(/&(?:euro|#8364);/g, "€")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, "&")
+    // Numeric entities we haven't named explicitly.
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    // HTML source indentation isn't part of the message.
+    .replace(/[ \t]+/g, " ")
+    .replace(/ *\n */g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
