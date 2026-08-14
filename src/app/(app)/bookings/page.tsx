@@ -84,6 +84,8 @@ interface IcsCalEvent {
 }
 
 /** Minimal service shape needed for the availability service picker. */
+type OverrideType = "unavailable" | "custom" | "block";
+
 interface ManageableService {
   id: string;
   slug: string;
@@ -255,7 +257,7 @@ export default function BookingsPage() {
   // Date overrides state
   const [overrides, setOverrides] = useState<DateOverrideRecord[]>([]);
   const [newOverrideDate, setNewOverrideDate] = useState("");
-  const [newOverrideType, setNewOverrideType] = useState<"unavailable" | "custom">("unavailable");
+  const [newOverrideType, setNewOverrideType] = useState<OverrideType>("unavailable");
   const [newOverrideStart, setNewOverrideStart] = useState("09:00");
   const [newOverrideEnd, setNewOverrideEnd] = useState("17:00");
 
@@ -601,8 +603,17 @@ export default function BookingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           date: newOverrideDate,
-          available: newOverrideType === "custom",
-          intervals: newOverrideType === "custom" ? [{ start: newOverrideStart, end: newOverrideEnd }] : null,
+          // "block" keeps the day and takes a window out of it; "custom"
+          // replaces the day's hours outright.
+          available: newOverrideType !== "unavailable",
+          intervals:
+            newOverrideType === "custom"
+              ? [{ start: newOverrideStart, end: newOverrideEnd }]
+              : null,
+          blockedIntervals:
+            newOverrideType === "block"
+              ? [{ start: newOverrideStart, end: newOverrideEnd }]
+              : null,
         }),
       });
       if (res.ok) {
@@ -1304,14 +1315,15 @@ export default function BookingsPage() {
                   <label className="text-xs font-medium text-muted-foreground">Type</label>
                   <select
                     value={newOverrideType}
-                    onChange={(e) => setNewOverrideType(e.target.value as "unavailable" | "custom")}
+                    onChange={(e) => setNewOverrideType(e.target.value as OverrideType)}
                     className="flex h-9 rounded-lg border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
-                    <option value="unavailable">Unavailable</option>
-                    <option value="custom">Custom hours</option>
+                    <option value="unavailable">Unavailable all day</option>
+                    <option value="block">Block out some hours</option>
+                    <option value="custom">Custom hours (replace the day)</option>
                   </select>
                 </div>
-                {newOverrideType === "custom" && (
+                {newOverrideType !== "unavailable" && (
                   <>
                     <div className="space-y-1">
                       <label className="text-xs font-medium text-muted-foreground">From</label>

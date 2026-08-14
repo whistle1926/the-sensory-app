@@ -28,6 +28,38 @@ export interface Interval {
   end: string;
 }
 
+/** "HH:MM" → minutes since midnight. */
+function toMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+/**
+ * Drop any appointment slot that clashes with a blocked window.
+ *
+ * Slots aren't split, they're removed: one interval IS one appointment here
+ * (see slotsFromIntervals), so half of a 45-minute assessment is no use to
+ * anyone. Blocking 14:00–16:00 on a day of 45-minute blocks therefore takes
+ * out the ones that overlap and leaves the rest of the day alone.
+ */
+export function withoutBlocked(
+  intervals: Interval[],
+  blocked: Interval[],
+): Interval[] {
+  if (!blocked.length) return intervals;
+  const windows = blocked
+    .filter((b) => b?.start && b?.end)
+    .map((b) => [toMinutes(b.start), toMinutes(b.end)] as const);
+  return intervals.filter((iv) => {
+    if (!iv?.start || !iv?.end) return false;
+    const s = toMinutes(iv.start);
+    const e = toMinutes(iv.end);
+    // Overlap if the appointment starts before the block ends and ends
+    // after it begins. Touching edges (10:00 end vs 10:00 block) is fine.
+    return !windows.some(([bs, be]) => s < be && e > bs);
+  });
+}
+
 export interface AvailabilityScope {
   /** BookingService.id to scope to, or null for the global default calendar. */
   serviceId: string | null;
@@ -85,7 +117,10 @@ async function loadSchedule(
   to: Date,
 ): Promise<{
   weekly: Record<number, { enabled: boolean; intervals: Interval[] }>;
-  overrideMap: Record<string, { available: boolean; intervals: Interval[] | null }>;
+  overrideMap: Record<
+    string,
+    { available: boolean; intervals: Interval[] | null; blocked: Interval[] | null }
+  >;
 }> {
   let weeklyRows = await prisma.weeklyHours.findMany({ where: { serviceId } });
   let overrideRows = await prisma.dateOverride.findMany({
@@ -111,12 +146,13 @@ async function loadSchedule(
 
   const overrideMap: Record<
     string,
-    { available: boolean; intervals: Interval[] | null }
+    { available: boolean; intervals: Interval[] | null; blocked: Interval[] | null }
   > = {};
   for (const o of overrideRows) {
     overrideMap[dateKeyOf(o.date)] = {
       available: o.available,
       intervals: o.intervals as unknown as Interval[] | null,
+      blocked: o.blockedIntervals as unknown as Interval[] | null,
     };
   }
 
@@ -157,16 +193,20 @@ export async function computeAvailability(
 
     let slots: string[] = [];
     const override = overrideMap[dateKey];
+    const daySchedule = weekly[dayOfWeek];
     if (override) {
-      if (override.available && override.intervals) {
+      if (!override.available) {
+        // Whole day off → no slots.
+      } else if (override.intervals && override.intervals.length) {
+        // Custom hours replace the day outright.
         slots = slotsFromIntervals(override.intervals);
+      } else if (override.blocked && override.blocked.length) {
+        // Normal day, minus a window or two.
+        const base = daySchedule?.enabled ? daySchedule.intervals : [];
+        slots = slotsFromIntervals(withoutBlocked(base, override.blocked));
       }
-      // unavailable override → no slots
-    } else {
-      const daySchedule = weekly[dayOfWeek];
-      if (daySchedule?.enabled) {
-        slots = slotsFromIntervals(daySchedule.intervals);
-      }
+    } else if (daySchedule?.enabled) {
+      slots = slotsFromIntervals(daySchedule.intervals);
     }
 
     slots = slots.filter((t) => !bookedSet.has(`${dateKey}_${t}`));

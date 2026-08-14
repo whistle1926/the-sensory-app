@@ -690,6 +690,12 @@ model DateOverride {
   date      DateTime @db.Date
   available Boolean  @default(false)
   intervals Json?    // null if unavailable, otherwise [{"start":"10:00","end":"14:00"}]
+  /// Windows to take OUT of the day's normal hours, e.g. a school run or a
+  /// meeting: [{"start":"14:00","end":"16:00"}]. The rest of the day carries
+  /// on as usual, which is the difference from `intervals` — that REPLACES
+  /// the day and means retyping every remaining slot to block two hours.
+  /// Only meaningful when available = true and intervals is null.
+  blockedIntervals Json? @map("blocked_intervals")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

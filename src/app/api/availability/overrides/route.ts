@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { resolveManageableService } from "@/lib/booking-auth";
 
 /**
@@ -30,6 +31,7 @@ export async function GET(req: NextRequest) {
       date: o.date.toISOString().split("T")[0],
       available: o.available,
       intervals: o.intervals,
+      blockedIntervals: o.blockedIntervals,
     })),
   );
 }
@@ -44,15 +46,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: resolved.error }, { status: resolved.status });
 
   const body = await req.json();
-  const { date, available, intervals } = body;
+  const { date, available, intervals, blockedIntervals } = body;
   if (!date) return NextResponse.json({ error: "date is required" }, { status: 400 });
 
   const dateObj = new Date(date + "T00:00:00Z");
   // Find-then-write: the compound unique (serviceId, date) has a
   // nullable serviceId that Prisma's unique-where can't express as null.
+  // Three shapes, and only one applies at a time:
+  //   available=false            → day off
+  //   available=true + intervals → these hours replace the day
+  //   available=true + blocked   → normal day minus these windows
+  const blocked = Array.isArray(blockedIntervals) ? blockedIntervals : null;
+  const hasBlocked = !!blocked?.length;
+  // Prisma wants DbNull, not null, to clear a nullable Json column.
   const payload = {
     available: available ?? false,
-    intervals: available ? intervals || [] : null,
+    intervals:
+      available && !hasBlocked ? (intervals || []) : Prisma.DbNull,
+    blockedIntervals:
+      available && hasBlocked ? blocked : Prisma.DbNull,
   };
   const found = await prisma.dateOverride.findFirst({
     where: { serviceId: resolved.serviceId, date: dateObj },
@@ -69,6 +81,7 @@ export async function POST(req: NextRequest) {
     date: override.date.toISOString().split("T")[0],
     available: override.available,
     intervals: override.intervals,
+    blockedIntervals: override.blockedIntervals,
   });
 }
 
