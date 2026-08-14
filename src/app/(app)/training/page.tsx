@@ -445,7 +445,12 @@ function AdminManagePanel({
               {filtered.map((c) => {
                 const busy = busyId === c.id;
                 return (
-                  <tr key={c.id} className="hover:bg-muted/20">
+                  <tr
+                    key={c.id}
+                    onClick={() => router.push(`/training/${c.id}/edit`)}
+                    className="cursor-pointer hover:bg-muted/20"
+                    title="Open this course to edit"
+                  >
                     <td className="px-5 py-3 font-medium">{c.title}</td>
                     <td className="px-5 py-3 text-xs text-muted-foreground">
                       {c.audience}
@@ -459,7 +464,12 @@ function AdminManagePanel({
                         <span>£{c.price}</span>
                       )}
                     </td>
-                    <td className="px-5 py-3">
+                    {/* The controls in here act on the row; a click must not
+                        also open the editor. */}
+                    <td
+                      className="px-5 py-3"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <select
                         value={c.status}
                         disabled={busy}
@@ -479,7 +489,12 @@ function AdminManagePanel({
                         <option value="ARCHIVED">ARCHIVED</option>
                       </select>
                     </td>
-                    <td className="px-5 py-3">
+                    {/* The controls in here act on the row; a click must not
+                        also open the editor. */}
+                    <td
+                      className="px-5 py-3"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
                         <button
                           type="button"
@@ -513,7 +528,12 @@ function AdminManagePanel({
                         </button>
                       </div>
                     </td>
-                    <td className="px-5 py-3 text-right">
+                    {/* The controls in here act on the row; a click must not
+                        also open the editor. */}
+                    <td
+                      className="px-5 py-3 text-right"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <div className="flex items-center justify-end gap-1.5">
                         <Link
                           href={`/training/${c.id}/edit`}
