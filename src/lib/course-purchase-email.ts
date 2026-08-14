@@ -81,7 +81,13 @@ export async function sendCoursePurchaseEmail(purchaseId: string): Promise<void>
       userId: true,
       courseId: true,
       course: {
-        select: { id: true, title: true, slug: true, nextCourseId: true },
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          nextCourseId: true,
+          resources: { select: { title: true }, orderBy: { order: "asc" } },
+        },
       },
       user: { select: { email: true, name: true, role: true } },
     },
@@ -190,7 +196,7 @@ export async function sendCoursePurchaseEmail(purchaseId: string): Promise<void>
   const html = `<!doctype html><html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;background:#f5f6f9;margin:0;padding:24px">
   <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:14px;padding:28px">
 
-    <h1 style="margin:0 0 6px;font-size:22px;color:#1a1d26">Thanks — you're all set</h1>
+    <h1 style="margin:0 0 6px;font-size:22px;color:#1a1d26">Thank you — you're all set</h1>
     <p style="margin:0 0 22px;font-size:15px;line-height:1.6;color:#4a5061">
       ${escapeHtml(purchase.user.name || "Hello")}, your purchase of
       <strong>${escapeHtml(purchase.course.title)}</strong> is confirmed and it's
@@ -205,7 +211,41 @@ export async function sendCoursePurchaseEmail(purchaseId: string): Promise<void>
     </p>
     ${
       accessNote
-        ? `<p style="margin:-16px 0 24px;font-size:12px;line-height:1.5;color:#7a8194">${escapeHtml(accessNote)}</p>`
+        ? `<p style="margin:-16px 0 20px;font-size:12px;line-height:1.5;color:#7a8194">${escapeHtml(accessNote)}</p>`
+        : ""
+    }
+
+    <div style="margin-bottom:24px;border-left:3px solid #2563eb;background:#f5f7fd;padding:14px 16px">
+      <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#1a1d26">
+        Getting back to it any time
+      </p>
+      <ol style="margin:0;padding-left:18px;font-size:13px;line-height:1.7;color:#4a5061">
+        <li>Go to <a href="${escapeHtml(base)}" style="color:#2563eb">${escapeHtml(
+          base.replace(/^https?:\/\//, ""),
+        )}</a></li>
+        <li>Sign in as <strong>${escapeHtml(purchase.user.email)}</strong>${
+          needsPassword ? " — using the password you set above" : ""
+        }</li>
+        <li>Your courses are under <strong>Training</strong>. Pick
+            &ldquo;${escapeHtml(purchase.course.title)}&rdquo; and press play.</li>
+      </ol>
+      <p style="margin:8px 0 0;font-size:12px;line-height:1.6;color:#7a8194">
+        It&apos;s yours for good — watch it as often as you like, and pick up
+        where you left off.
+      </p>
+    </div>
+    ${
+      purchase.course.resources.length
+        ? `<div style="margin-bottom:24px">
+        <p style="margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#7a8194">
+          Downloads included
+        </p>
+        <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.7;color:#4a5061">
+          ${purchase.course.resources
+            .map((r) => `<li>${escapeHtml(r.title)}</li>`)
+            .join("")}
+        </ul>
+      </div>`
         : ""
     }
 
