@@ -37,8 +37,6 @@ import { CopyAssist } from "@/components/training/copy-assist";
 import { CourseImageField } from "@/components/training/course-image-field";
 import { InstructorPhotoField } from "@/components/training/instructor-photo-field";
 import { LivePreviewPane } from "@/components/training/live-preview-pane";
-import { PublishBar } from "@/components/training/publish-bar";
-import { DRAFT_FIELDS, withDraft } from "@/lib/course-draft";
 import { CourseResources } from "@/components/training/course-resources";
 
 interface Testimonial {
@@ -113,8 +111,7 @@ export default function CourseEditPage({
   const [instructorNote, setInstructorNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  /** (Re)load the course, opening on the unpublished draft when there is one.
-   *  Called on mount and again after publishing or discarding. */
+  /** (Re)load the course from the server. */
   function load() {
     fetch(`/api/courses/${courseId}`)
       .then((r) => r.json())
@@ -122,13 +119,7 @@ export default function CourseEditPage({
         const testimonials = Array.isArray(data.testimonials)
           ? (data.testimonials as Testimonial[])
           : [];
-        // Open on the unpublished draft if there is one, so you carry on from
-        // where you left off rather than from what's live.
-        const merged = withDraft(
-          { ...data, testimonials } as unknown as Record<string, unknown>,
-          (data as unknown as { draft?: unknown }).draft,
-        ) as unknown as CourseShape;
-        setCourse(merged);
+        setCourse({ ...data, testimonials } as unknown as CourseShape);
       })
       .catch((e: unknown) =>
         setError(e instanceof Error ? e.message : "Couldn't load course"),
@@ -951,17 +942,6 @@ export default function CourseEditPage({
           )}
         </div>
       </section>
-          <PublishBar
-            courseId={courseId}
-            draft={Object.fromEntries(
-              DRAFT_FIELDS.map((f) => [
-                f,
-                (course as unknown as Record<string, unknown>)[f],
-              ]),
-            )}
-            onPublished={load}
-            onDiscarded={load}
-          />
         </div>
 
         <aside className="xl:sticky xl:top-6 xl:h-[calc(100vh-6rem)]">
