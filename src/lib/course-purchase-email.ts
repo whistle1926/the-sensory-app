@@ -149,7 +149,9 @@ export async function sendCoursePurchaseEmail(purchaseId: string): Promise<void>
         expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
       },
     });
-    accessUrl = `${base}/set-password?token=${token}`;
+    accessUrl = `${base}/set-password?token=${token}&next=${encodeURIComponent(
+      `/portal/training/${purchase.course.id}`,
+    )}`;
     accessLabel = "Set your password & start";
     accessNote =
       "This link sets up your account so you can come back to the course whenever you like. It expires in 14 days.";

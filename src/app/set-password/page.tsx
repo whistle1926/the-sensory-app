@@ -49,7 +49,13 @@ function SetPasswordInner() {
       }
       setDone(true);
       setTimeout(() => {
-        window.location.href = "/login?fromSetup=1";
+        // Carry the destination through the sign-in so a buyer lands on the
+        // course they just paid for, not a list.
+        const raw = new URLSearchParams(window.location.search).get("next") ?? "";
+        const next = /^\/[^/\\]/.test(raw) ? raw : "";
+        window.location.href = next
+          ? `/login?fromSetup=1&next=${encodeURIComponent(next)}`
+          : "/login?fromSetup=1";
       }, 1200);
     } catch {
       setError("Network error. Please try again.");

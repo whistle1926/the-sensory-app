@@ -78,7 +78,13 @@ function LoginInner() {
   async function afterSignIn() {
     const session = await getSession();
     const role = session?.user?.role;
-    window.location.href = role === "CLIENT" ? "/portal" : "/dashboard";
+    // Somewhere specific to land — e.g. straight into the course someone
+    // has just bought, rather than a list they then have to hunt through.
+    // Only same-site paths: "//evil.com" and "https://…" are not paths.
+    const raw = new URLSearchParams(window.location.search).get("next") ?? "";
+    const next = /^\/[^/\\]/.test(raw) ? raw : "";
+    window.location.href =
+      next || (role === "CLIENT" ? "/portal" : "/dashboard");
   }
 
   async function signInWithPasskey() {
