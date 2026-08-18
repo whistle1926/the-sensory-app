@@ -568,6 +568,40 @@ export default function BookingsPage() {
     setScheduleChanged(true);
   }
 
+  /**
+   * Turn a day's opening-hours window into individual appointment slots.
+   *
+   * Each interval here is ONE bookable appointment, so "09:00-14:45" offers a
+   * single 9am slot — which is exactly what Claire hit. People naturally type
+   * the hours they're free, not a list of appointments, so this does the
+   * conversion for them: 09:00-14:45 split into 60s becomes 09:00, 10:00,
+   * 11:00, 12:00, 13:00 and a final 14:00 window that still fits.
+   */
+  function splitIntoSlots(day: number, minutes: number) {
+    setSchedule((prev) => {
+      const daySchedule = { ...prev[day] };
+      const out: Array<{ start: string; end: string }> = [];
+      for (const iv of daySchedule.intervals) {
+        const [sh, sm] = iv.start.split(":").map(Number);
+        const [eh, em] = iv.end.split(":").map(Number);
+        let cursor = sh * 60 + sm;
+        const finish = eh * 60 + em;
+        // Only whole appointments — a stub at the end is no use to anyone.
+        while (cursor + minutes <= finish) {
+          const to = cursor + minutes;
+          out.push({
+            start: `${String(Math.floor(cursor / 60)).padStart(2, "0")}:${String(cursor % 60).padStart(2, "0")}`,
+            end: `${String(Math.floor(to / 60)).padStart(2, "0")}:${String(to % 60).padStart(2, "0")}`,
+          });
+          cursor = to;
+        }
+      }
+      if (!out.length) return prev;
+      return { ...prev, [day]: { ...daySchedule, intervals: out } };
+    });
+    setScheduleChanged(true);
+  }
+
   function removeInterval(day: number, idx: number) {
     setSchedule((prev) => {
       const daySchedule = { ...prev[day] };
@@ -1241,6 +1275,28 @@ export default function BookingsPage() {
                                 <Plus className="h-3.5 w-3.5" />
                                 Add hours
                               </button>
+                            )}
+
+                            {/* Each block above is ONE appointment. Typing the
+                                hours you're free gives a single slot, which
+                                surprises everyone — so offer the split here,
+                                where the mistake actually happens. */}
+                            {day.intervals.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-2 pt-1">
+                                <span className="text-xs text-muted-foreground">
+                                  Each block above is one appointment. Split into
+                                </span>
+                                {[30, 45, 60].map((m) => (
+                                  <button
+                                    key={m}
+                                    onClick={() => splitIntoSlots(d, m)}
+                                    className="rounded-lg border border-border px-2 py-1 text-xs font-semibold hover:bg-muted"
+                                  >
+                                    {m} min
+                                  </button>
+                                ))}
+                                <span className="text-xs text-muted-foreground">slots</span>
+                              </div>
                             )}
                           </div>
                         )}
