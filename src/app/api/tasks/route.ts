@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { VALID_PRIORITIES } from "@/lib/tasks";
 import { sanitizeRichText } from "@/lib/rich-text";
+import { notifyNewTask } from "@/lib/task-notify";
 
 export async function GET(_req: NextRequest) {
   const session = await auth();
@@ -196,6 +197,10 @@ export async function POST(req: NextRequest) {
       attachments: true,
     },
   });
+
+  // Tell whoever asked to be told. Awaited so it survives the serverless
+  // function ending, but wrapped so a mail failure can never lose a ticket.
+  await notifyNewTask(task.id).catch(() => {});
 
   return NextResponse.json(task, { status: 201 });
 }

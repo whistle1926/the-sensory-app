@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sanitizeRichText, richTextToPlain } from "@/lib/rich-text";
+import { notifyNewComment } from "@/lib/task-notify";
 
 /**
  * Comments are readable/writable by:
@@ -85,5 +86,7 @@ export async function POST(
       attachments: true,
     },
   });
+  await notifyNewComment(comment.id).catch(() => {});
+
   return NextResponse.json(comment, { status: 201 });
 }
