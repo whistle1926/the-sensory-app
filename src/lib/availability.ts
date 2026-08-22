@@ -22,6 +22,7 @@
  *     practice calendar, matching the old single-practitioner model.
  */
 import { prisma } from "@/lib/prisma";
+import { listUpcomingEvents } from "@/lib/google-calendar";
 
 export interface Interval {
   start: string;
@@ -180,6 +181,13 @@ export async function computeAvailability(
     },
     select: { date: true, time: true },
   });
+  // What's already in the owner's own Google diary. A portal booking blocks
+  // its slot, but until now anything Grace put in Google herself did not —
+  // so a client could book a time she was already teaching. Read-only, and
+  // deliberately best-effort: if Google is unreachable we show the normal
+  // availability rather than hiding a day's bookings behind an outage.
+  const googleBusy = await busyWindowsFromGoogle(scope.ownerId, from, to);
+
   const bookedSet = new Set<string>();
   for (const b of bookings) {
     bookedSet.add(`${dateKeyOf(b.date)}_${b.time}`);
@@ -209,10 +217,90 @@ export async function computeAvailability(
       slots = slotsFromIntervals(daySchedule.intervals);
     }
 
+    // Take out anything the owner is already busy with in Google.
+    const busy = googleBusy[dateKey];
+    if (busy?.length && slots.length) {
+      const asIntervals = intervalsForSlots(
+        override?.intervals?.length
+          ? override.intervals
+          : daySchedule?.intervals ?? [],
+        slots,
+      );
+      slots = slotsFromIntervals(withoutBlocked(asIntervals, busy));
+    }
+
     slots = slots.filter((t) => !bookedSet.has(`${dateKey}_${t}`));
     result[dateKey] = slots;
     current.setUTCDate(current.getUTCDate() + 1);
   }
 
   return result;
+}
+
+/** The configured intervals whose start time is still on offer. */
+function intervalsForSlots(intervals: Interval[], slots: string[]): Interval[] {
+  const live = new Set(slots);
+  return intervals.filter((iv) => live.has(iv.start));
+}
+
+/** "HH:MM" in Europe/London for an instant, so comparisons are wall-clock. */
+function londonParts(iso: string): { day: string; time: string } {
+  const d = new Date(iso);
+  const day = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+  const time = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d);
+  return { day, time };
+}
+
+/**
+ * The owner's busy periods from their connected Google calendar, keyed by
+ * date and expressed as London wall-clock windows so they line up with the
+ * configured hours.
+ *
+ * All-day events are ignored on purpose. They're as often a birthday or a
+ * reminder as they are "away", and silently wiping a whole day of bookable
+ * appointments is worse than the clash it would prevent. Taking a full day
+ * out is what a date override is for.
+ */
+async function busyWindowsFromGoogle(
+  ownerId: string | null,
+  from: Date,
+  to: Date,
+): Promise<Record<string, Interval[]>> {
+  if (!ownerId) return {};
+  const owner = await prisma.user.findUnique({
+    where: { id: ownerId },
+    select: { googleRefreshToken: true, googleCalendarId: true },
+  });
+  if (!owner?.googleRefreshToken) return {};
+
+  const events = await listUpcomingEvents({
+    refreshToken: owner.googleRefreshToken,
+    calendarId: owner.googleCalendarId,
+    from,
+    // Include the whole of the last day.
+    to: new Date(to.getTime() + 24 * 60 * 60 * 1000),
+  });
+  if (!events) return {}; // fail open — never hide availability over an outage
+
+  const out: Record<string, Interval[]> = {};
+  for (const e of events) {
+    if (e.allDay || !e.busy) continue;
+    const s = londonParts(e.startAt);
+    const en = londonParts(e.endAt);
+    // An event running past midnight is clipped to its first day; the
+    // overnight remainder isn't clinic time anyway.
+    const end = en.day === s.day ? en.time : "23:59";
+    (out[s.day] ??= []).push({ start: s.time, end });
+  }
+  return out;
 }

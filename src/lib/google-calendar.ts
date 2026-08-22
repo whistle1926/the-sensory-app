@@ -386,6 +386,8 @@ export interface GoogleReadEvent {
   startAt: string;
   endAt: string;
   allDay: boolean;
+  /** False when the event is marked Free in Google. */
+  busy: boolean;
 }
 
 interface GoogleApiEvent {
@@ -396,6 +398,8 @@ interface GoogleApiEvent {
   location?: string;
   start?: { dateTime?: string; date?: string };
   end?: { dateTime?: string; date?: string };
+  /** "transparent" = shown as Free in Google, so it shouldn't hold a slot. */
+  transparency?: string;
 }
 
 function toReadEvent(e: GoogleApiEvent): GoogleReadEvent | null {
@@ -419,5 +423,8 @@ function toReadEvent(e: GoogleApiEvent): GoogleReadEvent | null {
     startAt: start.toISOString(),
     endAt: end.toISOString(),
     allDay,
+    // Google's "transparency" is how the event shows in your diary: an event
+    // marked Free shouldn't stop a client booking that time.
+    busy: e.transparency !== "transparent",
   };
 }
