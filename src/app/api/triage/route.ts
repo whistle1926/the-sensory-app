@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   if (!taskId || !userId || !token || !action) {
     return NextResponse.json({ error: "Missing details" }, { status: 400 });
   }
-  if (!verifyTriageToken(taskId, userId, token)) {
+  if (!(await verifyTriageToken(taskId, token))) {
     return NextResponse.json({ error: "That link isn't valid." }, { status: 403 });
   }
 

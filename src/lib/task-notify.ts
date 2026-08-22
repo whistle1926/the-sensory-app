@@ -49,9 +49,14 @@ const PRIORITY_LABEL: Record<string, string> = {
 };
 
 /** The two answers, side by side. Both open a page; neither acts on its own. */
-function triageBlock(base: string, taskId: string, userId: string): string {
+async function triageBlock(
+  base: string,
+  taskId: string,
+  userId: string,
+): Promise<string> {
   if (!userId) return "";
-  const url = triageUrl(base, taskId, userId);
+  const url = await triageUrl(base, taskId, userId);
+  if (!url) return "";
   return `<table role="presentation" style="margin:22px 0 0;border-collapse:collapse"><tr>
     <td style="padding-right:8px">
       <a href="${escapeHtml(url)}" style="display:inline-block;background:#2563eb;color:#fff;padding:11px 18px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">Get this actioned</a>
@@ -105,7 +110,7 @@ export async function notifyNewTask(taskId: string): Promise<void> {
           body
             ? `<div style="white-space:pre-line;border-left:3px solid #2563eb;background:#f5f7fd;padding:12px 14px;font-size:14px;line-height:1.6;color:#1a1d26">${escapeHtml(body)}</div>`
             : `<p style="margin:0;font-size:14px;color:#7a8194">No detail was added.</p>`,
-          triageBlock(baseUrl(), task.id, person.id),
+          await triageBlock(baseUrl(), task.id, person.id),
         ],
         link,
         "Open the ticket",

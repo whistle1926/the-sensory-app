@@ -20,7 +20,7 @@ export default async function TriagePage({
 }) {
   const { taskId } = await params;
   const { u = "", k = "" } = await searchParams;
-  if (!verifyTriageToken(taskId, u, k)) notFound();
+  if (!(await verifyTriageToken(taskId, k))) notFound();
 
   const task = await prisma.task.findUnique({
     where: { id: taskId },

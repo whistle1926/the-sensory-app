@@ -979,6 +979,11 @@ model Task {
   agentQueuedAt   DateTime? @map("agent_queued_at")
   parkedAt        DateTime? @map("parked_at")
   triagedById     String?   @map("triaged_by_id")
+  /// Random token embedded in the notification email's buttons. Stored
+  /// rather than derived from a shared secret: deriving it meant the link
+  /// only worked where that secret matched, which failed silently in
+  /// production. A stored value also lets a link be revoked by clearing it.
+  triageToken     String?   @map("triage_token")
 
 }
 
