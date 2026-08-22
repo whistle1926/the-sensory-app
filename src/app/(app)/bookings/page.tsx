@@ -284,6 +284,10 @@ export default function BookingsPage() {
     // service is picked; "" means fall back to whatever the service says.
     ownerId: "",
   });
+  // Extra dates for a block booking. The first session is nb.date/nb.time;
+  // these are the ones after it. Each becomes its own appointment, and the
+  // block is charged per session.
+  const [nbExtra, setNbExtra] = useState<Array<{ date: string; time: string }>>([]);
   // Staff to offer as the therapist on a manual booking.
   const [nbStaff, setNbStaff] = useState<Array<{ id: string; name: string }>>([]);
   useEffect(() => {
@@ -356,6 +360,16 @@ export default function BookingsPage() {
           // matches how the public flow records dates.
           date: new Date(`${nb.date}T00:00:00`).toISOString(),
           time: nb.time,
+          // One appointment per date. The API prices the block per session.
+          slots: [
+            { date: new Date(`${nb.date}T00:00:00`).toISOString(), time: nb.time },
+            ...nbExtra
+              .filter((x) => x.date && x.time)
+              .map((x) => ({
+                date: new Date(`${x.date}T00:00:00`).toISOString(),
+                time: x.time,
+              })),
+          ],
           duration: nb.duration,
           clientName: nb.clientName.trim(),
           clientEmail: nb.clientEmail.trim(),
@@ -370,6 +384,7 @@ export default function BookingsPage() {
       }
       setNbOpen(false);
       setNb({ service: "", date: "", time: "", duration: "", clientName: "", clientEmail: "", clientPhone: "", notes: "", ownerId: "" });
+      setNbExtra([]);
       await fetchBookings();
     } catch (e) {
       setNbError(e instanceof Error ? e.message : "Booking failed");
@@ -1569,6 +1584,65 @@ export default function BookingsPage() {
                 />
               </div>
             </div>
+
+            {/* A block of therapy is several appointments bought together.
+                Each date below becomes its own appointment on the calendar,
+                and the price is per session. */}
+            {nbExtra.map((slot, i) => (
+              <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-end gap-3">
+                <div className="space-y-1.5">
+                  <Label>Session {i + 2} date</Label>
+                  <Input
+                    type="date"
+                    value={slot.date}
+                    onChange={(e) =>
+                      setNbExtra((prev) =>
+                        prev.map((x, j) => (j === i ? { ...x, date: e.target.value } : x)),
+                      )
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Time</Label>
+                  <Input
+                    type="time"
+                    value={slot.time}
+                    onChange={(e) =>
+                      setNbExtra((prev) =>
+                        prev.map((x, j) => (j === i ? { ...x, time: e.target.value } : x)),
+                      )
+                    }
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setNbExtra((prev) => prev.filter((_, j) => j !== i))}
+                  aria-label={`Remove session ${i + 2}`}
+                  className="mb-1 rounded-lg p-2 text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={() =>
+                setNbExtra((prev) =>
+                  prev.length >= 9 ? prev : [...prev, { date: "", time: nb.time || "" }],
+                )
+              }
+              className="flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add another session
+            </button>
+            {nbExtra.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {nbExtra.length + 1} appointments — each goes on the calendar
+                separately and the price is per session.
+              </p>
+            )}
             <div className="relative space-y-1.5">
               <Label htmlFor="nb-name">Client / parent name</Label>
               <Input
