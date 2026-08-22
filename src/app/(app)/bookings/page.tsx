@@ -938,7 +938,12 @@ export default function BookingsPage() {
                 {DAY_NAMES_SHORT.map((d) => (
                   <div
                     key={d}
-                    className="py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+                    // Chrome translates these three-letter abbreviations as if
+                    // they were foreign words — "MON" is French for "my",
+                    // "THU" is Vietnamese for "autumn" — so a translated page
+                    // showed "Sun, MY, Tue, Wed, Autumn, Fri, Sat".
+                    translate="no"
+                    className="notranslate py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
                   >
                     {d}
                   </div>
@@ -1215,7 +1220,10 @@ export default function BookingsPage() {
                             }`}
                           />
                         </button>
-                        <span className={`text-sm font-semibold ${day.enabled ? "text-foreground" : "text-muted-foreground"}`}>
+                        <span
+                          translate="no"
+                          className={`notranslate text-sm font-semibold ${day.enabled ? "text-foreground" : "text-muted-foreground"}`}
+                        >
                           {DAY_NAMES_SHORT[d]}
                         </span>
                       </div>

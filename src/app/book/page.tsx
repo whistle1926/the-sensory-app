@@ -842,7 +842,13 @@ function BookingPageInner() {
                           : "hover:bg-muted/50"
                       } ${isSelected ? "bg-primary/5" : ""}`}
                     >
-                      <span className="text-[11px] font-medium text-muted-foreground">
+                      {/* Parents' own browsers translate too — and a
+                          mistranslated day name on the booking page is worse
+                          than in admin. */}
+                      <span
+                        translate="no"
+                        className="notranslate text-[11px] font-medium text-muted-foreground"
+                      >
                         {DAY_NAMES[i]}
                       </span>
                       <span
