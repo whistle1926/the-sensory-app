@@ -21,9 +21,10 @@ async function recipients(excludeUserId?: string): Promise<string[]> {
       isAutomation: false,
       ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
     },
-    select: { email: true },
+    select: { email: true, notifyEmail: true },
   });
-  const list = flagged.map((u) => u.email).filter(Boolean);
+  // A person's notification address wins over their login address.
+  const list = flagged.map((u) => u.notifyEmail?.trim() || u.email).filter(Boolean);
   if (list.length) return list;
   const fallback = process.env.TASK_NOTIFY_EMAIL?.trim();
   return fallback ? [fallback] : [];

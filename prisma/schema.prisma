@@ -97,6 +97,10 @@ model User {
   /// Email this person when a ticket is logged on the build board, or when
   /// someone replies. Off by default so nobody is signed up without asking.
   notifyOnNewTask Boolean  @default(false) @map("notify_on_new_task")
+  /// Where to send those notifications, when it isn't the login address.
+  /// Paddy signs in as patrick@ but reads a different inbox, and changing
+  /// the login email to fix that would be a worse cure than the disease.
+  notifyEmail     String?  @map("notify_email")
 
   // Off = keep this person off the shared Team Calendar entirely. For people
   // whose diary isn't the practice's business — a tester account, someone
