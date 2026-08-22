@@ -972,6 +972,14 @@ model Task {
   @@index([status])
   @@index([dueDate])
   @@index([clientUserId])
+  /// Triage from the notification email, so the board reflects a decision
+  /// made on a phone between meetings without anyone opening it.
+  /// Queued = "get on with this"; parked = "not now, I'll look later".
+  /// Setting one clears the other — they're the two answers to one question.
+  agentQueuedAt   DateTime? @map("agent_queued_at")
+  parkedAt        DateTime? @map("parked_at")
+  triagedById     String?   @map("triaged_by_id")
+
 }
 
 /// Images/videos attached to a task itself (not to a comment) — e.g. a

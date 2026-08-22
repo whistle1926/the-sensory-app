@@ -30,6 +30,10 @@ function looksLikeEditablePage(pathname: string): boolean {
 }
 
 const PUBLIC_PREFIXES = [
+  // One-tap triage from the notification email — authorised by a signed
+  // token in the link, not a session, so it works from a phone.
+  "/t/",
+  "/api/triage",
   // Editable public pages (About, Services...).
   "/p/",
   "/book",

@@ -12,22 +12,27 @@
  */
 import { prisma } from "./prisma";
 import { sendTransactionalEmail, escapeHtml, stripHtml } from "./email";
+import { triageUrl } from "./task-triage";
 
 /** Who gets told. Falls back to the env var when nobody is flagged. */
-async function recipients(excludeUserId?: string): Promise<string[]> {
+async function recipients(
+  excludeUserId?: string,
+): Promise<Array<{ id: string; address: string }>> {
   const flagged = await prisma.user.findMany({
     where: {
       notifyOnNewTask: true,
       isAutomation: false,
       ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
     },
-    select: { email: true, notifyEmail: true },
+    select: { id: true, email: true, notifyEmail: true },
   });
   // A person's notification address wins over their login address.
-  const list = flagged.map((u) => u.notifyEmail?.trim() || u.email).filter(Boolean);
+  const list = flagged
+    .map((u) => ({ id: u.id, address: (u.notifyEmail?.trim() || u.email) ?? "" }))
+    .filter((x) => x.address);
   if (list.length) return list;
   const fallback = process.env.TASK_NOTIFY_EMAIL?.trim();
-  return fallback ? [fallback] : [];
+  return fallback ? [{ id: "", address: fallback }] : [];
 }
 
 function baseUrl(): string {
@@ -42,6 +47,20 @@ const PRIORITY_LABEL: Record<string, string> = {
   medium: "Medium",
   low: "Low",
 };
+
+/** The two answers, side by side. Both open a page; neither acts on its own. */
+function triageBlock(base: string, taskId: string, userId: string): string {
+  if (!userId) return "";
+  const url = triageUrl(base, taskId, userId);
+  return `<table role="presentation" style="margin:22px 0 0;border-collapse:collapse"><tr>
+    <td style="padding-right:8px">
+      <a href="${escapeHtml(url)}" style="display:inline-block;background:#2563eb;color:#fff;padding:11px 18px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">Get this actioned</a>
+    </td>
+    <td>
+      <a href="${escapeHtml(url)}" style="display:inline-block;border:1px solid #c9cedb;color:#1a1d26;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">Park until I look</a>
+    </td>
+  </tr></table>`;
+}
 
 function shell(title: string, lines: string[], link: string, linkLabel: string) {
   return `<!doctype html><html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;background:#f5f6f9;margin:0;padding:24px">
@@ -78,21 +97,21 @@ export async function notifyNewTask(taskId: string): Promise<void> {
     const body = task.description ? stripHtml(task.description).slice(0, 1200) : "";
     const link = `${baseUrl()}/tasks/${task.id}`;
 
-    const html = shell(
-      escapeHtml(task.title),
-      [
-        `<p style="margin:0 0 14px;font-size:13px;color:#7a8194">Logged by ${escapeHtml(who)} · ${escapeHtml(PRIORITY_LABEL[task.priority] ?? task.priority)} priority</p>`,
-        body
-          ? `<div style="white-space:pre-line;border-left:3px solid #2563eb;background:#f5f7fd;padding:12px 14px;font-size:14px;line-height:1.6;color:#1a1d26">${escapeHtml(body)}</div>`
-          : `<p style="margin:0;font-size:14px;color:#7a8194">No detail was added.</p>`,
-      ],
-      link,
-      "Open the ticket",
-    );
-
-    for (const address of to) {
+    for (const person of to) {
+      const html = shell(
+        escapeHtml(task.title),
+        [
+          `<p style="margin:0 0 14px;font-size:13px;color:#7a8194">Logged by ${escapeHtml(who)} · ${escapeHtml(PRIORITY_LABEL[task.priority] ?? task.priority)} priority</p>`,
+          body
+            ? `<div style="white-space:pre-line;border-left:3px solid #2563eb;background:#f5f7fd;padding:12px 14px;font-size:14px;line-height:1.6;color:#1a1d26">${escapeHtml(body)}</div>`
+            : `<p style="margin:0;font-size:14px;color:#7a8194">No detail was added.</p>`,
+          triageBlock(baseUrl(), task.id, person.id),
+        ],
+        link,
+        "Open the ticket",
+      );
       await sendTransactionalEmail({
-        to: address,
+        to: person.address,
         subject: `New task from ${who}: ${task.title}`.slice(0, 160),
         html,
       });
@@ -135,9 +154,9 @@ export async function notifyNewComment(commentId: string): Promise<void> {
       "Open the ticket",
     );
 
-    for (const address of to) {
+    for (const person of to) {
       await sendTransactionalEmail({
-        to: address,
+        to: person.address,
         subject: `${who} replied: ${comment.task.title}`.slice(0, 160),
         html,
       });
