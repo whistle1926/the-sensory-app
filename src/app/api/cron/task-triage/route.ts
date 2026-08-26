@@ -14,6 +14,11 @@
  * Idempotency: a ticket is "answered" once the automation identity has
  * commented on it, so re-running is harmless.
  *
+ * Runs once a day at 07:00 — Vercel's Hobby plan allows one cron run per
+ * day, and the evening is when tickets tend to be logged, so a report made
+ * at 10pm has an answer before the working day starts. It can also be
+ * triggered by hand with the same header at any time.
+ *
  * Auth: Vercel Cron sends `Authorization: Bearer <CRON_SECRET>`.
  */
 import { NextRequest, NextResponse } from "next/server";
