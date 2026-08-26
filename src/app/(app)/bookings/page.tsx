@@ -1517,11 +1517,14 @@ export default function BookingsPage() {
       {/* Manual booking — staff book on a client's behalf (e.g. a phone
           enquiry). Skips the public T&C step server-side. */}
       <Dialog open={nbOpen} onOpenChange={setNbOpen}>
-        <DialogContent className="sm:max-w-md">
+        {/* Capped and scrollable: adding sessions makes this taller than a
+            laptop screen, and Claire couldn't reach Create booking after
+            entering four dates. The body scrolls; the buttons stay put. */}
+        <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-md">
           <DialogHeader>
             <DialogTitle>New booking</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
             <div className="space-y-1.5">
               <Label htmlFor="nb-service">Service</Label>
               <select
@@ -1715,7 +1718,7 @@ export default function BookingsPage() {
               <p className="text-xs text-red-600 dark:text-red-400">{nbError}</p>
             )}
           </div>
-          <div className="-mx-4 -mb-4 mt-1 flex items-center justify-end gap-2 rounded-b-xl border-t border-border bg-muted/40 px-4 py-3">
+          <div className="-mx-4 -mb-4 mt-1 flex shrink-0 items-center justify-end gap-2 rounded-b-xl border-t border-border bg-muted/40 px-4 py-3">
             <Button
               variant="outline"
               onClick={() => setNbOpen(false)}
