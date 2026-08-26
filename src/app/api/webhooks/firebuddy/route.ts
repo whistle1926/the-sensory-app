@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { FireBuddy } from "@/lib/firebuddy";
-import { ensureEnrollment } from "@/lib/course-enrollment";
-import { sendCoursePurchaseEmail } from "@/lib/course-purchase-email";
+import { completeCoursePurchase } from "@/lib/course-purchase-complete";
 import { sendBookingReferralForm } from "@/lib/booking-referral";
 
 export async function POST(req: NextRequest) {
@@ -40,7 +39,7 @@ export async function POST(req: NextRequest) {
   if (reference.startsWith("course:")) {
     const purchaseId = reference.slice("course:".length);
     try {
-      await handleCoursePayment(purchaseId, event.paymentId);
+      await completeCoursePurchase(purchaseId, event.paymentId);
     } catch (err) {
       console.error("[WEBHOOK] Course payment handling failed:", err);
       return NextResponse.json({ error: "Internal error" }, { status: 500 });
@@ -61,7 +60,7 @@ export async function POST(req: NextRequest) {
       // buyer has been charged for all of it.
       for (const row of rows) {
         try {
-          await handleCoursePayment(row.id, event.paymentId);
+          await completeCoursePurchase(row.id, event.paymentId);
         } catch (err) {
           console.error("[WEBHOOK] group line failed:", row.id, err);
         }
@@ -197,73 +196,6 @@ async function handleBlockPayment(groupId: string, paymentId: string) {
     await sendBookingReferralForm(first.id);
   } catch (err) {
     console.error("[WEBHOOK] Referral form auto-send failed for block:", err);
-  }
-}
-
-async function handleCoursePayment(purchaseId: string, paymentId: string) {
-  const purchase = await prisma.coursePurchase.findUnique({
-    where: { id: purchaseId },
-    include: { course: { select: { id: true, title: true } } },
-  });
-  if (!purchase) {
-    console.warn("[WEBHOOK] course purchase not found:", purchaseId);
-    return;
-  }
-
-  // Idempotent short-circuit — webhook can fire twice, or the returning user
-  // can race the webhook. Only mutate on the first "paid" transition.
-  if (purchase.paymentStatus === "paid") return;
-
-  await prisma.coursePurchase.update({
-    where: { id: purchaseId },
-    data: {
-      paymentStatus: "paid",
-      paymentRef: paymentId,
-      completedAt: new Date(),
-    },
-  });
-
-  // Seed the enrolment (idempotent — ensureEnrollment no-ops if it exists).
-  try {
-    await ensureEnrollment(purchase.userId, purchase.courseId);
-  } catch (err) {
-    console.error("[WEBHOOK] ensureEnrollment failed:", err);
-  }
-
-  // Receipt + access + what-next, to EVERY buyer. This used to be a
-  // set-password email that only reached first-time guests, so a returning
-  // customer paid and heard nothing at all.
-  try {
-    await sendCoursePurchaseEmail(purchase.id);
-  } catch (err) {
-    console.error("[WEBHOOK] purchase email failed:", err);
-  }
-
-  // Credit the private income tracker. Idempotent via (source, reference).
-  if (purchase.amount > 0) {
-    try {
-      await prisma.incomeEntry.upsert({
-        where: {
-          source_reference: { source: "FIREBUDDY", reference: purchase.id },
-        },
-        update: {
-          amount: purchase.amount,
-          currency: purchase.currency,
-          description: `${purchase.course.title} — course purchase`,
-        },
-        create: {
-          amount: purchase.amount,
-          // Without this a euro sale is filed as pounds and overstates income.
-          currency: purchase.currency,
-          source: "FIREBUDDY",
-          reference: purchase.id,
-          description: `${purchase.course.title} — course purchase`,
-          occurredAt: new Date(),
-        },
-      });
-    } catch (err) {
-      console.error("[WEBHOOK] Failed to credit income tracker:", err);
-    }
   }
 }
 
