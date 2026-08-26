@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { checkCoursePayment } from "@/lib/course-payment-check";
 import { redirect } from "next/navigation";
 import {
   Award,
@@ -40,6 +41,26 @@ export default async function PortalTrainingPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   if (session.user.role !== "CLIENT") redirect("/dashboard");
+
+  // If they paid and Fire settled late, this is where they come looking —
+  // so re-check anything of theirs still pending before drawing the page.
+  // Fire's open banking can take hours: Grace's payment confirmed nearly
+  // eight hours after she started it, long after the thanks page was closed.
+  try {
+    const pending = await prisma.coursePurchase.findMany({
+      where: {
+        userId: session.user.id,
+        paymentStatus: "pending",
+        paymentRef: { not: null },
+        createdAt: { gte: new Date(Date.now() - 14 * 864e5) },
+      },
+      select: { id: true },
+      take: 5,
+    });
+    for (const p of pending) await checkCoursePayment(p.id);
+  } catch {
+    // Never let a payment check stop someone reaching their courses.
+  }
 
   // Partner/external course promo (admin-editable in Settings → Storefront).
   const storefront = await prisma.storefrontConfig.findUnique({
