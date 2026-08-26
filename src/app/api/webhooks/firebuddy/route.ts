@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { FireBuddy } from "@/lib/firebuddy";
 import { completeCoursePurchase } from "@/lib/course-purchase-complete";
+import { completeBookingPayment } from "@/lib/booking-payment-complete";
+// Still used by the block-booking path, which sends one form for the block.
 import { sendBookingReferralForm } from "@/lib/booking-referral";
 
 export async function POST(req: NextRequest) {
@@ -98,46 +100,14 @@ export async function POST(req: NextRequest) {
   }
 
   // Booking branch (legacy path — reference is the booking id directly).
+  // Kept for completeness, though Fire truncates the reference to 18 chars so
+  // this rarely matches; the success page's direct check with Fire is what
+  // actually confirms bookings now.
   if (reference) {
-    const booking = await prisma.booking.update({
-      where: { id: reference },
-      data: {
-        paymentStatus: "paid",
-        paymentRef: event.paymentId,
-        status: "confirmed",
-      },
-    });
-
-    if (booking.price > 0) {
-      try {
-        await prisma.incomeEntry.upsert({
-          where: { source_reference: { source: "BOOKING", reference: booking.id } },
-          update: { amount: booking.price, description: `${booking.service} — ${booking.clientName}` },
-          create: {
-            amount: booking.price,
-            source: "BOOKING",
-            reference: booking.id,
-            description: `${booking.service} — ${booking.clientName}`,
-            occurredAt: new Date(),
-          },
-        });
-      } catch (err) {
-        console.error("[WEBHOOK] Failed to credit income tracker:", err);
-      }
-    }
-
-    // Auto-send the intake/referral form on payment, if this service is
-    // opted in (e.g. OT assessments). Best-effort + idempotent — never
-    // let it disturb the payment handling.
     try {
-      const result = await sendBookingReferralForm(booking.id);
-      if (result.sent) {
-        console.log(
-          `[WEBHOOK] Referral form sent for booking ${booking.id} → ${result.to}`,
-        );
-      }
+      await completeBookingPayment(reference, event.paymentId);
     } catch (err) {
-      console.error("[WEBHOOK] Referral form auto-send failed:", err);
+      console.error("[WEBHOOK] Booking completion failed:", err);
     }
   }
 

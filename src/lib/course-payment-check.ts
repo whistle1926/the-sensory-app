@@ -14,27 +14,12 @@
  * but hasn't settled is still correctly treated as pending.
  */
 import { prisma } from "./prisma";
-import { FireBuddy } from "./firebuddy";
+import { fetchFireStatus } from "./fire-payment-status";
 
 export interface PaymentCheck {
   paid: boolean;
   /** Fire's own word for it, for logging and support. */
   fireStatus?: string;
-}
-
-/** True when Fire considers the money genuinely received. */
-function looksPaid(status: unknown): boolean {
-  const s = status as {
-    status?: string;
-    settled?: boolean;
-    funds_confirmed_at?: string | null;
-    authorised_at?: string | null;
-  } | null;
-  if (!s) return false;
-  if (s.settled === true) return true;
-  if (s.funds_confirmed_at) return true;
-  const word = (s.status ?? "").toLowerCase();
-  return word === "paid" || word === "completed" || word === "succeeded";
 }
 
 /**
@@ -50,26 +35,12 @@ export async function checkCoursePayment(purchaseId: string): Promise<PaymentChe
   if (purchase.paymentStatus === "paid") return { paid: true, fireStatus: "already paid" };
   if (!purchase.paymentRef) return { paid: false, fireStatus: "no payment started" };
 
-  const settings = await prisma.paymentSettings.findFirst({ select: { apiKey: true, enabled: true } });
-  if (!settings?.enabled || !settings.apiKey) return { paid: false, fireStatus: "payments not configured" };
+  const check = await fetchFireStatus(purchase.paymentRef);
+  if (!check.paid) return { paid: false, fireStatus: check.status };
 
-  try {
-    const fb = new FireBuddy(settings.apiKey);
-    const status = await fb.getPaymentStatus(purchase.paymentRef);
-    if (!looksPaid(status)) {
-      return {
-        paid: false,
-        fireStatus: (status as { status?: string })?.status ?? "unknown",
-      };
-    }
-
-    // Genuinely paid — complete it through the same path the webhook uses so
-    // there is one definition of "what happens when someone pays".
-    const { completeCoursePurchase } = await import("./course-purchase-complete");
-    await completeCoursePurchase(purchase.id, purchase.paymentRef);
-    return { paid: true, fireStatus: "paid" };
-  } catch (err) {
-    console.error("[course-payment-check] Fire lookup failed:", err);
-    return { paid: false, fireStatus: "could not reach Fire" };
-  }
+  // Genuinely paid — complete it through the same path the webhook uses so
+  // there is one definition of "what happens when someone pays".
+  const { completeCoursePurchase } = await import("./course-purchase-complete");
+  await completeCoursePurchase(purchase.id, purchase.paymentRef);
+  return { paid: true, fireStatus: "paid" };
 }
