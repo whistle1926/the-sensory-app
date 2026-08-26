@@ -26,6 +26,8 @@ export interface TriageResult {
   reply: string;
   /** True when a person has to choose something before work can start. */
   needsPaddy: boolean;
+  /** False = say nothing. Not every message deserves a reply. */
+  needsReply: boolean;
 }
 
 const SYSTEM = `You are drafting the first response on a small business's internal build board.
@@ -41,12 +43,22 @@ Rules:
 - Never promise a timescale.
 - British spelling.
 
-Reply with JSON only: {"category":"bug|question|request|needs-decision","summary":"one line","reply":"the comment","needsPaddy":true|false}`;
+You may be seeing a conversation already in progress. Read the whole thread and respond to the LATEST message, not the original ticket.
+
+Stay quiet when there is nothing useful to add — set needsReply false if:
+- the last message is Paddy giving instructions or answering something himself
+- it is a thank-you or an acknowledgement needing no response
+- you would only be repeating what has already been said
+
+Answering a question they asked, or acknowledging new information, is worth a reply. Chatter is not.
+
+Reply with JSON only: {"category":"bug|question|request|needs-decision","summary":"one line","reply":"the comment","needsPaddy":true|false,"needsReply":true|false}`;
 
 export async function triageTicket(args: {
   title: string;
   description: string;
   loggedBy: string;
+  /** The whole thread so far, oldest first, as "Name: what they said". */
   existingComments: string[];
 }): Promise<TriageResult | null> {
   try {
@@ -66,8 +78,10 @@ ${args.description || "(no detail given)"}
 
 ${
   args.existingComments.length
-    ? `Comments already on it:\n${args.existingComments.map((c) => `- ${c}`).join("\n")}`
-    : "No comments yet."
+    ? `The conversation so far, oldest first — respond to the last message:\n${args.existingComments
+        .map((c) => `- ${c}`)
+        .join("\n")}`
+    : "No comments yet — this is the first response."
 }`,
         },
       ],
@@ -85,6 +99,8 @@ ${
       summary: String(parsed.summary).slice(0, 300),
       reply: String(parsed.reply).slice(0, 4000),
       needsPaddy: !!parsed.needsPaddy,
+      // Absent means yes — an older response shape shouldn't silence it.
+      needsReply: parsed.needsReply !== false,
     };
   } catch (err) {
     console.error("[triage-agent] failed:", err);

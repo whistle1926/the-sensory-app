@@ -1,9 +1,10 @@
 /**
  * GET /api/cron/task-triage
  *
- * Reads any ticket nobody has answered yet and posts a first response, so a
- * report logged at 10pm has a reply by morning instead of waiting for the
- * board to be opened.
+ * Reads any open ticket where the last word wasn't ours — either nobody has
+ * answered it yet, or someone has replied since we did — and responds. A
+ * report logged at 10pm therefore has an answer by morning, and a question
+ * we asked doesn't go unheard when it's answered.
  *
  * Scope is deliberately narrow — it writes COMMENTS and nothing else:
  *   - it never marks anything done, and never changes a booking, price or
@@ -51,15 +52,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "No automation identity" }, { status: 500 });
   }
 
-  // Open tickets nobody has answered. A handful per run keeps us inside the
-  // function's time limit and stops a backlog firing dozens of emails at once.
-  const candidates = await prisma.task.findMany({
-    where: {
-      status: { in: ["todo", "in_progress"] },
-      comments: { none: { authorId: botId } },
-    },
-    orderBy: [{ agentQueuedAt: "desc" }, { createdAt: "desc" }],
-    take: 3,
+  // Anything open where the last word wasn't ours: either nobody has
+  // answered it yet, or someone has replied since we did. Without the second
+  // case it would ask Grace a question and never see her answer.
+  const open = await prisma.task.findMany({
+    where: { status: { in: ["todo", "in_progress"] } },
+    orderBy: [{ agentQueuedAt: "desc" }, { updatedAt: "desc" }],
+    take: 25,
     select: {
       id: true,
       title: true,
@@ -68,13 +67,23 @@ export async function GET(req: NextRequest) {
       createdBy: { select: { name: true } },
       comments: {
         orderBy: { createdAt: "asc" },
-        take: 6,
-        select: { body: true, author: { select: { name: true } } },
+        take: 12,
+        select: { body: true, createdAt: true, authorId: true, author: { select: { name: true } } },
       },
     },
   });
 
+  const candidates = open
+    .filter((t) => {
+      const last = t.comments[t.comments.length - 1];
+      return !last || last.authorId !== botId;
+    })
+    // A handful per run keeps us inside the function's time limit and stops a
+    // backlog firing a burst of emails.
+    .slice(0, 3);
+
   const handled: Array<{ id: string; category: string; needsPaddy: boolean }> = [];
+  const skipped: Array<{ id: string; why: string }> = [];
 
   for (const task of candidates) {
     const result = await triageTicket({
@@ -86,6 +95,11 @@ export async function GET(req: NextRequest) {
       ),
     });
     if (!result) continue;
+    // Not every message deserves an answer — saying nothing is a valid outcome.
+    if (!result.needsReply) {
+      skipped.push({ id: task.id, why: result.summary });
+      continue;
+    }
 
     await prisma.taskComment.create({
       data: { taskId: task.id, authorId: botId, body: result.reply },
@@ -120,5 +134,11 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, answered: handled.length, handled });
+  return NextResponse.json({
+    ok: true,
+    answered: handled.length,
+    stayedQuiet: skipped.length,
+    handled,
+    skipped,
+  });
 }
