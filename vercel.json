@@ -1,5 +1,7 @@
 {
-  "regions": ["arn1"],
+  "regions": [
+    "arn1"
+  ],
   "crons": [
     {
       "path": "/api/cron/booking-reminders",
@@ -8,6 +10,10 @@
     {
       "path": "/api/cron/fire-payments",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/task-triage",
+      "schedule": "0 7,13,22 * * *"
     }
   ]
 }
