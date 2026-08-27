@@ -440,7 +440,9 @@ export default async function Home() {
             <h2 className="sub-display text-center text-[34px] tracking-[-.8px] sm:text-[46px]">
               What families say
             </h2>
-            <div className="mt-10 grid gap-6 md:grid-cols-2">
+            {/* items-start: a short review shouldn't be stretched to the height
+                of a long one and left half empty. */}
+            <div className="mt-10 grid items-start gap-6 md:grid-cols-2">
               {testimonials.slice(0, 4).map((t, i) => (
                 <blockquote
                   key={i}
