@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { cleanBlocks } from "@/lib/page-blocks";
 import { PageBlocksView } from "@/components/pages/page-blocks-view";
-import { StorefrontHeader } from "@/components/courses/storefront-header";
+import { SubmarineHeader } from "@/components/storefront/submarine-header";
 
 export const dynamic = "force-dynamic";
 
@@ -49,14 +49,14 @@ export default async function EditablePage({
   if (!page.isPublished && !isStaff) notFound();
 
   return (
-    <div className="min-h-screen bg-[#FBF8F3]">
+    <div className="sub min-h-screen">
       {!page.isPublished && (
         <div className="border-b border-amber-500/40 bg-amber-100 px-4 py-2.5 text-center text-sm text-amber-900">
           <strong>Preview</strong>{" "}— this page isn&apos;t published, so nobody
           else can see it yet.
         </div>
       )}
-      <StorefrontHeader />
+      <SubmarineHeader />
       <main className="mx-auto max-w-3xl px-5 py-10 sm:py-14">
         <PageBlocksView blocks={cleanBlocks(page.blocks)} />
       </main>

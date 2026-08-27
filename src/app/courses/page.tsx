@@ -2,8 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { richTextToPlain } from "@/lib/rich-text";
-import { StorefrontHeader } from "@/components/courses/storefront-header";
-import { CourseCard, type StorefrontCourse } from "@/components/courses/course-card";
+import { SubmarineHeader } from "@/components/storefront/submarine-header";
+import { SubmarineFooter } from "@/components/storefront/submarine-footer";
+import {
+  SubmarineCourseCard,
+  type SubCourse,
+} from "@/components/storefront/submarine-course-card";
 import { Star, ShieldCheck, Award, Sparkles } from "lucide-react";
 import { coursesEnabled } from "@/lib/storefront";
 
@@ -102,126 +106,133 @@ export default async function CoursesStorefrontPage({
   );
 
   return (
-    <div className="min-h-screen bg-[#FBF8F3]">
-      <StorefrontHeader />
+    <div className="sub min-h-screen">
+      <SubmarineHeader />
 
-      {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 md:grid-cols-[1.2fr_1fr] md:items-center md:py-20">
-          <div className="space-y-6">
-            <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary shadow-sm">
-              <Sparkles className="h-3 w-3" />
+      {/* ── Hero ───────────────────────────────────────────────────── */}
+      <section className="relative overflow-hidden px-5 py-14 sm:px-10 sm:py-[72px]">
+        <div className="sub-dots pointer-events-none absolute inset-0 opacity-90" aria-hidden />
+        <div
+          className="pointer-events-none absolute -right-[120px] -top-[140px] h-[520px] w-[520px] rounded-full bg-[#FFE9A8]"
+          aria-hidden
+        />
+
+        <div className="relative mx-auto grid max-w-[1240px] items-center gap-12 lg:grid-cols-[1.05fr_.95fr]">
+          <div>
+            <p className="sub-edge inline-flex items-center gap-2.5 rounded-full bg-white py-2 pl-2.5 pr-4 text-[13px] font-extrabold uppercase tracking-[1.4px]">
+              <span className="h-[22px] w-[22px] rounded-full bg-[#17B0A7]" aria-hidden />
               {tagline}
-            </span>
-            <h1 className="text-4xl font-black tracking-tight sm:text-5xl md:text-6xl">
+            </p>
+            {/* Smaller than the home hero on purpose: this headline is
+                editable copy and is usually a full sentence, not three
+                words. */}
+            <h1 className="sub-display mt-6 text-[32px] leading-[1.08] tracking-[-1px] text-pretty sm:text-[42px] lg:text-[48px]">
               {heroTitle}
             </h1>
-            <p className="max-w-xl text-lg text-muted-foreground">
+            <p className="mt-5 max-w-[560px] text-[17px] leading-[1.65] text-pretty text-[#3D4A6B] sm:text-[19px]">
               {heroBlurb}
             </p>
-            <div className="flex flex-wrap gap-3">
+            <div className="mt-8 flex flex-wrap gap-3.5">
               <Link
                 href="#courses"
-                className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-sm)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)] hover:brightness-110"
+                className="sub-edge-lg sub-press inline-flex items-center rounded-full px-7 py-4 text-[17px] font-extrabold text-white"
+                style={{ background: "var(--sub-pink)" }}
               >
                 Browse courses
               </Link>
               <Link
                 href="/book"
-                className="inline-flex items-center gap-2 rounded-xl border border-border bg-white px-5 py-3 text-sm font-semibold transition-colors hover:bg-muted"
+                className="sub-edge-lg sub-press inline-flex items-center rounded-full bg-white px-7 py-4 text-[17px] font-extrabold"
               >
                 Book a 1:1 session
               </Link>
             </div>
-            <div className="flex flex-wrap items-center gap-5 pt-4 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5">
-                <ShieldCheck className="h-4 w-4 text-green-600" />
+            <div className="mt-9 flex flex-wrap gap-2.5">
+              <span className="inline-flex items-center gap-2.5 rounded-full border-2 border-[#C2E7E3] bg-[#E7F6F4] px-4 py-2.5 text-sm font-bold">
+                <span className="h-3 w-3 rounded-full bg-[#17B0A7]" aria-hidden />
                 OT-led and evidence-based
               </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Award className="h-4 w-4 text-amber-500" />
+              <span className="inline-flex items-center gap-2.5 rounded-full border-2 border-[#F3DFA6] bg-[#FFF3D2] px-4 py-2.5 text-sm font-bold">
+                <span className="h-3 w-3 rounded-full bg-[#FFC93C]" aria-hidden />
                 CPD hours for practitioners
               </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+              <span className="inline-flex items-center gap-2.5 rounded-full border-2 border-[#FBC7D7] bg-[#FFE7EE] px-4 py-2.5 text-sm font-bold">
+                <span className="h-3 w-3 rounded-full bg-[#E71D57]" aria-hidden />
                 Rated highly by parents
               </span>
             </div>
           </div>
 
-          {/* Hero art — stack of course thumbnails peeking out */}
-          <div className="relative h-80 md:h-96">
+          {/* Tilted covers, hidden on small screens where they'd push the
+              buttons off the first screenful. */}
+          <div className="relative hidden min-h-[520px] lg:block" aria-hidden>
+            <div
+              className="absolute left-10 top-6 h-[280px] w-[280px] rounded-full bg-[#FFC93C]"
+              aria-hidden
+            />
             {featured.slice(0, 3).map((c, i) => {
               const img = c.thumbnailUrl ?? c.heroImageUrl;
-              const offsets = [
-                "top-0 right-0 rotate-3",
-                "top-14 right-16 -rotate-2 md:top-20 md:right-28",
-                "top-32 right-4 rotate-1 md:top-40 md:right-16",
-              ];
+              const place = [
+                { className: "right-8 top-0", tilt: "rotate(6deg)", delay: "0s" },
+                { className: "left-0 top-[190px]", tilt: "rotate(-7deg)", delay: ".6s" },
+                { className: "right-16 top-[330px]", tilt: "rotate(3deg)", delay: "1.2s" },
+              ][i];
               return (
                 <div
                   key={c.id}
-                  className={`absolute aspect-[4/3] w-60 overflow-hidden rounded-2xl border border-border bg-white shadow-[var(--shadow-lg)] md:w-72 ${offsets[i]}`}
+                  className={`sub-bob absolute aspect-[4/3] w-[270px] overflow-hidden rounded-[26px] border-[3px] border-[#12235B] bg-[#FFE9A8] shadow-[6px_6px_0_#12235B] ${place.className}`}
+                  style={{
+                    ["--sub-tilt" as string]: place.tilt,
+                    transform: place.tilt,
+                    animationDelay: place.delay,
+                  }}
                 >
                   {img ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
-                      src={img}
-                      alt={c.title}
-                      className="h-full w-full object-cover"
-                    />
+                    <img src={img} alt="" className="h-full w-full object-cover" />
                   ) : (
-                    <div className="flex h-full items-center justify-center bg-primary/10 text-primary">
+                    <span className="sub-display flex h-full items-center justify-center text-3xl">
                       {c.title.slice(0, 2)}
-                    </div>
+                    </span>
                   )}
                 </div>
               );
             })}
-            {featured.length === 0 && (
-              <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-primary/5">
-                <p className="text-sm text-muted-foreground">
-                  Courses coming soon
-                </p>
-              </div>
-            )}
           </div>
         </div>
       </section>
 
       {/* Featured row */}
       {featured.length > 0 && (
-        <section className="mx-auto max-w-6xl px-5 pb-6">
-          <div className="mb-6 flex items-end justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-primary">
-                Featured
-              </p>
-              <h2 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
+        <section className="px-5 pb-4 sm:px-10">
+          <div className="mx-auto max-w-[1240px]">
+            <div className="mb-6 flex items-center gap-3.5">
+              <span className="sub-display text-2xl sm:text-[28px]">
                 Our most popular courses
-              </h2>
+              </span>
+              <span className="h-[3px] flex-1 bg-[#EADCC4]" aria-hidden />
             </div>
-          </div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {featured.map((course) => (
-              <CourseCard
-                key={course.id}
-                course={course as StorefrontCourse}
-                variant="featured"
-              />
-            ))}
+            <div className="grid items-start gap-7 sm:grid-cols-2 lg:grid-cols-3">
+              {featured.map((course) => (
+                <SubmarineCourseCard key={course.id} course={course as SubCourse} />
+              ))}
+            </div>
           </div>
         </section>
       )}
 
       {/* All courses */}
-      <section id="courses" className="mx-auto max-w-6xl scroll-mt-20 px-5 py-12">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <section
+        id="courses"
+        className="scroll-mt-24 px-5 py-14 sm:px-10"
+      >
+        <div className="mx-auto max-w-[1240px]">
+        <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-primary">
-              The Library
+            <p className="text-[13px] font-extrabold uppercase tracking-[1.4px] text-[#E71D57]">
+              The library
             </p>
-            <h2 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
+            <h2 className="sub-display mt-1.5 text-[30px] tracking-[-.8px] sm:text-[40px]">
               Explore all courses
             </h2>
           </div>
@@ -240,13 +251,13 @@ export default async function CoursesStorefrontPage({
                 name="q"
                 defaultValue={query}
                 placeholder="Search courses…"
-                className="h-10 w-full rounded-xl border border-border bg-white pl-9 pr-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                className="w-full rounded-full border-[3px] border-[#D9D2C4] bg-white py-2.5 pl-10 pr-4 text-[15px] font-semibold text-[#12235B] outline-none placeholder:text-[#9AA3B8] focus:border-[#12235B]"
               />
             </div>
             {query && (
               <Link
                 href="/courses"
-                className="text-xs text-primary underline"
+                className="text-sm font-bold text-[#E71D57] hover:text-[#B81243]"
               >
                 Clear
               </Link>
@@ -255,73 +266,52 @@ export default async function CoursesStorefrontPage({
         </div>
 
         {courses.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-border bg-white p-12 text-center">
-            <p className="font-semibold">No courses published yet.</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Check back soon — we're working on it.
+          <div className="rounded-[30px] border-[3px] border-dashed border-[#D9C9AA] bg-white p-12 text-center">
+            <p className="sub-display text-2xl">No courses published yet.</p>
+            <p className="mt-2 text-[15px] font-semibold text-[#6B7794]">
+              Check back soon — we&apos;re working on it.
             </p>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-border bg-white p-12 text-center">
-            <p className="font-semibold">
+          <div className="rounded-[30px] border-[3px] border-dashed border-[#D9C9AA] bg-white p-12 text-center">
+            <p className="sub-display text-2xl">
               No courses match &ldquo;{query}&rdquo;.
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-2 text-[15px] font-semibold text-[#6B7794]">
               Try a different search, or{" "}
-              <Link href="/courses" className="text-primary underline">
+              <Link href="/courses" className="font-bold text-[#E71D57]">
                 clear the filter
               </Link>{" "}
               to see everything.
             </p>
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid items-start gap-7 sm:grid-cols-2 lg:grid-cols-3">
             {(rest.length > 0 ? rest : filtered).map((course) => (
-              <CourseCard
-                key={course.id}
-                course={course as StorefrontCourse}
-              />
+              <SubmarineCourseCard key={course.id} course={course as SubCourse} />
             ))}
           </div>
         )}
+        </div>
       </section>
 
-      {/* Trust strip */}
       {allBadges.length > 0 && (
-        <section className="border-t border-border/60 bg-white py-10">
-          <div className="mx-auto max-w-6xl px-5">
-            <p className="text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <section className="px-5 py-14 sm:px-10">
+          <div className="mx-auto max-w-[1240px]">
+            <p className="text-center text-[13px] font-extrabold uppercase tracking-[1.4px] text-[#6B7794]">
               Trusted, accredited, evidence-based
             </p>
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-6 opacity-60">
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-8">
               {allBadges.slice(0, 8).map((url, i) => (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  key={i}
-                  src={url}
-                  alt=""
-                  className="h-10 w-auto grayscale transition-all hover:grayscale-0 hover:opacity-100"
-                />
+                <img key={i} src={url} alt="" className="h-12 w-auto" />
               ))}
             </div>
           </div>
         </section>
       )}
 
-      {/* Footer */}
-      <footer className="border-t border-border/60 bg-[#FBF8F3] py-8">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} The Sensory Submarine</p>
-          <div className="flex items-center gap-5">
-            <Link href="/book" className="hover:text-foreground">
-              Book a session
-            </Link>
-            <Link href="/login" className="hover:text-foreground">
-              Sign in
-            </Link>
-          </div>
-        </div>
-      </footer>
+      <SubmarineFooter />
     </div>
   );
 }

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Loader2, CheckCircle2, Mail, AlertCircle } from "lucide-react";
-import { StorefrontHeader } from "@/components/courses/storefront-header";
+import { SubmarineHeader } from "@/components/storefront/submarine-header";
 
 interface PurchaseStatus {
   id: string;
@@ -82,15 +82,15 @@ export default function CourseThanksPage({
   }, [phase, session, purchase, router]);
 
   return (
-    <div className="min-h-screen bg-[#FBF8F3]">
-      <StorefrontHeader />
+    <div className="sub min-h-screen">
+      <SubmarineHeader />
       <div className="mx-auto max-w-lg px-5 py-20">
-        <div className="rounded-3xl border border-border bg-white p-10 text-center shadow-[var(--shadow-sm)]">
+        <div className="sub-edge-xl rounded-[34px] bg-white p-10 text-center">
           {phase === "polling" && (
             <>
-              <Loader2 className="mx-auto h-10 w-10 animate-spin text-muted-foreground" />
-              <h1 className="mt-4 text-2xl font-bold">Finalising your purchase…</h1>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <Loader2 className="mx-auto h-10 w-10 animate-spin text-[#6B7794]" />
+              <h1 className="sub-display mt-4 text-[30px]">Finalising your purchase…</h1>
+              <p className="mt-2 text-[15px] font-semibold text-[#3D4A6B]">
                 Just a moment while we confirm payment with FireBuddy. This
                 usually takes a few seconds.
               </p>
@@ -99,17 +99,17 @@ export default function CourseThanksPage({
 
           {phase === "paid" && (
             <>
-              <CheckCircle2 className="mx-auto h-12 w-12 text-green-500" />
-              <h1 className="mt-4 text-2xl font-bold">You're in!</h1>
+              <CheckCircle2 className="mx-auto h-12 w-12 text-[#17B0A7]" />
+              <h1 className="sub-display mt-4 text-[30px]">You're in!</h1>
               {session?.user ? (
                 <>
-                  <p className="mt-2 text-sm text-muted-foreground">
+                  <p className="mt-2 text-[15px] font-semibold text-[#3D4A6B]">
                     Taking you to your course now…
                   </p>
                   {purchase && (
                     <Link
                       href={`/portal/training/${purchase.courseId}`}
-                      className="mt-4 inline-block text-sm font-semibold text-primary hover:underline"
+                      className="mt-4 inline-block text-[15px] font-extrabold text-[#E71D57] hover:text-[#B81243]"
                     >
                       Open course now
                     </Link>
@@ -117,11 +117,11 @@ export default function CourseThanksPage({
                 </>
               ) : (
                 <>
-                  <p className="mt-2 text-sm text-muted-foreground">
+                  <p className="mt-2 text-[15px] font-semibold text-[#3D4A6B]">
                     Check your inbox — we've sent you a link to set a password
                     and jump into the course.
                   </p>
-                  <div className="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2 text-sm font-semibold text-primary">
+                  <div className="mt-5 inline-flex items-center gap-2 rounded-full border-2 border-[#F3DFA6] bg-[#FFF3D2] px-4 py-2.5 text-sm font-bold">
                     <Mail className="h-4 w-4" />
                     Email on the way
                   </div>
@@ -133,15 +133,15 @@ export default function CourseThanksPage({
           {phase === "timeout" && (
             <>
               <AlertCircle className="mx-auto h-10 w-10 text-amber-500" />
-              <h1 className="mt-4 text-2xl font-bold">Still processing</h1>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <h1 className="sub-display mt-4 text-[30px]">Still processing</h1>
+              <p className="mt-2 text-[15px] font-semibold text-[#3D4A6B]">
                 If you've paid, your course is on the way. Refresh this page
                 shortly or check your email — we'll send a confirmation as soon
                 as payment lands.
               </p>
               <Link
                 href="/courses"
-                className="mt-4 inline-block text-sm font-semibold text-primary hover:underline"
+                className="mt-4 inline-block text-[15px] font-extrabold text-[#E71D57] hover:text-[#B81243]"
               >
                 Back to courses
               </Link>
@@ -151,14 +151,14 @@ export default function CourseThanksPage({
           {phase === "failed" && (
             <>
               <AlertCircle className="mx-auto h-10 w-10 text-red-500" />
-              <h1 className="mt-4 text-2xl font-bold">Payment didn't go through</h1>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <h1 className="sub-display mt-4 text-[30px]">Payment didn't go through</h1>
+              <p className="mt-2 text-[15px] font-semibold text-[#3D4A6B]">
                 Nothing has been charged. Please try again, or contact the
                 practice if the problem persists.
               </p>
               <Link
                 href="/courses"
-                className="mt-4 inline-block text-sm font-semibold text-primary hover:underline"
+                className="mt-4 inline-block text-[15px] font-extrabold text-[#E71D57] hover:text-[#B81243]"
               >
                 Back to courses
               </Link>

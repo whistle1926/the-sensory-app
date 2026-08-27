@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { ResourceList } from "@/components/resources/resource-list";
+import { BundleSignup } from "@/components/resources/bundle-signup";
+import { SubmarineHeader } from "@/components/storefront/submarine-header";
+import { SubmarineFooter } from "@/components/storefront/submarine-footer";
 
 export const dynamic = "force-dynamic";
 
@@ -30,28 +33,65 @@ export default async function FreeResourcesPage() {
   });
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-10 sm:py-14">
-      <header className="max-w-2xl">
-        <p className="text-xs font-bold uppercase tracking-wider text-primary">
-          Free to download
-        </p>
-        <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
-          Activity sheets and handouts
-        </h1>
-        <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-          Practical things you can print and use at home, put together by a
-          paediatric occupational therapist. Tell us where to send it and
-          it&apos;s yours — no account needed.
-        </p>
-      </header>
+    <div className="sub min-h-screen">
+      <SubmarineHeader />
 
-      {resources.length === 0 ? (
-        <p className="mt-10 rounded-2xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-          Nothing here just yet — check back soon.
-        </p>
-      ) : (
-        <ResourceList resources={resources} />
-      )}
+      <main className="relative overflow-hidden px-5 py-12 sm:px-10 sm:pb-24">
+        <div className="sub-dots pointer-events-none absolute inset-0" aria-hidden />
+        <div
+          className="pointer-events-none absolute -right-[110px] -top-[150px] h-[440px] w-[440px] rounded-full bg-[#FFE1EA]"
+          aria-hidden
+        />
+
+        <div className="relative mx-auto max-w-[1140px]">
+          <div className="mb-14 grid items-center gap-11 lg:grid-cols-[1.05fr_.95fr]">
+            <div>
+              <p className="sub-edge inline-block rounded-full bg-[#FFC93C] px-4 py-2 text-xs font-extrabold uppercase tracking-[1.4px]">
+                Free to download
+              </p>
+              <h1 className="sub-display mt-6 text-[40px] leading-[1.05] tracking-[-1.2px] sm:text-[60px] sm:tracking-[-1.6px]">
+                Activity sheets &amp; handouts
+              </h1>
+              <p className="mt-4 max-w-[520px] text-[17px] font-semibold leading-[1.65] text-[#3D4A6B] sm:text-[18px]">
+                Practical things you can print and use at home, put together by
+                a paediatric occupational therapist. Tell us where to send it
+                and it&apos;s yours — no account needed.
+              </p>
+            </div>
+
+            {/* Only worth offering when there's actually a bundle to send. */}
+            {resources.length > 0 && <BundleSignup count={resources.length} />}
+          </div>
+
+          {resources.length === 0 ? (
+            <p className="sub-edge-lg rounded-[28px] bg-white p-10 text-center text-[17px] font-semibold text-[#6B7794]">
+              Nothing here just yet — check back soon.
+            </p>
+          ) : (
+            <>
+              <ResourceList resources={resources} />
+
+              <div className="mt-9 flex items-center gap-6 rounded-[28px] border-[3px] border-dashed border-[#D9C9AA] bg-white px-7 py-6">
+                <span
+                  className="h-[52px] w-[52px] shrink-0 rounded-full border-[3px] border-[#12235B] bg-[#FFC93C]"
+                  aria-hidden
+                />
+                <div>
+                  <p className="sub-display text-[22px]">
+                    More sheets on the way
+                  </p>
+                  <p className="text-[15px] font-semibold text-[#6B7794]">
+                    New handouts are added regularly — join the bundle list
+                    above and they&apos;ll come to you.
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </main>
+
+      <SubmarineFooter />
     </div>
   );
 }

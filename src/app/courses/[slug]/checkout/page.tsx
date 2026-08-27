@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { courseAccessible } from "@/lib/storefront";
 import { CheckoutView } from "@/components/courses/checkout-view";
+import { SubmarineHeader } from "@/components/storefront/submarine-header";
 
 export const dynamic = "force-dynamic";
 
@@ -93,18 +94,21 @@ export default async function CourseCheckoutPage({
   if (course.modules.length === 0) redirect(`/courses/${course.slug}`);
 
   return (
-    <CheckoutView
-      course={{
-        id: course.id,
-        slug: course.slug,
-        title: course.title,
-        blurb: course.tagline || course.shortDescription || "",
-        duration: course.duration,
-        price: course.price,
-        priceEur: course.priceEur,
-        thumbnailUrl: course.thumbnailUrl || course.heroImageUrl,
-      }}
-      addons={addons}
-    />
+    <div className="sub min-h-screen">
+      <SubmarineHeader />
+      <CheckoutView
+        course={{
+          id: course.id,
+          slug: course.slug,
+          title: course.title,
+          blurb: course.tagline || course.shortDescription || "",
+          duration: course.duration,
+          price: course.price,
+          priceEur: course.priceEur,
+          thumbnailUrl: course.thumbnailUrl || course.heroImageUrl,
+        }}
+        addons={addons}
+      />
+    </div>
   );
 }

@@ -58,11 +58,11 @@ export function BuyPanel({
 
   return (
     <>
-      <div className="rounded-3xl border border-border/80 bg-white p-6 shadow-[var(--shadow-sm)]">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="sub-edge-lg rounded-[30px] bg-white p-7">
+        <p className="text-[13px] font-extrabold uppercase tracking-[1.4px] text-[#6B7794]">
           {isFree ? "Free course" : "One-time purchase"}
         </p>
-        <p className="mt-1 text-4xl font-black">{formatPrice(price)}</p>
+        <p className="sub-display mt-1 text-[42px]">{formatPrice(price)}</p>
         {!isFree && !justEnrolled && (
           <p className="mt-1 text-xs text-muted-foreground">
             Lifetime access. No subscription.
@@ -102,23 +102,24 @@ export function BuyPanel({
             </div>
           </div>
         ) : (
-          <Button
-            className="mt-5 w-full"
-            size="lg"
+          <button
+            type="button"
+            className="sub-display sub-edge-lg sub-press mt-5 w-full rounded-full px-6 py-4 text-xl text-white"
+            style={{ background: "var(--sub-pink)" }}
             onClick={() => router.push(`/courses/${courseSlug}/checkout`)}
           >
             {isFree ? "Enrol for free" : `Buy — ${formatPrice(price)}`}
-          </Button>
+          </button>
         )}
 
-        <ul className="mt-6 space-y-2.5 text-sm">
-          <li className="flex items-center gap-2.5 text-muted-foreground">
-            <Clock className="h-4 w-4 text-primary" />
+        <ul className="mt-6 space-y-2.5 text-[15px] font-semibold">
+          <li className="flex items-center gap-2.5 text-[#3D4A6B]">
+            <Clock className="h-4 w-4 text-[#E71D57]" />
             {duration}
           </li>
           {resources && resources.length > 0 && (
-            <li className="flex items-start gap-2.5 text-muted-foreground">
-              <FileText className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <li className="flex items-start gap-2.5 text-[#3D4A6B]">
+              <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[#E71D57]" />
               <span>
                 Includes{" "}
                 {resources.length === 1
@@ -127,13 +128,13 @@ export function BuyPanel({
               </span>
             </li>
           )}
-          <li className="flex items-center gap-2.5 text-muted-foreground">
-            <RefreshCw className="h-4 w-4 text-primary" />
+          <li className="flex items-center gap-2.5 text-[#3D4A6B]">
+            <RefreshCw className="h-4 w-4 text-[#E71D57]" />
             Work through it at your own pace
           </li>
           {hasCertificate && (
-            <li className="flex items-center gap-2.5 text-muted-foreground">
-              <ShieldCheck className="h-4 w-4 text-primary" />
+            <li className="flex items-center gap-2.5 text-[#3D4A6B]">
+              <ShieldCheck className="h-4 w-4 text-[#E71D57]" />
               Certificate on completion
             </li>
           )}
@@ -142,11 +143,11 @@ export function BuyPanel({
 
       {/* Sticky mobile CTA so the Buy / enrolment confirmation is always
           reachable on a narrow viewport. */}
-      <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-border bg-white/95 px-4 py-3 shadow-[0_-6px_18px_-10px_rgba(0,0,0,0.15)] backdrop-blur md:hidden">
+      <div className="fixed bottom-0 left-0 right-0 z-20 border-t-[3px] border-[#12235B] bg-white px-4 py-3 md:hidden">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
           <div>
-            <p className="text-xs text-muted-foreground">{courseTitle}</p>
-            <p className="text-lg font-black">
+            <p className="text-xs font-bold text-[#6B7794]">{courseTitle}</p>
+            <p className="sub-display text-xl">
               {justEnrolled ? "Enrolled" : formatPrice(price)}
             </p>
           </div>
@@ -158,9 +159,14 @@ export function BuyPanel({
               Sign in
             </Link>
           ) : (
-            <Button onClick={() => router.push(`/courses/${courseSlug}/checkout`)}>
+            <button
+              type="button"
+              className="sub-edge sub-press rounded-full px-5 py-2.5 text-[15px] font-extrabold text-white"
+              style={{ background: "var(--sub-pink)" }}
+              onClick={() => router.push(`/courses/${courseSlug}/checkout`)}
+            >
               {isFree ? "Enrol free" : "Buy"}
-            </Button>
+            </button>
           )}
         </div>
       </div>

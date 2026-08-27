@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { SubmarineHeader } from "@/components/storefront/submarine-header";
+import { SubmarineFooter } from "@/components/storefront/submarine-footer";
 import {
   SubmarineCourseCard,
   type SubCourse,
@@ -36,8 +37,6 @@ export default async function Home() {
     where: { id: "default" },
     select: {
       showCoursesNav: true,
-      showSignIn: true,
-      showCreateAccount: true,
       testimonials: true,
     },
   });
@@ -49,8 +48,6 @@ export default async function Home() {
       }>)
     : [];
   const showCoursesNav = storefrontConfig?.showCoursesNav ?? true;
-  const showSignIn = storefrontConfig?.showSignIn ?? true;
-  const showCreateAccount = storefrontConfig?.showCreateAccount ?? true;
 
   const allCourses = await prisma.course.findMany({
     where: { status: "AVAILABLE" },
@@ -518,35 +515,7 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ── Footer ─────────────────────────────────────────────────── */}
-      <footer className="border-t-2 border-[#F2E4CD] px-5 py-8 sm:px-10">
-        <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-4 text-[15px] font-bold text-[#6B7794]">
-          <p>© {new Date().getFullYear()} The Sensory Submarine</p>
-          <div className="flex flex-wrap items-center gap-5">
-            {showCoursesNav && (
-              <Link href="/courses" className="hover:text-[#12235B]">
-                Courses
-              </Link>
-            )}
-            <Link href="/book" className="hover:text-[#12235B]">
-              Book a session
-            </Link>
-            <Link href="/resources" className="hover:text-[#12235B]">
-              Free resources
-            </Link>
-            {showSignIn && (
-              <Link href="/login" className="hover:text-[#12235B]">
-                Sign in
-              </Link>
-            )}
-            {showCreateAccount && (
-              <Link href="/register" className="hover:text-[#12235B]">
-                Create account
-              </Link>
-            )}
-          </div>
-        </div>
-      </footer>
+      <SubmarineFooter />
     </div>
   );
 }

@@ -61,9 +61,15 @@ export function SubmarineCourseCard({ course }: { course: SubCourse }) {
             {blurb}
           </p>
         )}
+        {/* Only the parts that exist — a course with no duration set was
+            printing a stranded "·". */}
         <p className="mt-2 text-sm font-bold text-[#6B7794]">
-          {modules > 0 ? `${modules} module${modules === 1 ? "" : "s"} · ` : ""}
-          {course.duration}
+          {[
+            modules > 0 ? `${modules} module${modules === 1 ? "" : "s"}` : "",
+            course.duration,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
         <div className="mt-4 flex items-baseline justify-between gap-3 border-t-2 border-[#F2E9DA] pt-4">
           <span className="sub-display text-2xl">

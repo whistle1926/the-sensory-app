@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { StorefrontHeader } from "@/components/courses/storefront-header";
+import { SubmarineHeader } from "@/components/storefront/submarine-header";
 import { BuyPanel } from "@/components/courses/buy-panel";
 import { RichTextView } from "@/components/ui/rich-text-view";
 import { richTextToPlain } from "@/lib/rich-text";
@@ -84,7 +84,7 @@ export function CourseDetailView({
   const enrolled = course._count?.enrollments ?? 0;
 
   return (
-    <div className="min-h-screen bg-[#FBF8F3]">
+    <div className="sub min-h-screen">
       {previewing && (
         <div className="sticky top-0 z-50 border-b border-amber-500/40 bg-amber-100 px-4 py-2.5 text-center text-sm text-amber-900 dark:bg-amber-950/60 dark:text-amber-200">
           <strong>Preview</strong> — this is what parents will see. It is{" "}
@@ -94,13 +94,13 @@ export function CourseDetailView({
           <strong>Sell this one now</strong>{" "}in the editor.
         </div>
       )}
-      <StorefrontHeader />
+      <SubmarineHeader />
 
       {showCoursesLink && (
-        <div className="mx-auto max-w-6xl px-5 py-6">
+        <div className="mx-auto max-w-[1240px] px-5 py-6 sm:px-10">
           <Link
             href="/courses"
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            className="inline-flex items-center gap-1.5 text-[15px] font-bold text-[#6B7794] hover:text-[#12235B]"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to courses
@@ -109,10 +109,10 @@ export function CourseDetailView({
       )}
 
       {/* Hero */}
-      <section className="mx-auto max-w-6xl px-5 pb-8">
+      <section className="mx-auto max-w-[1240px] px-5 pb-10 sm:px-10">
         <div className="grid gap-8 md:grid-cols-[1.2fr_1fr]">
           <div>
-            <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-primary">
+            <div className="flex flex-wrap items-center gap-2 text-[13px] font-extrabold uppercase tracking-[1.4px] text-[#E71D57]">
               <span>{course.audience}</span>
               {course.level && (
                 <>
@@ -124,18 +124,18 @@ export function CourseDetailView({
                 <Chip tone="warn">Bestseller</Chip>
               )}
             </div>
-            <h1 className="mt-3 text-4xl font-black tracking-tight sm:text-5xl">
+            <h1 className="sub-display mt-4 text-[38px] leading-[1.05] tracking-[-1.2px] sm:text-[52px]">
               {course.title}
             </h1>
             {course.tagline && (
-              <p className="mt-3 text-lg font-medium text-primary">
+              <p className="mt-3 text-lg font-bold text-[#E71D57]">
                 {course.tagline}
               </p>
             )}
-            <p className="mt-4 text-lg text-muted-foreground">
+            <p className="mt-4 text-[17px] font-semibold leading-relaxed text-[#3D4A6B] sm:text-lg">
               {course.shortDescription ?? richTextToPlain(course.description ?? "")}
             </p>
-            <div className="mt-6 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+            <div className="mt-6 flex flex-wrap items-center gap-4 text-[15px] font-bold text-[#6B7794]">
               <span className="inline-flex items-center gap-1.5">
                 <Clock className="h-4 w-4" />
                 {course.duration}
@@ -153,7 +153,7 @@ export function CourseDetailView({
               )}
             </div>
           </div>
-          <div className="overflow-hidden rounded-3xl border border-border bg-white shadow-[var(--shadow-md)]">
+          <div className="sub-edge-lg overflow-hidden rounded-[30px] bg-white">
             {heroImage ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
@@ -165,8 +165,8 @@ export function CourseDetailView({
                 className="aspect-video w-full object-cover"
               />
             ) : (
-              <div className="flex aspect-video items-center justify-center bg-gradient-to-br from-primary/10 to-primary/30">
-                <span className="text-5xl font-black text-primary/40">
+              <div className="flex aspect-video items-center justify-center bg-[#FFE9A8]">
+                <span className="sub-display text-5xl text-[#12235B]/40">
                   {course.title.slice(0, 2).toUpperCase()}
                 </span>
               </div>
@@ -176,17 +176,17 @@ export function CourseDetailView({
       </section>
 
       {/* Main content + sticky buy panel */}
-      <div className="mx-auto grid max-w-6xl gap-10 px-5 pb-20 md:grid-cols-[1.5fr_1fr]">
+      <div className="mx-auto grid max-w-[1240px] gap-10 px-5 pb-20 sm:px-10 md:grid-cols-[1.5fr_1fr]">
         <main className="space-y-12">
           {/* Who this is for — only rendered when populated. Sits above
               "What you'll learn" so visitors immediately know whether
               the course is for them. */}
           {course.audienceFor && course.audienceFor.trim() && (
-            <section className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-primary">
+            <section className="rounded-[26px] border-[3px] border-[#F3DFA6] bg-[#FFF3D2] p-6">
+              <h2 className="text-[13px] font-extrabold uppercase tracking-[1.4px] text-[#12235B]">
                 Who this is for
               </h2>
-              <p className="mt-2 text-base leading-relaxed">
+              <p className="mt-2 text-base font-semibold leading-relaxed">
                 {course.audienceFor}
               </p>
             </section>
@@ -195,17 +195,17 @@ export function CourseDetailView({
           {/* Features / What you'll learn */}
           {features.length > 0 && (
             <section>
-              <h2 className="text-2xl font-bold tracking-tight">What you'll learn</h2>
+              <h2 className="sub-display text-[28px] tracking-[-.5px]">What you'll learn</h2>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {features.map((f, i) => (
                   <div
                     key={i}
-                    className="flex items-start gap-3 rounded-2xl border border-border/70 bg-white p-4"
+                    className="flex items-start gap-3 rounded-[22px] border-[3px] border-[#12235B] bg-white p-4"
                   >
-                    <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700">
+                    <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#17B0A7] text-white">
                       <Check className="h-3.5 w-3.5" />
                     </span>
-                    <p className="text-sm">{f}</p>
+                    <p className="text-[15px] font-semibold">{f}</p>
                   </div>
                 ))}
               </div>
@@ -215,7 +215,7 @@ export function CourseDetailView({
           {/* Description */}
           {course.description && (
             <section>
-              <h2 className="text-2xl font-bold tracking-tight">About this course</h2>
+              <h2 className="sub-display text-[28px] tracking-[-.5px]">About this course</h2>
               <RichTextView
                 html={course.description}
                 className="mt-3 text-[15px] leading-relaxed text-muted-foreground"
@@ -226,7 +226,7 @@ export function CourseDetailView({
           {/* Curriculum */}
           {course.modules.length > 0 && (
             <section>
-              <h2 className="text-2xl font-bold tracking-tight">Curriculum</h2>
+              <h2 className="sub-display text-[28px] tracking-[-.5px]">Curriculum</h2>
               <p className="mt-2 text-sm text-muted-foreground">
                 {course.modules.length} module
                 {course.modules.length === 1 ? "" : "s"} — unlocks in order as
@@ -236,9 +236,9 @@ export function CourseDetailView({
                 {course.modules.map((m, i) => (
                   <li
                     key={m.id}
-                    className="flex items-center gap-4 rounded-2xl border border-border/70 bg-white px-4 py-3"
+                    className="flex items-center gap-4 rounded-[22px] border-[3px] border-[#12235B] bg-white px-4 py-3"
                   >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                    <span className="sub-display flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FFC93C] text-sm">
                       {i + 1}
                     </span>
                     <div className="flex-1">
@@ -259,8 +259,8 @@ export function CourseDetailView({
           {/* Instructor */}
           {course.instructorName && (
             <section>
-              <h2 className="text-2xl font-bold tracking-tight">Your instructor</h2>
-              <div className="mt-4 flex flex-col gap-4 rounded-2xl border border-border/70 bg-white p-5 sm:flex-row sm:items-start">
+              <h2 className="sub-display text-[28px] tracking-[-.5px]">Your instructor</h2>
+              <div className="sub-edge mt-4 flex flex-col gap-4 rounded-[26px] bg-white p-6 sm:flex-row sm:items-start">
                 {course.instructorImageUrl ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
@@ -293,14 +293,14 @@ export function CourseDetailView({
           {/* Testimonials */}
           {testimonials.length > 0 && (
             <section>
-              <h2 className="text-2xl font-bold tracking-tight">What learners say</h2>
+              <h2 className="sub-display text-[28px] tracking-[-.5px]">What learners say</h2>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 {testimonials.slice(0, 4).map((t, i) => (
                   <blockquote
                     key={i}
-                    className="rounded-2xl border border-border/70 bg-white p-5"
+                    className="sub-edge rounded-[26px] bg-white p-6"
                   >
-                    <Quote className="h-5 w-5 text-primary/40" />
+                    <Quote className="h-5 w-5 text-[#FFC93C]" />
                     <p className="mt-2 text-sm leading-relaxed">
                       {t.quote ?? ""}
                     </p>

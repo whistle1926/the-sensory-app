@@ -126,21 +126,21 @@ export function CheckoutView({
   }
 
   const field =
-    "h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30";
+    "w-full rounded-full border-[3px] border-[#D9D2C4] bg-[#FFFCF6] px-4 py-3 text-[15px] font-semibold text-[#12235B] outline-none placeholder:text-[#9AA3B8] focus:border-[#12235B] focus:bg-white";
 
   return (
     /* Top of the page is kept deliberately tight. The add-ons are the part
        most people never scroll to, so the heading, the back link and the
        "what you're buying" row are compressed to lift the first offer — and
        its Add button — above the fold on a laptop. */
-    <div className="mx-auto max-w-5xl px-4 py-5 sm:py-7">
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:py-8">
       <div className="flex items-baseline gap-3">
-        <h1 className="text-2xl font-black tracking-tight sm:text-3xl">
+        <h1 className="sub-display text-[30px] tracking-[-.8px] sm:text-[38px]">
           Checkout
         </h1>
         <Link
           href={`/courses/${course.slug}`}
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          className="inline-flex items-center gap-1 text-[13px] font-bold text-[#6B7794] hover:text-[#12235B]"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           Back to the course
@@ -150,7 +150,7 @@ export function CheckoutView({
       <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_380px]">
         {/* ── Left: what you're buying, and what else you could add ── */}
         <div className="space-y-4">
-          <section className="rounded-2xl border border-border bg-card p-4">
+          <section className="sub-edge rounded-[26px] bg-white p-5">
             <div className="flex items-center gap-3">
               {course.thumbnailUrl && (
                 /* eslint-disable-next-line @next/next/no-img-element */
@@ -161,10 +161,12 @@ export function CheckoutView({
                 />
               )}
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <p className="text-[11px] font-extrabold uppercase tracking-[1.2px] text-[#6B7794]">
                   Your order
                 </p>
-                <p className="truncate font-bold leading-snug">{course.title}</p>
+                <p className="sub-display truncate text-lg leading-snug">
+                  {course.title}
+                </p>
               </div>
               <p className="shrink-0 font-bold">
                 {formatPrice(lineTotal(course), currency)}
@@ -173,11 +175,11 @@ export function CheckoutView({
           </section>
 
           {addons.length > 0 && (
-            <section className="rounded-2xl border-2 border-primary/30 bg-primary/[0.03] p-4">
-              <h2 className="text-base font-black">
+            <section className="rounded-[26px] border-[3px] border-[#F3DFA6] bg-[#FFF3D2] p-5">
+              <h2 className="sub-display text-[22px]">
                 Parents usually add these too
               </h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">
+              <p className="mt-0.5 text-[15px] font-semibold text-[#6B7794]">
                 Same order, one payment — and yours to keep just the same.
               </p>
               <div className="mt-3 space-y-3">
@@ -187,8 +189,8 @@ export function CheckoutView({
                   return (
                     <div
                       key={a.id}
-                      className={`overflow-hidden rounded-2xl border-2 bg-card transition ${
-                        on ? "border-primary shadow-[var(--shadow-sm)]" : "border-border"
+                      className={`overflow-hidden rounded-[24px] border-[3px] border-[#12235B] bg-white transition ${
+                        on ? "shadow-[5px_5px_0_#E71D57]" : "shadow-[5px_5px_0_#FFC93C]"
                       }`}
                     >
                       <div className="flex gap-4 p-4">
@@ -202,15 +204,15 @@ export function CheckoutView({
                         )}
                         <div className="min-w-0 flex-1">
                           {a.headline && (
-                            <p className="text-base font-black leading-snug">
+                            <p className="sub-display text-[20px] leading-snug">
                               {a.headline}
                             </p>
                           )}
                           <p
                             className={
                               a.headline
-                                ? "mt-0.5 text-xs font-semibold uppercase tracking-wider text-primary"
-                                : "text-base font-black leading-snug"
+                                ? "mt-0.5 text-xs font-extrabold uppercase tracking-[1.2px] text-[#E71D57]"
+                                : "sub-display text-[20px] leading-snug"
                             }
                           >
                             {a.title}
@@ -239,18 +241,14 @@ export function CheckoutView({
                       <button
                         type="button"
                         onClick={() => toggle(a.id)}
-                        className={`flex w-full items-center justify-between gap-3 border-t px-4 py-3 text-left transition ${
-                          on
-                            ? "border-primary/30 bg-primary/10"
-                            : "border-border bg-muted/30 hover:bg-muted/60"
+                        className={`flex w-full items-center justify-between gap-3 border-t-[3px] border-[#12235B] px-4 py-3.5 text-left transition ${
+                          on ? "bg-[#FFE7EE]" : "bg-[#FFF3D2] hover:bg-[#FFE9A8]"
                         }`}
                       >
                         <span className="flex items-center gap-2 text-sm font-bold">
                           <span
-                            className={`flex h-5 w-5 items-center justify-center rounded-md border ${
-                              on
-                                ? "border-primary bg-primary text-primary-foreground"
-                                : "border-input bg-background"
+                            className={`flex h-5 w-5 items-center justify-center rounded-md border-2 border-[#12235B] ${
+                              on ? "bg-[#E71D57] text-white" : "bg-white"
                             }`}
                           >
                             {on ? (
@@ -270,8 +268,8 @@ export function CheckoutView({
             </section>
           )}
 
-          <section className="rounded-2xl border border-border bg-card p-5">
-            <h2 className="text-sm font-bold">Your details</h2>
+          <section className="sub-edge rounded-[26px] bg-white p-6">
+            <h2 className="sub-display text-xl">Your details</h2>
             {signedIn ? (
               <p className="mt-3 rounded-xl bg-muted/40 p-3 text-sm">
                 <span className="font-semibold">{session?.user?.email}</span>
@@ -305,8 +303,8 @@ export function CheckoutView({
 
         {/* ── Right: the total and the button ───────────────────────── */}
         <aside className="lg:sticky lg:top-6 lg:self-start">
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
-            <h2 className="text-sm font-bold">Summary</h2>
+          <div className="sub-edge-lg rounded-[30px] bg-white p-6">
+            <h2 className="sub-display text-xl">Summary</h2>
 
             <div className="mt-3 space-y-2 text-sm">
               {basket.map((i) => (
@@ -319,9 +317,11 @@ export function CheckoutView({
               ))}
             </div>
 
-            <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
-              <span className="font-bold">Total</span>
-              <span className="text-2xl font-black">{formatPrice(total, currency)}</span>
+            <div className="mt-3 flex items-center justify-between border-t-2 border-[#F2E9DA] pt-3">
+              <span className="font-extrabold">Total</span>
+              <span className="sub-display text-[30px]">
+                {formatPrice(total, currency)}
+              </span>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
               One-time payment. Lifetime access, no subscription.
@@ -329,20 +329,20 @@ export function CheckoutView({
 
             {euroPossible && (
               <div className="mt-4">
-                <p className="mb-1.5 text-xs text-muted-foreground">
+                <p className="mb-2 text-[13px] font-semibold text-[#6B7794]">
                   Paying from an Irish (euro) account? A sterling request
                   can&apos;t be paid from a euro account.
                 </p>
-                <div className="inline-flex rounded-lg border border-border p-0.5">
+                <div className="inline-flex rounded-full border-[3px] border-[#12235B] p-1">
                   {(["GBP", "EUR"] as Currency[]).map((c) => (
                     <button
                       key={c}
                       type="button"
                       onClick={() => setCurrency(c)}
-                      className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${
+                      className={`rounded-full px-4 py-1.5 text-[13px] font-extrabold transition ${
                         currency === c
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:bg-muted"
+                          ? "bg-[#12235B] text-white"
+                          : "text-[#6B7794] hover:bg-[#FFF3D2]"
                       }`}
                     >
                       Pay in {CURRENCY_SYMBOL[c]}
@@ -362,7 +362,8 @@ export function CheckoutView({
               type="button"
               onClick={submit}
               disabled={submitting}
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+              className="sub-display sub-edge-lg sub-press mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-4 text-xl text-white disabled:opacity-60"
+              style={{ background: "var(--sub-pink)" }}
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
               {total === 0 ? "Enrol now" : `Pay ${formatPrice(total, currency)}`}

@@ -20,7 +20,7 @@ import {
   ArrowLeft,
   MapPin,
 } from "lucide-react";
-import { StorefrontHeader } from "@/components/courses/storefront-header";
+import { SubmarineHeader } from "@/components/storefront/submarine-header";
 import { DEPOSIT_SERVICES, type TermsClause } from "@/lib/booking-terms";
 import { localDateKey } from "@/lib/date-key";
 
@@ -71,6 +71,16 @@ const COLOUR_PALETTE = [
   "oklch(0.50 0.18 200)",
 ];
 
+/**
+ * Pence to a price a person would write. Dividing by 100 alone turned
+ * 8940 into "£89.4", which reads like a typo on a price tag.
+ */
+function formatPrice(pence: number): string {
+  if (pence === 0) return "Free";
+  const pounds = pence / 100;
+  return `£${Number.isInteger(pounds) ? pounds : pounds.toFixed(2)}`;
+}
+
 function hashCode(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
@@ -104,7 +114,7 @@ function adaptService(
     duration: row.durationLabel || `${row.durationMinutes} minutes`,
     durationMins: row.durationMinutes,
     price: row.pricePence,
-    priceLabel: row.pricePence === 0 ? "Free" : `\u00a3${row.pricePence / 100}`,
+    priceLabel: formatPrice(row.pricePence),
     description: row.description || row.tagline || "",
     category: row.category || "",
     mode: row.mode || "in_person",
@@ -190,8 +200,8 @@ export default function BookingPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-background">
-          <div className="mx-auto max-w-5xl p-10 text-center text-sm text-muted-foreground">
+        <div className="sub min-h-screen">
+          <div className="mx-auto max-w-5xl p-10 text-center text-sm font-semibold text-[#6B7794]">
             Loading booking…
           </div>
         </div>
@@ -491,8 +501,15 @@ function BookingPageInner() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <StorefrontHeader />
+    <div className="sub relative min-h-screen overflow-hidden">
+      <SubmarineHeader />
+      {/* Same ground as the rest of the storefront: dots, and a couple of
+          soft shapes behind the content. */}
+      <div className="sub-dots pointer-events-none absolute inset-x-0 top-0 h-[900px]" aria-hidden />
+      <div
+        className="pointer-events-none absolute -left-[120px] top-[60px] h-[420px] w-[420px] rounded-full bg-[#FFE9A8]"
+        aria-hidden
+      />
 
       {/* Portal shortcut banner — only shown to signed-in CLIENTs so they
           can pop back to their portal surface without losing the browse. */}
@@ -510,81 +527,67 @@ function BookingPageInner() {
         </div>
       )}
 
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+      <main className="relative mx-auto max-w-[1080px] px-4 py-10 sm:px-6">
         {/* ---- Progress indicator (hidden on the confirmation screen) ---- */}
         {step !== "confirmed" && (
-          <div className="mx-auto mb-8 max-w-lg">
-            <ol className="flex items-center gap-2 text-xs font-semibold">
-              {(
-                [
-                  { key: "service", label: "Service" },
-                  { key: "datetime", label: "Date & time" },
-                  { key: "details", label: "Your details" },
-                ] as const
-              ).map((s, i, arr) => {
-                // The location-picker is part of choosing a service, so it
-                // shares the "Service" progress dot.
-                const progressStep = step === "location" ? "service" : step;
-                const currentIdx = arr.findIndex((x) => x.key === progressStep);
-                const thisIdx = i;
-                const state =
-                  thisIdx < currentIdx
-                    ? "done"
-                    : thisIdx === currentIdx
-                      ? "current"
-                      : "upcoming";
-                return (
-                  <li key={s.key} className="flex flex-1 items-center gap-2">
+          <ol className="mb-11 flex flex-wrap items-center justify-center gap-0">
+            {(
+              [
+                { key: "service", label: "Service" },
+                { key: "datetime", label: "Date & time" },
+                { key: "details", label: "Your details" },
+              ] as const
+            ).map((s, i, arr) => {
+              // The location picker is part of choosing a service, so it
+              // shares the "Service" pill.
+              const progressStep = step === "location" ? "service" : step;
+              const currentIdx = arr.findIndex((x) => x.key === progressStep);
+              const done = i < currentIdx;
+              const current = i === currentIdx;
+              return (
+                <li key={s.key} className="flex items-center">
+                  <span
+                    className={`flex items-center gap-3 rounded-full py-2.5 pl-3 pr-5 ${
+                      done || current
+                        ? "sub-edge bg-[#FFC93C]"
+                        : "border-[3px] border-[#E1D5C0] bg-white"
+                    }`}
+                  >
                     <span
-                      className={
-                        state === "done"
-                          ? "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground"
-                          : state === "current"
-                            ? "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground ring-4 ring-primary/20"
-                            : "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-bold text-muted-foreground"
-                      }
+                      className={`sub-display grid h-[30px] w-[30px] place-items-center rounded-full text-base ${
+                        done || current
+                          ? "bg-[#12235B] text-[#FFC93C]"
+                          : "bg-[#F1E7D6] text-[#9AA3B8]"
+                      }`}
                     >
-                      {state === "done" ? (
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                      ) : (
-                        i + 1
-                      )}
+                      {done ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
                     </span>
                     <span
-                      className={
-                        state === "upcoming"
-                          ? "text-muted-foreground hidden sm:inline"
-                          : "text-foreground hidden sm:inline"
-                      }
+                      className={`text-[15px] font-extrabold ${
+                        done || current ? "" : "text-[#9AA3B8]"
+                      }`}
                     >
                       {s.label}
                     </span>
-                    {i < arr.length - 1 && (
-                      <span
-                        className={
-                          state === "done"
-                            ? "h-px flex-1 bg-primary"
-                            : "h-px flex-1 bg-border"
-                        }
-                        aria-hidden
-                      />
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
-          </div>
+                  </span>
+                  {i < arr.length - 1 && (
+                    <span className="h-1 w-6 bg-[#E7D9C0] sm:w-[46px]" aria-hidden />
+                  )}
+                </li>
+              );
+            })}
+          </ol>
         )}
 
         {/* ------ STEP: SERVICE ------ */}
         {step === "service" && (
           <div className="space-y-8">
             <div className="text-center">
-              <h1 className="text-3xl font-bold tracking-tight">
-                Book a Session
+              <h1 className="sub-display text-[40px] tracking-[-1.4px] sm:text-[58px]">
+                Book a session
               </h1>
-              <p className="mt-2 text-muted-foreground">
-                Select a service to get started
+              <p className="mt-2.5 text-[18px] font-semibold text-[#5A6785]">
+                Pick what you need — we&apos;ll find you a time next.
               </p>
             </div>
 
@@ -608,55 +611,48 @@ function BookingPageInner() {
                   <button
                     type="button"
                     onClick={() => setStep("location")}
-                    className="group relative w-full overflow-hidden rounded-2xl border-2 border-primary/30 bg-primary/[0.03] p-5 text-left shadow-[var(--shadow-sm)] card-lift hover:border-primary"
+                    className="sub-press relative w-full overflow-hidden rounded-[34px] border-[3px] border-[#0A1740] bg-[#12235B] p-7 text-left shadow-[8px_8px_0_#FFC93C] sm:p-8"
                   >
-                    <div className="flex items-start gap-4">
-                      <div
-                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-[var(--shadow-glow)]"
-                        style={{ backgroundColor: "oklch(0.55 0.20 264)" }}
-                      >
-                        <MapPin className="h-6 w-6 text-white" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <span className="mb-1.5 inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                    <span
+                      className="pointer-events-none absolute -right-[50px] -top-[70px] h-[240px] w-[240px] rounded-full"
+                      style={{ background: "rgba(255,201,60,.16)" }}
+                      aria-hidden
+                    />
+                    <span className="relative grid items-center gap-8 md:grid-cols-[1fr_auto]">
+                      <span className="block">
+                        <span className="inline-block rounded-full bg-[#FFC93C] px-4 py-1.5 text-xs font-extrabold uppercase tracking-[1.4px] text-[#12235B]">
                           Most requested
                         </span>
-                        <h3 className="text-lg font-bold">
+                        <span className="sub-display mb-1.5 mt-3.5 block text-[26px] text-white sm:text-[34px]">
                           Face to Face OT Assessment
-                        </h3>
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                          {assessmentPriceLabel && (
-                            <span className="font-semibold text-primary">
-                              {assessmentPriceLabel}
-                            </span>
-                          )}
-                          <span className="text-border">|</span>
-                          <span>
+                        </span>
+                        <span className="block text-base font-bold text-[#FFC93C]">
+                          {assessmentPriceLabel}
+                          <span className="font-semibold text-[#8DA0D0]">
+                            {assessmentPriceLabel ? " · " : ""}
                             {locationServices.length} clinic location
                             {locationServices.length === 1 ? "" : "s"}
                           </span>
-                        </div>
-                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                        </span>
+                        <span className="mb-5 mt-3.5 block max-w-[560px] text-base font-semibold leading-relaxed text-[#C6D0EA]">
                           A full in-person occupational therapy assessment.
                           Choose the clinic nearest you to see available dates.
-                        </p>
-                        <div className="mt-3 flex flex-wrap gap-1.5">
+                        </span>
+                        <span className="flex flex-wrap gap-2.5">
                           {locationServices.map((s) => (
                             <span
                               key={s.id}
-                              className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-foreground shadow-[var(--shadow-sm)]"
+                              className="rounded-full border-[3px] border-[#0A1740] bg-white px-4 py-2 text-sm font-extrabold"
                             >
-                              <MapPin className="h-3 w-3 text-primary" />
                               {s.locationLabel}
                             </span>
                           ))}
-                        </div>
-                        <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary">
-                          Choose a location
-                          <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                         </span>
-                      </div>
-                    </div>
+                      </span>
+                      <span className="sub-display justify-self-start whitespace-nowrap rounded-full border-[3px] border-[#0A1740] bg-[#E71D57] px-7 py-4 text-[19px] text-white shadow-[5px_5px_0_#0A1740] md:justify-self-end">
+                        Choose a location →
+                      </span>
+                    </span>
                   </button>
                 )}
 
@@ -676,59 +672,62 @@ function BookingPageInner() {
           <div className="space-y-6">
             <button
               onClick={() => setStep("service")}
-              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="inline-flex items-center gap-1.5 text-[15px] font-bold text-[#6B7794] hover:text-[#12235B]"
             >
               <ArrowLeft className="h-4 w-4" />
               Back to services
             </button>
 
             <div className="text-center">
-              <h1 className="text-2xl font-bold tracking-tight">
+              <h1 className="sub-display text-[34px] tracking-[-1px] sm:text-[44px]">
                 Face to Face OT Assessment
               </h1>
-              <p className="mt-2 text-muted-foreground">
-                Choose your nearest clinic location to see available dates
+              <p className="mt-2.5 text-[17px] font-semibold text-[#5A6785]">
+                Choose your nearest clinic to see available dates.
               </p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              {locationServices.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => chooseService(s.id)}
-                  className="group flex flex-col rounded-2xl border-2 border-border bg-card p-5 text-left shadow-[var(--shadow-sm)] card-lift hover:border-primary"
-                >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-[var(--shadow-glow)]"
-                      style={{ backgroundColor: s.colour }}
-                    >
-                      <MapPin className="h-5 w-5 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold">
-                        {s.locationLabel ?? s.title}
-                      </h3>
-                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{s.duration}</span>
-                        <span className="text-border">|</span>
-                        <span className="font-semibold text-primary">
-                          {s.priceLabel}
+            <div className="grid items-start gap-6 sm:grid-cols-2">
+              {locationServices.map((s, i) => {
+                const accent = ["#17B0A7", "#E71D57", "#FFC93C"][i % 3];
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => chooseService(s.id)}
+                    className="sub-press flex flex-col rounded-[30px] border-[3px] border-[#12235B] bg-white p-7 text-left"
+                    style={{ boxShadow: `6px 6px 0 ${accent}` }}
+                  >
+                    <span className="flex items-center gap-3.5">
+                      <span
+                        className="flex h-[54px] w-[54px] shrink-0 items-center justify-center rounded-[18px] border-[3px] border-[#12235B]"
+                        style={{ backgroundColor: accent }}
+                      >
+                        <MapPin className="h-6 w-6 text-white" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="sub-display block text-[22px] leading-tight">
+                          {s.locationLabel ?? s.title}
                         </span>
-                      </div>
-                    </div>
-                  </div>
+                        <span className="block text-[15px] font-bold text-[#E71D57]">
+                          {s.priceLabel}
+                          <span className="font-semibold text-[#6B7794]">
+                            {" · "}
+                            {s.duration}
+                          </span>
+                        </span>
+                      </span>
+                    </span>
 
-                  {/* Therapist profile — who you'll be seeing at this clinic. */}
-                  <TherapistMini service={s} />
+                    {/* Who you'd be seeing at this clinic. */}
+                    <TherapistMini service={s} />
 
-                  <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary">
-                    See dates
-                    <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                  </span>
-                </button>
-              ))}
+                    <span className="mt-6 block rounded-full border-[3px] border-[#12235B] bg-[#FFC93C] px-6 py-3.5 text-center text-base font-extrabold">
+                      See dates
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -753,16 +752,18 @@ function BookingPageInner() {
             </button>
 
             {service && (
-              <div className="flex items-center gap-3 rounded-xl bg-secondary/50 p-3">
+              <div className="sub-edge flex items-center gap-3.5 rounded-[22px] bg-white p-4">
                 <div
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border-[3px] border-[#12235B]"
                   style={{ backgroundColor: service.colour }}
                 >
-                  <service.icon className="h-4 w-4 text-white" />
+                  <service.icon className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold">{service.title}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="sub-display text-[18px] leading-tight">
+                    {service.title}
+                  </p>
+                  <p className="text-[13px] font-bold text-[#6B7794]">
                     {service.duration} &middot; {service.priceLabel}
                   </p>
                 </div>
@@ -770,7 +771,7 @@ function BookingPageInner() {
             )}
 
             <div>
-              <h2 className="text-xl font-bold">Choose a date and time</h2>
+              <h2 className="sub-display text-2xl">Choose a date and time</h2>
               <p className="mt-1 text-xs text-muted-foreground">
                 All times shown in your local timezone. Sessions are held over
                 secure video call — you&apos;ll receive a link in your
@@ -779,7 +780,7 @@ function BookingPageInner() {
             </div>
 
             {/* Week navigation */}
-            <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-sm)] overflow-hidden">
+            <div className="sub-edge overflow-hidden rounded-[26px] bg-white">
               {/* Week header */}
               <div className="flex items-center justify-between border-b border-border px-4 py-3">
                 <button
@@ -951,7 +952,7 @@ function BookingPageInner() {
                 (A single appointment jumps straight to the details form,
                 so this never shows for one.) */}
             {isBlock && (
-              <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
+              <div className="sub-edge rounded-[26px] bg-white p-6">
                 <p className="text-sm font-semibold">
                   Choose {minSessions}
                   {maxSessions > minSessions ? `–${maxSessions}` : ""}{" "}
@@ -1030,7 +1031,7 @@ function BookingPageInner() {
             {/* Summary — lists every appointment (a block has 2-5) and the
                 total actually being charged (per-session price × sessions). */}
             {service && chosenSlots.length > 0 && (
-              <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
+              <div className="sub-edge rounded-[26px] bg-white p-6">
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                   Booking Summary
                 </h3>
@@ -1076,7 +1077,7 @@ function BookingPageInner() {
               </div>
             )}
 
-            <h2 className="text-xl font-bold">Your details</h2>
+            <h2 className="sub-display text-2xl">Your details</h2>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
@@ -1228,7 +1229,7 @@ function BookingPageInner() {
             </p>
 
             {service && chosenSlots.length > 0 && (
-              <div className="rounded-2xl border border-border bg-card p-5 text-left shadow-[var(--shadow-sm)]">
+              <div className="sub-edge rounded-[26px] bg-white p-6 text-left">
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Service</span>
@@ -1283,16 +1284,16 @@ function BookingPageInner() {
 
       {/* Parent testimonials — social proof before/after booking. */}
       {testimonials.length > 0 && (
-        <section className="border-t border-border/50 bg-muted/20 py-12">
-          <div className="mx-auto max-w-5xl px-4">
-            <h2 className="text-center text-lg font-bold tracking-tight sm:text-xl">
+        <section className="relative border-t-2 border-[#F2E4CD] py-14">
+          <div className="mx-auto max-w-[1080px] px-4">
+            <h2 className="sub-display text-center text-[30px] tracking-[-.8px] sm:text-[40px]">
               What families say
             </h2>
-            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-8 grid items-start gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {testimonials.map((t, i) => (
                 <figure
                   key={i}
-                  className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]"
+                  className="sub-edge flex flex-col rounded-[26px] bg-white p-6"
                 >
                   <div className="mb-2 text-amber-400" aria-hidden>
                     ★★★★★
@@ -1389,17 +1390,23 @@ function ServicePicker({
   const groups = Array.from(grouped.entries());
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-11">
       {groups.map(([category, items]) => (
         <div key={category}>
-          {groups.length > 1 && (
-            <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-              {category}
-            </h2>
-          )}
-          <div className="grid gap-4 sm:grid-cols-2">
-            {items.map((s) => {
+          {/* A section rule in the storefront's voice, rather than a
+              whispered uppercase label. */}
+          <div className="mb-5 flex items-center gap-3.5">
+            <span className="sub-display text-2xl">
+              {groups.length > 1 ? category : "Parents & individuals"}
+            </span>
+            <span className="h-[3px] flex-1 bg-[#EADCC4]" aria-hidden />
+          </div>
+          <div className="grid items-start gap-6 lg:grid-cols-2">
+            {items.map((s, i) => {
               const Icon = s.icon;
+              // The three accents take turns, so a column of cards doesn't
+              // come out all one colour.
+              const accent = ["#17B0A7", "#E71D57", "#FFC93C"][i % 3];
               return (
                 <div
                   key={s.id}
@@ -1412,69 +1419,75 @@ function ServicePicker({
                       onSelect(s.id);
                     }
                   }}
-                  className="group relative cursor-pointer rounded-2xl border-2 border-border bg-card p-5 text-left shadow-[var(--shadow-sm)] card-lift hover:border-primary"
+                  className="sub-press flex cursor-pointer flex-col rounded-[30px] border-[3px] border-[#12235B] bg-white p-7"
+                  style={{ boxShadow: `6px 6px 0 ${accent}` }}
                 >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-[var(--shadow-glow)]"
-                      style={{ backgroundColor: s.colour }}
+                  <div className="flex items-center gap-3.5">
+                    <span
+                      className="flex h-[54px] w-[54px] shrink-0 items-center justify-center rounded-[18px] border-[3px] border-[#12235B]"
+                      style={{ backgroundColor: accent }}
                     >
-                      <Icon className="h-5 w-5 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between pr-6">
-                        <h3 className="font-semibold">{s.title}</h3>
-                      </div>
-                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{s.duration}</span>
-                        <span className="text-border">|</span>
-                        <span className="font-semibold text-primary">
-                          {s.priceLabel}
+                      <Icon className="h-6 w-6 text-white" />
+                    </span>
+                    <div className="min-w-0">
+                      <h3 className="sub-display text-[22px] leading-tight">
+                        {s.title}
+                      </h3>
+                      <p className="text-[15px] font-bold text-[#E71D57]">
+                        {s.priceLabel}
+                        <span className="font-semibold text-[#6B7794]">
+                          {" · "}
+                          {s.duration}
                         </span>
-                      </div>
-                      {/* Mode / location / associate badges so a parent
-                          can tell an online consult from an Armagh clinic
-                          at a glance, and see who they'll be seeing. */}
-                      {(s.mode === "online" ||
-                        s.locationLabel ||
-                        s.ownerName) && (
-                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                          {s.mode === "online" && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-                              <Globe className="h-3 w-3" />
-                              Online
-                            </span>
-                          )}
-                          {s.mode === "home" && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                              Home visit
-                            </span>
-                          )}
-                          {s.locationLabel && s.mode !== "online" && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                              <MapPin className="h-3 w-3" />
-                              {s.locationLabel}
-                            </span>
-                          )}
-                          {s.ownerName &&
-                            !s.ownerPhotoUrl &&
-                            !s.ownerBio &&
-                            !s.ownerPhone && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                                with {s.ownerName}
-                              </span>
-                            )}
-                        </div>
-                      )}
-                      {/* Full description — always shown so parents can
-                          read everything a service involves before booking. */}
-                      <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
-                        {s.description}
                       </p>
-                      {/* Therapist profile (photo + bio + phone) when set. */}
-                      <TherapistMini service={s} />
                     </div>
                   </div>
+
+                  {/* Mode / location / associate badges, so an online
+                      consult is distinguishable from an Armagh clinic at a
+                      glance, and you can see who you'd be seeing. */}
+                  {(s.mode === "online" || s.locationLabel || s.ownerName) && (
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      {s.mode === "online" && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-[#C2E7E3] bg-[#E7F6F4] px-3 py-1 text-[13px] font-bold">
+                          <Globe className="h-3.5 w-3.5" />
+                          Online
+                        </span>
+                      )}
+                      {s.mode === "home" && (
+                        <span className="rounded-full border-2 border-[#F3DFA6] bg-[#FFF3D2] px-3 py-1 text-[13px] font-bold">
+                          Home visit
+                        </span>
+                      )}
+                      {s.locationLabel && s.mode !== "online" && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-[#F3DFA6] bg-[#FFF3D2] px-3 py-1 text-[13px] font-bold">
+                          <MapPin className="h-3.5 w-3.5" />
+                          {s.locationLabel}
+                        </span>
+                      )}
+                      {s.ownerName &&
+                        !s.ownerPhotoUrl &&
+                        !s.ownerBio &&
+                        !s.ownerPhone && (
+                          <span className="rounded-full border-2 border-[#FBC7D7] bg-[#FFE7EE] px-3 py-1 text-[13px] font-bold">
+                            with {s.ownerName}
+                          </span>
+                        )}
+                    </div>
+                  )}
+
+                  {/* The whole description, never clipped — some services
+                      take a paragraph to explain, and that paragraph is
+                      what a parent is deciding on. */}
+                  <p className="mt-4 whitespace-pre-line text-base leading-relaxed text-[#3D4A6B]">
+                    {s.description}
+                  </p>
+
+                  <TherapistMini service={s} />
+
+                  <span className="sub-press mt-6 block rounded-full border-[3px] border-[#12235B] bg-[#FFC93C] px-6 py-3.5 text-center text-base font-extrabold text-[#12235B]">
+                    Choose this
+                  </span>
                 </div>
               );
             })}

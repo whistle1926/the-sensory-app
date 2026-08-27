@@ -15,7 +15,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { StorefrontHeader } from "@/components/courses/storefront-header";
+import { SubmarineHeader } from "@/components/storefront/submarine-header";
+import { SubmarineFooter } from "@/components/storefront/submarine-footer";
 import { ArrowRight, CheckCircle2, Clock, Sparkles } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -43,44 +44,46 @@ export default async function ServiceLandingPage({
       : null;
 
   return (
-    <div className="min-h-screen bg-[#FBF8F3]">
-      <StorefrontHeader />
+    <div className="sub min-h-screen">
+      <SubmarineHeader />
 
       <section className="relative overflow-hidden">
-        <div className="mx-auto max-w-5xl px-5 py-14 sm:py-20">
+        <div className="sub-dots pointer-events-none absolute inset-0" aria-hidden />
+        <div className="relative mx-auto max-w-5xl px-5 py-14 sm:py-20">
           {service.category && (
-            <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">
+            <p className="text-[13px] font-extrabold uppercase tracking-[1.4px] text-[#E71D57]">
               {service.category}
             </p>
           )}
-          <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl md:text-5xl">
+          <h1 className="sub-display mt-3 text-[38px] leading-[1.05] tracking-[-1.2px] sm:text-[52px]">
             {service.title}
           </h1>
           {service.tagline && (
-            <p className="mt-3 text-lg text-muted-foreground">
+            <p className="mt-3 text-lg font-semibold text-[#3D4A6B]">
               {service.tagline}
             </p>
           )}
 
-          <div className="mt-6 flex flex-wrap items-center gap-4 rounded-2xl border border-border bg-white p-5 shadow-[var(--shadow-sm)]">
+          <div className="sub-edge-lg mt-7 flex flex-wrap items-center gap-4 rounded-[26px] bg-white p-6">
             <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-xl font-bold tracking-tight">
+              <Sparkles className="h-4 w-4 text-[#E71D57]" />
+              <span className="sub-display text-2xl">
                 {priceLabel}
               </span>
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 text-[15px] font-bold text-[#6B7794]">
               <Clock className="h-4 w-4" />
               <span>{service.durationLabel}</span>
             </div>
             {depositLabel && (
-              <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+              <span className="rounded-full border-2 border-[#F3DFA6] bg-[#FFF3D2] px-3 py-1.5 text-[13px] font-bold">
                 {depositLabel}
               </span>
             )}
             <Link
               href={`/book?service=${encodeURIComponent(service.slug)}`}
-              className="ml-auto inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground shadow-[var(--shadow-sm)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)] hover:brightness-110"
+              className="sub-edge sub-press ml-auto inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[15px] font-extrabold text-white"
+              style={{ background: "var(--sub-pink)" }}
             >
               Book this session
               <ArrowRight className="h-4 w-4" />
@@ -88,27 +91,26 @@ export default async function ServiceLandingPage({
           </div>
 
           {service.description && (
-            <div className="mt-10 rounded-2xl border border-border bg-white p-6 shadow-[var(--shadow-sm)] sm:p-8">
-              <h2 className="text-sm font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                What&rsquo;s included
-              </h2>
-              <div className="mt-3 whitespace-pre-line text-base leading-relaxed">
+            <div className="sub-edge mt-10 rounded-[26px] bg-white p-6 sm:p-8">
+              <h2 className="sub-display text-2xl">What&rsquo;s included</h2>
+              <div className="mt-3 whitespace-pre-line text-base leading-relaxed text-[#3D4A6B]">
                 {service.description}
               </div>
             </div>
           )}
 
-          <div className="mt-10 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-primary/20 bg-primary/5 p-6">
+          <div className="mt-10 flex flex-wrap items-center justify-between gap-4 rounded-[26px] border-[3px] border-[#F3DFA6] bg-[#FFF3D2] p-6">
             <div>
-              <p className="text-sm font-bold">Ready to book?</p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="sub-display text-xl">Ready to book?</p>
+              <p className="mt-1 max-w-lg text-[13px] font-semibold text-[#6B7794]">
                 Pick a date and time on the next screen — payment processed
                 securely. T&amp;Cs are agreed to as part of the booking flow.
               </p>
             </div>
             <Link
               href={`/book?service=${encodeURIComponent(service.slug)}`}
-              className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground shadow-[var(--shadow-sm)] transition-all hover:brightness-110"
+              className="sub-edge sub-press inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[15px] font-extrabold text-white"
+              style={{ background: "var(--sub-pink)" }}
             >
               <CheckCircle2 className="h-4 w-4" />
               Continue to booking
@@ -116,6 +118,8 @@ export default async function ServiceLandingPage({
           </div>
         </div>
       </section>
+
+      <SubmarineFooter />
     </div>
   );
 }
