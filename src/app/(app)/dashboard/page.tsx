@@ -15,6 +15,7 @@ import {
 import { buttonVariants } from "@/components/ui/button";
 import { Sparkline } from "@/components/dashboard/sparkline";
 import { Toolbar, Panel, Chip, Seg, LinkBtn, Avatar, Empty } from "@/components/ds";
+import { LinkCheckPanel } from "@/components/dashboard/link-check-panel";
 
 /**
  * Dashboard — V1 "Polished" landing page for practice admins.
@@ -365,6 +366,9 @@ export default function DashboardPage() {
           )}
         </Panel>
       </div>
+
+      {/* ── Addresses in use ─────────────────────────────────────── */}
+      <LinkCheckPanel />
 
       {/* ── Reports table + Revenue chart ────────────────────────── */}
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
