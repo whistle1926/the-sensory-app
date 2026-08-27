@@ -28,6 +28,7 @@ interface Row {
   note?: string;
   status?: number;
   ok?: boolean;
+  verdict?: string;
 }
 
 export function LinkCheckPanel() {
@@ -128,13 +129,17 @@ export function LinkCheckPanel() {
                           {r.note ? ` · ${r.note}` : ""}
                         </span>
                       </span>
-                      {r.status !== undefined && (
+                      {r.verdict && (
+                        /* The word, not the number. "200" tells a therapist
+                           nothing; the code stays as a tooltip for when
+                           someone technical needs it. */
                         <span
+                          title={r.status ? `HTTP ${r.status}` : undefined}
                           className={`shrink-0 text-[11px] font-bold ${
                             r.ok ? "text-green-700 dark:text-green-400" : "text-red-600"
                           }`}
                         >
-                          {r.status === 0 ? "no answer" : r.status}
+                          {r.verdict}
                         </span>
                       )}
                       <button
@@ -173,8 +178,11 @@ export function LinkCheckPanel() {
           ))}
 
           <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-            A code in the 300s means the page redirects — normal for anything
-            that needs signing in. Anything in red is worth a look.
+            &ldquo;Working&rdquo; means the page loaded. &ldquo;Sends you
+            elsewhere&rdquo; and &ldquo;Asks you to sign in&rdquo; are both
+            fine — that&apos;s what those pages are meant to do. Anything in
+            red is worth a look, and the Wix and partner sites aren&apos;t
+            ours to fix but are worth knowing about.
           </p>
         </div>
       )}

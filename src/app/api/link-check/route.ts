@@ -24,6 +24,19 @@ export interface LinkRow {
   note?: string;
   status?: number;
   ok?: boolean;
+  /** Plain English. Nobody should have to know what 200 means. */
+  verdict?: string;
+}
+
+/** What a response code actually means for the person reading it. */
+function verdictFor(status: number): { verdict: string; ok: boolean } {
+  if (status === 0) return { verdict: "No answer", ok: false };
+  if (status === 200) return { verdict: "Working", ok: true };
+  if (status >= 300 && status < 400) return { verdict: "Sends you elsewhere", ok: true };
+  if (status === 401 || status === 403) return { verdict: "Asks you to sign in", ok: true };
+  if (status === 404) return { verdict: "Page missing", ok: false };
+  if (status >= 500) return { verdict: "Site is erroring", ok: false };
+  return { verdict: `Unexpected (${status})`, ok: false };
 }
 
 function base(): string {
@@ -53,6 +66,27 @@ export async function GET(req: NextRequest) {
     note: "The short address to give parents.",
   });
   rows.push({ group: "The basics", label: "All bookable services", url: `${site}/book` });
+
+  // The Wix sites aren't ours to change, but they're where most parents
+  // actually start — a broken link there matters more than one in here.
+  rows.push({
+    group: "Main websites (Wix / partners)",
+    label: "The Sensory Submarine",
+    url: "https://www.thesensorysubmarine.com",
+    note: "The main site parents find first.",
+  });
+  rows.push({
+    group: "Main websites (Wix / partners)",
+    label: "The Little Sensory Explorers",
+    url: "https://www.thelittlesensoryexplorers.co.uk",
+    note: "Partnership — sensory play course.",
+  });
+  rows.push({
+    group: "Main websites (Wix / partners)",
+    label: "Sensory Eaters Programme",
+    url: "https://sensoryeaters.thinkific.com",
+    note: "Partnership — hosted on Thinkific, not by us.",
+  });
 
   const services = await prisma.bookingService.findMany({
     where: { isActive: true },
@@ -102,9 +136,9 @@ export async function GET(req: NextRequest) {
     rows.map(async (r) => {
       try {
         const res = await fetch(r.url, { redirect: "manual", cache: "no-store" });
-        return { ...r, status: res.status, ok: res.status < 400 };
+        return { ...r, status: res.status, ...verdictFor(res.status) };
       } catch {
-        return { ...r, status: 0, ok: false };
+        return { ...r, status: 0, ...verdictFor(0) };
       }
     }),
   );
