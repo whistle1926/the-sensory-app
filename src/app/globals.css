@@ -194,6 +194,73 @@
   }
 }
 
+/* ── Submarine storefront ──────────────────────────────────────────
+   The public home and sign-in pages have their own voice: cream ground,
+   chunky navy outlines, hard offset shadows, playful type. Scoped under
+   .sub so none of it leaks into the admin app, which keeps its own
+   quieter design system. */
+.sub {
+  --sub-cream: #fff8ec;
+  --sub-navy: #12235b;
+  --sub-navy-deep: #0a1740;
+  --sub-pink: #e71d57;
+  --sub-yellow: #ffc93c;
+  --sub-teal: #17b0a7;
+  --sub-ink: #3d4a6b;
+  --sub-ink-soft: #6b7794;
+  font-family: var(--font-nunito), Nunito, system-ui, sans-serif;
+  color: var(--sub-navy);
+  background: var(--sub-cream);
+}
+.sub-display {
+  font-family: var(--font-baloo), "Baloo 2", var(--font-nunito), sans-serif;
+  font-weight: 800;
+}
+/* The dotted ground behind the hero. */
+.sub-dots {
+  background-image: radial-gradient(#f0dfc4 1.6px, transparent 1.7px);
+  background-size: 22px 22px;
+}
+/* Outline + hard shadow, the motif the whole page is built from. */
+.sub-edge {
+  border: 3px solid var(--sub-navy);
+  box-shadow: 3px 3px 0 var(--sub-navy);
+}
+.sub-edge-lg {
+  border: 3px solid var(--sub-navy);
+  box-shadow: 5px 5px 0 var(--sub-navy);
+}
+.sub-edge-xl {
+  border: 3px solid var(--sub-navy);
+  box-shadow: 8px 8px 0 var(--sub-navy);
+}
+/* Buttons press into the page rather than lifting off it. */
+.sub-press {
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.sub-press:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 3px 3px 0 var(--sub-navy);
+}
+.sub-edge.sub-press:hover {
+  box-shadow: 1px 1px 0 var(--sub-navy);
+}
+@keyframes sub-bob {
+  0%, 100% { transform: var(--sub-tilt, none) translateY(0); }
+  50% { transform: var(--sub-tilt, none) translateY(-10px); }
+}
+@keyframes sub-rise {
+  0% { transform: translateY(8px); opacity: 0.55; }
+  100% { transform: translateY(-26px); opacity: 0; }
+}
+.sub-bob { animation: sub-bob 7s ease-in-out infinite; }
+.sub-bubble { animation: sub-rise 6s ease-in infinite; }
+/* Motion is decoration here — anyone who has asked for less gets none. */
+@media (prefers-reduced-motion: reduce) {
+  .sub-bob, .sub-bubble { animation: none; }
+  .sub-press { transition: none; }
+}
+
 @media print {
   .print\:hidden,
   aside,

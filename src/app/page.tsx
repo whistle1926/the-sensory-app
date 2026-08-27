@@ -1,22 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  Award,
-  ArrowRight,
-  BookOpen,
-  Heart,
-  MessageCircle,
-  Quote,
-  ShieldCheck,
-  Sparkles,
-  Star,
-  Users,
-  Video,
-} from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { StorefrontHeader } from "@/components/courses/storefront-header";
-import { CourseCard, type StorefrontCourse } from "@/components/courses/course-card";
+import { SubmarineHeader } from "@/components/storefront/submarine-header";
+import {
+  SubmarineCourseCard,
+  type SubCourse,
+} from "@/components/storefront/submarine-course-card";
 
 export const dynamic = "force-dynamic";
 
@@ -24,10 +14,13 @@ export const dynamic = "force-dynamic";
  * Public landing page.
  *
  *   - Signed-in staff → /dashboard
- *   - Signed-in CLIENT → /portal (smart redirect sends them to /portal/training
- *                                 if enrolled, otherwise /portal/bookings)
- *   - Visitors → the marketing home, featuring the course catalogue, a
- *                1:1 booking path, and simple proof points.
+ *   - Signed-in CLIENT → /portal (which sends them on to training or
+ *                                 bookings depending on what they have)
+ *   - Visitors → the marketing home.
+ *
+ * Wears the Submarine treatment from the Pages 1 & 3 redesign: cream
+ * ground, chunky navy outlines, hard offset shadows, Baloo headings.
+ * The shared styles live under `.sub` in globals.css.
  */
 export default async function Home() {
   const session = await auth();
@@ -36,10 +29,9 @@ export default async function Home() {
     redirect("/dashboard");
   }
 
-  // Admin-controlled visibility for the public Courses link + the
-  // Sign in / Create account footer links + every courses-related
-  // section on this landing page. Read once on render so the
-  // server-rendered HTML matches what the header shows.
+  // Admin-controlled visibility for the public Courses link, the sign-in
+  // and create-account links, and every courses-related section below.
+  // Read once on render so the server HTML matches what the header shows.
   const storefrontConfig = await prisma.storefrontConfig.findUnique({
     where: { id: "default" },
     select: {
@@ -60,7 +52,6 @@ export default async function Home() {
   const showSignIn = storefrontConfig?.showSignIn ?? true;
   const showCreateAccount = storefrontConfig?.showCreateAccount ?? true;
 
-  // Pull just enough for the public shelf: featured first, then others.
   const allCourses = await prisma.course.findMany({
     where: { status: "AVAILABLE" },
     orderBy: [
@@ -75,294 +66,421 @@ export default async function Home() {
       title: true,
       tagline: true,
       shortDescription: true,
-      description: true,
-      audience: true,
       duration: true,
-      level: true,
       price: true,
       thumbnailUrl: true,
       heroImageUrl: true,
-      isFeatured: true,
       isBestseller: true,
       accreditationBadges: true,
-      _count: { select: { modules: true, enrollments: true } },
+      _count: { select: { modules: true } },
     },
   });
 
-  // Show up to 6 on the home page. Link to /courses for the full library.
   const featured = allCourses.slice(0, 6);
   const totalAvailable = allCourses.length;
+
+  // The tilted cards beside the headline. While Courses is switched off in
+  // Settings the hero must not advertise them, so it falls back to the two
+  // things that are always on sale.
+  const heroCards: {
+    key: string;
+    href: string;
+    title: string;
+    meta: string;
+    image: string | null;
+    stripe: string;
+    accent: string;
+  }[] = showCoursesNav
+    ? allCourses.slice(0, 2).map((c) => ({
+        key: c.id,
+        href: `/courses/${c.slug}`,
+        title: c.title,
+        meta:
+          c._count.modules > 0
+            ? `${c._count.modules} module${c._count.modules === 1 ? "" : "s"} · self-paced`
+            : c.duration,
+        image: c.thumbnailUrl ?? c.heroImageUrl,
+        stripe: "#FFE9A8",
+        accent: "#FFC93C",
+      }))
+    : [
+        {
+          key: "sessions",
+          href: "/book",
+          title: "1:1 sessions with Grace",
+          meta: "Assessment and therapy · in person or online",
+          image: null,
+          stripe: "#FFE9A8",
+          accent: "#E71D57",
+        },
+        {
+          key: "programmes",
+          href: "/book",
+          title: "Home programmes",
+          meta: "A plan built round your day",
+          image: null,
+          stripe: "#FFE1EA",
+          accent: "#17B0A7",
+        },
+      ];
 
   const allBadges = Array.from(
     new Set(allCourses.flatMap((c) => c.accreditationBadges ?? [])),
   ).slice(0, 8);
 
+  const ctaPrimary =
+    "sub-edge-lg sub-press inline-flex items-center rounded-full px-7 py-4 text-[17px] font-extrabold text-white";
+  const ctaSecondary =
+    "sub-edge-lg sub-press inline-flex items-center rounded-full bg-white px-7 py-4 text-[17px] font-extrabold text-[#12235B]";
+
   return (
-    <div className="min-h-screen bg-[#FBF8F3]">
-      <StorefrontHeader />
+    <div className="sub min-h-screen">
+      <SubmarineHeader />
 
       {/* ── Hero ───────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden">
-        <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 md:grid-cols-[1.2fr_1fr] md:items-center md:py-20">
-          <div className="space-y-6">
-            <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary shadow-sm">
-              <Sparkles className="h-3 w-3" />
-              The Sensory Submarine
-            </span>
-            <h1 className="text-4xl font-black tracking-tight sm:text-5xl md:text-6xl">
-              Practical support for children and families
-            </h1>
-            <p className="max-w-xl text-lg text-muted-foreground">
-              The Sensory Submarine provides expert, evidence-based
-              Occupational Therapy support for children and families across
-              Northern Ireland. Founded by Paediatric Occupational Therapist
-              Grace Magennis, we support children with a wide range of
-              developmental needs, functional difficulties and disabilities,
-              helping them build the skills and confidence to participate in
-              everyday life at home, in school and in their communities.
+      <section className="relative overflow-hidden px-5 py-14 sm:px-10 sm:py-[72px]">
+        <div className="sub-dots pointer-events-none absolute inset-0 opacity-90" aria-hidden />
+        <div
+          className="pointer-events-none absolute -right-[120px] -top-[140px] h-[520px] w-[520px] rounded-full bg-[#FFE9A8]"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute -bottom-[180px] -left-[140px] h-[420px] w-[420px] rounded-full bg-[#FFE1EA]"
+          aria-hidden
+        />
+
+        <div className="relative mx-auto grid max-w-[1240px] items-center gap-12 lg:grid-cols-[1.05fr_.95fr] lg:gap-14">
+          <div>
+            <p className="sub-edge inline-flex items-center gap-2.5 rounded-full bg-white py-2 pl-2.5 pr-4 text-[13px] font-extrabold uppercase tracking-[1.4px]">
+              <span className="h-[22px] w-[22px] rounded-full bg-[#17B0A7]" aria-hidden />
+              Paediatric OT · Northern Ireland
             </p>
-            <div className="flex flex-wrap gap-3">
-              {showCoursesNav && (
-                <Link
-                  href="#courses"
-                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-sm)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)] hover:brightness-110"
-                >
-                  <BookOpen className="h-4 w-4" />
-                  Browse courses
-                </Link>
-              )}
+
+            <h1 className="sub-display mt-6 text-[44px] leading-[1.02] tracking-[-1.2px] text-pretty sm:text-[60px] lg:text-[76px] lg:tracking-[-1.8px]">
+              Practical support for{" "}
+              <span className="relative inline-block">
+                <span
+                  className="absolute -left-2.5 -right-2.5 bottom-[8%] top-[12%] rounded-full bg-[#FFC93C]"
+                  aria-hidden
+                />
+                <span className="relative">children</span>
+              </span>{" "}
+              <span className="text-[#E71D57]">&amp; families</span>
+            </h1>
+
+            <p className="mt-6 max-w-[560px] text-[17px] leading-[1.65] text-pretty text-[#3D4A6B] sm:text-[19px]">
+              Evidence-based Occupational Therapy from Paediatric OT Grace
+              Magennis — courses, 1:1 sessions and home programmes that build
+              real skills and confidence, at home, at school and out in the
+              world.
+            </p>
+
+            <div className="mt-8 flex flex-wrap gap-3.5">
               <Link
                 href="/book"
-                className={`inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-colors ${
-                  showCoursesNav
-                    ? "border border-border bg-white hover:bg-muted"
-                    : // When Courses is hidden, promote Book a session
-                      // to primary styling so the hero still has a
-                      // clear CTA instead of an orphaned outline button.
-                      "bg-primary text-primary-foreground shadow-[var(--shadow-sm)] hover:brightness-110"
-                }`}
+                className={ctaPrimary}
+                style={{ background: "var(--sub-pink)" }}
               >
-                <Video className="h-4 w-4" />
                 Book a 1:1 session
               </Link>
+              {showCoursesNav && (
+                <Link href="#courses" className={ctaSecondary}>
+                  Browse the courses
+                </Link>
+              )}
             </div>
-            <div className="flex flex-wrap items-center gap-5 pt-2 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5">
-                <ShieldCheck className="h-4 w-4 text-green-600" />
+
+            <div className="mt-9 flex flex-wrap gap-2.5">
+              <span className="inline-flex items-center gap-2.5 rounded-full border-2 border-[#C2E7E3] bg-[#E7F6F4] px-4 py-2.5 text-sm font-bold">
+                <span className="h-3 w-3 rounded-full bg-[#17B0A7]" aria-hidden />
                 OT-led, evidence-based
               </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Award className="h-4 w-4 text-amber-500" />
+              <span className="inline-flex items-center gap-2.5 rounded-full border-2 border-[#F3DFA6] bg-[#FFF3D2] px-4 py-2.5 text-sm font-bold">
+                <span className="h-3 w-3 rounded-full bg-[#FFC93C]" aria-hidden />
                 CPD hours for practitioners
               </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+              <span className="inline-flex items-center gap-2.5 rounded-full border-2 border-[#FBC7D7] bg-[#FFE7EE] px-4 py-2.5 text-sm font-bold">
+                <span className="h-3 w-3 rounded-full bg-[#E71D57]" aria-hidden />
                 Loved by parents
               </span>
             </div>
           </div>
 
-          {/* Stack of thumbnails peeking out — same treatment as /courses */}
-          <div className="relative h-80 md:h-96" aria-hidden>
-            {featured.slice(0, 3).map((c, i) => {
-              const img = c.thumbnailUrl ?? c.heroImageUrl;
-              const offsets = [
-                "top-0 right-0 rotate-3",
-                "top-14 right-16 -rotate-2 md:top-20 md:right-28",
-                "top-32 right-4 rotate-1 md:top-40 md:right-16",
-              ];
-              return (
-                <div
-                  key={c.id}
-                  className={`absolute aspect-[4/3] w-60 overflow-hidden rounded-2xl border border-border bg-white shadow-[var(--shadow-lg)] md:w-72 ${offsets[i]}`}
+          {/* The stack of tilted cards. Hidden on small screens, where it
+              would push the buttons off the first screenful. */}
+          <div className="relative hidden min-h-[720px] lg:block">
+            <div
+              className="absolute left-6 top-[30px] h-[300px] w-[300px] rounded-full bg-[#FFC93C]"
+              aria-hidden
+            />
+            <div
+              className="absolute bottom-[110px] right-2 h-[190px] w-[190px] rounded-full bg-[#17B0A7] opacity-[.35]"
+              aria-hidden
+            />
+
+            {heroCards.map((card, i) => (
+              <Link
+                key={card.key}
+                href={card.href}
+                className={`sub-bob absolute w-[300px] rounded-[26px] border-[3px] border-[#12235B] bg-white p-3 shadow-[6px_6px_0_#12235B] ${
+                  i === 0 ? "right-10 top-2.5" : "left-0 top-[296px] w-[280px]"
+                }`}
+                style={{
+                  ["--sub-tilt" as string]: i === 0 ? "rotate(6deg)" : "rotate(-7deg)",
+                  transform: i === 0 ? "rotate(6deg)" : "rotate(-7deg)",
+                  ...(i === 1
+                    ? { animationDuration: "8.5s", animationDelay: ".6s" }
+                    : {}),
+                }}
+              >
+                <span
+                  className="flex items-center justify-center overflow-hidden rounded-2xl"
+                  style={{
+                    height: i === 0 ? 168 : 150,
+                    background: `repeating-linear-gradient(135deg, ${card.stripe} 0 10px, #FFF8EC 10px 20px)`,
+                  }}
                 >
-                  {img ? (
+                  {card.image ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
-                      src={img}
-                      alt={c.title}
+                      src={card.image}
+                      alt=""
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-full items-center justify-center bg-primary/10 text-primary">
-                      {c.title.slice(0, 2)}
-                    </div>
+                    /* No picture to show — a shape from the same family,
+                       so it reads as decoration rather than a gap. */
+                    <span
+                      className="h-[60px] w-[60px] rounded-[20px] border-[3px] border-[#12235B]"
+                      style={{ background: card.accent }}
+                    />
                   )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ── What you can do here ───────────────────────────────────── */}
-      <section className="mx-auto max-w-6xl px-5 py-10">
-        <div className="mb-8 text-center">
-          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
-            How we can help
-          </p>
-          <h2 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">
-            {showCoursesNav ? "Three ways to work with us" : "How we work with families"}
-          </h2>
-        </div>
-        <div
-          className={`grid gap-4 ${
-            showCoursesNav ? "sm:grid-cols-3" : "sm:grid-cols-2"
-          }`}
-        >
-          {[
-            {
-              icon: Video,
-              title: "Private children's occupational therapy",
-              body: "Assessment clinics and one-to-one sessions with Grace and our team of Associate Specialist Occupational Therapists across Northern Ireland.",
-              cta: "Book a session",
-              href: "/book",
-              show: true,
-            },
-            {
-              icon: BookOpen,
-              title: "Online courses",
-              body: "Short, practical courses for parents, teachers and practitioners. Learn at your own pace.",
-              cta: "Browse courses",
-              href: "#courses",
-              show: showCoursesNav,
-            },
-            {
-              icon: Heart,
-              title: "Education and training",
-              body: "Training for parents, schools and early years professionals, plus practical home programmes built around your day.",
-              cta: "Talk to us",
-              href: "/book",
-              show: true,
-            },
-          ].filter((c) => c.show).map((card) => {
-            const Icon = card.icon;
-            return (
-              <div
-                key={card.title}
-                className="flex flex-col gap-3 rounded-3xl border border-border/70 bg-white p-6 shadow-[var(--shadow-sm)]"
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <h3 className="text-lg font-bold tracking-tight">
+                </span>
+                <span className="sub-display mx-1 mb-1 mt-3 block text-[19px] leading-tight">
                   {card.title}
-                </h3>
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  {card.body}
-                </p>
-                <Link
-                  href={card.href}
-                  className="mt-auto inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
-                >
-                  {card.cta}
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+                </span>
+                <span className="mx-1 mb-2 block text-sm font-bold text-[#6B7794]">
+                  {card.meta}
+                </span>
+              </Link>
+            ))}
 
-      {/* ── Featured courses ───────────────────────────────────────── */}
-      {showCoursesNav && (
-      <section
-        id="courses"
-        className="mx-auto max-w-6xl scroll-mt-20 px-5 py-14"
-      >
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">
-              Online learning
-            </p>
-            <h2 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">
-              Courses for parents and practitioners
-            </h2>
-            <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-              Evidence-based mini-courses built around what actually helps at
-              home. Start with a free taster or go deep.
-            </p>
-          </div>
-          {totalAvailable > featured.length && (
-            <Link
-              href="/courses"
-              className="inline-flex items-center gap-1 rounded-xl border border-border bg-white px-4 py-2 text-sm font-semibold transition-colors hover:bg-muted"
+            {/* A picture of the platform itself, not a claim about anyone's
+                progress — so no invented numbers on it. */}
+            <div
+              className="sub-bob absolute bottom-0 right-0 w-[320px] rounded-[26px] border-[3px] border-[#12235B] bg-[#12235B] px-6 py-5 text-white shadow-[6px_6px_0_#E71D57]"
+              style={{
+                ["--sub-tilt" as string]: "rotate(3deg)",
+                transform: "rotate(3deg)",
+                animationDuration: "9.5s",
+                animationDelay: "1.2s",
+              }}
+              aria-hidden
             >
-              See all {totalAvailable}
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          )}
+              <div className="flex items-center gap-3">
+                <span className="h-11 w-11 shrink-0 rounded-full border-[3px] border-white bg-[#FFC93C]" />
+                <div>
+                  <p className="sub-display text-xl">Welcome aboard!</p>
+                  <p className="text-sm font-bold text-[#C6D0EA]">
+                    Your plan, in one place
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-[rgba(255,255,255,.22)]">
+                <div className="h-full w-[62%] rounded-full bg-[#17B0A7]" />
+              </div>
+              <p className="mt-2.5 text-[13px] font-bold text-[#C6D0EA]">
+                Work through it at your own pace
+              </p>
+            </div>
+          </div>
         </div>
-
-        {featured.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-border bg-white p-12 text-center">
-            <BookOpen className="mx-auto h-10 w-10 text-muted-foreground/50" />
-            <p className="mt-4 text-sm font-semibold">
-              Courses are being prepared
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Check back soon — or book a 1:1 session in the meantime.
-            </p>
-          </div>
-        ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {featured.map((course) => (
-              <CourseCard
-                key={course.id}
-                course={course as StorefrontCourse}
-                variant={course.isFeatured ? "featured" : "standard"}
-              />
-            ))}
-          </div>
-        )}
       </section>
-      )}
 
-      {/* ── What families say ─────────────────────────────────────
-          Real reviews, edited in Settings → Storefront so Grace can change
-          them without a deploy. Same source as the booking page, so the two
-          can't drift. The whole section disappears if there are none, rather
-          than showing a placeholder as it used to. */}
-      {testimonials.length > 0 && (
-        <section className="mx-auto max-w-5xl px-5 py-14">
-          <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">
-            What families say
+      {/* ── Three ways in ──────────────────────────────────────────── */}
+      <section className="relative overflow-hidden rounded-t-[48px] bg-[#12235B] px-5 py-16 sm:px-10 sm:py-[76px]">
+        <span
+          className="sub-bubble absolute bottom-0 left-[6%] h-4 w-4 rounded-full bg-[rgba(255,255,255,.3)]"
+          aria-hidden
+        />
+        <span
+          className="sub-bubble absolute bottom-0 left-[42%] h-2.5 w-2.5 rounded-full bg-[rgba(255,255,255,.3)]"
+          style={{ animationDuration: "7.5s", animationDelay: "1s" }}
+          aria-hidden
+        />
+        <span
+          className="sub-bubble absolute bottom-0 left-[78%] h-3 w-3 rounded-full bg-[rgba(255,255,255,.3)]"
+          style={{ animationDuration: "8s", animationDelay: "2s" }}
+          aria-hidden
+        />
+
+        <div className="relative mx-auto max-w-[1240px]">
+          <h2 className="sub-display text-[34px] tracking-[-.8px] text-white sm:text-[46px]">
+            {showCoursesNav
+              ? "Three ways we dive in with you"
+              : "How we dive in with you"}
           </h2>
-          <div className="mt-8 grid gap-5 md:grid-cols-2">
-            {testimonials.slice(0, 4).map((t, i) => (
-              <blockquote
-                key={i}
-                className="relative rounded-3xl border border-border/70 bg-white p-6 shadow-[var(--shadow-sm)] sm:p-8"
-              >
-                <Quote className="h-5 w-5 text-primary/40" />
-                <p className="mt-3 whitespace-pre-line text-base leading-relaxed">
-                  {t.quote}
+          <p className="mb-11 mt-3 text-[17px] font-bold text-[#C6D0EA] sm:text-[18px]">
+            Pick the support that fits your family — or mix all three.
+          </p>
+
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {[
+              {
+                title: "Courses",
+                body: "Self-paced modules for parents and practitioners. Re-watch anytime, download the handouts, collect CPD hours.",
+                cta: "Browse courses →",
+                href: "#courses",
+                colour: "#FFC93C",
+                show: showCoursesNav,
+              },
+              {
+                title: "1:1 sessions",
+                body: "Assessment and hands-on therapy with Grace and our associate OTs, in person or online. Clear goals, plain-English reports.",
+                cta: "Book a session →",
+                href: "/book",
+                colour: "#E71D57",
+                show: true,
+              },
+              {
+                title: "Home programmes",
+                body: "A personalised plan you can actually keep up with — short activities, kept up to date after every session.",
+                cta: "See how it works →",
+                href: "/book",
+                colour: "#17B0A7",
+                show: true,
+              },
+            ]
+              .filter((c) => c.show)
+              .map((card) => (
+                <Link
+                  key={card.title}
+                  href={card.href}
+                  className="sub-press flex flex-col rounded-[30px] border-[3px] border-[#0A1740] bg-[#FFF8EC] p-7"
+                  style={{ boxShadow: `8px 8px 0 ${card.colour}` }}
+                >
+                  <span
+                    className="mb-5 h-[60px] w-[60px] rounded-[20px] border-[3px] border-[#12235B]"
+                    style={{ background: card.colour }}
+                    aria-hidden
+                  />
+                  <span className="sub-display text-[26px]">{card.title}</span>
+                  <span className="mb-4 mt-2 block text-base leading-relaxed text-[#3D4A6B]">
+                    {card.body}
+                  </span>
+                  <span className="mt-auto text-[15px] font-extrabold text-[#E71D57]">
+                    {card.cta}
+                  </span>
+                </Link>
+              ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Courses ────────────────────────────────────────────────── */}
+      {showCoursesNav && (
+        <section
+          id="courses"
+          className="scroll-mt-24 px-5 py-16 sm:px-10 sm:py-20"
+        >
+          <div className="mx-auto max-w-[1240px]">
+            <div className="mb-10 flex flex-wrap items-end justify-between gap-5">
+              <div>
+                <p className="text-[13px] font-extrabold uppercase tracking-[1.4px] text-[#E71D57]">
+                  Online learning
                 </p>
-                <footer className="mt-4 text-sm text-muted-foreground">
-                  <span className="font-semibold text-foreground">{t.author}</span>
-                  {t.meta ? ` — ${t.meta}` : ""}
-                </footer>
-              </blockquote>
-            ))}
+                <h2 className="sub-display mt-2 text-[34px] tracking-[-.8px] sm:text-[46px]">
+                  Courses for parents and practitioners
+                </h2>
+                <p className="mt-3 max-w-xl text-[17px] leading-relaxed text-[#3D4A6B]">
+                  Evidence-based mini-courses built around what actually helps
+                  at home. Start with a free taster or go deep.
+                </p>
+              </div>
+              {totalAvailable > featured.length && (
+                <Link
+                  href="/courses"
+                  className="sub-edge sub-press rounded-full bg-white px-5 py-3 text-[15px] font-extrabold"
+                >
+                  See all {totalAvailable} →
+                </Link>
+              )}
+            </div>
+
+            {featured.length === 0 ? (
+              <div className="rounded-[30px] border-[3px] border-dashed border-[#12235B]/30 bg-white p-12 text-center">
+                <p className="sub-display text-2xl">
+                  Courses are being prepared
+                </p>
+                <p className="mt-2 text-[15px] font-semibold text-[#6B7794]">
+                  Check back soon — or book a 1:1 session in the meantime.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
+                {featured.map((course) => (
+                  <SubmarineCourseCard
+                    key={course.id}
+                    course={course as SubCourse}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </section>
       )}
 
-      {/* ── Trust strip ────────────────────────────────────────────── */}
+      {/* ── What families say ─────────────────────────────────────────
+          Real reviews, edited in Settings → Storefront so Grace can change
+          them without a deploy. The section disappears when there are
+          none rather than showing a placeholder. */}
+      {testimonials.length > 0 && (
+        <section className="px-5 pb-4 sm:px-10">
+          <div className="mx-auto max-w-[1000px]">
+            <h2 className="sub-display text-center text-[34px] tracking-[-.8px] sm:text-[46px]">
+              What families say
+            </h2>
+            <div className="mt-10 grid gap-6 md:grid-cols-2">
+              {testimonials.slice(0, 4).map((t, i) => (
+                <blockquote
+                  key={i}
+                  className="sub-edge-lg rounded-[30px] bg-white p-7"
+                >
+                  <p
+                    className="sub-display text-[40px] leading-[0] text-[#FFC93C]"
+                    aria-hidden
+                  >
+                    &ldquo;
+                  </p>
+                  <p className="mt-4 whitespace-pre-line text-[17px] leading-relaxed">
+                    {t.quote}
+                  </p>
+                  <footer className="mt-4 text-[15px] font-bold text-[#6B7794]">
+                    <span className="text-[#12235B]">{t.author}</span>
+                    {t.meta ? ` — ${t.meta}` : ""}
+                  </footer>
+                </blockquote>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Accreditation ──────────────────────────────────────────── */}
       {allBadges.length > 0 && (
-        <section className="border-t border-border/60 bg-white py-10">
-          <div className="mx-auto max-w-6xl px-5">
-            <p className="text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <section className="px-5 py-14 sm:px-10">
+          <div className="mx-auto max-w-[1240px]">
+            <p className="text-center text-[13px] font-extrabold uppercase tracking-[1.4px] text-[#6B7794]">
               Trusted, accredited, evidence-based
             </p>
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-6">
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-8">
               {allBadges.map((url, i) => (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   key={i}
                   src={url}
                   alt=""
-                  className="h-10 w-auto opacity-60 grayscale transition hover:opacity-100 hover:grayscale-0"
+                  className="h-12 w-auto"
                 />
               ))}
             </div>
@@ -371,33 +489,26 @@ export default async function Home() {
       )}
 
       {/* ── Bottom CTA ─────────────────────────────────────────────── */}
-      <section className="bg-[#FBF8F3] py-14">
-        <div className="mx-auto max-w-3xl rounded-3xl border border-border/70 bg-white p-10 text-center shadow-[var(--shadow-sm)]">
-          <div className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-            <MessageCircle className="h-6 w-6" />
-          </div>
-          <h2 className="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">
+      <section className="px-5 pb-16 sm:px-10 sm:pb-20">
+        <div className="sub-edge-xl mx-auto max-w-[900px] rounded-[36px] bg-white p-8 text-center sm:p-12">
+          <h2 className="sub-display text-[32px] tracking-[-.8px] sm:text-[40px]">
             Not sure where to start?
           </h2>
-          <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">
+          <p className="mx-auto mt-4 max-w-md text-[17px] leading-relaxed text-[#3D4A6B]">
             Book a short initial consultation and we&apos;ll help you find the
             right next step for your child — whether that&apos;s a course, a
             home programme, or something else.
           </p>
-          <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <div className="mt-7 flex flex-wrap justify-center gap-3.5">
             <Link
               href="/book"
-              className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-sm)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)] hover:brightness-110"
+              className={ctaPrimary}
+              style={{ background: "var(--sub-pink)" }}
             >
-              <Video className="h-4 w-4" />
               Book a session
             </Link>
             {showCoursesNav && (
-              <Link
-                href="/courses"
-                className="inline-flex items-center gap-2 rounded-xl border border-border bg-white px-5 py-3 text-sm font-semibold transition-colors hover:bg-muted"
-              >
-                <Users className="h-4 w-4" />
+              <Link href="/courses" className={ctaSecondary}>
                 See all courses
               </Link>
             )}
@@ -406,25 +517,28 @@ export default async function Home() {
       </section>
 
       {/* ── Footer ─────────────────────────────────────────────────── */}
-      <footer className="border-t border-border/60 bg-[#FBF8F3] py-8">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 text-sm text-muted-foreground">
+      <footer className="border-t-2 border-[#F2E4CD] px-5 py-8 sm:px-10">
+        <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-4 text-[15px] font-bold text-[#6B7794]">
           <p>© {new Date().getFullYear()} The Sensory Submarine</p>
-          <div className="flex items-center gap-5">
+          <div className="flex flex-wrap items-center gap-5">
             {showCoursesNav && (
-              <Link href="/courses" className="hover:text-foreground">
+              <Link href="/courses" className="hover:text-[#12235B]">
                 Courses
               </Link>
             )}
-            <Link href="/book" className="hover:text-foreground">
+            <Link href="/book" className="hover:text-[#12235B]">
               Book a session
             </Link>
+            <Link href="/resources" className="hover:text-[#12235B]">
+              Free resources
+            </Link>
             {showSignIn && (
-              <Link href="/login" className="hover:text-foreground">
+              <Link href="/login" className="hover:text-[#12235B]">
                 Sign in
               </Link>
             )}
             {showCreateAccount && (
-              <Link href="/register" className="hover:text-foreground">
+              <Link href="/register" className="hover:text-[#12235B]">
                 Create account
               </Link>
             )}
