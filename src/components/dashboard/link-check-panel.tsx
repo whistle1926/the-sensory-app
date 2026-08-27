@@ -18,6 +18,8 @@ import {
   ExternalLink,
   Link2,
   Loader2,
+  Plus,
+  Trash2,
   X,
 } from "lucide-react";
 
@@ -29,6 +31,8 @@ interface Row {
   status?: number;
   ok?: boolean;
   verdict?: string;
+  /** Only on links added by hand — those can be removed again. */
+  id?: string;
 }
 
 export function LinkCheckPanel() {
@@ -37,6 +41,15 @@ export function LinkCheckPanel() {
   const [checking, setChecking] = useState(false);
   const [checked, setChecked] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+
+  // Adding a link by hand. Plenty of what the practice hands out lives
+  // somewhere we don't control — the Wix booking page, a social profile —
+  // and waiting on a code change for each one isn't workable.
+  const [adding, setAdding] = useState(false);
+  const [newLabel, setNewLabel] = useState("");
+  const [newUrl, setNewUrl] = useState("");
+  const [addError, setAddError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const load = useCallback(async (check: boolean) => {
     if (check) setChecking(true);
@@ -55,6 +68,36 @@ export function LinkCheckPanel() {
   useEffect(() => {
     if (open && rows.length === 0) load(false);
   }, [open, rows.length, load]);
+
+  async function addLink() {
+    setAddError("");
+    setSaving(true);
+    try {
+      const res = await fetch("/api/link-check/custom", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: newLabel, url: newUrl }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAddError(data.error || "Couldn't save that.");
+        return;
+      }
+      setNewLabel("");
+      setNewUrl("");
+      setAdding(false);
+      await load(false);
+    } catch {
+      setAddError("Couldn't reach the server.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeLink(id: string) {
+    await fetch(`/api/link-check/custom?id=${id}`, { method: "DELETE" });
+    await load(false);
+  }
 
   const groups = Array.from(new Set(rows.map((r) => r.group)));
   const broken = rows.filter((r) => r.ok === false).length;
@@ -171,11 +214,76 @@ export function LinkCheckPanel() {
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
                       </a>
+                      {r.id && (
+                        <button
+                          type="button"
+                          onClick={() => removeLink(r.id!)}
+                          aria-label={`Remove ${r.label} from the list`}
+                          className="shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                   ))}
               </div>
             </div>
           ))}
+
+          {adding ? (
+            <div className="mt-3 rounded-xl border border-border bg-muted/30 p-3">
+              <div className="grid gap-2 sm:grid-cols-[1fr_1.5fr_auto]">
+                <input
+                  className="h-9 rounded-lg border border-input bg-background px-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                  placeholder="What is it? e.g. Wix booking page"
+                  value={newLabel}
+                  onChange={(e) => setNewLabel(e.target.value)}
+                />
+                <input
+                  className="h-9 rounded-lg border border-input bg-background px-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                  placeholder="Paste the address"
+                  value={newUrl}
+                  onChange={(e) => setNewUrl(e.target.value)}
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={addLink}
+                    disabled={saving}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-bold text-primary-foreground disabled:opacity-50"
+                  >
+                    {saving && <Loader2 className="h-3 w-3 animate-spin" />}
+                    Add
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAdding(false);
+                      setAddError("");
+                    }}
+                    className="h-9 rounded-lg px-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+              {addError && <p className="mt-2 text-xs text-red-600">{addError}</p>}
+              <p className="mt-2 text-xs text-muted-foreground">
+                Anything you hand out that isn&apos;t built here — the Wix
+                booking page, a Facebook page, a partner&apos;s site. It gets
+                checked along with the rest.
+              </p>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-xs font-bold text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add a link
+            </button>
+          )}
 
           <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
             &ldquo;Working&rdquo; means the page loaded. &ldquo;Sends you

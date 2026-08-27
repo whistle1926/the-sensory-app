@@ -1793,3 +1793,21 @@ model ResourceLead {
   @@index([createdAt])
   @@map("resource_leads")
 }
+
+
+/// An address someone has added to the "Addresses in use" check by hand.
+///
+/// The list builds itself from services, courses and pages, but plenty of
+/// what the practice hands out lives somewhere we don't control — the Wix
+/// booking page, a social profile, a partner's site. Rather than asking for
+/// a code change every time one appears, they can be added here.
+model CustomLink {
+  id        String   @id @default(cuid())
+  label     String
+  url       String
+  note      String   @default("")
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("custom_links")
+}

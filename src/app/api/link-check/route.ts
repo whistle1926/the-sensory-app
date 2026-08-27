@@ -26,6 +26,8 @@ export interface LinkRow {
   ok?: boolean;
   /** Plain English. Nobody should have to know what 200 means. */
   verdict?: string;
+  /** Present only on links added by hand, so they can be removed. */
+  id?: string;
 }
 
 /** What a response code actually means for the person reading it. */
@@ -124,6 +126,17 @@ export async function GET(req: NextRequest) {
     .catch(() => []);
   for (const p of pages) {
     rows.push({ group: "Other public pages", label: p.title, url: `${site}/${p.slug}` });
+  }
+
+  const custom = await prisma.customLink.findMany({ orderBy: { order: "asc" } });
+  for (const c of custom) {
+    rows.push({
+      group: "Added by you",
+      label: c.label,
+      url: c.url,
+      note: c.note || undefined,
+      id: c.id,
+    });
   }
 
   if (new URL(req.url).searchParams.get("check") !== "1") {
