@@ -294,7 +294,16 @@ export default function PortalModulePage({
         <div className="lp-lesson-meta">
           <span className="inline-flex items-center gap-1.5">
             <BookOpen className="h-4 w-4" />
-            {hasContent ? `${mod.content.sections.length} section${mod.content.sections.length === 1 ? "" : "s"}` : "Content coming soon"}
+            {/* A webinar lesson is often a video and a download with no
+                written sections. Counting only text told a paying parent
+                "content coming soon" while the video sat above it. */}
+            {hasContent
+              ? `${mod.content.sections.length} section${mod.content.sections.length === 1 ? "" : "s"}`
+              : hasVideo
+                ? "Video lesson"
+                : (mod.resources?.length ?? 0) > 0
+                  ? `${mod.resources!.length} download${mod.resources!.length === 1 ? "" : "s"}`
+                  : "Coming soon"}
           </span>
           {hasQuiz && (
             <span className="inline-flex items-center gap-1.5">
@@ -382,7 +391,9 @@ export default function PortalModulePage({
           <div className="lp-body">
             {hasContent ? (
               <LessonBody sections={mod.content.sections as LessonSection[]} />
-            ) : (
+            ) : hasVideo || (mod.resources?.length ?? 0) > 0 ? null : (
+              /* Only when there is genuinely nothing — no text, no video,
+                 no downloads. */
               <LessonEmptyState moduleTitle={mod.title} hasQuiz={hasQuiz} />
             )}
           </div>

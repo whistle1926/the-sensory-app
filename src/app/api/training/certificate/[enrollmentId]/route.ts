@@ -16,7 +16,7 @@ export async function GET(
     where: { id: enrollmentId },
     include: {
       user: { select: { name: true } },
-      course: { select: { title: true, duration: true } },
+      course: { select: { title: true, duration: true, hasCertificate: true } },
     },
   });
 
@@ -28,6 +28,15 @@ export async function GET(
 
   if (enrollment.status !== "COMPLETED" || !enrollment.completedAt) {
     return NextResponse.json({ error: "Course not yet completed" }, { status: 400 });
+  }
+
+  // A course that doesn't award a certificate can't hand one out via a
+  // direct link either — hiding the button isn't the same as refusing.
+  if (!enrollment.course.hasCertificate) {
+    return NextResponse.json(
+      { error: "This course doesn't award a certificate." },
+      { status: 404 },
+    );
   }
 
   const html = generateCertificateHTML({

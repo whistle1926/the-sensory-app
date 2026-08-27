@@ -20,12 +20,17 @@ import { prisma } from "./prisma";
 import { sendTransactionalEmail, escapeHtml } from "./email";
 import { formatExact, formatPrice, isCurrency, type Currency } from "./course-currency";
 
+/**
+ * The address to show a customer.
+ *
+ * Deliberately NOT borrowed from the auth URL. Grace's receipt told her to
+ * go to sensory.aiworldexperts.com — an old domain — because the completion
+ * happened to run somewhere whose AUTH_URL still said so. What a parent is
+ * told to visit shouldn't depend on where a process ran, so this uses an
+ * explicit public URL and otherwise the real domain.
+ */
 function baseUrl(): string {
-  const raw =
-    process.env.NEXTAUTH_URL ??
-    process.env.AUTH_URL ??
-    process.env.NEXT_PUBLIC_BASE_URL ??
-    "";
+  const raw = process.env.NEXT_PUBLIC_BASE_URL ?? "";
   return raw.replace(/\/$/, "") || "https://portal.thesensorysubmarine.com";
 }
 

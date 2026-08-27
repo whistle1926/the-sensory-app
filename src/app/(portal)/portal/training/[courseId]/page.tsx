@@ -193,6 +193,12 @@ export default async function PortalCourseLandingPage({
             <div className="mt-7 flex flex-wrap items-center gap-3">
               {isComplete ? (
                 <>
+                  {/* Only where the course actually awards one. A short
+                      parent webinar isn't accredited training, and offering
+                      a certificate for it devalues the ones that are. The
+                      switch is "Give a certificate on completion" in the
+                      course editor — it was being ignored here. */}
+                  {course.hasCertificate && (
                   <a
                     href={`/api/training/certificate/${enrollment.id}`}
                     target="_blank"
@@ -202,6 +208,7 @@ export default async function PortalCourseLandingPage({
                     <Award className="h-4 w-4" />
                     Download certificate
                   </a>
+                  )}
                   {nextModule && (
                     <Link
                       href={`/portal/training/${course.id}/${nextModule.id}`}
