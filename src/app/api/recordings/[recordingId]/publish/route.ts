@@ -122,6 +122,16 @@ export async function POST(
         orderBy: { order: "desc" },
         select: { order: true },
       });
+      // Carry the publisher's own details onto the course, so the person who
+      // recorded it is credited without retyping their bio and photo every
+      // time. Grace was filling these in by hand for each course. Anything
+      // blank on their profile simply isn't set here — the source has to be
+      // filled in once, under Team → their profile.
+      const publisher = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { name: true, bio: true, photoUrl: true },
+      });
+
       const newCourse = await prisma.course.create({
         data: {
           title,
@@ -132,6 +142,9 @@ export async function POST(
           status: "ARCHIVED", // hidden from the storefront until published
           price: 0,
           order: (last?.order ?? -1) + 1,
+          instructorName: publisher?.name || null,
+          instructorBio: publisher?.bio || null,
+          instructorImageUrl: publisher?.photoUrl || null,
         },
       });
       courseId = newCourse.id;
