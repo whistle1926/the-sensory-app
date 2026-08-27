@@ -30,6 +30,10 @@ function looksLikeEditablePage(pathname: string): boolean {
 }
 
 const PUBLIC_PREFIXES = [
+  // Free downloads: making a parent sign in to print an activity sheet
+  // means they don't print the activity sheet.
+  "/resources",
+  "/api/resources",
   // One-tap triage from the notification email — authorised by a signed
   // token in the link, not a session, so it works from a phone.
   "/t/",

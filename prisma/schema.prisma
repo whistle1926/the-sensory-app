@@ -1743,3 +1743,53 @@ model StorefrontConfig {
   updatedAt DateTime @updatedAt @map("updated_at")
   @@map("storefront_config")
 }
+
+
+/// A free downloadable — an activity sheet, a handout — offered on the
+/// public site in exchange for an email address. The point isn't the file:
+/// it's that a parent who downloads one is a parent who might buy a £27
+/// webinar later, so the address is the valuable part.
+model FreeResource {
+  id          String   @id @default(cuid())
+  title       String
+  /// A line or two on what it is and who it helps.
+  description String   @db.Text @default("")
+  /// The actual file, on Vercel Blob.
+  fileUrl     String
+  fileName    String   @default("")
+  /// Preview image for the card. Optional — a sensible icon is used without.
+  thumbnailUrl String? @map("thumbnail_url")
+  /// Off = hidden from the public list. Existing links keep working.
+  isActive    Boolean  @default(true) @map("is_active")
+  order       Int      @default(0)
+  /// How many times it has been sent out. Rough interest signal.
+  downloads   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  leads       ResourceLead[]
+
+  @@index([isActive, order])
+  @@map("free_resources")
+}
+
+/// Someone who asked for a free download.
+///
+/// Consent is recorded explicitly and separately from the download itself:
+/// wanting an activity sheet is not agreeing to be marketed at, and under UK
+/// GDPR it can't be bundled. `marketingConsent` is only true if they ticked
+/// the box, and we keep when they did in case it's ever questioned.
+model ResourceLead {
+  id               String   @id @default(cuid())
+  email            String
+  name             String   @default("")
+  resourceId       String   @map("resource_id")
+  resource         FreeResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  marketingConsent Boolean  @default(false) @map("marketing_consent")
+  consentedAt      DateTime? @map("consented_at")
+  createdAt        DateTime @default(now())
+
+  @@index([email])
+  @@index([createdAt])
+  @@map("resource_leads")
+}
