@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumberField } from "@/components/ui/number-field";
 import { Label } from "@/components/ui/label";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { CopyAssist } from "@/components/training/copy-assist";
@@ -480,14 +481,11 @@ export default function CourseEditPage({
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="c-price">Price (£)</Label>
-            <Input
+            <NumberField
               id="c-price"
-              type="number"
               min={0}
               value={course.price}
-              onChange={(e) =>
-                patchCourse({ price: Number(e.target.value) || 0 })
-              }
+              onValueChange={(n) => patchCourse({ price: Math.max(0, n ?? 0) })}
             />
             <p className="text-xs text-muted-foreground">
               {course.price === 0
@@ -497,16 +495,15 @@ export default function CourseEditPage({
           </div>
           <div className="space-y-2">
             <Label htmlFor="c-price-eur">Price (€) — optional</Label>
-            <Input
+            <NumberField
               id="c-price-eur"
-              type="number"
               min={0}
+              allowEmpty
               placeholder="Leave blank for £ only"
-              value={course.priceEur ?? ""}
-              onChange={(e) => {
-                const raw = e.target.value.trim();
-                patchCourse({ priceEur: raw === "" ? null : Number(raw) || 0 });
-              }}
+              value={course.priceEur ?? null}
+              onValueChange={(n) =>
+                patchCourse({ priceEur: n == null ? null : Math.max(0, n) })
+              }
             />
             <p className="text-xs text-muted-foreground">
               {course.priceEur == null

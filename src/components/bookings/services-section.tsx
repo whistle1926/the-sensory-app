@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumberField } from "@/components/ui/number-field";
 import { Label } from "@/components/ui/label";
 
 interface ServiceRow {
@@ -612,15 +613,12 @@ function EditorPanel({
         </div>
         <div className="space-y-2">
           <Label htmlFor={`price-${service.id}`}>Price (£)</Label>
-          <Input
+          <NumberField
             id={`price-${service.id}`}
-            type="number"
             min={0}
             step="1"
             value={pricePence / 100}
-            onChange={(e) =>
-              setPricePence(Math.max(0, Math.round(Number(e.target.value) * 100)))
-            }
+            onValueChange={(n) => setPricePence(Math.max(0, Math.round((n ?? 0) * 100)))}
           />
           <p className="text-xs text-muted-foreground">
             {pricePence === 0 ? "Free / on enquiry" : `£${pricePence / 100}`}
@@ -628,16 +626,13 @@ function EditorPanel({
         </div>
         <div className="space-y-2">
           <Label htmlFor={`deposit-${service.id}`}>Deposit (£)</Label>
-          <Input
+          <NumberField
             id={`deposit-${service.id}`}
-            type="number"
             min={0}
             step="1"
             value={depositPence / 100}
-            onChange={(e) =>
-              setDepositPence(
-                Math.max(0, Math.round(Number(e.target.value) * 100)),
-              )
+            onValueChange={(n) =>
+              setDepositPence(Math.max(0, Math.round((n ?? 0) * 100)))
             }
           />
           <p className="text-xs text-muted-foreground">
@@ -655,15 +650,12 @@ function EditorPanel({
         </div>
         <div className="space-y-2">
           <Label htmlFor={`durmins-${service.id}`}>Duration (mins)</Label>
-          <Input
+          <NumberField
             id={`durmins-${service.id}`}
-            type="number"
             min={0}
             step="5"
             value={durationMinutes}
-            onChange={(e) =>
-              setDurationMinutes(Math.max(0, Number(e.target.value) || 0))
-            }
+            onValueChange={(n) => setDurationMinutes(Math.max(0, n ?? 0))}
           />
           <p className="text-xs text-muted-foreground">
             Used by the calendar for slot math.
