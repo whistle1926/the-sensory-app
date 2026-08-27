@@ -33,6 +33,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { CopyAssist } from "@/components/training/copy-assist";
 import { CourseImageField } from "@/components/training/course-image-field";
 import { InstructorPhotoField } from "@/components/training/instructor-photo-field";
@@ -449,15 +450,21 @@ export default function CourseEditPage({
             </div>
           </div>
           <div className="space-y-2">
+            {/* The long description is the main sales copy on the public
+                course page, so it gets a proper editor — headings, bold and
+                bullets, rather than one grey wall of text. */}
             <Label htmlFor="c-desc">Description</Label>
-            <textarea
-              id="c-desc"
+            <RichTextEditor
               value={course.description}
-              onChange={(e) => patchCourse({ description: e.target.value })}
-              rows={4}
-              maxLength={5000}
-              className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              onChange={(html) => patchCourse({ description: html })}
+              placeholder="What the course covers, who it's for, and what they'll walk away with."
+              minHeight={200}
             />
+            <p className="text-xs text-muted-foreground">
+              This is the &ldquo;About this course&rdquo; section parents read
+              before they buy. Bullets and short paragraphs read better than
+              one long block.
+            </p>
           </div>
         </div>
       </section>

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CourseInfoDialog } from "./course-info-dialog";
+import { richTextToPlain } from "@/lib/rich-text";
 
 interface Course {
   id: string;
@@ -166,7 +167,7 @@ export function TrainingCatalogue({ courses }: Props) {
                 </p>
               )}
               <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                {course.description}
+                {richTextToPlain(course.description ?? "")}
               </p>
 
               <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted-foreground">

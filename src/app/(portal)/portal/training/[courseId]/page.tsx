@@ -16,6 +16,7 @@ import {
   XCircle,
 } from "lucide-react";
 import "../training.css";
+import { richTextToPlain } from "@/lib/rich-text";
 
 export const dynamic = "force-dynamic";
 
@@ -172,7 +173,7 @@ export default async function PortalCourseLandingPage({
             </p>
             <h1 className="lp-hero-title mt-2">{course.title}</h1>
             {course.description && (
-              <p className="lp-hero-sub">{course.description}</p>
+              <p className="lp-hero-sub">{richTextToPlain(course.description ?? "")}</p>
             )}
 
             <div className="mt-6 flex flex-wrap gap-4 text-sm text-muted-foreground">

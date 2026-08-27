@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Clock, Users, ArrowRight } from "lucide-react";
+import { richTextToPlain } from "@/lib/rich-text";
 
 export interface StorefrontCourse {
   id: string;
@@ -32,8 +33,12 @@ interface Props {
 
 export function CourseCard({ course, variant = "standard" }: Props) {
   const image = course.thumbnailUrl ?? course.heroImageUrl;
+  // The description is rich text now, so strip the markup before it goes
+  // into a one-line card blurb.
   const blurb =
-    course.shortDescription ?? course.tagline ?? course.description ?? "";
+    course.shortDescription ??
+    course.tagline ??
+    richTextToPlain(course.description ?? "");
   const moduleCount = course._count?.modules ?? 0;
   const enrolledCount = course._count?.enrollments ?? 0;
   const featured = variant === "featured";

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { richTextToPlain } from "@/lib/rich-text";
 import { StorefrontHeader } from "@/components/courses/storefront-header";
 import { CourseCard, type StorefrontCourse } from "@/components/courses/course-card";
 import { Star, ShieldCheck, Award, Sparkles } from "lucide-react";
@@ -83,7 +84,7 @@ export default async function CoursesStorefrontPage({
       c.title,
       c.tagline ?? "",
       c.shortDescription ?? "",
-      c.description ?? "",
+      richTextToPlain(c.description ?? ""),
       c.audience ?? "",
       c.level ?? "",
     ]

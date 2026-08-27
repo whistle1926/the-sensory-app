@@ -346,7 +346,7 @@ function ContinueCard({ course }: { course: CourseCardData }) {
               </p>
             )}
             <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground line-clamp-3">
-              {course.description}
+              {richTextToPlain(course.description ?? "")}
             </p>
           </div>
 
@@ -393,6 +393,7 @@ function ContinueCard({ course }: { course: CourseCardData }) {
 /* ──────────────────────────────────────────────────────────────────── */
 
 import type { LucideIcon } from "lucide-react";
+import { richTextToPlain } from "@/lib/rich-text";
 
 function SectionHeader({
   icon: Icon,

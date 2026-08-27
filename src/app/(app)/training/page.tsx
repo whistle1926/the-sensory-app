@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Toolbar, Panel, Chip, Empty } from "@/components/ds";
+import { richTextToPlain } from "@/lib/rich-text";
 
 interface CourseData {
   id: string;
@@ -207,7 +208,7 @@ export default function TrainingPage() {
                       </span>
                     </div>
                     <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                      {course.description}
+                      {richTextToPlain(course.description ?? "")}
                     </p>
 
                     {course.enrollmentStatus && (
@@ -300,7 +301,7 @@ export default function TrainingPage() {
                   </span>
                 </div>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  {course.description}
+                  {richTextToPlain(course.description ?? "")}
                 </p>
               </div>
             ))}
@@ -371,7 +372,7 @@ function AdminManagePanel({
     return (
       c.title.toLowerCase().includes(q) ||
       (c.audience ?? "").toLowerCase().includes(q) ||
-      (c.description ?? "").toLowerCase().includes(q)
+      richTextToPlain(c.description ?? "").toLowerCase().includes(q)
     );
   });
 

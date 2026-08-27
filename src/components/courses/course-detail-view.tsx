@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { StorefrontHeader } from "@/components/courses/storefront-header";
 import { BuyPanel } from "@/components/courses/buy-panel";
+import { RichTextView } from "@/components/ui/rich-text-view";
+import { richTextToPlain } from "@/lib/rich-text";
 import {
   Check,
   Clock,
@@ -131,7 +133,7 @@ export function CourseDetailView({
               </p>
             )}
             <p className="mt-4 text-lg text-muted-foreground">
-              {course.shortDescription ?? course.description}
+              {course.shortDescription ?? richTextToPlain(course.description ?? "")}
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
@@ -214,9 +216,10 @@ export function CourseDetailView({
           {course.description && (
             <section>
               <h2 className="text-2xl font-bold tracking-tight">About this course</h2>
-              <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-muted-foreground">
-                {course.description}
-              </p>
+              <RichTextView
+                html={course.description}
+                className="mt-3 text-[15px] leading-relaxed text-muted-foreground"
+              />
             </section>
           )}
 

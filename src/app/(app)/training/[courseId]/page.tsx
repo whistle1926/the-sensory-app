@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { ArrowLeft, Lock, Circle, CheckCircle2, XCircle, Award, Clock, Users, Play, Pencil } from "lucide-react";
 import Link from "next/link";
+import { richTextToPlain } from "@/lib/rich-text";
 
 interface ModuleData {
   id: string;
@@ -93,7 +94,7 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
           <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {course.duration}</span>
           <span className="flex items-center gap-1"><Play className="h-3 w-3" /> {course.modules.length} modules</span>
         </div>
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground max-w-2xl">{course.description}</p>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground max-w-2xl">{richTextToPlain(course.description ?? "")}</p>
       </div>
 
       {/* Overall Progress */}

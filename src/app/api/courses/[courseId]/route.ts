@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sanitizeRichText } from "@/lib/rich-text";
 
 export async function GET(
   _req: NextRequest,
@@ -120,8 +121,10 @@ export async function PATCH(
     data.audience = body.audience.trim().slice(0, 120);
   if (typeof body.duration === "string")
     data.duration = body.duration.trim().slice(0, 120);
+  // Now rich text from the editor. Sanitised on the way in, and the cap is
+  // generous because markup inflates the length well past the visible words.
   if (typeof body.description === "string")
-    data.description = body.description.trim().slice(0, 5_000);
+    data.description = sanitizeRichText(body.description).slice(0, 20_000);
   if (typeof body.level === "string")
     data.level = body.level.trim().slice(0, 60) || null;
 
