@@ -1580,7 +1580,7 @@ function ServicePicker({
                   {/* Mode / location / associate badges, so an online
                       consult is distinguishable from an Armagh clinic at a
                       glance, and you can see who you'd be seeing. */}
-                  {(s.mode === "online" || s.locationLabel || s.ownerName) && (
+                  {(s.mode === "online" || s.locationLabel) && (
                     <div className="mt-4 flex flex-wrap items-center gap-2">
                       {s.mode === "online" && (
                         <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-[#C2E7E3] bg-[#E7F6F4] px-3 py-1 text-[13px] font-bold">
@@ -1599,14 +1599,6 @@ function ServicePicker({
                           {s.locationLabel}
                         </span>
                       )}
-                      {s.ownerName &&
-                        !s.ownerPhotoUrl &&
-                        !s.ownerBio &&
-                        !s.ownerPhone && (
-                          <span className="rounded-full border-2 border-[#FBC7D7] bg-[#FFE7EE] px-3 py-1 text-[13px] font-bold">
-                            with {s.ownerName}
-                          </span>
-                        )}
                     </div>
                   )}
 
@@ -1617,7 +1609,21 @@ function ServicePicker({
                     {s.description}
                   </p>
 
-                  <TherapistMini service={s} />
+                  {/* Grace's steer: name a therapist only on the Face to
+                      Face assessment. Every other service is delivered by
+                      whichever specialist OT the chosen date and location
+                      resolve to, so we say that rather than a name. */}
+                  <div className="mt-4 flex items-start gap-3 rounded-[18px] border-2 border-[#C2E7E3] bg-[#F0FAF9] p-3.5">
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#17B0A7] text-white">
+                      <Users className="h-4 w-4" />
+                    </span>
+                    <p className="text-sm font-semibold leading-relaxed text-[#3D4A6B]">
+                      Delivered by one of our specialist occupational
+                      therapists — allocated based on the{" "}
+                      {s.mode === "online" ? "date" : "date and location"} you
+                      choose.
+                    </p>
+                  </div>
 
                   <span className="sub-press mt-6 block rounded-full border-[3px] border-[#12235B] bg-[#FFC93C] px-6 py-3.5 text-center text-base font-extrabold text-[#12235B]">
                     Choose this

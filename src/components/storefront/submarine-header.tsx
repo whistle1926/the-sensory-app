@@ -56,14 +56,15 @@ export function SubmarineHeader() {
     >
       <div className="mx-auto flex max-w-[1240px] items-center justify-between gap-4 px-5 py-3 sm:px-10 sm:py-4">
         <Link href="/" className="flex items-center gap-3">
-          <span
-            className="sub-edge grid h-[46px] w-[46px] shrink-0 grid-cols-3 items-center gap-[3px] rounded-2xl px-1.5"
-            style={{ background: "var(--sub-yellow)" }}
-            aria-hidden
-          >
-            <span className="h-2 w-2 rounded-full bg-[#12235B]" />
-            <span className="h-2 w-2 rounded-full bg-[#E71D57]" />
-            <span className="h-2 w-2 rounded-full bg-[#12235B]" />
+          {/* The real Sensory Submarine logo, cropped to the character.
+              White badge so it sits cleanly on the cream header. */}
+          <span className="sub-edge grid h-[46px] w-[46px] shrink-0 place-items-center overflow-hidden rounded-2xl bg-white">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/brand/logo-mark.jpg"
+              alt="The Sensory Submarine"
+              className="h-full w-full object-contain p-0.5"
+            />
           </span>
           <span className="sub-display text-lg tracking-[-.2px] sm:text-[21px]">
             The Sensory Submarine
