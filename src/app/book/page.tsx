@@ -1,6 +1,13 @@
 "use client";
 
-import { Suspense, useState, useMemo, useEffect, useCallback } from "react";
+import {
+  Suspense,
+  useState,
+  useMemo,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -364,6 +371,33 @@ function BookingPageInner() {
     setSelectedService(id);
     setStep("datetime");
   }, []);
+
+  const firstStepRender = useRef(true);
+  useEffect(() => {
+    if (firstStepRender.current) {
+      firstStepRender.current = false;
+      return;
+    }
+    if (typeof window === "undefined") return;
+    // Snap to the top of the flow so a new step starts at its heading, not
+    // wherever the last tap happened. Instant rather than smooth, and run
+    // again on the next couple of frames: the calendar's availability
+    // arrives a beat later and re-lays-out the page, which would otherwise
+    // swallow a single scroll. window + both scrolling elements covers the
+    // browsers that scroll <body> rather than <html>.
+    const toTop = () => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
+    toTop();
+    const r1 = requestAnimationFrame(toTop);
+    const t1 = window.setTimeout(toTop, 120);
+    return () => {
+      cancelAnimationFrame(r1);
+      window.clearTimeout(t1);
+    };
+  }, [step]);
 
   // Every day in the visible month, padded with blanks so the 1st lands
   // under its real weekday.
