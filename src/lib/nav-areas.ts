@@ -12,6 +12,9 @@ const AREA_NAV: ReadonlyArray<readonly [string, string]> = [
   ["/api/clients", "nav_clients"],
   ["/reports", "nav_reports"],
   ["/api/reports", "nav_reports"],
+  // Letters live in the Reports section (pages under /reports/letters are
+  // already covered by the /reports prefix; the API needs its own line).
+  ["/api/letters", "nav_reports"],
   ["/invoices", "nav_invoices"],
   ["/api/invoices", "nav_invoices"],
   ["/api/income", "nav_invoices"],

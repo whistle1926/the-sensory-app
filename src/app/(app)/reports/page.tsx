@@ -8,6 +8,7 @@ import {
   FileClock,
   FileText,
   Loader2,
+  Mail,
   Plus,
   Trash2,
   TrendingUp,
@@ -155,13 +156,27 @@ export default function ReportsPage() {
             : `${counts.all} total · ${counts.draft} drafting · ${counts.final} final`
         }
         actions={
-          <Link
-            href="/reports/new"
-            className={buttonVariants({ className: "rounded-xl" })}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            New Report
-          </Link>
+          <div className="flex items-center gap-2">
+            {/* Letters live alongside reports (Grace's request) — school
+                summaries, statutory-assessment support, etc. */}
+            <Link
+              href="/reports/letters"
+              className={buttonVariants({
+                variant: "outline",
+                className: "rounded-xl",
+              })}
+            >
+              <Mail className="mr-2 h-4 w-4" />
+              Letters
+            </Link>
+            <Link
+              href="/reports/new"
+              className={buttonVariants({ className: "rounded-xl" })}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              New Report
+            </Link>
+          </div>
         }
       />
 

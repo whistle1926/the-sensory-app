@@ -63,6 +63,7 @@ model User {
   parentOfClients Client[]       @relation("ParentClients")
   reports         Report[]       @relation("AuthoredReports")
   homeProgrammes  HomeProgramme[] @relation("AuthoredHomeProgrammes")
+  letters         Letter[]       @relation("AuthoredLetters")
   sessions        TherapySession[] @relation("TherapistSessions")
   enrollments     Enrollment[]   @relation("UserEnrollments")
   setupTokens     PasswordSetupToken[]
@@ -283,6 +284,7 @@ model Client {
   sessions      TherapySession[]
   reports       Report[]
   homeProgrammes HomeProgramme[]
+  letters       Letter[]
   progressNotes ProgressNote[]
   goals         ClientGoal[]
   intakeItems   ClientIntakeItem[]
@@ -366,6 +368,35 @@ model HomeProgramme {
   status    String    @default("draft") // draft | sent
   sentAt    DateTime?
   sentTo    String?   // email the most recent copy went to
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([clientId])
+  @@index([status, createdAt])
+}
+
+/// A standalone letter — school summaries, statutory-assessment support,
+/// advice to schools, and so on. Grace used to type these in Word; this
+/// keeps them in the same place as reports, with the practice letterhead
+/// applied on export/email.
+///
+/// Deliberately the same shape as HomeProgramme (freeform rich-text body,
+/// optional client link, draft|sent) so the export/email plumbing mirrors
+/// it. `recipient` is who the letter is addressed to (e.g. a school), shown
+/// on the printed letterhead.
+model Letter {
+  id        String    @id @default(cuid())
+  clientId  String?
+  client    Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  authorId  String?
+  author    User?     @relation("AuthoredLetters", fields: [authorId], references: [id], onDelete: SetNull)
+  title     String    @default("Letter")
+  /// Who it's addressed to — a school, a panel, etc. Optional.
+  recipient String    @default("")
+  body      String    @db.Text @default("")
+  status    String    @default("draft") // draft | sent
+  sentAt    DateTime?
+  sentTo    String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
