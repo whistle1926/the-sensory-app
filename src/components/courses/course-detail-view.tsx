@@ -110,7 +110,11 @@ export function CourseDetailView({
 
       {/* Hero */}
       <section className="mx-auto max-w-[1240px] px-5 pb-10 sm:px-10">
-        <div className="grid gap-8 md:grid-cols-[1.2fr_1fr]">
+        {/* items-start: without it the grid stretches both columns to the
+            same height, so the white cover-image box grows taller than the
+            16:9 image and shows a white band beneath it when the text column
+            is taller. Aligning to the top lets the image box hug the image. */}
+        <div className="grid items-start gap-8 md:grid-cols-[1.2fr_1fr]">
           <div>
             <div className="flex flex-wrap items-center gap-2 text-[13px] font-extrabold uppercase tracking-[1.4px] text-[#E71D57]">
               <span>{course.audience}</span>
