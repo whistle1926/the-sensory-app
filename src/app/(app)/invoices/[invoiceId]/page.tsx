@@ -112,6 +112,23 @@ const STATUS_CONFIG: Record<
   cancelled: { label: "Cancelled", variant: "outline" },
 };
 
+/** Payment methods an admin can record when marking paid off-Fire. */
+const PAID_METHODS = [
+  { key: "cash", label: "Cash" },
+  { key: "bank_transfer", label: "Bank transfer" },
+  { key: "other", label: "Other" },
+] as const;
+
+function methodLabel(method: string | null): string {
+  switch (method) {
+    case "cash": return "Cash";
+    case "bank_transfer": return "Bank transfer";
+    case "fire": return "Fire";
+    case "other": return "Other";
+    default: return "Paid";
+  }
+}
+
 let editKeyCounter = 0;
 
 /* ------------------------------------------------------------------ */
@@ -209,6 +226,9 @@ export default function InvoiceDetailPage() {
   /* ---- delete / cancel confirmation ---- */
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  // Off-Fire "mark as paid" — which method chooser / confirm is showing.
+  const [showMarkPaid, setShowMarkPaid] = useState(false);
+  const [confirmUnpay, setConfirmUnpay] = useState(false);
 
   /* ---- load invoice ---- */
   async function load() {
@@ -434,6 +454,54 @@ export default function InvoiceDetailPage() {
     }
 
     setEmailSending(false);
+  }
+
+  /* ---- mark paid off-Fire (status → paid, with method) ---- */
+  async function markPaid(method: string) {
+    setError("");
+    setActionLoading("markpaid");
+    try {
+      const res = await fetch(`/api/invoices/${invoiceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "paid", paidMethod: method }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Failed to mark the invoice paid.");
+        return;
+      }
+      setInvoice(await res.json());
+      setShowMarkPaid(false);
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  /* ---- reverse a manual mark (status → sent) ---- */
+  async function markUnpaid() {
+    setError("");
+    setActionLoading("unpay");
+    try {
+      const res = await fetch(`/api/invoices/${invoiceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "sent" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Failed to reopen the invoice.");
+        return;
+      }
+      setInvoice(await res.json());
+      setConfirmUnpay(false);
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setActionLoading(null);
+    }
   }
 
   /* ---- cancel invoice (status → cancelled) ---- */
@@ -1202,7 +1270,13 @@ export default function InvoiceDetailPage() {
               {invoice.invoiceNumber}
             </h1>
           </div>
-          <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
+          {invoice.status === "paid" && invoice.paidMethod ? (
+            <Badge variant="default" className="bg-green-600 hover:bg-green-600">
+              Paid · {methodLabel(invoice.paidMethod)}
+            </Badge>
+          ) : (
+            <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
+          )}
         </div>
       </div>
 
@@ -1262,7 +1336,9 @@ export default function InvoiceDetailPage() {
           )}
           {invoice.paidAt && (
             <div>
-              <p className="text-xs text-muted-foreground">Paid</p>
+              <p className="text-xs text-muted-foreground">
+                Paid{invoice.paidMethod ? ` · ${methodLabel(invoice.paidMethod)}` : ""}
+              </p>
               <p className="text-sm font-medium text-green-600 dark:text-green-400">
                 {formatDateFull(invoice.paidAt)}
               </p>
@@ -1496,6 +1572,74 @@ export default function InvoiceDetailPage() {
             check whether it's paid in FireBuddy. */}
         {invoice.status !== "draft" && invoice.status !== "cancelled" && (
           <>
+            {/* Mark as paid off-Fire — cash, a different bank account, or
+                other. Records the method and credits the income tracker.
+                Hidden once already marked paid (the un-mark below shows). */}
+            {!(invoice.status === "paid" && invoice.paidMethod) &&
+              (showMarkPaid ? (
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-2 dark:border-green-800 dark:bg-green-950/30">
+                  <span className="text-sm font-medium text-green-800 dark:text-green-300">
+                    Paid by…
+                  </span>
+                  {PAID_METHODS.map((m) => (
+                    <Button
+                      key={m.key}
+                      size="sm"
+                      onClick={() => markPaid(m.key)}
+                      disabled={actionLoading === "markpaid"}
+                    >
+                      {actionLoading === "markpaid" ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        m.label
+                      )}
+                    </Button>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowMarkPaid(false)}
+                    disabled={actionLoading === "markpaid"}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  onClick={() => setShowMarkPaid(true)}
+                  className="bg-green-600 text-white hover:bg-green-700"
+                >
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  Mark as paid
+                </Button>
+              ))}
+
+            {/* Reverse a manual mark, in case it was a mistake. */}
+            {invoice.status === "paid" && invoice.paidMethod && (
+              !confirmUnpay ? (
+                <Button variant="outline" onClick={() => setConfirmUnpay(true)}>
+                  <Ban className="mr-2 h-4 w-4" />
+                  Mark as unpaid
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 dark:border-amber-800 dark:bg-amber-950/30">
+                  <span className="text-sm text-amber-700 dark:text-amber-400">
+                    Reopen this invoice as unpaid?
+                  </span>
+                  <Button size="sm" onClick={markUnpaid} disabled={actionLoading === "unpay"}>
+                    {actionLoading === "unpay" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Yes, reopen"
+                    )}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setConfirmUnpay(false)}>
+                    Keep
+                  </Button>
+                </div>
+              )
+            )}
+
             <Button onClick={startCompose} variant="outline">
               <Mail className="mr-2 h-4 w-4" />
               Resend email

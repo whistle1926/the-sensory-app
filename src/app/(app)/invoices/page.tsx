@@ -43,6 +43,7 @@ interface Invoice {
   total: number;
   sentAt: string | null;
   paidAt: string | null;
+  paidMethod: string | null;
   createdAt: string;
   items: InvoiceItem[];
 }
@@ -115,6 +116,30 @@ const STATUS_LABEL: Record<Invoice["status"], string> = {
   cancelled: "Cancelled",
 };
 
+/** Payment methods an admin can mark an invoice paid by, off-Fire. */
+const PAID_METHODS = [
+  { key: "cash", label: "Cash" },
+  { key: "bank_transfer", label: "Bank transfer" },
+  { key: "other", label: "Other" },
+] as const;
+
+/** Short badge label for a recorded payment method. */
+function methodLabel(method: string | null): string {
+  switch (method) {
+    case "cash": return "Cash";
+    case "bank_transfer": return "Bank transfer";
+    case "fire": return "Fire";
+    case "other": return "Other";
+    default: return "Paid";
+  }
+}
+
+/** Manually marked paid off-Fire (cash / bank transfer / other). Fire
+ *  settlements come in through the received overlay, not this flag. */
+function isManuallyPaid(inv: Invoice): boolean {
+  return inv.status === "paid" && !!inv.paidMethod;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Page                                                               */
 /* ------------------------------------------------------------------ */
@@ -129,6 +154,36 @@ export default function InvoicesPage() {
   // Inline delete state (mirror of the /reports list pattern). Only
   // one row is ever in confirm/in-flight at a time so plain ids work.
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  // Inline "mark paid" picker: which row's method chooser is open, and a
+  // busy flag while the PATCH is in flight.
+  const [markPaidId, setMarkPaidId] = useState<string | null>(null);
+  const [markPaidBusy, setMarkPaidBusy] = useState(false);
+
+  /** Mark an invoice paid off-Fire with a method. The backend records
+   *  paidAt + paidMethod, credits the income tracker and mirrors to
+   *  FireBuddy; here we just reflect it in the row. */
+  async function markPaid(id: string, method: string) {
+    setMarkPaidBusy(true);
+    try {
+      const res = await fetch(`/api/invoices/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "paid", paidMethod: method }),
+      });
+      if (res.ok) {
+        setInvoices((prev) =>
+          prev.map((i) =>
+            i.id === id
+              ? { ...i, status: "paid", paidMethod: method, paidAt: new Date().toISOString() }
+              : i,
+          ),
+        );
+        setMarkPaidId(null);
+      }
+    } finally {
+      setMarkPaidBusy(false);
+    }
+  }
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -208,13 +263,17 @@ export default function InvoicesPage() {
     if (activeFilter === "draft") {
       list = list.filter((inv) => inv.status === "draft");
     } else if (activeFilter === "sent") {
-      // "Sent" = anything that's left draft, incl. legacy paid/overdue.
-      list = list.filter((inv) =>
-        ["sent", "paid", "overdue"].includes(inv.status),
+      // "Sent" = anything sent but not yet settled (incl. legacy
+      // paid/overdue rows). A row marked paid off-Fire moves to Received.
+      list = list.filter(
+        (inv) =>
+          ["sent", "paid", "overdue"].includes(inv.status) &&
+          !isManuallyPaid(inv) &&
+          !receivedAt[inv.id],
       );
     } else if (activeFilter === "received") {
-      // Money actually landed in Fire (live overlay).
-      list = list.filter((inv) => receivedAt[inv.id]);
+      // Money landed in Fire (live overlay) OR marked paid off-Fire.
+      list = list.filter((inv) => receivedAt[inv.id] || isManuallyPaid(inv));
     } else if (activeFilter === "cancelled") {
       list = list.filter((inv) => inv.status === "cancelled");
     }
@@ -240,12 +299,16 @@ export default function InvoicesPage() {
             // "Sent" now covers everything that's been sent — including
             // legacy paid/overdue rows (payment lives in FireBuddy).
             count:
-              stats.countSent + stats.countPaid + stats.countOverdue,
+              stats.countSent + stats.countPaid + stats.countOverdue
+              - invoices.filter(isManuallyPaid).length,
           },
           {
             key: "received",
             label: "Received",
-            count: Object.keys(receivedAt).length,
+            count: new Set([
+              ...Object.keys(receivedAt),
+              ...invoices.filter(isManuallyPaid).map((i) => i.id),
+            ]).size,
           },
           { key: "cancelled", label: "Cancelled", count: stats.countCancelled },
         ]
@@ -571,6 +634,14 @@ export default function InvoicesPage() {
                                 >
                                   <Chip tone="success">✓ Received</Chip>
                                 </span>
+                              ) : isManuallyPaid(inv) ? (
+                                <span
+                                  title={`Marked paid (${methodLabel(inv.paidMethod)})${inv.paidAt ? ` on ${formatDate(inv.paidAt)}` : ""}`}
+                                >
+                                  <Chip tone="success">
+                                    ✓ Paid · {methodLabel(inv.paidMethod)}
+                                  </Chip>
+                                </span>
                               ) : (
                                 <Chip tone={STATUS_TONE[inv.status]}>
                                   {STATUS_LABEL[inv.status]}
@@ -579,6 +650,61 @@ export default function InvoicesPage() {
                             </td>
                             <td style={{ textAlign: "right" }}>
                               <div className="inline-flex items-center gap-1">
+                                {(() => {
+                                  const canMarkPaid =
+                                    inv.status !== "draft" &&
+                                    inv.status !== "cancelled" &&
+                                    !isManuallyPaid(inv) &&
+                                    !receivedAt[inv.id];
+                                  if (!canMarkPaid) return null;
+                                  if (markPaidId === inv.id) {
+                                    return (
+                                      <span
+                                        className="mr-1 inline-flex items-center gap-1"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        {PAID_METHODS.map((m) => (
+                                          <button
+                                            key={m.key}
+                                            type="button"
+                                            disabled={markPaidBusy}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              markPaid(inv.id, m.key);
+                                            }}
+                                            className="rounded-md border border-border bg-card px-2 py-1 text-xs font-medium hover:bg-muted disabled:opacity-50"
+                                          >
+                                            {m.label}
+                                          </button>
+                                        ))}
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setMarkPaidId(null);
+                                          }}
+                                          className="rounded-md p-1 text-muted-foreground hover:bg-muted"
+                                          aria-label="Cancel"
+                                        >
+                                          <X className="h-3.5 w-3.5" />
+                                        </button>
+                                      </span>
+                                    );
+                                  }
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setMarkPaidId(inv.id);
+                                      }}
+                                      title="Mark paid (cash / bank transfer / other)"
+                                      className="mr-1 rounded-md border border-border bg-card px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950/30"
+                                    >
+                                      Mark paid
+                                    </button>
+                                  );
+                                })()}
                                 {canDelete && (
                                   <button
                                     type="button"
@@ -625,6 +751,10 @@ export default function InvoicesPage() {
                               </p>
                               {receivedAt[inv.id] ? (
                                 <Chip tone="success">✓ Received</Chip>
+                              ) : isManuallyPaid(inv) ? (
+                                <Chip tone="success">
+                                  ✓ Paid · {methodLabel(inv.paidMethod)}
+                                </Chip>
                               ) : (
                                 <Chip tone={STATUS_TONE[inv.status]}>
                                   {STATUS_LABEL[inv.status]}
