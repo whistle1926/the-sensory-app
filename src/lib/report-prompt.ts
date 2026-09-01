@@ -62,8 +62,6 @@ Return ONLY valid JSON matching this exact structure (no markdown, no code fence
     "otherConcerns": "string — observation from notes OR 'Suggested follow-up: ...'. Never empty.",
     "discussionWithParent": "string — summary if parent discussion is mentioned, OR 'Suggested follow-up: ...' for the next visit. Never empty."
   },
-  "interventionsUsed": "string (bullet-point style, separated by newlines)",
-  "responseToIntervention": "string (detailed paragraph)",
   "clinicalImpressions": "string (summary paragraph)",
   "recommendations": "string (bullet-point style, separated by newlines)",
   "goals": {

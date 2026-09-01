@@ -121,9 +121,6 @@ const FIELD_PROMPTS: Record<string, string> = {
   "functionalReview.otherConcerns": "Any other concerns raised.",
   "functionalReview.discussionWithParent":
     "Discussion with parent/carer — priorities, questions, agreed next steps.",
-  interventionsUsed:
-    "What you tried in the session — activities, equipment, strategies.",
-  responseToIntervention: "How the child responded to each.",
   clinicalImpressions:
     "Clinical impressions — your professional summary tying the observations to the child's needs.",
   recommendations:
@@ -442,10 +439,6 @@ export function ReportViewer({ content, editing = false, onChange }: ReportViewe
             <SubSection title="Discussion with Parent/Carer" text={c.functionalReview?.discussionWithParent ?? ""} editing={editing} onChange={set("functionalReview.discussionWithParent")} prompt={FIELD_PROMPTS["functionalReview.discussionWithParent"]} />
           </>
         );
-      case "interventionsUsed":
-        return <Prose value={c.interventionsUsed} editing={editing} onChange={set("interventionsUsed")} prompt={FIELD_PROMPTS["interventionsUsed"]} />;
-      case "responseToIntervention":
-        return <Prose value={c.responseToIntervention} editing={editing} onChange={set("responseToIntervention")} prompt={FIELD_PROMPTS["responseToIntervention"]} />;
       case "clinicalImpressions":
         return <Prose value={c.clinicalImpressions} editing={editing} onChange={set("clinicalImpressions")} prompt={FIELD_PROMPTS["clinicalImpressions"]} />;
       case "recommendations":

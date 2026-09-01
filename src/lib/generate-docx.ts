@@ -65,10 +65,6 @@ function sectionParas(
       ];
     case "functionalReview":
       return functionalReviewParas(c, heading, subheading, multiLineText);
-    case "interventionsUsed":
-      return [heading(REPORT_SECTION_TITLES.interventionsUsed), ...multiLineText(c.interventionsUsed)];
-    case "responseToIntervention":
-      return [heading(REPORT_SECTION_TITLES.responseToIntervention), ...multiLineText(c.responseToIntervention)];
     case "clinicalImpressions":
       return [heading(REPORT_SECTION_TITLES.clinicalImpressions), ...multiLineText(c.clinicalImpressions)];
     case "recommendations":

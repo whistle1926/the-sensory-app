@@ -38,10 +38,6 @@ function sectionHtml(
         <h3>Play and Functional Skills</h3><p>${nl(c.assessmentFindings.playFunctional)}</p>`;
     case "functionalReview":
       return functionalReviewHtml(c, nl);
-    case "interventionsUsed":
-      return `${heading(REPORT_SECTION_TITLES.interventionsUsed)}<p>${nl(c.interventionsUsed)}</p>`;
-    case "responseToIntervention":
-      return `${heading(REPORT_SECTION_TITLES.responseToIntervention)}<p>${nl(c.responseToIntervention)}</p>`;
     case "clinicalImpressions":
       return `${heading(REPORT_SECTION_TITLES.clinicalImpressions)}<p>${nl(c.clinicalImpressions)}</p>`;
     case "recommendations":

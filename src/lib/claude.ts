@@ -131,8 +131,6 @@ const TIDY_FIELD_PATHS = [
   "functionalReview.school",
   "functionalReview.otherConcerns",
   "functionalReview.discussionWithParent",
-  "interventionsUsed",
-  "responseToIntervention",
   "clinicalImpressions",
   "recommendations",
   "goals.shortTerm",

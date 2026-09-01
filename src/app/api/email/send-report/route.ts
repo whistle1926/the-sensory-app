@@ -239,10 +239,6 @@ function sectionEmailHtml(
       if (parts.every((s) => !s)) return "";
       return heading(REPORT_SECTION_TITLES.functionalReview) + parts.join("");
     }
-    case "interventionsUsed":
-      return heading(REPORT_SECTION_TITLES.interventionsUsed) + p(c.interventionsUsed);
-    case "responseToIntervention":
-      return heading(REPORT_SECTION_TITLES.responseToIntervention) + p(c.responseToIntervention);
     case "clinicalImpressions":
       return heading(REPORT_SECTION_TITLES.clinicalImpressions) + p(c.clinicalImpressions);
     case "recommendations":

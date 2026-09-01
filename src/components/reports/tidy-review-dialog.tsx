@@ -63,8 +63,6 @@ function collectDiffs(before: ReportContent, after: ReportContent): Diff[] {
   push("Functional · Other Concerns", "functionalReview.otherConcerns", bfr.otherConcerns ?? "", afr.otherConcerns ?? "");
   push("Functional · Parent Discussion", "functionalReview.discussionWithParent", bfr.discussionWithParent ?? "", afr.discussionWithParent ?? "");
 
-  push("Interventions Used", "interventionsUsed", before.interventionsUsed, after.interventionsUsed);
-  push("Response to Intervention", "responseToIntervention", before.responseToIntervention, after.responseToIntervention);
   push("Clinical Impressions", "clinicalImpressions", before.clinicalImpressions, after.clinicalImpressions);
   push("Recommendations", "recommendations", before.recommendations, after.recommendations);
 

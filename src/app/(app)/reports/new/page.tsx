@@ -336,7 +336,7 @@ function NewReportPage() {
                   rows={15}
                   value={rawNotes}
                   onChange={(e) => setRawNotes(e.target.value)}
-                  placeholder="Paste your raw session notes here, or use Record voice notes above. Include observations about sensory responses, behaviours, interventions used, and the child's response. The more detail you provide, the better the report."
+                  placeholder="Paste your raw session notes here, or use Record voice notes above. Include observations about sensory responses, behaviours, and the child's response. The more detail you provide, the better the report."
                 />
                 {/* A quick "what to cover" reminder so nothing gets missed
                     during the assessment. Collapsible so it stays out of the

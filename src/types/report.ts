@@ -38,8 +38,10 @@ export interface ReportContent {
     otherConcerns?: string;
     discussionWithParent?: string;
   };
-  interventionsUsed: string;
-  responseToIntervention: string;
+  /** Removed from the report template (Grace's request, 1 Sept 2026) —
+   *  kept optional so older stored reports still parse. No longer rendered. */
+  interventionsUsed?: string;
+  responseToIntervention?: string;
   clinicalImpressions: string;
   recommendations: string;
   goals: {
@@ -81,8 +83,6 @@ export const REPORT_SECTION_KEYS = [
   "observations",
   "assessmentFindings",
   "functionalReview",
-  "interventionsUsed",
-  "responseToIntervention",
   "clinicalImpressions",
   "recommendations",
   "goals",
@@ -98,8 +98,6 @@ export const REPORT_SECTION_TITLES: Record<ReportSectionKey, string> = {
   observations: "Observations and Behaviours",
   assessmentFindings: "Assessment Findings",
   functionalReview: "Functional Review",
-  interventionsUsed: "Interventions Used",
-  responseToIntervention: "Response to Intervention",
   clinicalImpressions: "Clinical Impressions and Summary",
   recommendations: "Recommendations",
   goals: "Goals and Next Steps",
