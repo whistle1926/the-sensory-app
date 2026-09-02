@@ -54,6 +54,10 @@ export function CheckoutView({
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  // Once we have a Fire payment URL we show a branded hand-off screen for a
+  // beat before redirecting, so the jump to the (Fire-hosted, differently
+  // branded) bank picker is framed rather than abrupt.
+  const [handingOff, setHandingOff] = useState(false);
 
   const signedIn = status === "authenticated" && !!session?.user;
 
@@ -106,7 +110,11 @@ export function CheckoutView({
         return;
       }
       if (data.paymentUrl) {
-        window.location.href = data.paymentUrl as string;
+        // Branded pause, then hand off to Fire's secure bank picker.
+        setHandingOff(true);
+        setTimeout(() => {
+          window.location.href = data.paymentUrl as string;
+        }, 1100);
         return;
       }
       if (data.redirect) {
@@ -120,13 +128,46 @@ export function CheckoutView({
       router.push(`/portal/training/${course.id}`);
     } catch {
       setError("Couldn't reach the server. Check your connection and try again.");
-    } finally {
       setSubmitting(false);
     }
+    // On a successful redirect/hand-off we deliberately leave `submitting`
+    // set so the button stays disabled while the page navigates away.
   }
 
   const field =
     "w-full rounded-full border-[3px] border-[#D9D2C4] bg-[#FFFCF6] px-4 py-3 text-[15px] font-semibold text-[#12235B] outline-none placeholder:text-[#9AA3B8] focus:border-[#12235B] focus:bg-white";
+
+  if (handingOff) {
+    return (
+      <div className="sub fixed inset-0 z-50 flex items-center justify-center overflow-hidden px-5">
+        <div className="sub-dots pointer-events-none absolute inset-0" aria-hidden />
+        <div
+          className="pointer-events-none absolute -right-[120px] -top-[140px] h-[420px] w-[420px] rounded-full bg-[#FFE9A8]"
+          aria-hidden
+        />
+        <div className="sub-edge-xl relative w-full max-w-[440px] rounded-[34px] bg-white p-8 text-center sm:p-10">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/logo-mark.jpg"
+            alt="The Sensory Submarine"
+            className="mx-auto mb-5 h-16 w-16 rounded-2xl border-[3px] border-[#12235B] object-contain p-1"
+          />
+          <p className="sub-display flex items-center justify-center gap-2 text-[26px]">
+            <Loader2 className="h-6 w-6 animate-spin text-[#E71D57]" />
+            Taking you to secure payment…
+          </p>
+          <p className="mx-auto mt-3 max-w-[360px] text-[15px] font-semibold leading-relaxed text-[#3D4A6B]">
+            You&apos;ll choose your bank and approve the payment in your own
+            banking app — nothing to type, no card details.
+          </p>
+          <p className="mt-4 inline-flex items-center gap-1.5 rounded-full border-2 border-[#C2E7E3] bg-[#E7F6F4] px-3.5 py-1.5 text-[13px] font-bold text-[#0E6F68]">
+            <Lock className="h-3.5 w-3.5" />
+            Handled by Fire · FCA-regulated
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     /* Top of the page is kept deliberately tight. The add-ons are the part
