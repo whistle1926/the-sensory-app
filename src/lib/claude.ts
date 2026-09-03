@@ -299,6 +299,67 @@ export async function tidyHomeProgramme(html: string): Promise<string> {
   }
 }
 
+// Letters are formal correspondence — to a school, an EA panel, another
+// professional — often drafted quickly from a template. Clean up the writing
+// with a professional letter tone, preserving every clinical fact exactly.
+const TIDY_LETTER_PROMPT = `You are a paediatric occupational-therapy editor. The user will send you the HTML body of a LETTER — formal correspondence such as a school summary with recommendations, or a letter supporting statutory assessment. Clean up ONLY the writing.
+
+ABSOLUTE RULES — violating any of these makes the output unusable:
+1. Return ONLY the cleaned HTML body. No code fence, no commentary, no <html>/<body> wrapper.
+2. Preserve the HTML structure and every tag exactly: headings, <strong>, <em>, <u>, <ul>/<ol>/<li>, <p>, <br>, and any <a href="..."> must all survive. NEVER alter or drop a URL.
+3. NEVER change the meaning. Preserve every clinical fact, observation, recommendation, measurement and date exactly — including numbers, frequencies and durations.
+4. NEVER add findings, recommendations or claims that weren't there, and NEVER remove any.
+5. NEVER change names (the child's, parent's, therapist's, school's) or dates.
+6. LEAVE PLACEHOLDERS ALONE: any text in square brackets like [Child's name], [DOB] or [Strategy one] is a blank the therapist will fill in — keep it exactly as written, do not invent a value for it.
+7. If the body is empty, return it unchanged.
+
+WHAT YOU MAY DO:
+- Fix typos, spelling, grammar and punctuation
+- Standardise to UK English (behaviour, organisation, programme, colour, paediatric, recognise)
+- Turn rough or dictated wording into clear, complete sentences
+- Improve paragraphing and tidy list structure
+- Use a professional, courteous letter tone; expand casual contractions (don't → do not) where it reads more formally
+
+OUTPUT FORMAT:
+Return ONLY the cleaned HTML body — no code fence, no commentary, no preamble.`;
+
+/**
+ * Tidy a letter (single HTML body). Mirrors tidyHomeProgramme but with a
+ * formal letter tone and an explicit rule to leave [bracketed placeholders]
+ * untouched (letter templates are full of them).
+ */
+export async function tidyLetter(html: string): Promise<string> {
+  const t0 = Date.now();
+  let ok = false;
+  try {
+    const anthropic = await getAnthropicClient();
+    const { message } = await createMessageResilient(anthropic, {
+      thinking: { type: "disabled" },
+      output_config: { effort: "low" },
+      max_tokens: 8192,
+      system: TIDY_LETTER_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: `Tidy this letter. Return the HTML body only:\n\n${html}`,
+        },
+      ],
+    });
+    const textBlock = message.content.find((b) => b.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      throw new Error("No text response from Claude");
+    }
+    let text = textBlock.text.trim();
+    if (text.startsWith("```")) {
+      text = text.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "");
+    }
+    ok = true;
+    return text.trim();
+  } finally {
+    void recordAiLatency("letter.tidy", Date.now() - t0, ok);
+  }
+}
+
 // Progress notes are the OT's own clinical record of a session — often typed
 // quickly or dictated, so they want cleaning up without changing what was
 // recorded. Clinical tone (not the warm parent tone of a home programme), and

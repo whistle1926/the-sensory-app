@@ -3,7 +3,15 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Check, Download, Loader2, Send, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  Download,
+  Loader2,
+  Send,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { RichTextView } from "@/components/ui/rich-text-view";
 
@@ -45,6 +53,35 @@ export default function LetterPage() {
   const [saving, setSaving] = useState(false);
   const [savedTick, setSavedTick] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  // Tidy with AI — send the in-flight body, review the result, then apply.
+  const [tidying, setTidying] = useState(false);
+  const [tidyResult, setTidyResult] = useState<string | null>(null);
+  const [tidyError, setTidyError] = useState("");
+
+  async function handleTidy() {
+    setTidyError("");
+    setTidying(true);
+    try {
+      const res = await fetch("/api/letters/tidy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ html: body }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        html?: string;
+        error?: string;
+      };
+      if (!res.ok || !data.html) {
+        setTidyError(data.error ?? "Couldn't tidy the letter. Please try again.");
+        return;
+      }
+      setTidyResult(data.html);
+    } catch {
+      setTidyError("Network error — please try again.");
+    } finally {
+      setTidying(false);
+    }
+  }
 
   useEffect(() => {
     Promise.all([
@@ -261,7 +298,28 @@ export default function LetterPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Letter</label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium">Letter</label>
+                <button
+                  type="button"
+                  onClick={handleTidy}
+                  disabled={tidying || !body.trim()}
+                  title="Clean up the writing with AI — you review before it's applied"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold hover:bg-muted/50 disabled:opacity-50"
+                >
+                  {tidying ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  )}
+                  {tidying ? "Tidying…" : "Tidy with AI"}
+                </button>
+              </div>
+              {tidyError && (
+                <p className="text-xs text-red-600 dark:text-red-400">
+                  {tidyError}
+                </p>
+              )}
               <RichTextEditor
                 value={body}
                 onChange={setBody}
@@ -291,6 +349,53 @@ export default function LetterPage() {
           </div>
         )}
       </div>
+
+      {tidyResult !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl border border-border bg-card shadow-lg">
+            <div className="flex items-center justify-between border-b border-border p-5">
+              <div>
+                <h2 className="text-base font-semibold">Review the tidy</h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Grammar, tone and tidying only — check nothing important
+                  changed before you apply it.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTidyResult(null)}
+                className="rounded-md p-1 text-muted-foreground hover:bg-muted"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5">
+              <RichTextView html={tidyResult} />
+            </div>
+            <div className="flex justify-end gap-2 border-t border-border p-4">
+              <button
+                type="button"
+                onClick={() => setTidyResult(null)}
+                className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium hover:bg-muted/50"
+              >
+                Keep mine
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (tidyResult) setBody(tidyResult);
+                  setTidyResult(null);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground hover:brightness-110"
+              >
+                <Check className="h-4 w-4" />
+                Apply this
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {sendOpen && (
         <SendDialog
