@@ -9,9 +9,10 @@
  * processing" for ever.
  *
  * Asking Fire is authoritative and needs no webhook, no reference and no
- * configuration we can't see. Fire's own status is the truth: only funds
- * actually confirmed count as paid, so a bank flow that looked successful
- * but hasn't settled is still correctly treated as pending.
+ * configuration we can't see. Fire's own status is the truth: a payment
+ * counts once the payer's bank has AUTHORISED it (see fire-payment-status),
+ * so a bank flow that looked successful on screen but Fire never saw is
+ * still correctly treated as pending.
  */
 import { prisma } from "./prisma";
 import { fetchFireStatus } from "./fire-payment-status";

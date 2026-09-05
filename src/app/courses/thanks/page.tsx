@@ -34,7 +34,9 @@ export default function CourseThanksPage({
       return;
     }
     let attempts = 0;
-    const maxAttempts = 15; // 2s × 15 ≈ 30s
+    // Fire reports "authorised" within a minute of the bank approving it,
+    // and that is what unlocks the course — so give it a fair chance.
+    const maxAttempts = 45; // 2s × 45 ≈ 90s
     let cancelled = false;
 
     async function poll() {
@@ -91,8 +93,8 @@ export default function CourseThanksPage({
               <Loader2 className="mx-auto h-10 w-10 animate-spin text-[#6B7794]" />
               <h1 className="sub-display mt-4 text-[30px]">Finalising your purchase…</h1>
               <p className="mt-2 text-[15px] font-semibold text-[#3D4A6B]">
-                Just a moment while we confirm payment with FireBuddy. This
-                usually takes a few seconds.
+                Just a moment while your bank confirms the payment. This
+                usually takes under a minute.
               </p>
             </>
           )}
@@ -133,11 +135,12 @@ export default function CourseThanksPage({
           {phase === "timeout" && (
             <>
               <AlertCircle className="mx-auto h-10 w-10 text-amber-500" />
-              <h1 className="sub-display mt-4 text-[30px]">Still processing</h1>
+              <h1 className="sub-display mt-4 text-[30px]">Your bank is still confirming</h1>
               <p className="mt-2 text-[15px] font-semibold text-[#3D4A6B]">
-                If you've paid, your course is on the way. Refresh this page
-                shortly or check your email — we'll send a confirmation as soon
-                as payment lands.
+                If you approved the payment in your banking app, you&apos;re
+                all set — we&apos;ll email your access link the moment your
+                bank confirms it, usually within a few minutes. You can also
+                refresh this page to check.
               </p>
               <Link
                 href="/courses"

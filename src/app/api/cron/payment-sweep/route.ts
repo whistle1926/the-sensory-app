@@ -1,18 +1,17 @@
 /**
  * GET /api/cron/payment-sweep
  *
- * Catches payments that settle after the buyer has gone.
+ * Catches payments that are authorised after the buyer has gone.
  *
- * Fire's open banking is not instant: Grace started a course payment at
- * 08:27 and Fire confirmed the funds at 16:07 — nearly eight hours later.
- * The thanks page checks with Fire while the buyer is watching it, but
- * nobody sits on that page for eight hours, so a payment that settles late
- * would otherwise stay pending for ever: no access, no receipt, and nothing
- * in the day's takings.
+ * Access is granted once the payer's bank authorises the payment, which is
+ * normally within a minute — but a buyer can close the thanks page before
+ * that, or their bank app can sit on the approval for a while. Without this
+ * a late authorisation would stay pending for ever: no access, no receipt,
+ * and nothing in the day's takings.
  *
  * This re-checks anything recent and still unpaid, and completes whatever
- * has genuinely landed. Safe to run repeatedly — each completion is
- * idempotent, and only funds Fire has confirmed count.
+ * Fire now reports as authorised. Safe to run repeatedly — each completion
+ * is idempotent.
  *
  * Auth: Vercel Cron sends `Authorization: Bearer <CRON_SECRET>`.
  */

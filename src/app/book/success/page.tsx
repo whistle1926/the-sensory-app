@@ -26,27 +26,42 @@ function SuccessContent() {
       return;
     }
 
+    // The booking confirms once the client's bank has authorised the
+    // payment — usually within a minute of them approving it in their
+    // banking app. Keep asking for a while rather than giving up on the
+    // first look, so most clients see "confirmed" without refreshing.
+    let attempts = 0;
+    const maxAttempts = 45; // 2s × 45 ≈ 90s
+    let cancelled = false;
+
     async function checkStatus() {
+      attempts++;
       try {
         const res = await fetch(`/api/bookings/${bookingId}/status`);
         if (!res.ok) {
-          setStatus("failed");
+          if (!cancelled) setStatus("failed");
           return;
         }
         const data = await res.json();
+        if (cancelled) return;
         setBookingDetails(data);
 
         if (data.paymentStatus === "paid") {
           setStatus("completed");
-        } else {
-          setStatus("pending");
+          return;
         }
       } catch {
-        setStatus("pending");
+        /* keep trying */
       }
+      if (cancelled) return;
+      setStatus("pending");
+      if (attempts < maxAttempts) setTimeout(checkStatus, 2000);
     }
 
     checkStatus();
+    return () => {
+      cancelled = true;
+    };
   }, [bookingId]);
 
   return (
@@ -142,9 +157,9 @@ function SuccessContent() {
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/30">
               <Clock className="h-8 w-8 text-amber-600 dark:text-amber-400" />
             </div>
-            <h1 className="text-2xl font-bold">Payment Processing</h1>
+            <h1 className="text-2xl font-bold">Your bank is still confirming</h1>
             <p className="text-muted-foreground">
-              Your booking has been received and payment is being processed. You will receive a confirmation email once payment is complete.
+              Your booking has been received. If you approved the payment in your banking app, you&rsquo;re all set &mdash; we&rsquo;ll email your confirmation the moment your bank confirms it, usually within a few minutes.
             </p>
             <Button
               onClick={() => window.location.href = "/book"}
