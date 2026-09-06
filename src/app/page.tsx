@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { SubmarineHeader } from "@/components/storefront/submarine-header";
 import { SubmarineFooter } from "@/components/storefront/submarine-footer";
+import { TrustPills } from "@/components/storefront/trust-pills";
 import {
   SubmarineCourseCard,
   type SubCourse,
@@ -187,20 +188,7 @@ export default async function Home() {
               )}
             </div>
 
-            <div className="mt-9 flex flex-wrap gap-2.5">
-              <span className="inline-flex items-center gap-2.5 rounded-full border-2 border-[#C2E7E3] bg-[#E7F6F4] px-4 py-2.5 text-sm font-bold">
-                <span className="h-3 w-3 rounded-full bg-[#17B0A7]" aria-hidden />
-                OT-led, evidence-based
-              </span>
-              <span className="inline-flex items-center gap-2.5 rounded-full border-2 border-[#F3DFA6] bg-[#FFF3D2] px-4 py-2.5 text-sm font-bold">
-                <span className="h-3 w-3 rounded-full bg-[#FFC93C]" aria-hidden />
-                CPD hours for practitioners
-              </span>
-              <span className="inline-flex items-center gap-2.5 rounded-full border-2 border-[#FBC7D7] bg-[#FFE7EE] px-4 py-2.5 text-sm font-bold">
-                <span className="h-3 w-3 rounded-full bg-[#E71D57]" aria-hidden />
-                Loved by parents
-              </span>
-            </div>
+            <TrustPills className="mt-9" />
           </div>
 
           {/* The stack of tilted cards. Hidden on small screens, where it
@@ -325,7 +313,7 @@ export default async function Home() {
             {[
               {
                 title: "Courses",
-                body: "Self-paced modules for parents and practitioners. Re-watch anytime, download the handouts, collect CPD hours.",
+                body: "Self-paced modules for parents and practitioners. Re-watch anytime, download the handouts, and put the ideas to work right away.",
                 cta: "Browse courses →",
                 href: "#courses",
                 colour: "#FFC93C",

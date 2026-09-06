@@ -16,6 +16,7 @@ import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { SubmarineHeader } from "@/components/storefront/submarine-header";
+import { TrustPills } from "@/components/storefront/trust-pills";
 
 const FIELD =
   "w-full rounded-full border-[3px] border-[#D9D2C4] bg-[#FFFCF6] px-[18px] py-4 text-base font-semibold text-[#12235B] outline-none placeholder:text-[#9AA3B8] focus:border-[#12235B] focus:bg-white";
@@ -273,14 +274,7 @@ export default function RegisterPage() {
               ))}
             </div>
 
-            <div className="mt-6 flex flex-wrap gap-2.5">
-              <span className="rounded-full bg-[rgba(255,255,255,.12)] px-3.5 py-2 text-[13px] font-bold text-white">
-                CPD-accredited
-              </span>
-              <span className="rounded-full bg-[rgba(255,255,255,.12)] px-3.5 py-2 text-[13px] font-bold text-white">
-                OT-led · evidence-based
-              </span>
-            </div>
+            <TrustPills tone="dark" className="mt-6" />
           </div>
         </div>
       </main>

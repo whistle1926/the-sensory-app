@@ -31,6 +31,12 @@ import {
 import { SubmarineHeader } from "@/components/storefront/submarine-header";
 import { DEPOSIT_SERVICES, type TermsClause } from "@/lib/booking-terms";
 import { localDateKey } from "@/lib/date-key";
+import {
+  enquiryHref,
+  groupMeta,
+  isEnquiryCategory,
+  locationGroupKey,
+} from "@/lib/booking-groups";
 
 /* ------------------------------------------------------------------ */
 /*  Data                                                               */
@@ -176,11 +182,11 @@ function formatDate(d: Date) {
 
 type Step = "service" | "location" | "datetime" | "details" | "confirmed";
 
-/** A service is a face-to-face clinic assessment if it's an in-person
- * service tagged with a town/venue. These are grouped under one
- * "Face to Face OT Assessment" card and split into location tabs. */
+/** Per-clinic services ("OT Assessment — Armagh", "Block of Occupational
+ * Therapy — Antrim") are grouped under one card each and chosen by
+ * location on a second step. See booking-groups.ts. */
 function isLocationAssessment(s: ServiceCatalogueRow): boolean {
-  return s.mode === "in_person" && Boolean(s.locationLabel);
+  return locationGroupKey(s) !== null;
 }
 
 /**
@@ -211,6 +217,9 @@ function BookingPageInner() {
 
   const [step, setStep] = useState<Step>("service");
   const [selectedService, setSelectedService] = useState<string | null>(null);
+  // Which location group the parent opened (e.g. "OT Assessment"), so the
+  // location step knows which clinics to list and "Back" returns to it.
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   // The calendar shows a month at a time. Anchored to the 1st so month
   // arithmetic can't trip over a 31st landing in a 30-day month.
   const [monthAnchor, setMonthAnchor] = useState(
@@ -257,11 +266,18 @@ function BookingPageInner() {
           // Auto-advance only if the preselect slug actually exists in
           // the catalogue — guards against stale ad links pointing at
           // archived services.
-          if (
-            preselectSlug &&
-            adapted.some((s) => s.id === preselectSlug)
-          ) {
-            setSelectedService(preselectSlug);
+          const pre = preselectSlug
+            ? adapted.find((s) => s.id === preselectSlug)
+            : undefined;
+          if (pre) {
+            // Schools & community services aren't booked here — an old
+            // link to one goes to the enquiry form instead.
+            if (isEnquiryCategory(pre.category)) {
+              window.location.replace(enquiryHref(pre.title));
+              return;
+            }
+            setSelectedService(pre.id);
+            setSelectedGroup(locationGroupKey(pre));
             setStep("datetime");
           }
         }
@@ -352,25 +368,46 @@ function BookingPageInner() {
   // out and shown under one prominent "Face to Face OT Assessment" card
   // (most-requested service, pinned top), then chosen by location. Every
   // other service renders as a normal card.
-  const locationServices = useMemo(
-    () => services.filter(isLocationAssessment),
-    [services],
-  );
+  // Per-clinic services, grouped: "OT Assessment" → [Coalisland, Armagh,
+  // Antrim], "Block of Occupational Therapy" → [...]. Catalogue order
+  // decides the order of the groups and of the clinics within each.
+  const locationGroups = useMemo(() => {
+    const groups = new Map<string, ServiceCatalogueRow[]>();
+    for (const s of services) {
+      const key = locationGroupKey(s);
+      if (!key) continue;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(s);
+    }
+    return Array.from(groups.entries());
+  }, [services]);
   const otherServices = useMemo(
     () => services.filter((s) => !isLocationAssessment(s)),
     [services],
   );
-  const assessmentPriceLabel =
-    locationServices[0]?.priceLabel ?? "";
+  const groupServices =
+    locationGroups.find(([key]) => key === selectedGroup)?.[1] ?? [];
+  const groupInfo = selectedGroup
+    ? groupMeta(selectedGroup, groupServices[0]?.description)
+    : null;
 
   // Picking a service jumps straight into the booking flow (date & time)
   // — no separate "Continue" click. Parents told us they kept having to
   // scroll to find the button. One service at a time, so selecting it is
   // an unambiguous "let's book this".
-  const chooseService = useCallback((id: string) => {
-    setSelectedService(id);
-    setStep("datetime");
-  }, []);
+  const chooseService = useCallback(
+    (id: string) => {
+      const picked = services.find((s) => s.id === id);
+      if (picked && isEnquiryCategory(picked.category)) {
+        window.location.href = enquiryHref(picked.title);
+        return;
+      }
+      setSelectedService(id);
+      if (picked) setSelectedGroup(locationGroupKey(picked));
+      setStep("datetime");
+    },
+    [services],
+  );
 
   const firstStepRender = useRef(true);
   useEffect(() => {
@@ -662,56 +699,68 @@ function BookingPageInner() {
               </div>
             ) : (
               <div className="space-y-8">
-                {/* Most-requested: Face to Face OT Assessment, pinned to the
-                    top. One card that opens the location picker. */}
-                {locationServices.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setStep("location")}
-                    className="sub-press relative w-full overflow-hidden rounded-[34px] border-[3px] border-[#0A1740] bg-[#12235B] p-7 text-left shadow-[8px_8px_0_#FFC93C] sm:p-8"
-                  >
-                    <span
-                      className="pointer-events-none absolute -right-[50px] -top-[70px] h-[240px] w-[240px] rounded-full"
-                      style={{ background: "rgba(255,201,60,.16)" }}
-                      aria-hidden
-                    />
-                    <span className="relative grid items-center gap-8 md:grid-cols-[1fr_auto]">
-                      <span className="block">
-                        <span className="inline-block rounded-full bg-[#FFC93C] px-4 py-1.5 text-xs font-extrabold uppercase tracking-[1.4px] text-[#12235B]">
-                          Most requested
-                        </span>
-                        <span className="sub-display mb-1.5 mt-3.5 block text-[26px] text-white sm:text-[34px]">
-                          Face to Face OT Assessment
-                        </span>
-                        <span className="block text-base font-bold text-[#FFC93C]">
-                          {assessmentPriceLabel}
-                          <span className="font-semibold text-[#8DA0D0]">
-                            {assessmentPriceLabel ? " · " : ""}
-                            {locationServices.length} clinic location
-                            {locationServices.length === 1 ? "" : "s"}
+                {/* Per-clinic services, one card per group (the Face to
+                    Face assessment first, then the therapy block). Each
+                    opens the location picker for that group. */}
+                {locationGroups.map(([key, items], gi) => {
+                  const meta = groupMeta(key, items[0]?.description);
+                  const first = items[0];
+                  const perSession = (first?.maxSessions ?? 1) > 1;
+                  const shadow = ["#FFC93C", "#17B0A7", "#E71D57"][gi % 3];
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        setSelectedGroup(key);
+                        setStep("location");
+                      }}
+                      className="sub-press relative w-full overflow-hidden rounded-[34px] border-[3px] border-[#0A1740] bg-[#12235B] p-7 text-left sm:p-8"
+                      style={{ boxShadow: `8px 8px 0 ${shadow}` }}
+                    >
+                      <span
+                        className="pointer-events-none absolute -right-[50px] -top-[70px] h-[240px] w-[240px] rounded-full"
+                        style={{ background: "rgba(255,201,60,.16)" }}
+                        aria-hidden
+                      />
+                      <span className="relative grid items-center gap-8 md:grid-cols-[1fr_auto]">
+                        <span className="block">
+                          <span className="inline-block rounded-full bg-[#FFC93C] px-4 py-1.5 text-xs font-extrabold uppercase tracking-[1.4px] text-[#12235B]">
+                            {meta.badge}
+                          </span>
+                          <span className="sub-display mb-1.5 mt-3.5 block text-[26px] text-white sm:text-[34px]">
+                            {meta.title}
+                          </span>
+                          <span className="block text-base font-bold text-[#FFC93C]">
+                            {first?.priceLabel ?? ""}
+                            {perSession ? " per session" : ""}
+                            <span className="font-semibold text-[#8DA0D0]">
+                              {first?.priceLabel ? " · " : ""}
+                              {items.length} clinic location
+                              {items.length === 1 ? "" : "s"}
+                            </span>
+                          </span>
+                          <span className="mb-5 mt-3.5 block max-w-[560px] text-base font-semibold leading-relaxed text-[#C6D0EA]">
+                            {meta.blurb}
+                          </span>
+                          <span className="flex flex-wrap gap-2.5">
+                            {items.map((s) => (
+                              <span
+                                key={s.id}
+                                className="rounded-full border-[3px] border-[#0A1740] bg-white px-4 py-2 text-sm font-extrabold"
+                              >
+                                {s.locationLabel}
+                              </span>
+                            ))}
                           </span>
                         </span>
-                        <span className="mb-5 mt-3.5 block max-w-[560px] text-base font-semibold leading-relaxed text-[#C6D0EA]">
-                          A full in-person occupational therapy assessment.
-                          Choose the clinic nearest you to see available dates.
-                        </span>
-                        <span className="flex flex-wrap gap-2.5">
-                          {locationServices.map((s) => (
-                            <span
-                              key={s.id}
-                              className="rounded-full border-[3px] border-[#0A1740] bg-white px-4 py-2 text-sm font-extrabold"
-                            >
-                              {s.locationLabel}
-                            </span>
-                          ))}
+                        <span className="sub-display justify-self-start whitespace-nowrap rounded-full border-[3px] border-[#0A1740] bg-[#E71D57] px-7 py-4 text-[19px] text-white shadow-[5px_5px_0_#0A1740] md:justify-self-end">
+                          See available dates →
                         </span>
                       </span>
-                      <span className="sub-display justify-self-start whitespace-nowrap rounded-full border-[3px] border-[#0A1740] bg-[#E71D57] px-7 py-4 text-[19px] text-white shadow-[5px_5px_0_#0A1740] md:justify-self-end">
-                        See available dates →
-                      </span>
-                    </span>
-                  </button>
-                )}
+                    </button>
+                  );
+                })}
 
                 {otherServices.length > 0 && (
                   <ServicePicker
@@ -737,15 +786,16 @@ function BookingPageInner() {
 
             <div className="text-center">
               <h1 className="sub-display text-[34px] tracking-[-1px] sm:text-[44px]">
-                Face to Face OT Assessment
+                {groupInfo?.title ?? "Choose a clinic"}
               </h1>
               <p className="mt-2.5 text-[17px] font-semibold text-[#5A6785]">
-                Choose your nearest clinic to see available dates.
+                Choose your nearest clinic to see who you&apos;d be seeing and
+                the available dates.
               </p>
             </div>
 
             <div className="grid items-start gap-6 sm:grid-cols-2">
-              {locationServices.map((s, i) => {
+              {groupServices.map((s, i) => {
                 const accent = ["#17B0A7", "#E71D57", "#FFC93C"][i % 3];
                 return (
                   <button
@@ -793,19 +843,11 @@ function BookingPageInner() {
         {step === "datetime" && (
           <div className="space-y-6">
             <button
-              onClick={() =>
-                setStep(
-                  service && isLocationAssessment(service)
-                    ? "location"
-                    : "service",
-                )
-              }
+              onClick={() => setStep(selectedGroup ? "location" : "service")}
               className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
-              {service && isLocationAssessment(service)
-                ? "Back to locations"
-                : "Back to services"}
+              {selectedGroup ? "Back to locations" : "Back to services"}
             </button>
 
             {service && (
@@ -832,7 +874,7 @@ function BookingPageInner() {
                 <button
                   type="button"
                   onClick={() =>
-                    setStep(isLocationAssessment(service) ? "location" : "service")
+                    setStep(selectedGroup ? "location" : "service")
                   }
                   className="ml-auto whitespace-nowrap rounded-full border-[3px] border-[#12235B] bg-[#FFF3D2] px-5 py-2.5 text-sm font-extrabold hover:bg-[#FFC93C]"
                 >
@@ -1541,19 +1583,28 @@ function ServicePicker({
               // The three accents take turns, so a column of cards doesn't
               // come out all one colour.
               const accent = ["#17B0A7", "#E71D57", "#FFC93C"][i % 3];
+              // Schools & community work is arranged around the diary, not
+              // booked against it: the card links to the enquiry form.
+              const enquiry = isEnquiryCategory(s.category);
               return (
                 <div
                   key={s.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => onSelect(s.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      onSelect(s.id);
-                    }
-                  }}
-                  className="sub-press flex cursor-pointer flex-col rounded-[30px] border-[3px] border-[#12235B] bg-white p-7"
+                  role={enquiry ? undefined : "button"}
+                  tabIndex={enquiry ? undefined : 0}
+                  onClick={enquiry ? undefined : () => onSelect(s.id)}
+                  onKeyDown={
+                    enquiry
+                      ? undefined
+                      : (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onSelect(s.id);
+                          }
+                        }
+                  }
+                  className={`flex flex-col rounded-[30px] border-[3px] border-[#12235B] bg-white p-7 ${
+                    enquiry ? "" : "sub-press cursor-pointer"
+                  }`}
                   style={{ boxShadow: `6px 6px 0 ${accent}` }}
                 >
                   <div className="flex items-center gap-3.5">
@@ -1609,25 +1660,49 @@ function ServicePicker({
                     {s.description}
                   </p>
 
-                  {/* Grace's steer: name a therapist only on the Face to
-                      Face assessment. Every other service is delivered by
-                      whichever specialist OT the chosen date and location
-                      resolve to, so we say that rather than a name. */}
-                  <div className="mt-4 flex items-start gap-3 rounded-[18px] border-2 border-[#C2E7E3] bg-[#F0FAF9] p-3.5">
-                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#17B0A7] text-white">
-                      <Users className="h-4 w-4" />
-                    </span>
-                    <p className="text-sm font-semibold leading-relaxed text-[#3D4A6B]">
-                      Delivered by one of our specialist occupational
-                      therapists — allocated based on the{" "}
-                      {s.mode === "online" ? "date" : "date and location"} you
-                      choose.
-                    </p>
-                  </div>
+                  {enquiry ? (
+                    <>
+                      <div className="mt-4 flex items-start gap-3 rounded-[18px] border-2 border-[#F3DFA6] bg-[#FFF8E1] p-3.5">
+                        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FFC93C] text-[#12235B]">
+                          <Users className="h-4 w-4" />
+                        </span>
+                        <p className="text-sm font-semibold leading-relaxed text-[#3D4A6B]">
+                          Arranged around your setting&apos;s calendar and ours
+                          — send us an enquiry and we&apos;ll come back to you
+                          with dates.
+                        </p>
+                      </div>
 
-                  <span className="sub-press mt-6 block rounded-full border-[3px] border-[#12235B] bg-[#FFC93C] px-6 py-3.5 text-center text-base font-extrabold text-[#12235B]">
-                    Choose this
-                  </span>
+                      <Link
+                        href={enquiryHref(s.title)}
+                        className="sub-press mt-6 block rounded-full border-[3px] border-[#12235B] bg-[#FFC93C] px-6 py-3.5 text-center text-base font-extrabold text-[#12235B]"
+                      >
+                        Enquire now
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      {/* Grace's steer: name a therapist only where the
+                          parent picks a clinic. Anything else is delivered
+                          by whichever specialist OT the chosen date resolves
+                          to, so we say that rather than a name. */}
+                      <div className="mt-4 flex items-start gap-3 rounded-[18px] border-2 border-[#C2E7E3] bg-[#F0FAF9] p-3.5">
+                        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#17B0A7] text-white">
+                          <Users className="h-4 w-4" />
+                        </span>
+                        <p className="text-sm font-semibold leading-relaxed text-[#3D4A6B]">
+                          Delivered by one of our specialist occupational
+                          therapists — allocated based on the{" "}
+                          {s.mode === "online" ? "date" : "date and location"}{" "}
+                          you choose.
+                        </p>
+                      </div>
+
+                      <span className="sub-press mt-6 block rounded-full border-[3px] border-[#12235B] bg-[#FFC93C] px-6 py-3.5 text-center text-base font-extrabold text-[#12235B]">
+                        Choose this
+                      </span>
+                    </>
+                  )}
                 </div>
               );
             })}

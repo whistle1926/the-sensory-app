@@ -56,9 +56,37 @@ export default function PublicFormPage({
       .then(async (r) => {
         const data = await r.json();
         if (!r.ok) throw new Error(data.error || "Form not found");
-        setForm(data as PublicForm);
+        const loaded = data as PublicForm;
+        setForm(loaded);
+        // Pre-fill from the URL: a query param named after a field id
+        // fills that field, so a link like /f/schools-enquiry?service=…
+        // arrives with the service already chosen. For a dropdown the
+        // value must be one of its options (matched on value or label).
+        const prefill: SubmissionData = {};
+        for (const field of loaded.fields) {
+          const raw = sp[field.id];
+          if (typeof raw !== "string" || !raw) continue;
+          if (field.type === "select" || field.type === "radio") {
+            const match = (field.options ?? []).find(
+              (o) => o.value === raw || o.label === raw,
+            );
+            if (match) prefill[field.id] = match.value;
+          } else if (
+            field.type === "short_text" ||
+            field.type === "long_text" ||
+            field.type === "email" ||
+            field.type === "phone"
+          ) {
+            prefill[field.id] = raw;
+          }
+        }
+        if (Object.keys(prefill).length > 0) {
+          setValues((prev) => ({ ...prefill, ...prev }));
+        }
       })
       .catch((err) => setLoadError(err.message));
+    // `sp` is stable for the life of the page (it comes from the URL).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
   // Ping open endpoint if we have an invite token (best-effort)

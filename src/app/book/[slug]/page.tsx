@@ -18,6 +18,7 @@ import { prisma } from "@/lib/prisma";
 import { SubmarineHeader } from "@/components/storefront/submarine-header";
 import { SubmarineFooter } from "@/components/storefront/submarine-footer";
 import { ArrowRight, CheckCircle2, Clock, Sparkles } from "lucide-react";
+import { enquiryHref, isEnquiryCategory } from "@/lib/booking-groups";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,13 @@ export default async function ServiceLandingPage({
     service.depositPence > 0
       ? `£${(service.depositPence / 100).toFixed(0)} non-refundable deposit`
       : null;
+
+  // Schools & community work is arranged by enquiry rather than booked
+  // against the calendar, so both CTAs open the enquiry form instead.
+  const enquiry = isEnquiryCategory(service.category);
+  const ctaHref = enquiry
+    ? enquiryHref(service.title)
+    : `/book?service=${encodeURIComponent(service.slug)}`;
 
   return (
     <div className="sub min-h-screen">
@@ -81,11 +89,11 @@ export default async function ServiceLandingPage({
               </span>
             )}
             <Link
-              href={`/book?service=${encodeURIComponent(service.slug)}`}
+              href={ctaHref}
               className="sub-edge sub-press ml-auto inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[15px] font-extrabold text-white"
               style={{ background: "var(--sub-pink)" }}
             >
-              Book this session
+              {enquiry ? "Enquire now" : "Book this session"}
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
@@ -101,19 +109,22 @@ export default async function ServiceLandingPage({
 
           <div className="mt-10 flex flex-wrap items-center justify-between gap-4 rounded-[26px] border-[3px] border-[#F3DFA6] bg-[#FFF3D2] p-6">
             <div>
-              <p className="sub-display text-xl">Ready to book?</p>
+              <p className="sub-display text-xl">
+                {enquiry ? "Interested?" : "Ready to book?"}
+              </p>
               <p className="mt-1 max-w-lg text-[13px] font-semibold text-[#6B7794]">
-                Pick a date and time on the next screen — payment processed
-                securely. T&amp;Cs are agreed to as part of the booking flow.
+                {enquiry
+                  ? "Tell us a little about your setting and when suits, and we'll come back to you with dates."
+                  : "Pick a date and time on the next screen — payment processed securely. T&Cs are agreed to as part of the booking flow."}
               </p>
             </div>
             <Link
-              href={`/book?service=${encodeURIComponent(service.slug)}`}
+              href={ctaHref}
               className="sub-edge sub-press inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[15px] font-extrabold text-white"
               style={{ background: "var(--sub-pink)" }}
             >
               <CheckCircle2 className="h-4 w-4" />
-              Continue to booking
+              {enquiry ? "Send an enquiry" : "Continue to booking"}
             </Link>
           </div>
         </div>

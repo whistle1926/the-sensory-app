@@ -5,6 +5,7 @@ import Link from "next/link";
 import { signIn, getSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { SubmarineHeader } from "@/components/storefront/submarine-header";
+import { TrustPills } from "@/components/storefront/trust-pills";
 
 /**
  * Public sign-in page for parents, carers and learners.
@@ -433,7 +434,7 @@ function LoginInner() {
 
           <div className="relative max-w-[440px]">
             <p className="inline-block rounded-full border-[3px] border-[#0A1740] bg-[#FFC93C] px-4 py-2 text-xs font-extrabold uppercase tracking-[1.4px] text-[#12235B]">
-              The training platform
+              The Sensory Submarine Portal
             </p>
             <h2 className="sub-display mt-5 text-[32px] leading-tight tracking-[-.8px] text-white sm:text-[40px]">
               Everything for your child, in one place
@@ -480,14 +481,7 @@ function LoginInner() {
               ))}
             </div>
 
-            <div className="mt-6 flex flex-wrap gap-2.5">
-              <span className="rounded-full bg-[rgba(255,255,255,.12)] px-3.5 py-2 text-[13px] font-bold text-white">
-                CPD-accredited
-              </span>
-              <span className="rounded-full bg-[rgba(255,255,255,.12)] px-3.5 py-2 text-[13px] font-bold text-white">
-                OT-led · evidence-based
-              </span>
-            </div>
+            <TrustPills tone="dark" className="mt-6" />
           </div>
         </div>
       </main>
