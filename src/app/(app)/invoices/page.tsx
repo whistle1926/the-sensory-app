@@ -166,20 +166,21 @@ export default function InvoicesPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   // Inline "mark paid" picker: which row's method chooser is open, and a
   // busy flag while the PATCH is in flight.
-  const [markPaidId, setMarkPaidId] = useState<string | null>(null);
-  const [markPaidBusy, setMarkPaidBusy] = useState(false);
-  // What's chosen in the open "Record a payment" panel. Reset each time
-  // a panel opens so one invoice's choice never leaks onto the next.
-  const [markPaidMethod, setMarkPaidMethod] = useState<string>("cash");
-  const [markPaidDate, setMarkPaidDate] = useState<string>(todayKey());
-  const [markPaidError, setMarkPaidError] = useState<string | null>(null);
+  // The "Record a payment" panel sits open under every unpaid invoice
+  // (Paddy's call — one less click). Each row keeps its own method/date
+  // choice so picking "Bank transfer" on one never leaks onto another;
+  // rows without an entry show the defaults (cash, today).
+  const [markPaidDraft, setMarkPaidDraft] = useState<
+    Record<string, { method: string; date: string }>
+  >({});
+  const [markPaidId, setMarkPaidId] = useState<string | null>(null); // in flight
+  const [markPaidError, setMarkPaidError] = useState<{ id: string; message: string } | null>(null);
 
-  function openMarkPaid(id: string) {
-    setMarkPaidId(id);
-    setMarkPaidMethod("cash");
-    setMarkPaidDate(todayKey());
-    setMarkPaidError(null);
-    setConfirmDeleteId(null);
+  function draftFor(id: string) {
+    return markPaidDraft[id] ?? { method: "cash", date: todayKey() };
+  }
+  function setDraft(id: string, patch: Partial<{ method: string; date: string }>) {
+    setMarkPaidDraft((prev) => ({ ...prev, [id]: { ...draftFor(id), ...patch } }));
   }
 
   /** Mark an invoice paid off-Fire (cash / bank transfer / card / other)
@@ -188,7 +189,7 @@ export default function InvoicesPage() {
    *  it in the row. Fire-confirmed payments never come through here —
    *  they arrive automatically via the received overlay. */
   async function markPaid(id: string, method: string, paidOn: string) {
-    setMarkPaidBusy(true);
+    setMarkPaidId(id);
     setMarkPaidError(null);
     try {
       const res = await fetch(`/api/invoices/${id}`, {
@@ -213,11 +214,13 @@ export default function InvoicesPage() {
             : i,
         ),
       );
-      setMarkPaidId(null);
     } catch (err) {
-      setMarkPaidError(err instanceof Error ? err.message : "Couldn't record the payment");
+      setMarkPaidError({
+        id,
+        message: err instanceof Error ? err.message : "Couldn't record the payment",
+      });
     } finally {
-      setMarkPaidBusy(false);
+      setMarkPaidId(null);
     }
   }
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -603,7 +606,13 @@ export default function InvoicesPage() {
                           );
                         }
 
-                        const panelOpen = markPaidId === inv.id;
+                        const panelOpen =
+                          inv.status !== "draft" &&
+                          inv.status !== "cancelled" &&
+                          !isManuallyPaid(inv) &&
+                          !receivedAt[inv.id];
+                        const draft = draftFor(inv.id);
+                        const busy = markPaidId === inv.id;
                         return (
                           <Fragment key={inv.id}>
                           <tr
@@ -687,37 +696,6 @@ export default function InvoicesPage() {
                             </td>
                             <td style={{ textAlign: "right" }}>
                               <div className="inline-flex items-center gap-1">
-                                {(() => {
-                                  const canMarkPaid =
-                                    inv.status !== "draft" &&
-                                    inv.status !== "cancelled" &&
-                                    !isManuallyPaid(inv) &&
-                                    !receivedAt[inv.id];
-                                  if (!canMarkPaid) return null;
-                                  const open = markPaidId === inv.id;
-                                  return (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (open) setMarkPaidId(null);
-                                        else openMarkPaid(inv.id);
-                                      }}
-                                      title={
-                                        open
-                                          ? "Close"
-                                          : "Record a payment received outside Fire (cash / bank transfer / card / other)"
-                                      }
-                                      className={
-                                        open
-                                          ? "mr-1 rounded-md border border-primary bg-card px-2 py-1 text-xs font-medium text-primary"
-                                          : "mr-1 rounded-md border border-border bg-card px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950/30"
-                                      }
-                                    >
-                                      {open ? "Cancel" : "Mark paid"}
-                                    </button>
-                                  );
-                                })()}
                                 {canDelete && (
                                   <button
                                     type="button"
@@ -746,21 +724,21 @@ export default function InvoicesPage() {
                                 {/* Record a payment received outside Fire.
                                     Fire-confirmed payments never need this:
                                     they land automatically as "Received". */}
-                                <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
-                                  <p className="text-sm font-medium">
+                                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-2.5">
+                                  <p className="m-0 text-sm font-medium">
                                     Record a payment of{" "}
                                     <strong>{formatCurrency(inv.total, inv.currency)}</strong>
                                     {" "}— how was it paid?
                                   </p>
-                                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                                  <div className="flex flex-wrap items-center gap-2">
                                     {PAID_METHODS.map((m) => {
-                                      const on = markPaidMethod === m.key;
+                                      const on = draft.method === m.key;
                                       return (
                                         <button
                                           key={m.key}
                                           type="button"
-                                          disabled={markPaidBusy}
-                                          onClick={() => setMarkPaidMethod(m.key)}
+                                          disabled={busy}
+                                          onClick={() => setDraft(inv.id, { method: m.key })}
                                           className={
                                             on
                                               ? "rounded-full bg-foreground px-3 py-1 text-xs font-semibold text-background"
@@ -772,46 +750,36 @@ export default function InvoicesPage() {
                                       );
                                     })}
                                   </div>
-                                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                                      Paid on
-                                      <input
-                                        type="date"
-                                        value={markPaidDate}
-                                        max={todayKey()}
-                                        disabled={markPaidBusy}
-                                        onChange={(e) => setMarkPaidDate(e.target.value)}
-                                        className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-sm text-foreground"
-                                      />
-                                    </label>
-                                    <div className="flex items-center gap-2">
-                                      {markPaidError && (
-                                        <span className="text-xs text-red-600">{markPaidError}</span>
+                                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    Paid on
+                                    <input
+                                      type="date"
+                                      value={draft.date}
+                                      max={todayKey()}
+                                      disabled={busy}
+                                      onChange={(e) => setDraft(inv.id, { date: e.target.value })}
+                                      className="rounded-lg border border-border bg-card px-2.5 py-1 text-sm text-foreground"
+                                    />
+                                  </label>
+                                  <div className="ml-auto flex items-center gap-2">
+                                    {markPaidError?.id === inv.id && (
+                                      <span className="text-xs text-red-600">{markPaidError.message}</span>
+                                    )}
+                                    <button
+                                      type="button"
+                                      disabled={busy || !draft.date}
+                                      onClick={() => markPaid(inv.id, draft.method, draft.date)}
+                                      className="inline-flex items-center gap-1.5 rounded-lg bg-foreground px-3.5 py-1.5 text-xs font-bold text-background hover:opacity-90 disabled:opacity-60"
+                                    >
+                                      {busy ? (
+                                        <>
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                          Saving…
+                                        </>
+                                      ) : (
+                                        "Confirm paid"
                                       )}
-                                      <button
-                                        type="button"
-                                        disabled={markPaidBusy}
-                                        onClick={() => setMarkPaidId(null)}
-                                        className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
-                                      >
-                                        Cancel
-                                      </button>
-                                      <button
-                                        type="button"
-                                        disabled={markPaidBusy || !markPaidDate}
-                                        onClick={() => markPaid(inv.id, markPaidMethod, markPaidDate)}
-                                        className="inline-flex items-center gap-1.5 rounded-lg bg-foreground px-3.5 py-1.5 text-xs font-bold text-background hover:opacity-90 disabled:opacity-60"
-                                      >
-                                        {markPaidBusy ? (
-                                          <>
-                                            <Loader2 className="h-3 w-3 animate-spin" />
-                                            Saving…
-                                          </>
-                                        ) : (
-                                          "Confirm paid"
-                                        )}
-                                      </button>
-                                    </div>
+                                    </button>
                                   </div>
                                 </div>
                               </td>
