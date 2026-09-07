@@ -115,7 +115,7 @@ export async function PATCH(
 
     return NextResponse.json(reverted);
   }
-  const { clientName, clientEmail, clientAddress, clientId, dueDate, notes, status, items, bankTransfer, paidMethod } = body;
+  const { clientName, clientEmail, clientAddress, clientId, dueDate, notes, status, items, bankTransfer, paidMethod, paidAt } = body;
 
   // Build the update payload
   const data: Record<string, unknown> = {};
@@ -137,11 +137,18 @@ export async function PATCH(
     }
     data.status = status;
     if (status === "paid") {
-      data.paidAt = new Date();
+      // When the money actually arrived. Admin can back-date a manual
+      // mark (a bank transfer noticed days later); anything unparseable
+      // or in the future falls back to now.
+      const when = typeof paidAt === "string" ? new Date(paidAt) : null;
+      data.paidAt =
+        when && !Number.isNaN(when.getTime()) && when.getTime() <= Date.now() + 864e5
+          ? when
+          : new Date();
       // Record HOW it was paid. A manual mark is off-Fire by definition
       // (Fire-confirmed payments come in via sync/webhook as "fire"), so
-      // capture cash / bank_transfer / other; default to "other".
-      const validMethods = ["fire", "cash", "bank_transfer", "other"];
+      // capture cash / bank_transfer / card / other; default to "other".
+      const validMethods = ["fire", "cash", "bank_transfer", "card", "other"];
       data.paidMethod = validMethods.includes(paidMethod) ? paidMethod : "other";
     }
   }

@@ -116,6 +116,7 @@ const STATUS_CONFIG: Record<
 const PAID_METHODS = [
   { key: "cash", label: "Cash" },
   { key: "bank_transfer", label: "Bank transfer" },
+  { key: "card", label: "Card" },
   { key: "other", label: "Other" },
 ] as const;
 
@@ -123,6 +124,7 @@ function methodLabel(method: string | null): string {
   switch (method) {
     case "cash": return "Cash";
     case "bank_transfer": return "Bank transfer";
+    case "card": return "Card";
     case "fire": return "Fire";
     case "other": return "Other";
     default: return "Paid";

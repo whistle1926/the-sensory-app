@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import {
   CheckCircle2,
@@ -120,6 +120,7 @@ const STATUS_LABEL: Record<Invoice["status"], string> = {
 const PAID_METHODS = [
   { key: "cash", label: "Cash" },
   { key: "bank_transfer", label: "Bank transfer" },
+  { key: "card", label: "Card" },
   { key: "other", label: "Other" },
 ] as const;
 
@@ -128,6 +129,7 @@ function methodLabel(method: string | null): string {
   switch (method) {
     case "cash": return "Cash";
     case "bank_transfer": return "Bank transfer";
+    case "card": return "Card";
     case "fire": return "Fire";
     case "other": return "Other";
     default: return "Paid";
@@ -138,6 +140,14 @@ function methodLabel(method: string | null): string {
  *  settlements come in through the received overlay, not this flag. */
 function isManuallyPaid(inv: Invoice): boolean {
   return inv.status === "paid" && !!inv.paidMethod;
+}
+
+/** Today as YYYY-MM-DD in the admin's local time, for the date input. */
+function todayKey(): string {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -158,28 +168,54 @@ export default function InvoicesPage() {
   // busy flag while the PATCH is in flight.
   const [markPaidId, setMarkPaidId] = useState<string | null>(null);
   const [markPaidBusy, setMarkPaidBusy] = useState(false);
+  // What's chosen in the open "Record a payment" panel. Reset each time
+  // a panel opens so one invoice's choice never leaks onto the next.
+  const [markPaidMethod, setMarkPaidMethod] = useState<string>("cash");
+  const [markPaidDate, setMarkPaidDate] = useState<string>(todayKey());
+  const [markPaidError, setMarkPaidError] = useState<string | null>(null);
 
-  /** Mark an invoice paid off-Fire with a method. The backend records
-   *  paidAt + paidMethod, credits the income tracker and mirrors to
-   *  FireBuddy; here we just reflect it in the row. */
-  async function markPaid(id: string, method: string) {
+  function openMarkPaid(id: string) {
+    setMarkPaidId(id);
+    setMarkPaidMethod("cash");
+    setMarkPaidDate(todayKey());
+    setMarkPaidError(null);
+    setConfirmDeleteId(null);
+  }
+
+  /** Mark an invoice paid off-Fire (cash / bank transfer / card / other)
+   *  on a given day. The backend records paidAt + paidMethod, credits
+   *  the income tracker and mirrors to FireBuddy; here we just reflect
+   *  it in the row. Fire-confirmed payments never come through here —
+   *  they arrive automatically via the received overlay. */
+  async function markPaid(id: string, method: string, paidOn: string) {
     setMarkPaidBusy(true);
+    setMarkPaidError(null);
     try {
       const res = await fetch(`/api/invoices/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "paid", paidMethod: method }),
+        body: JSON.stringify({ status: "paid", paidMethod: method, paidAt: paidOn }),
       });
-      if (res.ok) {
-        setInvoices((prev) =>
-          prev.map((i) =>
-            i.id === id
-              ? { ...i, status: "paid", paidMethod: method, paidAt: new Date().toISOString() }
-              : i,
-          ),
-        );
-        setMarkPaidId(null);
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? `Couldn't record the payment (${res.status})`);
       }
+      const saved = (await res.json().catch(() => null)) as { paidAt?: string } | null;
+      setInvoices((prev) =>
+        prev.map((i) =>
+          i.id === id
+            ? {
+                ...i,
+                status: "paid",
+                paidMethod: method,
+                paidAt: saved?.paidAt ?? new Date(paidOn).toISOString(),
+              }
+            : i,
+        ),
+      );
+      setMarkPaidId(null);
+    } catch (err) {
+      setMarkPaidError(err instanceof Error ? err.message : "Couldn't record the payment");
     } finally {
       setMarkPaidBusy(false);
     }
@@ -567,9 +603,10 @@ export default function InvoicesPage() {
                           );
                         }
 
+                        const panelOpen = markPaidId === inv.id;
                         return (
+                          <Fragment key={inv.id}>
                           <tr
-                            key={inv.id}
                             onClick={() => {
                               window.location.href = `/invoices/${inv.id}`;
                             }}
@@ -657,51 +694,27 @@ export default function InvoicesPage() {
                                     !isManuallyPaid(inv) &&
                                     !receivedAt[inv.id];
                                   if (!canMarkPaid) return null;
-                                  if (markPaidId === inv.id) {
-                                    return (
-                                      <span
-                                        className="mr-1 inline-flex items-center gap-1"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        {PAID_METHODS.map((m) => (
-                                          <button
-                                            key={m.key}
-                                            type="button"
-                                            disabled={markPaidBusy}
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              markPaid(inv.id, m.key);
-                                            }}
-                                            className="rounded-md border border-border bg-card px-2 py-1 text-xs font-medium hover:bg-muted disabled:opacity-50"
-                                          >
-                                            {m.label}
-                                          </button>
-                                        ))}
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setMarkPaidId(null);
-                                          }}
-                                          className="rounded-md p-1 text-muted-foreground hover:bg-muted"
-                                          aria-label="Cancel"
-                                        >
-                                          <X className="h-3.5 w-3.5" />
-                                        </button>
-                                      </span>
-                                    );
-                                  }
+                                  const open = markPaidId === inv.id;
                                   return (
                                     <button
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        setMarkPaidId(inv.id);
+                                        if (open) setMarkPaidId(null);
+                                        else openMarkPaid(inv.id);
                                       }}
-                                      title="Mark paid (cash / bank transfer / other)"
-                                      className="mr-1 rounded-md border border-border bg-card px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950/30"
+                                      title={
+                                        open
+                                          ? "Close"
+                                          : "Record a payment received outside Fire (cash / bank transfer / card / other)"
+                                      }
+                                      className={
+                                        open
+                                          ? "mr-1 rounded-md border border-primary bg-card px-2 py-1 text-xs font-medium text-primary"
+                                          : "mr-1 rounded-md border border-border bg-card px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950/30"
+                                      }
                                     >
-                                      Mark paid
+                                      {open ? "Cancel" : "Mark paid"}
                                     </button>
                                   );
                                 })()}
@@ -727,6 +740,84 @@ export default function InvoicesPage() {
                               </div>
                             </td>
                           </tr>
+                          {panelOpen && (
+                            <tr onClick={(e) => e.stopPropagation()}>
+                              <td colSpan={7} style={{ padding: "0 12px 12px" }}>
+                                {/* Record a payment received outside Fire.
+                                    Fire-confirmed payments never need this:
+                                    they land automatically as "Received". */}
+                                <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+                                  <p className="text-sm font-medium">
+                                    Record a payment of{" "}
+                                    <strong>{formatCurrency(inv.total, inv.currency)}</strong>
+                                    {" "}— how was it paid?
+                                  </p>
+                                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                                    {PAID_METHODS.map((m) => {
+                                      const on = markPaidMethod === m.key;
+                                      return (
+                                        <button
+                                          key={m.key}
+                                          type="button"
+                                          disabled={markPaidBusy}
+                                          onClick={() => setMarkPaidMethod(m.key)}
+                                          className={
+                                            on
+                                              ? "rounded-full bg-foreground px-3 py-1 text-xs font-semibold text-background"
+                                              : "rounded-full border border-border bg-card px-3 py-1 text-xs font-medium hover:bg-muted"
+                                          }
+                                        >
+                                          {m.label}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                                      Paid on
+                                      <input
+                                        type="date"
+                                        value={markPaidDate}
+                                        max={todayKey()}
+                                        disabled={markPaidBusy}
+                                        onChange={(e) => setMarkPaidDate(e.target.value)}
+                                        className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-sm text-foreground"
+                                      />
+                                    </label>
+                                    <div className="flex items-center gap-2">
+                                      {markPaidError && (
+                                        <span className="text-xs text-red-600">{markPaidError}</span>
+                                      )}
+                                      <button
+                                        type="button"
+                                        disabled={markPaidBusy}
+                                        onClick={() => setMarkPaidId(null)}
+                                        className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
+                                      >
+                                        Cancel
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={markPaidBusy || !markPaidDate}
+                                        onClick={() => markPaid(inv.id, markPaidMethod, markPaidDate)}
+                                        className="inline-flex items-center gap-1.5 rounded-lg bg-foreground px-3.5 py-1.5 text-xs font-bold text-background hover:opacity-90 disabled:opacity-60"
+                                      >
+                                        {markPaidBusy ? (
+                                          <>
+                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                            Saving…
+                                          </>
+                                        ) : (
+                                          "Confirm paid"
+                                        )}
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                          </Fragment>
                         );
                       })}
                     </tbody>
