@@ -120,6 +120,14 @@ const PAID_METHODS = [
   { key: "other", label: "Other" },
 ] as const;
 
+/** Today as YYYY-MM-DD in local time, for the date input. */
+function todayKey(): string {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
 function methodLabel(method: string | null): string {
   switch (method) {
     case "cash": return "Cash";
@@ -230,6 +238,15 @@ export default function InvoiceDetailPage() {
   const [confirmCancel, setConfirmCancel] = useState(false);
   // Off-Fire "mark as paid" — which method chooser / confirm is showing.
   const [showMarkPaid, setShowMarkPaid] = useState(false);
+  // Choices in the "Record a payment" panel — reset whenever it opens.
+  const [markPaidMethod, setMarkPaidMethod] = useState("cash");
+  const [markPaidDate, setMarkPaidDate] = useState(todayKey());
+  function openMarkPaid() {
+    setMarkPaidMethod("cash");
+    setMarkPaidDate(todayKey());
+    setError("");
+    setShowMarkPaid(true);
+  }
   const [confirmUnpay, setConfirmUnpay] = useState(false);
 
   /* ---- load invoice ---- */
@@ -459,14 +476,14 @@ export default function InvoiceDetailPage() {
   }
 
   /* ---- mark paid off-Fire (status → paid, with method) ---- */
-  async function markPaid(method: string) {
+  async function markPaid(method: string, paidOn: string) {
     setError("");
     setActionLoading("markpaid");
     try {
       const res = await fetch(`/api/invoices/${invoiceId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "paid", paidMethod: method }),
+        body: JSON.stringify({ status: "paid", paidMethod: method, paidAt: paidOn }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -1579,36 +1596,75 @@ export default function InvoiceDetailPage() {
                 Hidden once already marked paid (the un-mark below shows). */}
             {!(invoice.status === "paid" && invoice.paidMethod) &&
               (showMarkPaid ? (
-                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-2 dark:border-green-800 dark:bg-green-950/30">
-                  <span className="text-sm font-medium text-green-800 dark:text-green-300">
-                    Paid by…
-                  </span>
-                  {PAID_METHODS.map((m) => (
-                    <Button
-                      key={m.key}
-                      size="sm"
-                      onClick={() => markPaid(m.key)}
-                      disabled={actionLoading === "markpaid"}
-                    >
-                      {actionLoading === "markpaid" ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        m.label
-                      )}
-                    </Button>
-                  ))}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowMarkPaid(false)}
-                    disabled={actionLoading === "markpaid"}
-                  >
-                    Cancel
-                  </Button>
+                <div className="w-full rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+                  {/* Record a payment received outside Fire. Fire-confirmed
+                      payments never need this — they land automatically. */}
+                  <p className="text-sm font-medium">
+                    Record a payment of{" "}
+                    <strong>{formatCurrency(invoice.total, invoice.currency)}</strong>
+                    {" "}— how was it paid?
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {PAID_METHODS.map((m) => {
+                      const on = markPaidMethod === m.key;
+                      return (
+                        <button
+                          key={m.key}
+                          type="button"
+                          disabled={actionLoading === "markpaid"}
+                          onClick={() => setMarkPaidMethod(m.key)}
+                          className={
+                            on
+                              ? "rounded-full bg-foreground px-3 py-1 text-xs font-semibold text-background"
+                              : "rounded-full border border-border bg-card px-3 py-1 text-xs font-medium hover:bg-muted"
+                          }
+                        >
+                          {m.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                      Paid on
+                      <input
+                        type="date"
+                        value={markPaidDate}
+                        max={todayKey()}
+                        disabled={actionLoading === "markpaid"}
+                        onChange={(e) => setMarkPaidDate(e.target.value)}
+                        className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-sm text-foreground"
+                      />
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowMarkPaid(false)}
+                        disabled={actionLoading === "markpaid"}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => markPaid(markPaidMethod, markPaidDate)}
+                        disabled={actionLoading === "markpaid" || !markPaidDate}
+                      >
+                        {actionLoading === "markpaid" ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Saving…
+                          </>
+                        ) : (
+                          "Confirm paid"
+                        )}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <Button
-                  onClick={() => setShowMarkPaid(true)}
+                  onClick={openMarkPaid}
                   className="bg-green-600 text-white hover:bg-green-700"
                 >
                   <CheckCircle2 className="mr-2 h-4 w-4" />
