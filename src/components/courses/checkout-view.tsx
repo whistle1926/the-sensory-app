@@ -329,57 +329,6 @@ export function CheckoutView({
             </section>
           )}
 
-          <section className="sub-edge rounded-[26px] bg-white p-6">
-            <h2 className="sub-display text-xl">Your details</h2>
-            {signedIn ? (
-              <p className="mt-3 rounded-xl bg-muted/40 p-3 text-sm">
-                <span className="font-semibold">{session?.user?.email}</span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">
-                  Signed in — we&apos;ll add this to your account.
-                </span>
-              </p>
-            ) : (
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <input
-                  className={field}
-                  placeholder="Your name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-                <input
-                  className={field}
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
-                />
-                <input
-                  className={`${field} sm:col-span-2`}
-                  type="password"
-                  placeholder="Choose a password (at least 8 characters)"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="new-password"
-                  minLength={8}
-                />
-                <p className="text-xs text-muted-foreground sm:col-span-2">
-                  This creates your account, so the course is yours the moment
-                  payment goes through. Leave the password blank and we&apos;ll
-                  email you a link to set one instead.
-                </p>
-                <p className="text-sm font-semibold sm:col-span-2">
-                  Already have an account?{" "}
-                  <Link
-                    href={`/login?next=${encodeURIComponent(`/courses/${course.slug}/checkout`)}`}
-                    className="text-[#E71D57] hover:text-[#B81243]"
-                  >
-                    Sign in
-                  </Link>
-                </p>
-              </div>
-            )}
-          </section>
         </div>
 
         {/* ── Right: the total and the button ───────────────────────── */}
@@ -432,6 +381,65 @@ export function CheckoutView({
                 </div>
               </div>
             )}
+
+            <div className="mt-5 rounded-[20px] border-2 border-[#F2E4CD] bg-[#FFFCF6] p-4">
+              <h3 className="sub-display text-lg">
+                {signedIn ? "Your details" : "Create your account"}
+              </h3>
+              {!signedIn && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  So the course is yours the moment payment goes through.
+                </p>
+              )}
+            {signedIn ? (
+              <p className="mt-3 rounded-xl bg-muted/40 p-3 text-sm">
+                <span className="font-semibold">{session?.user?.email}</span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  Signed in — we&apos;ll add this to your account.
+                </span>
+              </p>
+            ) : (
+              <div className="mt-3 grid gap-2.5">
+                <input
+                  className={field}
+                  placeholder="Your name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+                <input
+                  className={field}
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                />
+                <input
+                  className={`${field}`}
+                  type="password"
+                  placeholder="Choose a password (at least 8 characters)"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
+                  minLength={8}
+                />
+                <p className="text-xs text-muted-foreground">
+                  This creates your account, so the course is yours the moment
+                  payment goes through. Leave the password blank and we&apos;ll
+                  email you a link to set one instead.
+                </p>
+                <p className="text-sm font-semibold">
+                  Already have an account?{" "}
+                  <Link
+                    href={`/login?next=${encodeURIComponent(`/courses/${course.slug}/checkout`)}`}
+                    className="text-[#E71D57] hover:text-[#B81243]"
+                  >
+                    Sign in
+                  </Link>
+                </p>
+              </div>
+            )}
+            </div>
 
             {error && (
               <p className="mt-4 rounded-xl border border-red-500/40 bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/20 dark:text-red-300">
