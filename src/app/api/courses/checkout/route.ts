@@ -8,6 +8,7 @@ import { ensureEnrollment } from "@/lib/course-enrollment";
 import { isCurrency, priceIn, type Currency } from "@/lib/course-currency";
 import { courseAccessible } from "@/lib/storefront";
 import { sendTransactionalEmail, escapeHtml } from "@/lib/email";
+import { markPasswordKnown } from "@/lib/password-known";
 
 // Lightweight in-memory per-IP rate limit — good enough while we're on a
 // single Vercel instance. Matches the pattern used by public form submit.
@@ -166,6 +167,10 @@ export async function POST(req: NextRequest) {
   let userId: string;
   let userEmail: string;
   let wasNewUser = false;
+  // A guest may choose a password at checkout so the account is theirs
+  // from the first click — no set-password email to hunt for.
+  const rawPassword = typeof body?.password === "string" ? body.password : "";
+  let choseLogin = false;
 
   if (session?.user?.id) {
     userId = session.user.id;
@@ -176,6 +181,12 @@ export async function POST(req: NextRequest) {
     if (!rawName || !isEmail(rawEmail)) {
       return NextResponse.json(
         { error: "Please enter a name and a valid email address." },
+        { status: 400 },
+      );
+    }
+    if (rawPassword && rawPassword.length < 8) {
+      return NextResponse.json(
+        { error: "Your password needs to be at least 8 characters." },
         { status: 400 },
       );
     }
@@ -194,23 +205,47 @@ export async function POST(req: NextRequest) {
           { status: 409 },
         );
       }
+      // They typed a password for an email that already has an account:
+      // it must be THEIR password. A wrong one must not quietly attach a
+      // purchase to (or reset) someone else's account.
+      if (rawPassword) {
+        const ok = await bcrypt.compare(rawPassword, existing.passwordHash);
+        if (!ok) {
+          return NextResponse.json(
+            {
+              error:
+                "There's already an account for this email, but that password didn't match. Sign in, or use 'Forgot password' on the sign-in page.",
+              accountExists: true,
+            },
+            { status: 409 },
+          );
+        }
+        choseLogin = true;
+      }
       userId = existing.id;
       userEmail = existing.email;
     } else {
-      // Placeholder hash — bcrypt.compare will reject any password against
-      // this, so the only way into the account is the set-password email.
-      const placeholder = await bcrypt.hash(randomBytes(24).toString("hex"), 10);
+      // With a chosen password the account is usable straight away.
+      // Without one, a placeholder hash — bcrypt.compare will reject any
+      // password against it, so the only way in is the set-password email.
+      const passwordHash = rawPassword
+        ? await bcrypt.hash(rawPassword, 12)
+        : await bcrypt.hash(randomBytes(24).toString("hex"), 10);
       const created = await prisma.user.create({
         data: {
           name: rawName.slice(0, 120),
           email: rawEmail.toLowerCase(),
           role: "CLIENT",
-          passwordHash: placeholder,
+          passwordHash,
         },
       });
       userId = created.id;
       userEmail = created.email;
       wasNewUser = true;
+      if (rawPassword) {
+        choseLogin = true;
+        await markPasswordKnown(created.id);
+      }
     }
   }
 
@@ -246,7 +281,7 @@ export async function POST(req: NextRequest) {
     await ensureEnrollment(userId, courseId);
     for (const a of paidAddons) await ensureEnrollment(userId, a.id);
 
-    if (wasNewUser) {
+    if (wasNewUser && !choseLogin) {
       await sendSetPasswordEmail({
         userId,
         email: userEmail,

@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import { markPasswordKnown } from "@/lib/password-known";
 import { prisma } from "@/lib/prisma";
 import { rateLimitOrReject } from "@/lib/rate-limit";
 import { recordAudit } from "@/lib/audit";
@@ -77,6 +78,8 @@ export async function POST(req: NextRequest) {
     },
     select: { id: true, email: true },
   });
+  // They chose this password, so receipts can link straight to the course.
+  await markPasswordKnown(user.id);
 
   // Audit the self-serve account creation so we have a record if
   // a family later disputes who opened the account.

@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { ArrowLeft, Check, Loader2, Lock, Plus } from "lucide-react";
 import {
   CURRENCY_SYMBOL,
@@ -52,6 +52,7 @@ export function CheckoutView({
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   // Once we have a Fire payment URL we show a branded hand-off screen for a
@@ -92,6 +93,10 @@ export function CheckoutView({
       setError("Please enter your name and email so we know where to send it.");
       return;
     }
+    if (!signedIn && password && password.length < 8) {
+      setError("Your password needs to be at least 8 characters.");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await fetch("/api/courses/checkout", {
@@ -101,13 +106,28 @@ export function CheckoutView({
           courseId: course.id,
           addonCourseIds: [...picked],
           currency,
-          ...(signedIn ? {} : { name: name.trim(), email: email.trim() }),
+          ...(signedIn
+            ? {}
+            : {
+                name: name.trim(),
+                email: email.trim(),
+                ...(password ? { password } : {}),
+              }),
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.error || "Something went wrong. Please try again.");
         return;
+      }
+      // They chose a password, so the account is live: sign them in now so
+      // the thanks page drops them straight into the course.
+      if (!signedIn && password) {
+        await signIn("credentials", {
+          email: email.trim(),
+          password,
+          redirect: false,
+        }).catch(() => undefined);
       }
       if (data.paymentUrl) {
         // Branded pause, then hand off to Fire's secure bank picker.
@@ -332,10 +352,30 @@ export function CheckoutView({
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                />
+                <input
+                  className={`${field} sm:col-span-2`}
+                  type="password"
+                  placeholder="Choose a password (at least 8 characters)"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
+                  minLength={8}
                 />
                 <p className="text-xs text-muted-foreground sm:col-span-2">
-                  We&apos;ll email your receipt and a link to set a password, so
-                  you can come back to the course any time.
+                  This creates your account, so the course is yours the moment
+                  payment goes through. Leave the password blank and we&apos;ll
+                  email you a link to set one instead.
+                </p>
+                <p className="text-sm font-semibold sm:col-span-2">
+                  Already have an account?{" "}
+                  <Link
+                    href={`/login?next=${encodeURIComponent(`/courses/${course.slug}/checkout`)}`}
+                    className="text-[#E71D57] hover:text-[#B81243]"
+                  >
+                    Sign in
+                  </Link>
                 </p>
               </div>
             )}
