@@ -14,7 +14,7 @@ interface PurchaseStatus {
   amount: number;
 }
 
-type Phase = "polling" | "paid" | "timeout" | "failed";
+type Phase = "polling" | "slow" | "paid" | "timeout" | "failed";
 
 export default function CourseThanksPage({
   searchParams,
@@ -33,14 +33,18 @@ export default function CourseThanksPage({
       setPhase("timeout");
       return;
     }
-    let attempts = 0;
-    // Fire reports "authorised" within a minute of the bank approving it,
-    // and that is what unlocks the course — so give it a fair chance.
-    const maxAttempts = 45; // 2s × 45 ≈ 90s
+    // Fire reports "authorised" once the bank approves — usually under a
+    // minute, but Grace's own test took nearly two, and the page used to
+    // give up at 90s and tell her it was stuck. So: poll briskly for the
+    // first 90s, then keep going quietly (every 5s) for up to ten minutes
+    // with a "taking longer than usual" note. Only after that do we send
+    // the buyer to their inbox.
+    const started = Date.now();
+    const FAST_MS = 90_000;
+    const GIVE_UP_MS = 10 * 60_000;
     let cancelled = false;
 
     async function poll() {
-      attempts++;
       try {
         const res = await fetch(
           `/api/courses/public/purchase/${purchaseId}`,
@@ -61,11 +65,14 @@ export default function CourseThanksPage({
       } catch {
         /* ignore and retry */
       }
-      if (attempts >= maxAttempts) {
-        if (!cancelled) setPhase("timeout");
+      if (cancelled) return;
+      const elapsed = Date.now() - started;
+      if (elapsed >= GIVE_UP_MS) {
+        setPhase("timeout");
         return;
       }
-      setTimeout(poll, 2000);
+      if (elapsed >= FAST_MS) setPhase("slow");
+      setTimeout(poll, elapsed >= FAST_MS ? 5000 : 2000);
     }
     poll();
     return () => {
@@ -88,13 +95,18 @@ export default function CourseThanksPage({
       <SubmarineHeader />
       <div className="mx-auto max-w-lg px-5 py-20">
         <div className="sub-edge-xl rounded-[34px] bg-white p-10 text-center">
-          {phase === "polling" && (
+          {(phase === "polling" || phase === "slow") && (
             <>
               <Loader2 className="mx-auto h-10 w-10 animate-spin text-[#6B7794]" />
-              <h1 className="sub-display mt-4 text-[30px]">Finalising your purchase…</h1>
+              <h1 className="sub-display mt-4 text-[30px]">
+                {phase === "slow"
+                  ? "Nearly there…"
+                  : "Finalising your purchase…"}
+              </h1>
               <p className="mt-2 text-[15px] font-semibold text-[#3D4A6B]">
-                Just a moment while your bank confirms the payment. This
-                usually takes under a minute.
+                {phase === "slow"
+                  ? "Your bank is taking a little longer than usual to confirm. Keep this page open — the moment it comes through, your course will unlock here and we'll email you too."
+                  : "Just a moment while your bank confirms the payment. This usually takes under a minute."}
               </p>
             </>
           )}
