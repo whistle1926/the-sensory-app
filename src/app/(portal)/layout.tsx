@@ -44,23 +44,22 @@ export default async function PortalLayout({ children }: { children: React.React
   const showCourses = await coursesAreaVisible();
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="sub flex min-h-screen flex-col">
       {isImpersonating && <ImpersonationBanner targetName={name} />}
-      <header className="border-b border-border/50 glass sticky top-0 z-20">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4 sm:px-6">
+      <header className="sticky top-0 z-20 border-b-[3px] border-[#12235B] bg-[#FFF8EC]/95 backdrop-blur">
+        <div className="mx-auto flex h-[72px] max-w-5xl items-center justify-between gap-3 px-4 sm:px-6">
           <Link href="/portal" className="flex items-center gap-3">
-            <div
-              className="flex h-9 w-9 items-center justify-center rounded-xl"
-              style={{ background: "var(--gradient-primary)" }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M4 4h7v7H4V4Z" fill="white" opacity="0.9" />
-                <path d="M13 4h7v7h-7V4Z" fill="white" opacity="0.6" />
-                <path d="M4 13h7v7H4v-7Z" fill="white" opacity="0.6" />
-                <path d="M13 13h7v7h-7v-7Z" fill="white" opacity="0.9" />
-              </svg>
-            </div>
-            <span className="hidden text-base font-bold tracking-tight sm:inline">The Sensory Submarine</span>
+            <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border-[3px] border-[#12235B] bg-white">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/brand/logo-mark.jpg"
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            </span>
+            <span className="sub-display hidden text-[20px] tracking-[-.4px] sm:inline">
+              The Sensory Submarine
+            </span>
           </Link>
 
           <div className="flex items-center gap-2">
@@ -74,7 +73,7 @@ export default async function PortalLayout({ children }: { children: React.React
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 sm:py-12">{children}</main>
 
-      <footer className="border-t border-border/50 py-6 text-center text-xs text-muted-foreground">
+      <footer className="border-t-2 border-[#F2E4CD] py-6 text-center text-[13px] font-bold text-[#6B7794]">
         <p>The Sensory Submarine &middot; Occupational Therapy Services &middot; Northern Ireland</p>
       </footer>
     </div>

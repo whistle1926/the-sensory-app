@@ -26,13 +26,13 @@ function statusIcon(status: ModuleStatus) {
   const base = "h-4 w-4 shrink-0";
   switch (status) {
     case "LOCKED":
-      return <Lock className={`${base} text-muted-foreground`} />;
+      return <Lock className={`${base} text-[#6B7794]`} />;
     case "IN_PROGRESS":
-      return <Circle className={`${base} text-primary`} />;
+      return <Circle className={`${base} text-[#E71D57]`} />;
     case "COMPLETED":
-      return <CheckCircle2 className={`${base} text-green-600`} />;
+      return <CheckCircle2 className={`${base} text-[#17B0A7]`} />;
     case "FAILED":
-      return <XCircle className={`${base} text-red-500`} />;
+      return <XCircle className={`${base} text-[#E71D57]`} />;
   }
 }
 
@@ -48,6 +48,15 @@ function statusLabel(status: ModuleStatus, score: number | null): string {
       return "Try again";
   }
 }
+
+/* Module tiles cycle through the three brand accents so a long list
+   doesn't read as a wall of identical squares. Completed modules always
+   wear teal so the "done" signal is consistent. */
+const tileTones = [
+  "bg-[#17B0A7] text-white",
+  "bg-[#E71D57] text-white",
+  "bg-[#FFC93C] text-[#12235B]",
+];
 
 /**
  * Course landing page (portal / CLIENT view).
@@ -151,42 +160,46 @@ export default async function PortalCourseLandingPage({
   const dashOffset = circumference - (progressPercent / 100) * circumference;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <Link
         href="/portal/training"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-sm font-extrabold text-[#6B7794] transition-colors hover:text-[#12235B]"
       >
-        <ArrowLeft className="h-3.5 w-3.5" />
+        <ArrowLeft className="h-4 w-4" />
         Back to training
       </Link>
 
       {/* Hero */}
-      <section className="lp-course-hero">
-        <div className="lp-course-hero-art" />
-        <div className="lp-course-hero-inner">
-          <div>
-            <p
-              className="text-[11px] font-bold uppercase tracking-[0.1em]"
-              style={{ color: "var(--primary)" }}
-            >
+      <section className="relative overflow-hidden rounded-[34px] border-[3px] border-[#0A1740] bg-[#12235B] text-white shadow-[8px_8px_0_#FFC93C]">
+        <div
+          className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-white/5"
+          aria-hidden
+        />
+        <div className="relative grid gap-8 p-7 sm:p-10 md:grid-cols-[1.5fr_auto] md:items-center">
+          <div className="min-w-0">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FFC93C] px-4 py-1.5 text-xs font-extrabold uppercase tracking-[1.4px] text-[#12235B]">
               {isComplete ? "Course complete" : "Your course"}
-            </p>
-            <h1 className="lp-hero-title mt-2">{course.title}</h1>
+            </span>
+            <h1 className="sub-display mt-4 text-[34px] leading-[1.08] tracking-[-1px] text-white sm:text-[44px]">
+              {course.title}
+            </h1>
             {course.description && (
-              <p className="lp-hero-sub">{richTextToPlain(course.description ?? "")}</p>
+              <p className="mt-3 max-w-[560px] text-[15.5px] leading-[1.65] text-[#C6D0EA]">
+                {richTextToPlain(course.description ?? "")}
+              </p>
             )}
 
-            <div className="mt-6 flex flex-wrap gap-4 text-sm text-muted-foreground">
+            <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-[#C6D0EA]">
               <span className="inline-flex items-center gap-1.5">
-                <Users className="h-4 w-4" />
+                <Users className="h-4 w-4 text-[#FFC93C]" />
                 {course.audience}
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <Clock className="h-4 w-4" />
+                <Clock className="h-4 w-4 text-[#FFC93C]" />
                 {course.duration}
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <PlayCircle className="h-4 w-4" />
+                <PlayCircle className="h-4 w-4 text-[#FFC93C]" />
                 {modules.length} module{modules.length === 1 ? "" : "s"}
               </span>
             </div>
@@ -204,7 +217,7 @@ export default async function PortalCourseLandingPage({
                     href={`/api/training/certificate/${enrollment.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-5 py-3 text-sm font-bold text-white shadow-[var(--shadow-sm)] transition-all hover:-translate-y-0.5 hover:bg-green-700 hover:shadow-[var(--shadow-md)]"
+                    className="sub-press inline-flex items-center gap-2 rounded-full border-[3px] border-[#0A1740] bg-[#FFC93C] px-6 py-3.5 text-[15px] font-extrabold text-[#12235B] shadow-[3px_3px_0_#0A1740]"
                   >
                     <Award className="h-4 w-4" />
                     Download certificate
@@ -213,7 +226,7 @@ export default async function PortalCourseLandingPage({
                   {nextModule && (
                     <Link
                       href={`/portal/training/${course.id}/${nextModule.id}`}
-                      className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-5 py-3 text-sm font-semibold transition-colors hover:bg-muted"
+                      className="sub-press inline-flex items-center gap-2 rounded-full border-[3px] border-[#0A1740] bg-white px-6 py-3.5 text-[15px] font-extrabold text-[#12235B] shadow-[3px_3px_0_#0A1740]"
                     >
                       Review course
                     </Link>
@@ -222,7 +235,8 @@ export default async function PortalCourseLandingPage({
               ) : nextModule ? (
                 <Link
                   href={`/portal/training/${course.id}/${nextModule.id}`}
-                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground shadow-[var(--shadow-sm)] transition-all hover:-translate-y-0.5 hover:brightness-110 hover:shadow-[var(--shadow-md)]"
+                  className="sub-press inline-flex items-center gap-2 rounded-full border-[3px] border-[#0A1740] px-6 py-3.5 text-[15px] font-extrabold text-white shadow-[3px_3px_0_#FFC93C]"
+                  style={{ background: "var(--sub-pink)" }}
                 >
                   {progressPercent > 0
                     ? `Continue · Module ${nextModule.order + 1}`
@@ -234,14 +248,17 @@ export default async function PortalCourseLandingPage({
           </div>
 
           {/* Progress ring */}
-          <div className="lp-ring" aria-hidden>
-            <svg width={ringSize} height={ringSize}>
+          <div
+            className="relative mx-auto h-[140px] w-[140px] shrink-0 md:mx-0"
+            aria-hidden
+          >
+            <svg width={ringSize} height={ringSize} className="-rotate-90">
               <circle
                 cx={ringSize / 2}
                 cy={ringSize / 2}
                 r={radius}
                 fill="none"
-                stroke="var(--muted)"
+                stroke="rgba(255,255,255,0.18)"
                 strokeWidth={ringStroke}
               />
               <circle
@@ -249,23 +266,19 @@ export default async function PortalCourseLandingPage({
                 cy={ringSize / 2}
                 r={radius}
                 fill="none"
-                stroke="url(#ring-grad)"
+                stroke="#FFC93C"
                 strokeWidth={ringStroke}
                 strokeLinecap="round"
                 strokeDasharray={circumference}
                 strokeDashoffset={dashOffset}
                 style={{ transition: "stroke-dashoffset 600ms ease" }}
               />
-              <defs>
-                <linearGradient id="ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="oklch(0.5 0.24 264)" />
-                  <stop offset="100%" stopColor="oklch(0.45 0.2 280)" />
-                </linearGradient>
-              </defs>
             </svg>
-            <div className="ring-center">
-              <span className="ring-pct">{progressPercent}%</span>
-              <span className="ring-label">
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+              <span className="sub-display text-[32px] leading-none tabular-nums text-white">
+                {progressPercent}%
+              </span>
+              <span className="mt-1 text-[10.5px] font-bold uppercase tracking-[0.08em] text-[#C6D0EA]">
                 {completedCount} / {modules.length}
               </span>
             </div>
@@ -277,14 +290,14 @@ export default async function PortalCourseLandingPage({
           complete AND the admin has set a `nextCourseId`. Falls back to
           a soft link to /courses when no recommendation is configured. */}
       {isComplete && (
-        <section className="rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent p-6 shadow-[var(--shadow-sm)]">
-          <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">
+        <section className="sub-edge rounded-[26px] bg-white p-6 sm:p-7">
+          <span className="inline-flex items-center rounded-full border-2 border-[#C2E7E3] bg-[#E7F6F4] px-3 py-1 text-[13px] font-bold text-[#12235B]">
             Continue your learning
-          </p>
+          </span>
           {course.nextCourse ? (
             <Link
               href={`/courses/${course.nextCourse.slug}`}
-              className="mt-3 flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 transition hover:border-primary/40 hover:shadow-[var(--shadow-md)] sm:flex-row sm:items-center"
+              className="sub-press mt-4 flex flex-col gap-4 rounded-[20px] border-[3px] border-[#12235B] bg-[#FFFCF6] p-5 sm:flex-row sm:items-center"
             >
               {(course.nextCourse.thumbnailUrl ||
                 course.nextCourse.heroImageUrl) && (
@@ -296,30 +309,30 @@ export default async function PortalCourseLandingPage({
                     ""
                   }
                   alt=""
-                  className="h-24 w-full shrink-0 rounded-xl object-cover sm:w-32"
+                  className="h-24 w-full shrink-0 rounded-[14px] border-2 border-[#12235B] object-cover sm:w-32"
                 />
               )}
               <div className="min-w-0 flex-1">
-                <h3 className="text-lg font-bold tracking-tight">
+                <h3 className="sub-display text-[21px] leading-tight">
                   {course.nextCourse.title}
                 </h3>
                 {course.nextCourse.tagline && (
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <p className="mt-1 text-[15px] text-[#3D4A6B]">
                     {course.nextCourse.tagline}
                   </p>
                 )}
-                <p className="mt-2 text-xs text-muted-foreground">
+                <p className="mt-2 text-sm font-bold text-[#6B7794]">
                   {course.nextCourse.price === 0
                     ? "Free"
                     : `£${course.nextCourse.price}`}
                 </p>
               </div>
-              <ArrowRight className="hidden h-5 w-5 shrink-0 text-primary sm:block" />
+              <ArrowRight className="hidden h-5 w-5 shrink-0 text-[#E71D57] sm:block" />
             </Link>
           ) : (
             <Link
               href="/courses"
-              className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+              className="mt-4 inline-flex items-center gap-1.5 text-[15px] font-extrabold text-[#E71D57] hover:underline"
             >
               See all courses <ArrowRight className="h-4 w-4" />
             </Link>
@@ -327,87 +340,93 @@ export default async function PortalCourseLandingPage({
         </section>
       )}
 
-      {/* Modules grid */}
+      {/* Modules list */}
       <section>
-        <div className="mb-4 flex items-center gap-2">
-          <Sparkles
-            className="h-4 w-4"
-            style={{ color: "var(--primary)" }}
-          />
-          <h2
-            className="text-[11px] font-bold uppercase tracking-[0.12em]"
-            style={{ color: "var(--muted-foreground)" }}
-          >
-            Modules — {modules.length} total
+        <div className="mb-5 flex items-center gap-2.5">
+          <Sparkles className="h-5 w-5 text-[#E71D57]" />
+          <h2 className="sub-display text-2xl">
+            Modules
+            <span className="ml-2 text-base font-bold text-[#6B7794]">
+              {modules.length} total
+            </span>
           </h2>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="space-y-4">
           {modules.map((m, i) => {
             const locked = m.status === "LOCKED";
             const complete = m.status === "COMPLETED";
             const isCurrent = nextModule?.id === m.id && !complete;
             const classes = [
-              "lp-module-card",
-              complete ? "is-complete" : "",
-              locked ? "is-locked" : "",
-              isCurrent ? "is-current" : "",
+              "flex items-center gap-4 rounded-[26px] bg-white p-4 sm:p-5",
+              locked
+                ? "border-[3px] border-[#D9D2C4] opacity-70 cursor-not-allowed"
+                : "sub-edge sub-press",
+              isCurrent ? "ring-4 ring-[#FFC93C]/60" : "",
             ]
               .filter(Boolean)
               .join(" ");
+            const tile = complete
+              ? "bg-[#17B0A7] text-white"
+              : locked
+                ? "bg-[#EADCC4] text-[#6B7794]"
+                : tileTones[i % tileTones.length];
             const inner = (
               <>
-                {/* Cover art */}
-                <div className="relative -mx-5 -mt-5 mb-2 aspect-[16/9] overflow-hidden rounded-t-2xl bg-gradient-to-br from-primary/15 to-primary/30">
-                  {m.coverImageUrl ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
-                      src={m.coverImageUrl}
-                      alt={m.title}
-                      className={`h-full w-full object-cover ${locked ? "grayscale" : ""}`}
-                    />
+                {/* Icon tile */}
+                <span
+                  className={`sub-display flex h-14 w-14 shrink-0 items-center justify-center rounded-[16px] border-[3px] border-[#12235B] text-xl ${tile}`}
+                >
+                  {complete ? (
+                    <CheckCircle2 className="h-7 w-7" />
+                  ) : locked ? (
+                    <Lock className="h-6 w-6" />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-5xl font-black text-primary/40">
-                      {i + 1}
-                    </div>
+                    i + 1
                   )}
-                  {locked && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                      <Lock className="h-8 w-8 text-white/80" />
-                    </div>
-                  )}
-                  {m.hasVideo && !locked && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/25 opacity-0 transition-opacity group-hover:opacity-100">
-                      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/95 shadow-md">
-                        <PlayCircle className="h-7 w-7 text-primary" />
+                </span>
+
+                {/* Cover art — a small thumb beside the title where one
+                    is set; hidden on narrow screens to keep the row tidy. */}
+                {m.coverImageUrl && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={m.coverImageUrl}
+                    alt=""
+                    className={`hidden h-16 w-24 shrink-0 rounded-[12px] border-2 border-[#12235B] object-cover sm:block ${locked ? "grayscale" : ""}`}
+                  />
+                )}
+
+                <div className="min-w-0 flex-1">
+                  <p className="sub-display text-[17px] leading-tight sm:text-[19px]">
+                    {m.title}
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1 text-[13px] font-bold text-[#6B7794]">
+                      {!locked && !complete && statusIcon(m.status)}
+                      {statusLabel(m.status, m.score)}
+                    </span>
+                    {isCurrent && (
+                      <span className="inline-flex items-center gap-1 rounded-full border-2 border-[#0A1740] bg-[#E71D57] px-2.5 py-0.5 text-[11px] font-extrabold text-white">
+                        <PlayCircle className="h-3 w-3" /> Up next
                       </span>
-                    </div>
-                  )}
-                  {isCurrent && (
-                    <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-0.5 text-[10px] font-bold text-primary-foreground shadow-md">
-                      <PlayCircle className="h-3 w-3" /> Up next
-                    </span>
-                  )}
-                  {complete && (
-                    <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-green-600 px-2.5 py-0.5 text-[10px] font-bold text-white shadow-md">
-                      <CheckCircle2 className="h-3 w-3" /> Complete
-                    </span>
-                  )}
-                  {m.hasVideo && (
-                    <span className="absolute left-3 bottom-3 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
-                      <PlayCircle className="h-3 w-3" /> Video
-                    </span>
-                  )}
+                    )}
+                    {complete && (
+                      <span className="inline-flex items-center gap-1 rounded-full border-2 border-[#C2E7E3] bg-[#E7F6F4] px-2.5 py-0.5 text-[11px] font-bold text-[#12235B]">
+                        <CheckCircle2 className="h-3 w-3 text-[#17B0A7]" /> Complete
+                      </span>
+                    )}
+                    {m.hasVideo && (
+                      <span className="inline-flex items-center gap-1 rounded-full border-2 border-[#F3DFA6] bg-[#FFF3D2] px-2.5 py-0.5 text-[11px] font-bold text-[#12235B]">
+                        <PlayCircle className="h-3 w-3" /> Video
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                <div className="lp-module-head">
-                  <span className="lp-module-num">{i + 1}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="title">{m.title}</p>
-                    <p className="sub">{statusLabel(m.status, m.score)}</p>
-                  </div>
-                  {!locked && !complete && statusIcon(m.status)}
-                </div>
+                {!locked && (
+                  <ArrowRight className="hidden h-5 w-5 shrink-0 text-[#E71D57] sm:block" />
+                )}
               </>
             );
             return locked ? (

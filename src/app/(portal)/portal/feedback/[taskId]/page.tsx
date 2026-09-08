@@ -17,7 +17,6 @@ import {
 } from "@/components/tasks/comment-thread";
 import { RichTextView } from "@/components/ui/rich-text-view";
 import type { TaskPriority, TaskStatus } from "@/lib/tasks";
-import { Panel } from "@/components/ds";
 
 interface Task {
   id: string;
@@ -30,6 +29,9 @@ interface Task {
   comments: Comment[];
   createdAt: string;
 }
+
+const BACK_LINK =
+  "sub-press inline-flex items-center gap-1.5 rounded-full border-[3px] border-[#12235B] bg-white px-5 py-2.5 text-sm font-extrabold text-[#12235B]";
 
 export default function FeedbackDetailPage({
   params,
@@ -55,21 +57,20 @@ export default function FeedbackDetailPage({
   if (loading) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#E71D57]" />
       </div>
     );
   }
 
   if (!task) {
     return (
-      <div className="space-y-4">
-        <Link
-          href="/portal/feedback"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
+      <div className="space-y-5">
+        <Link href="/portal/feedback" className={BACK_LINK}>
           <ArrowLeft className="h-4 w-4" /> Back
         </Link>
-        <p className="text-sm text-muted-foreground">Not found.</p>
+        <p className="rounded-[18px] border-2 border-[#FBC7D7] bg-[#FFE7EE] px-4 py-3.5 text-sm font-bold text-[#B81243]">
+          Not found.
+        </p>
       </div>
     );
   }
@@ -84,20 +85,17 @@ export default function FeedbackDetailPage({
 
   return (
     <div className="space-y-6">
-      <Link
-        href="/portal/feedback"
-        className="ds-link inline-flex items-center"
-        style={{ fontWeight: 500 }}
-      >
-        <ArrowLeft className="mr-1 h-3.5 w-3.5" /> Back to feedback
+      <Link href="/portal/feedback" className={BACK_LINK}>
+        <ArrowLeft className="h-4 w-4" /> Back to feedback
       </Link>
 
-      <Panel padded>
+      {/* ── The task ──────────────────────────────────────────────── */}
+      <section className="sub-edge rounded-[26px] bg-white p-6 sm:p-7">
         <div className="flex flex-wrap items-center gap-2">
           <h1
             className={cn(
-              "text-xl font-bold tracking-tight",
-              task.status === "done" && "line-through text-muted-foreground",
+              "sub-display text-[28px] leading-tight tracking-[-.6px] sm:text-[34px]",
+              task.status === "done" && "line-through text-[#6B7794]",
             )}
           >
             {task.title}
@@ -108,34 +106,31 @@ export default function FeedbackDetailPage({
         {task.description && (
           <RichTextView
             html={task.description}
-            className="mt-3 text-sm text-foreground/90"
+            className="mt-4 text-base leading-relaxed text-[#3D4A6B]"
           />
         )}
-        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t-2 border-[#F2E4CD] pt-4 text-[13px] font-bold text-[#6B7794]">
           {due && (
-            <span className="inline-flex items-center gap-1">
-              <CalendarIcon className="h-3 w-3" />
+            <span className="inline-flex items-center gap-1.5">
+              <CalendarIcon className="h-3.5 w-3.5" />
               {due}
             </span>
           )}
           <span>Shared by {task.createdBy.name}</span>
         </div>
-      </Panel>
+      </section>
 
-      <Panel
-        title={
-          <span className="inline-flex items-center gap-1.5">
-            <MessageCircle className="h-4 w-4 text-primary" /> Comments
-            {task.comments.length > 0 && (
-              <span className="text-xs font-normal text-muted-foreground">
-                ({task.comments.length})
-              </span>
-            )}
-          </span>
-        }
-        subtitle="Use this space to share feedback or request changes."
-        padded
-      >
+      {/* ── Comments ──────────────────────────────────────────────── */}
+      <section className="sub-edge rounded-[26px] bg-white p-6 sm:p-7">
+        <h2 className="sub-display inline-flex items-center gap-2 text-2xl">
+          <MessageCircle className="h-6 w-6 text-[#17B0A7]" /> Comments
+          {task.comments.length > 0 && (
+            <span className="text-[#6B7794]">({task.comments.length})</span>
+          )}
+        </h2>
+        <p className="mb-5 mt-1 text-[15px] font-semibold text-[#6B7794]">
+          Use this space to share feedback or request changes.
+        </p>
         <div className="space-y-4">
           <CommentList
             comments={task.comments}
@@ -148,7 +143,7 @@ export default function FeedbackDetailPage({
             placeholder="Write a comment or request a change…"
           />
         </div>
-      </Panel>
+      </section>
     </div>
   );
 }

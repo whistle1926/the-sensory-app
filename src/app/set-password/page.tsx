@@ -4,9 +4,10 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { SubmarineHeader } from "@/components/storefront/submarine-header";
+
+const FIELD =
+  "w-full rounded-full border-[3px] border-[#D9D2C4] bg-[#FFFCF6] px-[18px] py-4 text-base font-semibold text-[#12235B] outline-none placeholder:text-[#9AA3B8] focus:border-[#12235B] focus:bg-white";
 
 function SetPasswordInner() {
   const searchParams = useSearchParams();
@@ -65,99 +66,107 @@ function SetPasswordInner() {
 
   if (done) {
     return (
-      <div className="w-full max-w-sm text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 dark:bg-green-950/30">
-          <CheckCircle2 className="h-7 w-7 text-green-600 dark:text-green-400" />
-        </div>
-        <h1 className="text-xl font-bold">Password set</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Redirecting to login…</p>
+      <div className="sub-edge-xl w-full max-w-[470px] rounded-[34px] bg-white p-10 text-center">
+        <CheckCircle2 className="mx-auto h-12 w-12 text-[#17B0A7]" />
+        <h1 className="sub-display mt-4 text-[30px]">Password set</h1>
+        <p className="mt-2 text-[15px] font-semibold text-[#3D4A6B]">
+          Redirecting to login…
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-sm">
-      <div className="mb-8 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M4 4h7v7H4V4Z" fill="white" opacity="0.9" />
-            <path d="M13 4h7v7h-7V4Z" fill="white" opacity="0.6" />
-            <path d="M4 13h7v7H4v-7Z" fill="white" opacity="0.6" />
-            <path d="M13 13h7v7h-7v-7Z" fill="white" opacity="0.9" />
-          </svg>
-        </div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Set your password</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Choose a password for your account</p>
-      </div>
+    <div className="sub-edge-xl w-full max-w-[470px] rounded-[34px] bg-white px-7 pb-8 pt-9 sm:px-9 sm:pt-10">
+      <h1 className="sub-display text-[34px] tracking-[-1px] sm:text-[42px]">
+        Set your password
+      </h1>
+      <p className="mt-2 text-base font-semibold text-[#5A6785]">
+        Choose a password for your account.
+      </p>
 
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {error && (
-            <div className="rounded-xl bg-red-50 p-3 text-sm font-medium text-red-600">
-              {error}
-            </div>
-          )}
-          <div className="space-y-2">
-            <Label htmlFor="password" className="text-sm font-medium text-foreground/80">
-              New password
-            </Label>
-            <Input
-              id="password"
-              type="password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 8 characters"
-              className="h-11 rounded-xl"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirm" className="text-sm font-medium text-foreground/80">
-              Confirm password
-            </Label>
-            <Input
-              id="confirm"
-              type="password"
-              required
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              placeholder="Re-enter your password"
-              className="h-11 rounded-xl"
-            />
-          </div>
-          <Button
-            type="submit"
-            className="h-11 w-full rounded-xl bg-primary text-sm font-semibold text-white hover:bg-primary/80 transition-colors"
-            disabled={loading}
-          >
-            {loading ? "Setting password..." : "Set password"}
-          </Button>
-        </form>
-      </div>
+      {error && (
+        <p className="mt-6 rounded-[18px] border-2 border-[#FBC7D7] bg-[#FFE7EE] px-4 py-3.5 text-sm font-bold text-[#B81243]">
+          {error}
+        </p>
+      )}
 
-      <div className="mt-6 text-center text-sm text-muted-foreground">
+      <form onSubmit={handleSubmit} className="mt-6">
+        <label htmlFor="password" className="mb-2 block text-sm font-extrabold">
+          New password
+        </label>
+        <input
+          id="password"
+          type="password"
+          required
+          minLength={8}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="At least 8 characters"
+          className={FIELD}
+        />
+
+        <label
+          htmlFor="confirm"
+          className="mb-2 mt-[18px] block text-sm font-extrabold"
+        >
+          Confirm password
+        </label>
+        <input
+          id="confirm"
+          type="password"
+          required
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          placeholder="Re-enter your password"
+          className={FIELD}
+        />
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="sub-display sub-edge-lg sub-press mt-6 w-full rounded-full px-6 py-4 text-xl text-white disabled:opacity-60"
+          style={{ background: "var(--sub-pink)" }}
+        >
+          {loading ? "Setting password..." : "Set password"}
+        </button>
+      </form>
+
+      <p className="mt-6 text-center text-sm font-semibold text-[#6B7794]">
         Already have a password?{" "}
-        <Link href="/login" className="font-medium text-primary hover:underline">
+        <Link
+          href="/login"
+          className="font-extrabold text-[#E71D57] hover:text-[#B81243]"
+        >
           Sign in
         </Link>
-      </div>
+      </p>
     </div>
   );
 }
 
 export default function SetPasswordPage() {
   return (
-    <div className="flex min-h-screen flex-1 items-center justify-center bg-background px-4">
-      <Suspense
-        fallback={
-          <div className="flex w-full justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          </div>
-        }
-      >
-        <SetPasswordInner />
-      </Suspense>
+    <div className="sub min-h-screen">
+      <SubmarineHeader />
+      <main className="relative flex items-center justify-center overflow-hidden px-5 py-12 sm:px-14 sm:py-16">
+        <div className="sub-dots pointer-events-none absolute inset-0" aria-hidden />
+        <div
+          className="pointer-events-none absolute -left-[100px] -top-[120px] h-[380px] w-[380px] rounded-full bg-[#FFE9A8]"
+          aria-hidden
+        />
+        <div className="relative flex w-full justify-center">
+          <Suspense
+            fallback={
+              <div className="flex w-full justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-[#6B7794]" />
+              </div>
+            }
+          >
+            <SetPasswordInner />
+          </Suspense>
+        </div>
+      </main>
     </div>
   );
 }

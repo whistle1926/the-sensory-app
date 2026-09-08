@@ -10,12 +10,18 @@ import {
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { Loader2, CheckCircle2, AlertCircle, Upload, X, Lock } from "lucide-react";
+import { SubmarineHeader } from "@/components/storefront/submarine-header";
 import {
   type FormField,
   type SubmissionData,
   type UploadedFile,
   isLayoutOnly,
 } from "@/lib/forms";
+
+const STATUS_CARD =
+  "sub-edge-xl w-full max-w-md rounded-[34px] bg-white p-8 text-center sm:p-10";
+const CENTRE =
+  "flex flex-1 items-center justify-center px-5 py-16 sm:py-20";
 
 interface PublicForm {
   id: string;
@@ -151,17 +157,20 @@ export default function PublicFormPage({
 
   if (loadError) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/40 p-6">
-        <div className="max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-[var(--shadow-sm)]">
-          <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground/40" />
-          <h1 className="mt-4 text-xl font-bold">Form not available</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{loadError}</p>
-          <Link
-            href="/"
-            className="mt-6 inline-block text-sm text-primary hover:underline"
-          >
-            Return home
-          </Link>
+      <div className="sub flex min-h-screen flex-col">
+        <SubmarineHeader />
+        <div className={CENTRE}>
+          <div className={STATUS_CARD}>
+            <AlertCircle className="mx-auto h-10 w-10 text-[#B81243]" />
+            <h1 className="sub-display mt-4 text-[30px]">Form not available</h1>
+            <p className="mt-2 text-[15px] font-semibold text-[#3D4A6B]">{loadError}</p>
+            <Link
+              href="/"
+              className="sub-edge sub-press mt-6 inline-flex items-center gap-2 rounded-full bg-[#FFC93C] px-6 py-3.5 text-[15px] font-extrabold text-[#12235B]"
+            >
+              Return home
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -169,8 +178,8 @@ export default function PublicFormPage({
 
   if (!form) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="sub flex min-h-screen items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-[#6B7794]" />
       </div>
     );
   }
@@ -180,8 +189,8 @@ export default function PublicFormPage({
   if (form.settings.requireLogin) {
     if (sessionStatus === "loading") {
       return (
-        <div className="flex min-h-screen items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <div className="sub flex min-h-screen items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-[#6B7794]" />
         </div>
       );
     }
@@ -192,19 +201,23 @@ export default function PublicFormPage({
           : `/f/${slug}`,
       );
       return (
-        <div className="flex min-h-screen items-center justify-center bg-muted/40 p-6">
-          <div className="max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-[var(--shadow-sm)]">
-            <Lock className="mx-auto h-10 w-10 text-muted-foreground/50" />
-            <h1 className="mt-4 text-xl font-bold">{form.title}</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Please sign in to complete this form.
-            </p>
-            <Link
-              href={`/login?callbackUrl=${callback}`}
-              className="mt-6 inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110"
-            >
-              Sign in to continue
-            </Link>
+        <div className="sub flex min-h-screen flex-col">
+          <SubmarineHeader />
+          <div className={CENTRE}>
+            <div className={STATUS_CARD}>
+              <Lock className="mx-auto h-10 w-10 text-[#6B7794]" />
+              <h1 className="sub-display mt-4 text-[30px]">{form.title}</h1>
+              <p className="mt-2 text-[15px] font-semibold text-[#3D4A6B]">
+                Please sign in to complete this form.
+              </p>
+              <Link
+                href={`/login?callbackUrl=${callback}`}
+                className="sub-edge sub-press mt-6 inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[15px] font-extrabold text-white"
+                style={{ background: "var(--sub-pink)" }}
+              >
+                Sign in to continue
+              </Link>
+            </div>
           </div>
         </div>
       );
@@ -213,35 +226,40 @@ export default function PublicFormPage({
 
   if (submitted) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/40 p-6">
-        <div className="max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-[var(--shadow-sm)]">
-          <CheckCircle2 className="mx-auto h-10 w-10 text-green-500" />
-          <h1 className="mt-4 text-xl font-bold">Thanks!</h1>
-          <p className="mt-2 whitespace-pre-line text-sm text-muted-foreground">
-            {submitted}
-          </p>
+      <div className="sub flex min-h-screen flex-col">
+        <SubmarineHeader />
+        <div className={CENTRE}>
+          <div className={STATUS_CARD}>
+            <CheckCircle2 className="mx-auto h-12 w-12 text-[#17B0A7]" />
+            <h1 className="sub-display mt-4 text-[30px]">Thanks!</h1>
+            <p className="mt-2 whitespace-pre-line text-[15px] font-semibold text-[#3D4A6B]">
+              {submitted}
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-muted/40 px-4 py-12">
+    <div className="sub min-h-screen">
+      <SubmarineHeader />
+      <main className="px-5 py-12 sm:py-16">
       <form
         onSubmit={submit}
-        className="mx-auto max-w-2xl space-y-5 rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)] md:p-8"
+        className="sub-edge-xl mx-auto max-w-2xl space-y-6 rounded-[34px] bg-white p-6 sm:p-10"
       >
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{form.title}</h1>
+          <h1 className="sub-display text-[34px] tracking-[-1px] sm:text-[44px]">{form.title}</h1>
           {form.description && (
-            <p className="mt-2 whitespace-pre-line text-sm text-muted-foreground">
+            <p className="mt-2 whitespace-pre-line text-base font-semibold text-[#5A6785]">
               {form.description}
             </p>
           )}
         </div>
 
         {errors.__global && (
-          <div className="rounded-md bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950/30 dark:text-red-400">
+          <div className="rounded-[18px] border-2 border-[#FBC7D7] bg-[#FFE7EE] px-4 py-3.5 text-sm font-bold text-[#B81243]">
             {errors.__global}
           </div>
         )}
@@ -265,7 +283,7 @@ export default function PublicFormPage({
           }}
         />
 
-        <div className="space-y-5">
+        <div className="space-y-6">
           {form.fields.map((field) => (
             <FieldView
               key={field.id}
@@ -281,14 +299,16 @@ export default function PublicFormPage({
         <button
           type="submit"
           disabled={submitting}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:brightness-110 disabled:opacity-50"
+          className="sub-display sub-edge-lg sub-press inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-4 text-xl text-white disabled:opacity-60"
+          style={{ background: "var(--sub-pink)" }}
         >
           {submitting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-5 w-5 animate-spin" />
           ) : null}
           {form.settings.submitButtonText || "Submit"}
         </button>
       </form>
+      </main>
     </div>
   );
 }
@@ -312,7 +332,7 @@ function FieldView({
 }) {
   if (field.type === "heading") {
     return (
-      <h2 className="pt-2 text-lg font-bold tracking-tight" id={`field-${field.id}`}>
+      <h2 className="sub-display pt-2 text-2xl" id={`field-${field.id}`}>
         {field.label}
       </h2>
     );
@@ -320,7 +340,7 @@ function FieldView({
   if (field.type === "paragraph") {
     return (
       <p
-        className="whitespace-pre-line text-sm text-muted-foreground"
+        className="whitespace-pre-line text-[15px] font-semibold text-[#3D4A6B]"
         id={`field-${field.id}`}
       >
         {field.label}
@@ -331,23 +351,25 @@ function FieldView({
   const labelNode = (
     <label
       htmlFor={`input-${field.id}`}
-      className="mb-1.5 block text-sm font-semibold"
+      className="mb-2 block text-sm font-extrabold"
     >
-      {field.label || <span className="italic text-muted-foreground">Untitled</span>}
-      {field.required && <span className="ml-0.5 text-red-500">*</span>}
+      {field.label || <span className="italic text-[#6B7794]">Untitled</span>}
+      {field.required && <span className="ml-0.5 text-[#E71D57]">*</span>}
     </label>
   );
 
   const help = field.helpText && (
-    <p className="mt-1 text-xs text-muted-foreground">{field.helpText}</p>
+    <p className="mt-2 px-2 text-sm font-semibold text-[#6B7794]">{field.helpText}</p>
   );
 
   const errorNode = error && (
-    <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>
+    <p className="mt-2 px-2 text-sm font-bold text-[#B81243]">{error}</p>
   );
 
-  const inputBase =
-    "w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-primary/50 focus:ring-2 focus:ring-primary/20";
+  const fieldBase =
+    "w-full border-[3px] border-[#D9D2C4] bg-[#FFFCF6] px-[18px] py-4 text-base font-semibold text-[#12235B] outline-none placeholder:text-[#9AA3B8] focus:border-[#12235B] focus:bg-white";
+  const inputBase = `${fieldBase} rounded-full`;
+  const boxBase = `${fieldBase} rounded-[18px]`;
 
   return (
     <div id={`field-${field.id}`}>
@@ -383,7 +405,7 @@ function FieldView({
                 placeholder={field.placeholder}
                 required={field.required}
                 rows={4}
-                className={inputBase}
+                className={boxBase}
               />
             );
           case "number":
@@ -416,7 +438,7 @@ function FieldView({
                 value={typeof value === "string" ? value : ""}
                 onChange={(e) => setValue(e.target.value)}
                 required={field.required}
-                className={inputBase}
+                className={boxBase}
               >
                 <option value="">Select…</option>
                 {(field.options ?? []).map((o) => (
@@ -428,11 +450,11 @@ function FieldView({
             );
           case "radio":
             return (
-              <div className="space-y-1.5">
+              <div className="space-y-2.5">
                 {(field.options ?? []).map((o) => (
                   <label
                     key={o.value}
-                    className="flex cursor-pointer items-center gap-2 text-sm"
+                    className="flex cursor-pointer items-center gap-3 text-[15px] font-semibold text-[#3D4A6B]"
                   >
                     <input
                       type="radio"
@@ -441,7 +463,7 @@ function FieldView({
                       checked={value === o.value}
                       onChange={() => setValue(o.value)}
                       required={field.required}
-                      className="h-4 w-4 accent-primary"
+                      className="h-[18px] w-[18px] accent-[#12235B]"
                     />
                     {o.label}
                   </label>
@@ -451,11 +473,11 @@ function FieldView({
           case "checkbox": {
             const arr = Array.isArray(value) ? (value as string[]) : [];
             return (
-              <div className="space-y-1.5">
+              <div className="space-y-2.5">
                 {(field.options ?? []).map((o) => (
                   <label
                     key={o.value}
-                    className="flex cursor-pointer items-center gap-2 text-sm"
+                    className="flex cursor-pointer items-center gap-3 text-[15px] font-semibold text-[#3D4A6B]"
                   >
                     <input
                       type="checkbox"
@@ -466,7 +488,7 @@ function FieldView({
                           : arr.filter((v) => v !== o.value);
                         setValue(next);
                       }}
-                      className="h-4 w-4 rounded accent-primary"
+                      className="h-[18px] w-[18px] rounded accent-[#12235B]"
                     />
                     {o.label}
                   </label>
@@ -479,23 +501,23 @@ function FieldView({
             const max = field.scale?.max ?? 5;
             const current = typeof value === "number" ? value : null;
             return (
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-2">
                 {Array.from({ length: max - min + 1 }, (_, i) => min + i).map((n) => (
                   <button
                     type="button"
                     key={n}
                     onClick={() => setValue(n)}
-                    className={`h-10 w-10 rounded-lg border text-sm font-semibold transition-colors ${
+                    className={`sub-display h-11 w-11 rounded-full border-[3px] text-lg transition-colors ${
                       current === n
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border bg-background hover:bg-muted"
+                        ? "border-[#12235B] bg-[#12235B] text-white"
+                        : "border-[#D9D2C4] bg-[#FFFCF6] text-[#12235B] hover:border-[#12235B]"
                     }`}
                   >
                     {n}
                   </button>
                 ))}
                 {(field.scale?.minLabel || field.scale?.maxLabel) && (
-                  <div className="ml-2 text-[11px] text-muted-foreground">
+                  <div className="ml-2 text-xs font-semibold text-[#6B7794]">
                     {field.scale?.minLabel} — {field.scale?.maxLabel}
                   </div>
                 )}
@@ -570,19 +592,19 @@ function FileField({
   return (
     <div className="space-y-2">
       {current ? (
-        <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm">
+        <div className="flex items-center justify-between gap-2 rounded-[18px] border-[3px] border-[#D9D2C4] bg-[#FFFCF6] px-[18px] py-3 text-sm font-semibold">
           <a
             href={current.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="truncate text-primary hover:underline"
+            className="truncate font-extrabold text-[#E71D57] hover:text-[#B81243]"
           >
             {current.filename}
           </a>
           <button
             type="button"
             onClick={() => setValue(null)}
-            className="inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#6B7794] hover:bg-[#FFE7EE] hover:text-[#B81243]"
             aria-label="Remove file"
           >
             <X className="h-3.5 w-3.5" />
@@ -590,7 +612,7 @@ function FileField({
         </div>
       ) : (
         <label
-          className={`flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border bg-background px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted ${
+          className={`flex cursor-pointer items-center gap-2 rounded-[18px] border-[3px] border-dashed border-[#D9D2C4] bg-[#FFFCF6] px-[18px] py-4 text-[15px] font-semibold text-[#6B7794] transition-colors hover:border-[#12235B] hover:bg-white ${
             uploading ? "pointer-events-none opacity-50" : ""
           }`}
         >
@@ -609,9 +631,9 @@ function FileField({
         </label>
       )}
       {uploadError && (
-        <p className="text-xs text-red-600 dark:text-red-400">{uploadError}</p>
+        <p className="px-2 text-sm font-bold text-[#B81243]">{uploadError}</p>
       )}
-      <p className="text-[11px] text-muted-foreground">
+      <p className="px-2 text-xs font-semibold text-[#6B7794]">
         Max {field.maxSizeMb ?? 10} MB
       </p>
     </div>

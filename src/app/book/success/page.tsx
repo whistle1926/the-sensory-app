@@ -3,9 +3,12 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import { CheckCircle2, Clock, AlertCircle, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { SubmarineHeader } from "@/components/storefront/submarine-header";
 
 type PaymentStatus = "checking" | "completed" | "pending" | "failed";
+
+const SECONDARY_BUTTON =
+  "sub-edge sub-press inline-flex items-center gap-2 rounded-full bg-[#FFC93C] px-6 py-3.5 text-[15px] font-extrabold text-[#12235B]";
 
 function SuccessContent() {
   const searchParams = useSearchParams();
@@ -65,133 +68,107 @@ function SuccessContent() {
   }, [bookingId]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border/50 glass">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-3">
-            <div
-              className="flex h-9 w-9 items-center justify-center rounded-xl"
-              style={{ background: "var(--gradient-primary)" }}
-            >
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path d="M4 4h7v7H4V4Z" fill="white" opacity="0.9" />
-                <path d="M13 4h7v7h-7V4Z" fill="white" opacity="0.6" />
-                <path d="M4 13h7v7H4v-7Z" fill="white" opacity="0.6" />
-                <path d="M13 13h7v7h-7v-7Z" fill="white" opacity="0.9" />
-              </svg>
-            </div>
-            <span className="text-lg font-bold tracking-tight">
-              The Sensory Submarine
-            </span>
-          </div>
-        </div>
-      </header>
+    <div className="sub min-h-screen">
+      <SubmarineHeader />
 
-      <main className="mx-auto max-w-md px-4 py-16 sm:px-6">
-        {status === "checking" && (
-          <div className="space-y-4 text-center">
-            <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
-            <h1 className="text-xl font-bold">Checking payment status...</h1>
-          </div>
-        )}
+      <main className="mx-auto max-w-lg px-5 py-16 sm:py-20">
+        <div className="sub-edge-xl rounded-[34px] bg-white p-8 text-center sm:p-10">
+          {status === "checking" && (
+            <>
+              <Loader2 className="mx-auto h-10 w-10 animate-spin text-[#6B7794]" />
+              <h1 className="sub-display mt-4 text-[30px]">
+                Checking payment status…
+              </h1>
+            </>
+          )}
 
-        {status === "completed" && (
-          <div className="space-y-6 text-center">
-            <div
-              className="mx-auto flex h-16 w-16 items-center justify-center rounded-full shadow-[var(--shadow-glow)]"
-              style={{ background: "var(--gradient-primary)" }}
-            >
-              <CheckCircle2 className="h-8 w-8 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold">Payment Successful</h1>
-            <p className="text-muted-foreground">
-              Your booking is confirmed{bookingDetails ? ` and a confirmation will be sent to ${bookingDetails.clientEmail}` : ""}.
-            </p>
+          {status === "completed" && (
+            <>
+              <CheckCircle2 className="mx-auto h-12 w-12 text-[#17B0A7]" />
+              <h1 className="sub-display mt-4 text-[30px]">Payment successful</h1>
+              <p className="mt-2 text-[15px] font-semibold text-[#3D4A6B]">
+                Your booking is confirmed{bookingDetails ? ` and a confirmation will be sent to ${bookingDetails.clientEmail}` : ""}.
+              </p>
 
-            {bookingDetails && (
-              <div className="rounded-2xl border border-border bg-card p-5 text-left shadow-[var(--shadow-sm)]">
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Service</span>
-                    <span className="font-medium">{bookingDetails.service}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Date</span>
-                    <span className="font-medium">{new Date(bookingDetails.date).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Time</span>
-                    <span className="font-medium">{bookingDetails.time}</span>
+              {bookingDetails && (
+                <div className="sub-edge mt-6 rounded-[26px] bg-[#FFFCF6] p-5 text-left">
+                  <div className="space-y-2.5 text-sm">
+                    <div className="flex justify-between gap-4">
+                      <span className="font-semibold text-[#6B7794]">Service</span>
+                      <span className="text-right font-extrabold">{bookingDetails.service}</span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span className="font-semibold text-[#6B7794]">Date</span>
+                      <span className="text-right font-extrabold">{new Date(bookingDetails.date).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span className="font-semibold text-[#6B7794]">Time</span>
+                      <span className="text-right font-extrabold">{bookingDetails.time}</span>
+                    </div>
                   </div>
                 </div>
+              )}
+
+              {newAccount && (
+                <div className="mt-5 rounded-[18px] border-2 border-[#C2E7E3] bg-[#E7F6F4] px-4 py-3.5 text-left text-sm">
+                  <p className="font-extrabold text-[#0E6F68]">Your account is ready</p>
+                  <p className="mt-1 font-semibold text-[#3D4A6B]">
+                    We&rsquo;ve created an account so you can manage this booking. Check your email for a link to set your password.
+                  </p>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => window.location.href = "/book"}
+                className={`${SECONDARY_BUTTON} mt-6`}
+              >
+                Book another session
+              </button>
+            </>
+          )}
+
+          {status === "pending" && (
+            <>
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#F3DFA6] bg-[#FFF3D2]">
+                <Clock className="h-8 w-8 text-[#B7791F]" />
               </div>
-            )}
+              <h1 className="sub-display mt-4 text-[30px]">Your bank is still confirming</h1>
+              <p className="mt-2 text-[15px] font-semibold text-[#3D4A6B]">
+                Your booking has been received. If you approved the payment in your banking app, you&rsquo;re all set &mdash; we&rsquo;ll email your confirmation the moment your bank confirms it, usually within a few minutes.
+              </p>
+              <button
+                type="button"
+                onClick={() => window.location.href = "/book"}
+                className={`${SECONDARY_BUTTON} mt-6`}
+              >
+                Back to booking
+              </button>
+            </>
+          )}
 
-            {newAccount && (
-              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-left text-sm">
-                <p className="font-medium text-foreground">Your account is ready</p>
-                <p className="mt-1 text-muted-foreground">
-                  We&rsquo;ve created an account so you can manage this booking. Check your email for a link to set your password.
-                </p>
+          {status === "failed" && (
+            <>
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#FBC7D7] bg-[#FFE7EE]">
+                <AlertCircle className="h-8 w-8 text-[#B81243]" />
               </div>
-            )}
-
-            <Button
-              onClick={() => window.location.href = "/book"}
-              variant="outline"
-              className="rounded-xl"
-            >
-              Book another session
-            </Button>
-          </div>
-        )}
-
-        {status === "pending" && (
-          <div className="space-y-6 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/30">
-              <Clock className="h-8 w-8 text-amber-600 dark:text-amber-400" />
-            </div>
-            <h1 className="text-2xl font-bold">Your bank is still confirming</h1>
-            <p className="text-muted-foreground">
-              Your booking has been received. If you approved the payment in your banking app, you&rsquo;re all set &mdash; we&rsquo;ll email your confirmation the moment your bank confirms it, usually within a few minutes.
-            </p>
-            <Button
-              onClick={() => window.location.href = "/book"}
-              variant="outline"
-              className="rounded-xl"
-            >
-              Back to booking
-            </Button>
-          </div>
-        )}
-
-        {status === "failed" && (
-          <div className="space-y-6 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-950/30">
-              <AlertCircle className="h-8 w-8 text-red-600 dark:text-red-400" />
-            </div>
-            <h1 className="text-2xl font-bold">Something Went Wrong</h1>
-            <p className="text-muted-foreground">
-              We could not verify your payment. Please contact us if you believe this is an error.
-            </p>
-            <Button
-              onClick={() => window.location.href = "/book"}
-              variant="outline"
-              className="rounded-xl"
-            >
-              Try again
-            </Button>
-          </div>
-        )}
+              <h1 className="sub-display mt-4 text-[30px]">Something went wrong</h1>
+              <p className="mt-2 text-[15px] font-semibold text-[#3D4A6B]">
+                We could not verify your payment. Please contact us if you believe this is an error.
+              </p>
+              <button
+                type="button"
+                onClick={() => window.location.href = "/book"}
+                className={`${SECONDARY_BUTTON} mt-6`}
+              >
+                Try again
+              </button>
+            </>
+          )}
+        </div>
       </main>
 
-      <footer className="border-t border-border/50 py-6 text-center text-xs text-muted-foreground">
+      <footer className="border-t-2 border-[#F2E4CD] py-6 text-center text-xs font-semibold text-[#6B7794]">
         <p>
           The Sensory Submarine &middot; Occupational Therapy Services &middot;
           Northern Ireland
@@ -204,8 +181,8 @@ function SuccessContent() {
 export default function SuccessPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="sub flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[#6B7794]" />
       </div>
     }>
       <SuccessContent />

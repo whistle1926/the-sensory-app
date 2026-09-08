@@ -79,72 +79,84 @@ export default function PurchasedPage({
   }, [purchaseId, courseId, router]);
 
   return (
-    <div className="mx-auto max-w-md space-y-6 py-12 text-center">
-      {state.kind === "polling" && (
-        <>
-          <Loader2 className="mx-auto h-10 w-10 animate-spin text-primary" />
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">
-              Confirming your payment…
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              This usually takes a few seconds. Please don&apos;t close this page.
-            </p>
-          </div>
-        </>
-      )}
+    <div className="mx-auto max-w-md py-8 sm:py-12">
+      <div className="sub-edge-lg space-y-6 rounded-[26px] bg-white p-7 text-center sm:p-9">
+        {state.kind === "polling" && (
+          <>
+            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border-[3px] border-[#12235B] bg-[#E7F6F4]">
+              <Loader2 className="h-8 w-8 animate-spin text-[#17B0A7]" />
+            </span>
+            <div>
+              <h1 className="sub-display text-2xl leading-tight">
+                Confirming your payment…
+              </h1>
+              <p className="mt-2 text-[15px] font-semibold leading-relaxed text-[#3D4A6B]">
+                This usually takes a few seconds. Please don&apos;t close this page.
+              </p>
+            </div>
+          </>
+        )}
 
-      {state.kind === "paid" && (
-        <>
-          <CheckCircle2 className="mx-auto h-12 w-12 text-green-600" />
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">You&apos;re enrolled!</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Taking you to the course now…
-            </p>
-          </div>
-        </>
-      )}
+        {state.kind === "paid" && (
+          <>
+            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border-[3px] border-[#12235B] bg-[#FFC93C]">
+              <CheckCircle2 className="h-8 w-8 text-[#12235B]" />
+            </span>
+            <div>
+              <h1 className="sub-display text-2xl leading-tight">You&apos;re enrolled!</h1>
+              <p className="mt-2 text-[15px] font-semibold leading-relaxed text-[#3D4A6B]">
+                Taking you to the course now…
+              </p>
+            </div>
+          </>
+        )}
 
-      {state.kind === "timeout" && (
-        <>
-          <Clock className="mx-auto h-10 w-10 text-muted-foreground" />
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">
-              Still processing
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Your payment is taking a little longer than usual. It will appear
-              in your training once confirmed — refresh this page in a minute,
-              or head back to your training list.
-            </p>
-          </div>
-          <Link
-            href="/portal/training"
-            className="inline-flex rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary/80"
-          >
-            Back to training
-          </Link>
-        </>
-      )}
+        {state.kind === "timeout" && (
+          <>
+            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border-[3px] border-[#12235B] bg-[#FFF3D2]">
+              <Clock className="h-8 w-8 text-[#12235B]" />
+            </span>
+            <div>
+              <h1 className="sub-display text-2xl leading-tight">
+                Still processing
+              </h1>
+              <p className="mt-2 text-[15px] font-semibold leading-relaxed text-[#3D4A6B]">
+                Your payment is taking a little longer than usual. It will appear
+                in your training once confirmed — refresh this page in a minute,
+                or head back to your training list.
+              </p>
+            </div>
+            <Link
+              href="/portal/training"
+              className="sub-edge sub-press inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[15px] font-extrabold text-white"
+              style={{ background: "var(--sub-pink)" }}
+            >
+              Back to training
+            </Link>
+          </>
+        )}
 
-      {state.kind === "failed" && (
-        <>
-          <XCircle className="mx-auto h-10 w-10 text-red-500" />
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">
-              We couldn&apos;t confirm your payment
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground">{state.message}</p>
-          </div>
-          <Link
-            href="/portal/training"
-            className="inline-flex rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary/80"
-          >
-            Back to training
-          </Link>
-        </>
-      )}
+        {state.kind === "failed" && (
+          <>
+            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border-[3px] border-[#12235B] bg-[#FFE7EE]">
+              <XCircle className="h-8 w-8 text-[#E71D57]" />
+            </span>
+            <div>
+              <h1 className="sub-display text-2xl leading-tight">
+                We couldn&apos;t confirm your payment
+              </h1>
+              <p className="mt-2 text-[15px] font-semibold leading-relaxed text-[#3D4A6B]">{state.message}</p>
+            </div>
+            <Link
+              href="/portal/training"
+              className="sub-edge sub-press inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[15px] font-extrabold text-white"
+              style={{ background: "var(--sub-pink)" }}
+            >
+              Back to training
+            </Link>
+          </>
+        )}
+      </div>
     </div>
   );
 }

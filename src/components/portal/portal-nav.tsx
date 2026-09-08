@@ -57,10 +57,10 @@ export function PortalNav({ coursesEnabled = true }: { coursesEnabled?: boolean 
             key={item.href}
             href={item.href}
             className={cn(
-              "rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              "rounded-full px-3.5 py-2 text-[15px] font-bold transition-colors",
               isActive
-                ? "bg-primary/10 text-primary"
-                : "text-foreground/80 hover:bg-foreground/5 hover:text-foreground",
+                ? "bg-[#FFC93C] text-[#12235B] shadow-[2px_2px_0_#12235B]"
+                : "text-[#12235B] hover:bg-[#FFF3D2]",
             )}
             aria-current={isActive ? "page" : undefined}
           >

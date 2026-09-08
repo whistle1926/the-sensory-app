@@ -129,7 +129,7 @@ export default async function PortalTrainingPage() {
   const otherAvailable = available.filter((c) => !c.enrollmentStatus);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10 pb-16">
       {/* ── Hero: Continue learning OR welcome ────────────────────── */}
       {currentCourse ? (
         <ContinueCard course={currentCourse} />
@@ -145,7 +145,7 @@ export default async function PortalTrainingPage() {
             eyebrow="Your library"
             title={`Your other enrolments (${enrolled.filter((c) => c.id !== currentCourse?.id).length})`}
           />
-          <div className="mt-4">
+          <div className="mt-5">
             <TrainingCatalogue
               courses={enrolled.filter((c) => c.id !== currentCourse?.id)}
             />
@@ -162,7 +162,7 @@ export default async function PortalTrainingPage() {
             title="Courses for parents and practitioners"
             sub={`${otherAvailable.length} ${otherAvailable.length === 1 ? "course" : "courses"} available`}
           />
-          <div className="mt-4">
+          <div className="mt-5">
             <TrainingCatalogue courses={otherAvailable} />
           </div>
         </section>
@@ -176,7 +176,7 @@ export default async function PortalTrainingPage() {
             eyebrow="Go further"
             title="Accredited training from our partners"
           />
-          <div className="mt-4">
+          <div className="mt-5">
             <PartnerCourseCard course={partnerCourse} />
           </div>
         </section>
@@ -186,13 +186,13 @@ export default async function PortalTrainingPage() {
       {comingSoon.length > 0 && (
         <section>
           <SectionHeader icon={Clock} eyebrow="In the works" title="Coming soon" />
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="mt-5 grid gap-5 sm:grid-cols-2">
             {comingSoon.map((c) => (
               <div
                 key={c.id}
-                className="flex gap-4 rounded-2xl border border-border bg-card p-4 opacity-80"
+                className="sub-edge flex gap-4 rounded-[26px] bg-white p-5"
               >
-                <div className="h-20 w-28 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-primary/10 to-primary/20">
+                <div className="h-20 w-28 shrink-0 overflow-hidden rounded-2xl border-[3px] border-[#12235B] bg-[#FFE9A8]">
                   {c.thumbnailUrl && (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
@@ -203,13 +203,16 @@ export default async function PortalTrainingPage() {
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold line-clamp-1">
+                  <span className="inline-flex rounded-full border-2 border-[#F3DFA6] bg-[#FFF3D2] px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider">
+                    Coming soon
+                  </span>
+                  <p className="sub-display mt-1.5 text-[18px] leading-tight line-clamp-1">
                     {c.title}
                   </p>
-                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                  <p className="mt-1 line-clamp-2 text-[14px] font-semibold leading-relaxed text-[#3D4A6B]">
                     {c.description}
                   </p>
-                  <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                  <div className="mt-2 flex flex-wrap gap-3 text-[12px] font-bold text-[#6B7794]">
                     <span className="inline-flex items-center gap-1">
                       <Users className="h-3 w-3" /> {c.audience}
                     </span>
@@ -225,12 +228,14 @@ export default async function PortalTrainingPage() {
       )}
 
       {available.length === 0 && comingSoon.length === 0 && !showPartnerCourse && (
-        <div className="rounded-2xl border border-border bg-card p-12 text-center">
-          <GraduationCap className="mx-auto h-10 w-10 text-muted-foreground/60" />
-          <p className="mt-3 text-sm font-semibold">
+        <div className="sub-edge rounded-[26px] bg-white p-12 text-center">
+          <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border-[3px] border-[#12235B] bg-[#FFF3D2]">
+            <GraduationCap className="h-8 w-8 text-[#12235B]" />
+          </span>
+          <p className="sub-display mt-4 text-2xl">
             No courses available yet
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-2 text-[15px] font-semibold text-[#6B7794]">
             Check back soon — new courses are on the way.
           </p>
         </div>
@@ -243,35 +248,40 @@ export default async function PortalTrainingPage() {
 
 function WelcomeHero() {
   return (
-    <section className="lp-course-hero">
-      <div className="lp-course-hero-art" />
-      <div className="lp-course-hero-inner">
+    <section className="relative overflow-hidden rounded-[30px] border-[3px] border-[#0A1740] bg-[#12235B] text-white shadow-[8px_8px_0_#FFC93C]">
+      <div
+        className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-[#17B0A7]/30"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute -bottom-24 right-32 h-48 w-48 rounded-full bg-[#E71D57]/30"
+        aria-hidden
+      />
+      <div className="relative grid gap-8 p-7 sm:p-10 md:grid-cols-[1.4fr_1fr] md:items-center">
         <div>
-          <p
-            className="text-[11px] font-bold uppercase tracking-[0.1em]"
-            style={{ color: "var(--primary)" }}
-          >
+          <p className="inline-flex items-center gap-2 rounded-full border-2 border-[#FFC93C] bg-[#FFC93C] px-3 py-1 text-[12px] font-extrabold uppercase tracking-[1.2px] text-[#12235B]">
+            <span className="h-2.5 w-2.5 rounded-full bg-[#E71D57]" aria-hidden />
             Your learning library
           </p>
-          <h1 className="lp-hero-title mt-2">
+          <h1 className="sub-display mt-5 text-[34px] leading-[1.05] tracking-[-1px] sm:text-[44px]">
             Practical, playful courses you can do at home
           </h1>
-          <p className="lp-hero-sub">
+          <p className="mt-4 max-w-[540px] text-[16px] font-semibold leading-relaxed text-white/85 sm:text-[17px]">
             Evidence-based mini-courses from paediatric OT Grace Magennis.
             Bite-sized lessons, clear activities, strategies that fit into
             the day you already have.
           </p>
-          <div className="mt-6 flex flex-wrap gap-3 text-sm text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5">
-              <Users className="h-4 w-4" />
+          <div className="mt-6 flex flex-wrap gap-2.5">
+            <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-white/30 bg-white/10 px-3 py-1.5 text-[13px] font-bold">
+              <Users className="h-4 w-4 text-[#FFC93C]" />
               Parents · Carers · Practitioners
             </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Clock className="h-4 w-4" />
+            <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-white/30 bg-white/10 px-3 py-1.5 text-[13px] font-bold">
+              <Clock className="h-4 w-4 text-[#17B0A7]" />
               Work at your own pace
             </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Award className="h-4 w-4" />
+            <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-white/30 bg-white/10 px-3 py-1.5 text-[13px] font-bold">
+              <Award className="h-4 w-4 text-[#E71D57]" />
               Certificates on completion
             </span>
           </div>
@@ -280,7 +290,7 @@ function WelcomeHero() {
           className="hidden items-center justify-center md:flex"
           aria-hidden
         >
-          <div className="flex h-36 w-36 items-center justify-center rounded-[36px] bg-gradient-to-br from-primary to-primary/60 text-primary-foreground shadow-[var(--shadow-lg)]">
+          <div className="sub-edge-lg flex h-36 w-36 items-center justify-center rounded-[36px] bg-[#FFC93C] text-[#12235B]">
             <BookOpen className="h-14 w-14" />
           </div>
         </div>
@@ -308,10 +318,10 @@ interface CourseCardData {
 function ContinueCard({ course }: { course: CourseCardData }) {
   const img = course.heroImageUrl ?? course.thumbnailUrl ?? null;
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-sm)]">
+    <section className="sub-edge-xl relative overflow-hidden rounded-[30px] bg-white">
       <div className="grid md:grid-cols-[1.2fr_1fr]">
         {/* Hero art */}
-        <div className="relative order-first aspect-[16/9] md:order-last md:aspect-auto">
+        <div className="relative order-first aspect-[16/9] border-b-[3px] border-[#12235B] bg-[#FFE9A8] md:order-last md:aspect-auto md:border-b-0 md:border-l-[3px]">
           {img ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
@@ -320,58 +330,55 @@ function ContinueCard({ course }: { course: CourseCardData }) {
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/15 to-primary/40 text-5xl font-black text-primary/50">
+            <div className="sub-display flex h-full w-full items-center justify-center text-5xl text-[#12235B]/50">
               {course.title.slice(0, 2).toUpperCase()}
             </div>
           )}
-          <div
-            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent md:bg-gradient-to-l"
-            aria-hidden
-          />
         </div>
 
         {/* Body */}
-        <div className="flex flex-col justify-center gap-5 p-7 md:p-10">
-          <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-primary">
-            <Play className="h-3 w-3" />
+        <div className="flex flex-col justify-center gap-5 p-6 sm:p-7 md:p-10">
+          <span className="inline-flex w-fit items-center gap-1.5 rounded-full border-2 border-[#C2E7E3] bg-[#E7F6F4] px-3 py-1 text-[12px] font-extrabold uppercase tracking-[1.2px]">
+            <Play className="h-3 w-3 text-[#17B0A7]" />
             Continue learning
           </span>
           <div>
-            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">
+            <h2 className="sub-display text-[30px] leading-[1.05] tracking-[-1px] sm:text-[38px]">
               {course.title}
             </h2>
             {course.tagline && (
-              <p className="mt-1.5 text-sm font-medium text-primary">
+              <p className="mt-2 text-[15px] font-extrabold text-[#E71D57]">
                 {course.tagline}
               </p>
             )}
-            <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground line-clamp-3">
+            <p className="mt-3 max-w-lg text-[15px] font-semibold leading-relaxed text-[#3D4A6B] line-clamp-3">
               {richTextToPlain(course.description ?? "")}
             </p>
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <div className="flex items-center justify-between text-[13px] font-bold text-[#6B7794]">
               <span>
                 {course.completedModules} of {course.totalModules} modules
                 complete
               </span>
-              <span className="font-semibold tabular-nums">
+              <span className="tabular-nums text-[#12235B]">
                 {course.progressPercent}%
               </span>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
+            <div className="h-3 overflow-hidden rounded-full border-2 border-[#12235B] bg-[#EADCC4]">
               <div
-                className="h-full rounded-full bg-primary transition-all duration-500"
+                className="h-full rounded-full bg-[#17B0A7] transition-all duration-500"
                 style={{ width: `${course.progressPercent}%` }}
               />
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-4">
             <Link
               href={`/portal/training/${course.id}`}
-              className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground shadow-[var(--shadow-sm)] transition-all hover:-translate-y-0.5 hover:brightness-110 hover:shadow-[var(--shadow-md)]"
+              className="sub-edge sub-press inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[15px] font-extrabold text-white"
+              style={{ background: "var(--sub-pink)" }}
             >
               {course.enrollmentStatus === "COMPLETED"
                 ? "Review course"
@@ -380,7 +387,7 @@ function ContinueCard({ course }: { course: CourseCardData }) {
                   : "Start your first lesson"}
               <ArrowRight className="h-4 w-4" />
             </Link>
-            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5 text-[13px] font-bold text-[#6B7794]">
               <Clock className="h-3.5 w-3.5" /> {course.duration}
             </span>
           </div>
@@ -407,19 +414,16 @@ function SectionHeader({
   sub?: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4">
+    <div className="flex items-end justify-between gap-4">
       <div>
-        <p
-          className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.1em]"
-          style={{ color: "var(--primary)" }}
-        >
-          <Icon className="h-3.5 w-3.5" />
+        <p className="inline-flex items-center gap-1.5 rounded-full border-2 border-[#C2E7E3] bg-[#E7F6F4] px-3 py-1 text-[12px] font-extrabold uppercase tracking-[1.2px]">
+          <Icon className="h-3.5 w-3.5 text-[#17B0A7]" />
           {eyebrow}
         </p>
-        <h2 className="mt-1 text-xl font-bold tracking-tight">{title}</h2>
+        <h2 className="sub-display mt-3 text-2xl leading-tight sm:text-[28px]">{title}</h2>
       </div>
       {sub && (
-        <p className="hidden text-xs text-muted-foreground sm:block">{sub}</p>
+        <p className="hidden shrink-0 text-[14px] font-bold text-[#6B7794] sm:block">{sub}</p>
       )}
     </div>
   );

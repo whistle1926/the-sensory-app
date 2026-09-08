@@ -5,13 +5,13 @@ import Link from "next/link";
 import {
   Calendar as CalendarIcon,
   CheckCircle2,
+  ChevronRight,
   Loader2,
   MessageCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PriorityBadge, StatusBadge } from "@/components/tasks/priority-badge";
 import type { TaskPriority, TaskStatus } from "@/lib/tasks";
-import { Toolbar, Panel, Empty } from "@/components/ds";
 
 interface Task {
   id: string;
@@ -55,60 +55,65 @@ export default function FeedbackPage() {
   if (loading) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#E71D57]" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <Toolbar
-        title="Feedback"
-        subtitle="Items your therapist has shared with you. Open one to leave a comment or suggest changes."
-      />
+    <div className="space-y-8">
+      {/* ── Page head ──────────────────────────────────────────────── */}
+      <div>
+        <h1 className="sub-display text-[34px] tracking-[-1px] sm:text-[44px]">
+          Feedback
+        </h1>
+        <p className="mt-1 text-base font-semibold text-[#6B7794]">
+          Items your therapist has shared with you. Open one to leave a
+          comment or suggest changes.
+        </p>
+      </div>
 
       {tasks.length === 0 ? (
-        <Panel>
-          <div className="ds-empty">
-            <MessageCircle
-              className="mx-auto h-8 w-8"
-              style={{ color: "var(--muted-foreground)", opacity: 0.5 }}
-            />
-            <p style={{ marginTop: 10, fontWeight: 600 }}>Nothing shared yet</p>
-            <p style={{ marginTop: 4, fontSize: 12 }}>
-              When your therapist shares a task with you, it will appear here.
-            </p>
-          </div>
-        </Panel>
+        <div className="sub-edge rounded-[26px] bg-white p-7 text-center">
+          <span className="mx-auto flex h-[64px] w-[64px] items-center justify-center rounded-[18px] border-[3px] border-[#12235B] bg-[#17B0A7]">
+            <MessageCircle className="h-7 w-7 text-white" />
+          </span>
+          <p className="sub-display mt-4 text-2xl">Nothing shared yet</p>
+          <p className="mt-1 text-[15px] font-semibold text-[#6B7794]">
+            When your therapist shares a task with you, it will appear here.
+          </p>
+        </div>
       ) : (
         <>
           {active.length > 0 && (
-            <Panel
-              title={`Open · ${active.length}`}
-              subtitle="Awaiting your review"
-            >
-              <div className="divide-y divide-border">
-                {active.map((t) => (
-                  <TaskRow key={t.id} task={t} />
+            <section>
+              <h2 className="sub-display text-2xl">
+                Open{" "}
+                <span className="text-[#6B7794]">&middot; {active.length}</span>
+              </h2>
+              <p className="mb-4 mt-0.5 text-[15px] font-semibold text-[#6B7794]">
+                Awaiting your review
+              </p>
+              <div className="flex flex-col gap-4">
+                {active.map((t, i) => (
+                  <TaskRow key={t.id} task={t} index={i} />
                 ))}
               </div>
-            </Panel>
+            </section>
           )}
           {done.length > 0 && (
-            <Panel
-              title={
-                <span className="inline-flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-primary" />
-                  Completed · {done.length}
-                </span>
-              }
-            >
-              <div className="divide-y divide-border">
-                {done.map((t) => (
-                  <TaskRow key={t.id} task={t} />
+            <section>
+              <h2 className="sub-display inline-flex items-center gap-2 text-2xl">
+                <CheckCircle2 className="h-6 w-6 text-[#17B0A7]" />
+                Completed{" "}
+                <span className="text-[#6B7794]">&middot; {done.length}</span>
+              </h2>
+              <div className="mt-4 flex flex-col gap-4">
+                {done.map((t, i) => (
+                  <TaskRow key={t.id} task={t} index={i} />
                 ))}
               </div>
-            </Panel>
+            </section>
           )}
         </>
       )}
@@ -116,21 +121,36 @@ export default function FeedbackPage() {
   );
 }
 
-function TaskRow({ task }: { task: Task }) {
+// Accent stripe rotates through the brand colours so a stack of cards
+// reads as Submarine, not a table.
+const ACCENTS = ["#17B0A7", "#E71D57", "#FFC93C"] as const;
+
+function TaskRow({ task, index }: { task: Task; index: number }) {
   const due = formatDue(task.dueDate);
+  const isDone = task.status === "done";
+  const accent = ACCENTS[index % ACCENTS.length];
   return (
     <Link
       href={`/portal/feedback/${task.id}`}
-      className="block px-5 py-4 transition-colors hover:bg-muted/20"
+      className={cn(
+        "sub-press block rounded-[26px] bg-white p-5 sm:p-6",
+        isDone
+          ? "border-[3px] border-[#D9D2C4] opacity-80"
+          : "sub-edge",
+      )}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start gap-4">
+        <span
+          className="mt-1 h-[52px] w-[10px] shrink-0 rounded-full border-2 border-[#12235B]"
+          style={{ backgroundColor: isDone ? "#D9D2C4" : accent }}
+          aria-hidden
+        />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3
               className={cn(
-                "text-sm font-semibold",
-                task.status === "done" &&
-                  "line-through text-muted-foreground",
+                "sub-display text-[20px] leading-tight",
+                isDone && "line-through text-[#6B7794]",
               )}
             >
               {task.title}
@@ -139,7 +159,7 @@ function TaskRow({ task }: { task: Task }) {
             <StatusBadge status={task.status} />
           </div>
           {task.description && (
-            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+            <p className="mt-1.5 line-clamp-2 text-[15px] font-semibold text-[#3D4A6B]">
               {task.description
                 .replace(/<[^>]+>/g, " ")
                 .replace(/&nbsp;/g, " ")
@@ -147,16 +167,16 @@ function TaskRow({ task }: { task: Task }) {
                 .trim()}
             </p>
           )}
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] font-bold text-[#6B7794]">
             {due && (
-              <span className="inline-flex items-center gap-1">
-                <CalendarIcon className="h-3 w-3" />
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarIcon className="h-3.5 w-3.5" />
                 {due}
               </span>
             )}
             {task._count.comments > 0 && (
-              <span className="inline-flex items-center gap-1">
-                <MessageCircle className="h-3 w-3" />
+              <span className="inline-flex items-center gap-1.5">
+                <MessageCircle className="h-3.5 w-3.5" />
                 {task._count.comments}{" "}
                 {task._count.comments === 1 ? "comment" : "comments"}
               </span>
@@ -164,6 +184,10 @@ function TaskRow({ task }: { task: Task }) {
             <span>From {task.createdBy.name}</span>
           </div>
         </div>
+        <ChevronRight
+          className="mt-1 hidden h-5 w-5 shrink-0 text-[#6B7794] sm:block"
+          aria-hidden
+        />
       </div>
     </Link>
   );

@@ -40,6 +40,14 @@ import "../../training.css";
  * opened from the top bar. Notes are surfaced via a toggle, not a tab.
  */
 
+/* Submarine button recipes, shared by the action bar and the results
+   card so every button on the page presses the same way. */
+const btnPrimary =
+  "sub-edge sub-press inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[15px] font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50";
+const btnOutline =
+  "sub-press inline-flex items-center gap-2 rounded-full border-[3px] border-[#12235B] bg-white px-5 py-2.5 text-[15px] font-extrabold text-[#12235B] disabled:cursor-not-allowed disabled:opacity-50";
+const pinkBg = { background: "var(--sub-pink)" };
+
 interface Section {
   heading?: string;
   body: string;
@@ -208,7 +216,7 @@ export default function PortalModulePage({
   if (loading || !mod || !course) {
     return (
       <div className="flex items-center justify-center py-24">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <div className="h-9 w-9 animate-spin rounded-full border-4 border-[#12235B] border-t-transparent" />
       </div>
     );
   }
@@ -243,25 +251,30 @@ export default function PortalModulePage({
       : 0;
 
   return (
-    <div className="lp-shell">
-      {/* Sticky top bar */}
-      <header className="lp-player-top">
-        <div className="lp-player-top-inner">
+    <div className="min-h-[60vh]">
+      {/* Sticky top bar — sits just under the portal header (72px). */}
+      <header className="sticky top-[84px] z-10">
+        <div className="sub-edge flex items-center gap-3 rounded-[22px] bg-white px-4 py-3 sm:gap-4 sm:px-5">
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}
-            className="lp-drawer-toggle"
+            className="sub-edge sub-press inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#FFC93C] px-4 py-2 text-[13px] font-extrabold text-[#12235B]"
             aria-label="Open module list"
           >
             <List className="h-4 w-4" />
             Modules
           </button>
-          <div className="lp-player-progress">
-            <p className="title">{course.title}</p>
-            <div className="bar">
-              <span style={{ width: `${progressPercent}%` }} />
+          <div className="min-w-0 flex-1">
+            <p className="sub-display truncate text-[15px] leading-tight">
+              {course.title}
+            </p>
+            <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-[#EADCC4]">
+              <span
+                className="block h-full rounded-full bg-[#17B0A7] transition-[width] duration-300"
+                style={{ width: `${progressPercent}%` }}
+              />
             </div>
-            <div className="meta">
+            <div className="mt-1 flex items-center justify-between text-[11px] font-bold text-[#6B7794]">
               <span>
                 Module {mod.order + 1} of {course.modules.length}
               </span>
@@ -270,7 +283,7 @@ export default function PortalModulePage({
           </div>
           <Link
             href="/portal/training"
-            className="hidden items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground sm:inline-flex"
+            className="hidden shrink-0 items-center gap-1 text-xs font-extrabold text-[#6B7794] transition-colors hover:text-[#12235B] sm:inline-flex"
           >
             <Home className="h-3.5 w-3.5" /> All courses
           </Link>
@@ -288,12 +301,16 @@ export default function PortalModulePage({
       />
 
       {/* Hero — title + meta + video or illustration */}
-      <div className="lp-lesson-hero">
-        <p className="lp-lesson-crumb">Module {mod.order + 1}</p>
-        <h1 className="lp-lesson-h1">{mod.title}</h1>
-        <div className="lp-lesson-meta">
+      <div className="mt-8">
+        <span className="inline-flex items-center rounded-full bg-[#FFC93C] px-4 py-1.5 text-xs font-extrabold uppercase tracking-[1.4px] text-[#12235B]">
+          Module {mod.order + 1}
+        </span>
+        <h1 className="sub-display mt-3 max-w-[780px] text-[34px] leading-[1.08] tracking-[-1px] sm:text-[44px]">
+          {mod.title}
+        </h1>
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-semibold text-[#6B7794]">
           <span className="inline-flex items-center gap-1.5">
-            <BookOpen className="h-4 w-4" />
+            <BookOpen className="h-4 w-4 text-[#17B0A7]" />
             {/* A webinar lesson is often a video and a download with no
                 written sections. Counting only text told a paying parent
                 "content coming soon" while the video sat above it. */}
@@ -307,13 +324,13 @@ export default function PortalModulePage({
           </span>
           {hasQuiz && (
             <span className="inline-flex items-center gap-1.5">
-              <Award className="h-4 w-4" />
+              <Award className="h-4 w-4 text-[#E71D57]" />
               {questions.length}-question quiz
             </span>
           )}
           {isCompleted && (
-            <span className="chip-complete">
-              <CheckCircle2 className="h-3.5 w-3.5" />
+            <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-[#C2E7E3] bg-[#E7F6F4] px-3 py-1 text-[13px] font-bold text-[#12235B]">
+              <CheckCircle2 className="h-3.5 w-3.5 text-[#17B0A7]" />
               Completed{mod.score != null ? ` · ${mod.score}%` : ""}
             </span>
           )}
@@ -321,8 +338,8 @@ export default function PortalModulePage({
       </div>
 
       {/* Media hero */}
-      <div className="lp-media-hero">
-        <div className="lp-media-hero-inner">
+      <div className="mt-6">
+        <div className="overflow-hidden rounded-[26px] border-[3px] border-[#12235B] bg-[#FFE9A8]">
           {hasVideo ? (
             <VideoPlayer url={mod.videoUrl!} title={mod.title} />
           ) : mod.coverImageUrl ? (
@@ -333,8 +350,8 @@ export default function PortalModulePage({
               className="aspect-[16/7] w-full object-cover"
             />
           ) : (
-            <div className="lp-illus-hero">
-              <div className="icon">
+            <div className="flex aspect-[16/7] items-center justify-center">
+              <div className="sub-edge flex h-24 w-24 items-center justify-center rounded-[28px] bg-white text-[#12235B]">
                 <BookOpen className="h-10 w-10" />
               </div>
             </div>
@@ -345,25 +362,25 @@ export default function PortalModulePage({
       {/* Handouts that go with this lesson, sitting right under the video
           where a learner looks for them. */}
       {(mod.resources?.length ?? 0) > 0 && (
-        <div className="mt-4 rounded-2xl border border-border bg-card p-4">
-          <h2 className="text-sm font-bold tracking-tight">Resources</h2>
-          <ul className="mt-3 space-y-2">
+        <div className="sub-edge mt-6 rounded-[26px] bg-white p-6">
+          <h2 className="sub-display text-2xl">Resources</h2>
+          <ul className="mt-4 space-y-2">
             {mod.resources!.map((r) => (
               <li key={r.id}>
                 <a
                   href={r.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm transition hover:bg-muted/50"
+                  className="flex items-center gap-3 rounded-[16px] border-2 border-[#F2E9DA] bg-[#FFFCF6] px-4 py-3 text-[15px] font-semibold text-[#12235B] transition-colors hover:border-[#12235B] hover:bg-white"
                 >
                   {r.kind === "link" ? (
-                    <Link2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <Link2 className="h-4 w-4 shrink-0 text-[#17B0A7]" />
                   ) : (
-                    <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <Paperclip className="h-4 w-4 shrink-0 text-[#E71D57]" />
                   )}
                   <span className="min-w-0 flex-1 truncate">{r.title}</span>
                   {r.sizeBytes ? (
-                    <span className="shrink-0 text-[11px] text-muted-foreground">
+                    <span className="shrink-0 text-[11px] font-bold text-[#6B7794]">
                       {Math.max(1, Math.round(r.sizeBytes / 1024))} KB
                     </span>
                   ) : null}
@@ -388,7 +405,7 @@ export default function PortalModulePage({
       ) : (
         <>
           {/* Lesson body */}
-          <div className="lp-body">
+          <div className="mx-auto max-w-[760px] py-10 text-[#3D4A6B]">
             {hasContent ? (
               <LessonBody sections={mod.content.sections as LessonSection[]} />
             ) : hasVideo || (mod.resources?.length ?? 0) > 0 ? null : (
@@ -400,45 +417,61 @@ export default function PortalModulePage({
 
           {/* Quiz (only when there is one and we're not already complete) */}
           {hasQuiz && !isCompleted && (
-            <div className="lp-quiz">
-              <div className="mb-4 flex items-center gap-2">
-                <Sparkles
-                  className="h-4 w-4"
-                  style={{ color: "var(--primary)" }}
-                />
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">
-                  Check your understanding
-                </p>
+            <div className="mx-auto max-w-[760px] pb-32">
+              <div className="mb-5 flex items-center gap-2.5">
+                <Sparkles className="h-5 w-5 text-[#E71D57]" />
+                <h2 className="sub-display text-2xl">Check your understanding</h2>
               </div>
-              {questions.map((q, qi) => (
-                <div key={q.id} className="lp-quiz-card">
-                  <p className="q-label">Question {qi + 1}</p>
-                  <p className="q-text">{q.text}</p>
-                  {q.options.map((opt, oi) => (
-                    <button
-                      type="button"
-                      key={oi}
-                      onClick={() => handleAnswer(qi, oi)}
-                      className={`lp-quiz-option ${answers[qi] === oi ? "is-active" : ""}`}
-                    >
-                      <span className="letter">
-                        {String.fromCharCode(65 + oi)}
-                      </span>
-                      <span className="flex-1">{opt}</span>
-                    </button>
-                  ))}
-                </div>
-              ))}
+              <div className="space-y-4">
+                {questions.map((q, qi) => (
+                  <div key={q.id} className="sub-edge rounded-[26px] bg-white p-6 sm:p-7">
+                    <span className="inline-flex items-center rounded-full border-2 border-[#F3DFA6] bg-[#FFF3D2] px-3 py-1 text-[13px] font-bold text-[#12235B]">
+                      Question {qi + 1}
+                    </span>
+                    <p className="sub-display mt-3 mb-4 text-[19px] leading-snug">
+                      {q.text}
+                    </p>
+                    <div className="space-y-2">
+                      {q.options.map((opt, oi) => {
+                        const active = answers[qi] === oi;
+                        return (
+                          <button
+                            type="button"
+                            key={oi}
+                            onClick={() => handleAnswer(qi, oi)}
+                            className={`flex w-full items-center gap-3 rounded-[18px] border-[3px] px-4 py-3.5 text-left text-[15px] font-semibold text-[#12235B] transition-colors ${
+                              active
+                                ? "border-[#12235B] bg-[#E7F6F4]"
+                                : "border-[#D9D2C4] bg-[#FFFCF6] hover:border-[#12235B] hover:bg-white"
+                            }`}
+                          >
+                            <span
+                              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] text-xs font-extrabold ${
+                                active
+                                  ? "bg-[#12235B] text-white"
+                                  : "bg-[#EADCC4] text-[#3D4A6B]"
+                              }`}
+                            >
+                              {String.fromCharCode(65 + oi)}
+                            </span>
+                            <span className="flex-1">{opt}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
           {/* Notes toggle */}
           {!hasQuiz && !isCompleted && (
-            <div className="mx-auto max-w-[760px] px-6 pb-32">
+            <div className="mx-auto max-w-[760px] pb-32">
               <button
                 type="button"
                 onClick={() => setShowNotes((v) => !v)}
-                className="flex w-full items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold transition-colors hover:bg-muted"
+                className="sub-edge sub-press flex w-full items-center justify-between rounded-[22px] bg-white px-5 py-3.5 text-[15px] font-extrabold text-[#12235B]"
               >
                 <span>Your notes</span>
                 <ChevronDown
@@ -446,7 +479,7 @@ export default function PortalModulePage({
                 />
               </button>
               {showNotes && (
-                <div className="mt-3 rounded-xl border border-border bg-card p-4">
+                <div className="sub-edge mt-4 rounded-[26px] bg-white p-4 sm:p-5">
                   <NotesPanel moduleId={moduleId} />
                 </div>
               )}
@@ -457,18 +490,18 @@ export default function PortalModulePage({
 
       {/* Sticky bottom action bar */}
       {!result && (
-        <footer className="lp-bottom-bar">
-          <div className="lp-bottom-bar-inner">
+        <footer className="fixed inset-x-0 bottom-0 z-30 border-t-[3px] border-[#12235B] bg-[#FFF8EC]/95 backdrop-blur">
+          <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3.5 sm:px-6">
             {prevModule ? (
               <Link
                 href={`/portal/training/${courseId}/${prevModule.id}`}
-                className="lp-btn"
+                className={btnOutline}
               >
                 <ArrowLeft className="h-4 w-4" />
                 Previous
               </Link>
             ) : (
-              <Link href={`/portal/training/${courseId}`} className="lp-btn">
+              <Link href={`/portal/training/${courseId}`} className={btnOutline}>
                 <ArrowLeft className="h-4 w-4" />
                 Overview
               </Link>
@@ -479,7 +512,8 @@ export default function PortalModulePage({
             {hasQuiz && !isCompleted ? (
               <button
                 type="button"
-                className="lp-btn primary"
+                className={btnPrimary}
+                style={pinkBg}
                 disabled={!allAnswered || submitting}
                 onClick={handleSubmit}
               >
@@ -490,7 +524,8 @@ export default function PortalModulePage({
               nextModule && !nextLocked ? (
                 <Link
                   href={`/portal/training/${courseId}/${nextModule.id}`}
-                  className="lp-btn primary"
+                  className={btnPrimary}
+                  style={pinkBg}
                 >
                   Next module
                   <ArrowRight className="h-4 w-4" />
@@ -498,7 +533,8 @@ export default function PortalModulePage({
               ) : (
                 <Link
                   href={`/portal/training/${courseId}`}
-                  className="lp-btn primary"
+                  className={btnPrimary}
+                  style={pinkBg}
                 >
                   Back to course
                   <ArrowRight className="h-4 w-4" />
@@ -508,7 +544,8 @@ export default function PortalModulePage({
               // Content-only module: offer mark-complete
               <button
                 type="button"
-                className="lp-btn primary"
+                className={btnPrimary}
+                style={pinkBg}
                 disabled={marking}
                 onClick={handleMarkComplete}
               >
@@ -545,26 +582,26 @@ function QuizResults({
   onReview: () => void;
 }) {
   return (
-    <div className="lp-result-card">
-      <div className={`lp-result-hero ${result.passed ? "pass" : "fail"}`}>
+    <div className="mx-auto mt-8 max-w-[760px]">
+      <div
+        className={`sub-edge-lg rounded-[30px] px-8 py-10 text-center ${
+          result.passed ? "bg-[#E7F6F4]" : "bg-[#FFE7EE]"
+        }`}
+      >
         {result.passed ? (
-          <CheckCircle2 className="mx-auto mb-3 h-14 w-14 text-green-600" />
+          <CheckCircle2 className="mx-auto mb-3 h-14 w-14 text-[#17B0A7]" />
         ) : (
-          <XCircle className="mx-auto mb-3 h-14 w-14 text-red-500" />
+          <XCircle className="mx-auto mb-3 h-14 w-14 text-[#E71D57]" />
         )}
-        <p className="score">{result.score}%</p>
-        <p
-          className={`mt-1 text-sm font-semibold ${
-            result.passed
-              ? "text-green-700 dark:text-green-400"
-              : "text-red-700 dark:text-red-400"
-          }`}
-        >
+        <p className="sub-display text-5xl leading-none tabular-nums">
+          {result.score}%
+        </p>
+        <p className="mt-2 text-[15px] font-extrabold text-[#12235B]">
           {result.passed
             ? "Passed — well done!"
             : "Not quite — 80% needed to pass"}
         </p>
-        <p className="mt-2 text-xs text-muted-foreground">
+        <p className="mt-2 text-xs font-bold text-[#6B7794]">
           Attempt {result.attempts}
         </p>
       </div>
@@ -575,32 +612,30 @@ function QuizResults({
           return (
             <div
               key={fb.questionId}
-              className={`rounded-2xl border p-4 ${
-                fb.isCorrect
-                  ? "border-green-200 bg-green-50/60 dark:bg-green-950/40"
-                  : "border-red-200 bg-red-50/60 dark:bg-red-950/40"
+              className={`rounded-[22px] border-[3px] bg-white p-5 ${
+                fb.isCorrect ? "border-[#C2E7E3]" : "border-[#FBC7D7]"
               }`}
             >
-              <p className="text-sm font-semibold">
+              <p className="sub-display text-[17px] leading-snug">
                 <span className="mr-1">Q{i + 1}.</span> {q.text}
               </p>
-              <div className="mt-2 space-y-1">
+              <div className="mt-3 space-y-1">
                 {q.options.map((opt, oi) => (
                   <div
                     key={oi}
-                    className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm ${
+                    className={`flex items-center gap-2 rounded-[12px] px-3 py-1.5 text-sm ${
                       oi === fb.correctIndex
-                        ? "font-semibold text-green-700 dark:text-green-400"
+                        ? "bg-[#E7F6F4] font-extrabold text-[#12235B]"
                         : oi === fb.selected && !fb.isCorrect
-                          ? "text-red-600 line-through"
-                          : "text-muted-foreground"
+                          ? "bg-[#FFE7EE] font-semibold text-[#E71D57] line-through"
+                          : "font-semibold text-[#6B7794]"
                     }`}
                   >
                     {oi === fb.correctIndex && (
-                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-600" />
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[#17B0A7]" />
                     )}
                     {oi === fb.selected && !fb.isCorrect && (
-                      <XCircle className="h-3.5 w-3.5 shrink-0 text-red-500" />
+                      <XCircle className="h-3.5 w-3.5 shrink-0 text-[#E71D57]" />
                     )}
                     {oi !== fb.correctIndex && oi !== fb.selected && (
                       <span className="w-3.5" />
@@ -621,7 +656,8 @@ function QuizResults({
           nextModule ? (
             <Link
               href={`/portal/training/${courseId}/${nextModule.id}`}
-              className="lp-btn primary flex-1 justify-center"
+              className={`${btnPrimary} flex-1 justify-center`}
+              style={pinkBg}
             >
               Next module
               <ArrowRight className="h-4 w-4" />
@@ -629,7 +665,8 @@ function QuizResults({
           ) : (
             <Link
               href={`/portal/training/${courseId}`}
-              className="lp-btn primary flex-1 justify-center"
+              className={`${btnPrimary} flex-1 justify-center`}
+              style={pinkBg}
             >
               Back to course
               <ArrowRight className="h-4 w-4" />
@@ -639,7 +676,7 @@ function QuizResults({
           <>
             <button
               type="button"
-              className="lp-btn"
+              className={btnOutline}
               onClick={onReview}
             >
               Review lesson
@@ -648,7 +685,8 @@ function QuizResults({
               type="button"
               onClick={onRetry}
               disabled={retrying}
-              className="lp-btn primary flex-1 justify-center"
+              className={`${btnPrimary} flex-1 justify-center`}
+              style={pinkBg}
             >
               <RotateCcw className="h-4 w-4" />
               {retrying ? "Resetting…" : "Try again"}
