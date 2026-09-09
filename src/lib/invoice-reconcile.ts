@@ -34,7 +34,23 @@ export interface ReconcileResult {
     received: number;
     currency: string;
   }[];
+  /**
+   * Invoices flipped to paid by matching a MANUAL bank transfer that
+   * landed in the Fire account directly (not through the payment link),
+   * identified by the invoice number in the transfer reference plus an
+   * exact amount match. Reported separately so it's clear these were
+   * BACS/standing-order payments, not link payments.
+   */
+  bankMatched: { invoiceNumber: string; total: number; reference: string }[];
   errors: number;
+}
+
+/** Normalise a reference or invoice number for loose comparison:
+ *  uppercase, strip everything but letters and digits. So "INV-0136",
+ *  "inv0136" and "Appletree/Inv0136" all reduce to something we can
+ *  substring-test against. */
+function normaliseRef(s: string): string {
+  return s.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
 /**
@@ -109,7 +125,7 @@ export async function reconcileInvoicePayments(): Promise<ReconcileResult> {
     select: { enabled: true, apiKey: true },
   });
   if (!settings?.enabled || !settings.apiKey) {
-    return { checked: 0, synced: [], mismatches: [], errors: 0 };
+    return { checked: 0, synced: [], mismatches: [], bankMatched: [], errors: 0 };
   }
 
   const fb = new FireBuddy(settings.apiKey);
@@ -186,5 +202,139 @@ export async function reconcileInvoicePayments(): Promise<ReconcileResult> {
     }
   }
 
-  return { checked: invoices.length, synced, mismatches, errors };
+  // Second pass: manual bank transfers that landed straight in the Fire
+  // account (no payment-request, so the loop above can't see them). Match
+  // any still-unpaid invoice to an incoming transaction by invoice number
+  // + exact amount. Runs on the same invoice set, minus the ones we just
+  // synced.
+  const syncedNumbers = new Set(synced.map((x) => x.invoiceNumber));
+  const stillOpen = invoices.filter((i) => !syncedNumbers.has(i.invoiceNumber));
+  const bankMatched = await matchBankTransfers(fb, stillOpen, settings.apiKey);
+
+  return { checked: invoices.length, synced, mismatches, bankMatched, errors };
+}
+
+/**
+ * Match still-unpaid invoices against real incoming Fire transactions —
+ * the manual bank-transfer case. A parent or school that pays by BACS
+ * instead of the payment link lands money in the Fire account with a
+ * free-text reference (they usually type the invoice number). There's no
+ * payment-request to poll, so this reads the account's actual movements
+ * and pairs them up.
+ *
+ * Safety: we require BOTH the invoice number to appear in the transfer
+ * reference AND the amount to match to the penny AND the currency to
+ * match. Amount alone is never enough (many invoices share a price), and
+ * a reference without the number is left for manual review. Each Fire
+ * transaction is consumed once, so two invoices can't claim the same
+ * lodgement.
+ */
+async function matchBankTransfers(
+  fb: FireBuddy,
+  openInvoices: {
+    id: string;
+    invoiceNumber: string;
+    clientName: string;
+    total: number;
+    currency: string;
+    firebuddyInvoiceId: string | null;
+  }[],
+  apiKey: string,
+): Promise<ReconcileResult["bankMatched"]> {
+  const matched: ReconcileResult["bankMatched"] = [];
+  if (openInvoices.length === 0) return matched;
+
+  // Pull incoming movements across every Fire account (one per currency).
+  let accounts: { ican: number; currency: string }[] = [];
+  try {
+    accounts = await fb.getAccounts();
+  } catch (err) {
+    console.error("[reconcile] getAccounts failed:", err);
+    return matched;
+  }
+
+  interface InTxn { txnId: number; amountPence: number; currency: string; ref: string; }
+  const incoming: InTxn[] = [];
+  for (const acct of accounts) {
+    try {
+      const txns = await fb.getTransactions(acct.ican);
+      for (const t of txns) {
+        if (t.direction !== "IN") continue;
+        incoming.push({
+          txnId: t.txnId,
+          amountPence: Math.round((t.amount ?? 0) * 100),
+          currency: (t.currency || acct.currency || "GBP").toUpperCase(),
+          ref: normaliseRef(t.reference ?? ""),
+        });
+      }
+    } catch (err) {
+      console.error(`[reconcile] getTransactions(${acct.ican}) failed:`, err);
+    }
+  }
+  if (incoming.length === 0) return matched;
+
+  const usedTxn = new Set<number>();
+
+  for (const inv of openInvoices) {
+    const normNo = normaliseRef(inv.invoiceNumber); // e.g. "INV0136"
+    const digits = normNo.replace(/[^0-9]/g, ""); // e.g. "0136"
+    const wantCurrency = (inv.currency || "GBP").toUpperCase();
+
+    const hit = incoming.find((t) => {
+      if (usedTxn.has(t.txnId)) return false;
+      if (t.amountPence !== inv.total) return false;
+      if (t.currency !== wantCurrency) return false;
+      // The invoice number must appear in the reference. Prefer the full
+      // "INV0136"; fall back to the 4+ digit core so "0144" or
+      // "PLAYBOARDINV0149" still match, without matching a bare "1".
+      if (t.ref.includes(normNo)) return true;
+      if (digits.length >= 4 && t.ref.includes(digits)) return true;
+      return false;
+    });
+    if (!hit) continue;
+
+    usedTxn.add(hit.txnId);
+    try {
+      await prisma.invoice.update({
+        where: { id: inv.id },
+        // Confirmed landed in the Fire account, but as a manual transfer
+        // rather than a link payment — tag it so the row reads honestly.
+        data: {
+          status: "paid",
+          paidAt: new Date(),
+          paymentRef: `fire-txn:${hit.txnId}`,
+          paidMethod: "bank_transfer",
+        },
+      });
+      if (inv.firebuddyInvoiceId) {
+        try {
+          await fb.updateInvoice(inv.firebuddyInvoiceId, { status: "paid" });
+        } catch (err) {
+          console.error("[reconcile] FireBuddy status patch (bank) failed:", err);
+        }
+      }
+      if (inv.total > 0) {
+        await prisma.incomeEntry.upsert({
+          where: { source_reference: { source: "INVOICE", reference: inv.id } },
+          update: { amount: inv.total, description: `${inv.invoiceNumber} — ${inv.clientName}` },
+          create: {
+            amount: inv.total,
+            source: "INVOICE",
+            reference: inv.id,
+            description: `${inv.invoiceNumber} — ${inv.clientName}`,
+            occurredAt: new Date(),
+          },
+        });
+      }
+      matched.push({
+        invoiceNumber: inv.invoiceNumber,
+        total: inv.total,
+        reference: hit.ref,
+      });
+    } catch (err) {
+      console.error(`[reconcile] bank-match update failed for ${inv.invoiceNumber}:`, err);
+    }
+  }
+
+  return matched;
 }
