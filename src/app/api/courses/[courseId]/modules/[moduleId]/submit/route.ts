@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sendCourseEvaluationEmail } from "@/lib/course-enrollment";
 import { submitQuizSchema } from "@/lib/validators";
 import type { QuizQuestion } from "@/types/course";
 
@@ -85,11 +86,15 @@ export async function POST(
     });
     const allCompleted = allProgress.every((mp) => mp.status === "COMPLETED");
 
-    if (allCompleted) {
+    if (allCompleted && enrollment.status !== "COMPLETED") {
       await prisma.enrollment.update({
         where: { id: enrollment.id },
         data: { status: "COMPLETED", completedAt: new Date() },
       });
+      // First time this course is finished → send the learner the short
+      // evaluation. Guarded on the pre-update status so a revisit can't
+      // re-send. Non-blocking.
+      void sendCourseEvaluationEmail(enrollment.id);
     }
   }
 
