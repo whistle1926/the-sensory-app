@@ -39,5 +39,34 @@ export async function GET(req: NextRequest) {
   }
 
   const result = await computeAvailability(from, to, { serviceId, ownerId });
+
+  // Public booking rules (only when the public book page asks, via
+  // ?public=1 — the admin availability preview must stay unfiltered):
+  //   • at least 48h lead time, so there's room to screen + sort paperwork
+  //   • no further than ~3 months out, a rolling window so nobody books
+  //     into next year.
+  if (searchParams.get("public") === "1") {
+    const MIN_LEAD_MS = 48 * 60 * 60 * 1000;
+    const MAX_AHEAD_MS = 92 * 24 * 60 * 60 * 1000; // ~3 months
+    const now = Date.now();
+    const earliest = now + MIN_LEAD_MS;
+    const latest = now + MAX_AHEAD_MS;
+    for (const dateKey of Object.keys(result)) {
+      // Beyond the rolling window → drop the whole day.
+      const dayStart = new Date(`${dateKey}T00:00:00Z`).getTime();
+      if (dayStart > latest) {
+        delete result[dateKey];
+        continue;
+      }
+      // Within the window → drop individual times inside the 48h cutoff.
+      // Times are wall-clock "HH:MM"; comparing them as UTC is within an
+      // hour of NI time, which is immaterial against a 48-hour gate.
+      result[dateKey] = result[dateKey].filter((t) => {
+        const slotMs = new Date(`${dateKey}T${t}:00Z`).getTime();
+        return Number.isNaN(slotMs) || slotMs >= earliest;
+      });
+    }
+  }
+
   return NextResponse.json(result);
 }

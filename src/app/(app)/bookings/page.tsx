@@ -1309,7 +1309,7 @@ export default function BookingsPage() {
                                 <span className="text-xs text-muted-foreground">
                                   Each block above is one appointment. Split into
                                 </span>
-                                {[30, 45, 60].map((m) => (
+                                {[30, 45, 60, 90].map((m) => (
                                   <button
                                     key={m}
                                     onClick={() => splitIntoSlots(d, m)}

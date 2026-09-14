@@ -460,6 +460,14 @@ function BookingPageInner() {
   // Nothing to show for a month that has already been and gone.
   const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
   const canGoBack = monthAnchor > thisMonth;
+  // Parents can browse up to (and including) the third month ahead — a
+  // rolling ~3-month window, matching the availability the API will serve.
+  const lastBookableMonth = new Date(
+    today.getFullYear(),
+    today.getMonth() + 3,
+    1,
+  );
+  const canGoForward = monthAnchor < lastBookableMonth;
 
   // Fetch computed availability for the visible week, scoped to the
   // chosen service so parents only see that service's days/times (e.g.
@@ -473,7 +481,7 @@ function BookingPageInner() {
       : "";
     try {
       const res = await fetch(
-        `/api/availability?from=${from}&to=${to}${serviceParam}`,
+        `/api/availability?from=${from}&to=${to}${serviceParam}&public=1`,
       );
       if (res.ok) {
         const data = await res.json();
@@ -885,13 +893,29 @@ function BookingPageInner() {
 
             <div>
               <h2 className="sub-display text-[30px] tracking-[-.9px] sm:text-[38px]">
-                Choose a date and time
+                {isBlock ? "Pick your session dates" : "Choose a date and time"}
               </h2>
               <p className="mt-2 text-[17px] font-semibold text-[#5A6785]">
                 Days with a yellow shadow have space. All times are shown in
                 your local timezone.
               </p>
             </div>
+
+            {/* For a multi-session service, say so up front — parents were
+                missing that this is a block and that they pick several dates
+                (the running list used to sit unnoticed below the calendar). */}
+            {isBlock && (
+              <div className="sub-edge rounded-[22px] border-[3px] border-[#12235B] bg-[#FFF3D2] p-4 sm:p-5">
+                <p className="sub-display text-[19px] sm:text-[21px]">
+                  This is a block of {minSessions}
+                  {maxSessions > minSessions ? ` to ${maxSessions}` : ""} sessions
+                </p>
+                <p className="mt-1 text-[15px] font-semibold text-[#3D4A6B]">
+                  Pick {minSessions === maxSessions ? "all" : minSessions === 1 ? "one or more" : `at least ${minSessions}`} date{maxSessions === 1 ? "" : "s"} below — tap a time on each day you want. You&apos;ll pay once for the whole block.
+                  {sessionCount > 0 ? ` You've chosen ${sessionCount} so far.` : ""}
+                </p>
+              </div>
+            )}
 
             <div className="grid items-start gap-6 lg:grid-cols-[1.6fr_1fr]">
               {/* ── The month ─────────────────────────────────────── */}
@@ -923,8 +947,9 @@ function BookingPageInner() {
                         (m) => new Date(m.getFullYear(), m.getMonth() + 1, 1),
                       )
                     }
+                    disabled={!canGoForward}
                     aria-label="Next month"
-                    className="grid h-11 w-11 place-items-center rounded-full border-[3px] border-[#12235B] bg-[#FFF3D2] text-lg font-extrabold hover:bg-[#FFC93C]"
+                    className="grid h-11 w-11 place-items-center rounded-full border-[3px] border-[#12235B] bg-[#FFF3D2] text-lg font-extrabold hover:bg-[#FFC93C] disabled:cursor-not-allowed disabled:opacity-30"
                   >
                     <ChevronRight className="h-5 w-5" />
                   </button>

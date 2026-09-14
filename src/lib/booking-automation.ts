@@ -17,6 +17,7 @@
 import { prisma } from "@/lib/prisma";
 import { renderTermsHtmlFromDb } from "@/lib/booking-terms-store";
 import { bookingServiceMetaFromDb } from "@/lib/booking-services";
+import { sendTransactionalEmail } from "@/lib/email";
 
 export interface AutomationVariables {
   client_name: string;
@@ -267,4 +268,91 @@ export async function ensureDefaultAutomations() {
       },
     });
   }
+}
+
+/** The practice admin inbox — Claire watches this for new bookings and
+ *  payments. Kept here as one constant so every notify path agrees. */
+export const PRACTICE_ADMIN_EMAIL = "admin@thesensorysubmarine.com";
+
+interface ConfirmArgs {
+  to: string;
+  clientName: string;
+  service: string;
+  date: Date;
+  time: string;
+  duration: string;
+  pricePence: number;
+  depositPence?: number;
+  sessions?: Array<{ date: Date; time: string }>;
+}
+
+/**
+ * Render-and-send the booking CONFIRMATION email (the "confirmation"
+ * automation row). This now fires only once a booking is actually
+ * confirmed — paid, or free/no-payment at creation — never before payment,
+ * so nobody is told "confirmed" while they still owe. Silently returns if
+ * the automation is disabled.
+ */
+export async function sendBookingConfirmationEmail(args: ConfirmArgs) {
+  const automation = await getEnabledAutomation("confirmation");
+  if (!automation) return;
+  const vars = await variablesForBooking({
+    clientName: args.clientName,
+    service: args.service,
+    date: args.date,
+    time: args.time,
+    duration: args.duration,
+    pricePence: args.pricePence,
+    depositPence: args.depositPence,
+    sessions: args.sessions,
+  });
+  await sendTransactionalEmail({
+    to: args.to,
+    subject: renderTemplate(automation.subject, vars),
+    html: renderTemplate(automation.bodyHtml, vars),
+  });
+}
+
+/**
+ * Sent at creation for a booking that still needs paying: reassures the
+ * client we've got their request and their slot is held, WITHOUT claiming
+ * the appointment is confirmed. The real confirmation follows on payment.
+ */
+export async function sendBookingPendingEmail(args: {
+  to: string;
+  clientName: string;
+  service: string;
+  date: Date;
+  time: string;
+  sessionCount?: number;
+}) {
+  const dateLabel = args.date.toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Europe/London",
+  });
+  const count = args.sessionCount ?? 1;
+  const first = args.clientName.split(" ")[0] || "there";
+  await sendTransactionalEmail({
+    to: args.to,
+    subject: "We've got your booking request — just complete payment",
+    html: `<h2>Thanks, ${escapeAutomationHtml(first)} — nearly there</h2>
+<p>We've received your booking request for <strong>${escapeAutomationHtml(args.service)}</strong>${count > 1 ? ` (${count} sessions)` : ""} and we're holding your ${count > 1 ? "slots" : "slot"} for you.</p>
+<ul>
+  <li><strong>${count > 1 ? "First session" : "When"}:</strong> ${dateLabel} at ${escapeAutomationHtml(args.time)}</li>
+</ul>
+<p>Your booking isn't confirmed until payment is complete. If you closed the payment page, you can reopen it from the link we showed after booking, or reply to this email and we'll help.</p>
+<p>Once your bank confirms the payment, we'll send your confirmation and, where relevant, your intake form.</p>
+<p><strong>The Sensory Submarine</strong></p>`,
+  });
+}
+
+function escapeAutomationHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }

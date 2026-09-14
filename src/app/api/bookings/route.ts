@@ -15,6 +15,9 @@ import {
   renderTemplate,
   variablesForBooking,
   buildCalendarLink,
+  sendBookingConfirmationEmail,
+  sendBookingPendingEmail,
+  PRACTICE_ADMIN_EMAIL,
 } from "@/lib/booking-automation";
 import { sendTransactionalEmail } from "@/lib/email";
 import { insertBookingEvent } from "@/lib/google-calendar";
@@ -291,27 +294,44 @@ export async function POST(req: NextRequest) {
     console.error("Auto-create account failed:", err);
   }
 
-  // Send a booking confirmation email that re-states the T&Cs the client
-  // agreed to (audit trail in their inbox). Best-effort — don't fail the
-  // booking if Mailcub is offline.
-  void sendBookingConfirmationEmail({
-    to: normalisedEmail,
-    clientName,
-    service,
-    date: bookingDate,
-    time: firstTime,
-    duration: resolvedDuration,
-    // The client is quoted the TOTAL they'll pay — for a block that's the
-    // per-session rate × the sessions they picked.
-    pricePence: totalPrice,
-    depositPence: depositPolicy?.amountPence,
-    sessions: ordered,
-  }).catch((err) => console.error("Booking confirmation email failed:", err));
-
-  // Attempt to create FireBuddy payment if enabled
+  // Will this booking send the client to pay? Only then do we hold off on
+  // the confirmation email. Fetched here (earlier than before) so the email
+  // decision below can depend on it.
   const paymentSettings = await prisma.paymentSettings.findUnique({
     where: { id: "default" },
   });
+  const willTakePayment =
+    Boolean(paymentSettings?.enabled && paymentSettings.apiKey) &&
+    totalPrice > 0;
+
+  // Email the client. A booking that still needs paying gets a "we've got
+  // it, slot held, complete payment" note — NOT a confirmation, so nobody
+  // is told they're confirmed before they've paid (Grace, Sept 2026). The
+  // real confirmation is sent on payment (completeBookingPayment). A free
+  // or no-payment booking is confirmed right away, so it gets the
+  // confirmation now as before. Best-effort — never fail the booking on it.
+  if (willTakePayment) {
+    void sendBookingPendingEmail({
+      to: normalisedEmail,
+      clientName,
+      service: svc?.title ?? service,
+      date: bookingDate,
+      time: firstTime,
+      sessionCount: created.length,
+    }).catch((err) => console.error("Booking pending email failed:", err));
+  } else {
+    void sendBookingConfirmationEmail({
+      to: normalisedEmail,
+      clientName,
+      service,
+      date: bookingDate,
+      time: firstTime,
+      duration: resolvedDuration,
+      pricePence: totalPrice,
+      depositPence: depositPolicy?.amountPence,
+      sessions: ordered,
+    }).catch((err) => console.error("Booking confirmation email failed:", err));
+  }
 
   if (paymentSettings?.enabled && paymentSettings.apiKey) {
     try {
@@ -529,9 +549,15 @@ async function notifyOwnerOfBooking(args: {
 </p>`;
 
   const extra = args.extraSessions ?? 0;
+  const subject = `New booking: ${serviceTitle} — ${dateLabel} at ${args.time}`;
+  // Copy the practice admin inbox (Claire) on every new booking so someone
+  // is always watching, even for an associate-owned service. Skip the copy
+  // if the owner IS the admin inbox, to avoid a duplicate.
+  const recipients = Array.from(new Set([toEmail, PRACTICE_ADMIN_EMAIL]));
+  for (const rcpt of recipients) {
   await sendTransactionalEmail({
-    to: toEmail,
-    subject: `New booking: ${serviceTitle} — ${dateLabel} at ${args.time}`,
+    to: rcpt,
+    subject,
     html: `<p>Hi ${toName?.split(" ")[0] ?? "there"},</p>
 <p>You have a new booking for <strong>${serviceTitle}</strong>${
       extra > 0 ? ` — a block of ${extra + 1} sessions` : ""
@@ -544,42 +570,7 @@ async function notifyOwnerOfBooking(args: {
 ${calButton}
 <p style="font-size:12px;color:#777;">It's also on your bookings page in the portal. The button above adds it to your Google Calendar in one click${extra > 0 ? " (the first session — the block's other dates can be added from the portal)" : ""}.</p>`,
   });
-}
-
-/** Render-and-send the booking confirmation email using the
- * "confirmation" automation row. If that row is disabled or missing the
- * function silently returns — letting Patrick turn confirmations off
- * from the admin UI without code changes. */
-async function sendBookingConfirmationEmail(args: {
-  to: string;
-  clientName: string;
-  service: string;
-  date: Date;
-  time: string;
-  duration: string;
-  pricePence: number;
-  depositPence?: number;
-  /** Every session in the booking — one for a normal appointment, 2-5
-   * for a block. Drives the {{sessions}} list in the email. */
-  sessions?: Array<{ date: Date; time: string }>;
-}) {
-  const automation = await getEnabledAutomation("confirmation");
-  if (!automation) return;
-  const vars = await variablesForBooking({
-    clientName: args.clientName,
-    service: args.service,
-    date: args.date,
-    time: args.time,
-    duration: args.duration,
-    pricePence: args.pricePence,
-    depositPence: args.depositPence,
-    sessions: args.sessions,
-  });
-  await sendTransactionalEmail({
-    to: args.to,
-    subject: renderTemplate(automation.subject, vars),
-    html: renderTemplate(automation.bodyHtml, vars),
-  });
+  }
 }
 
 function formatPrice(pence: number): string {
