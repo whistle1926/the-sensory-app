@@ -10,8 +10,12 @@
  * and nothing in the day's takings.
  *
  * This re-checks anything recent and still unpaid, and completes whatever
- * Fire now reports as authorised. Safe to run repeatedly — each completion
- * is idempotent.
+ * Fire now reports as authorised. It also reconciles INVOICE payments and
+ * keeps the dashboard's income tracker in step with the real Fire account,
+ * so a payment that Fire's webhook can't match (Fire truncates our
+ * reference) still shows as paid + in the day's revenue within ~5 minutes
+ * rather than waiting for the daily job. Safe to run repeatedly — every
+ * write is idempotent.
  *
  * Auth: Vercel Cron sends `Authorization: Bearer <CRON_SECRET>`.
  */
@@ -19,6 +23,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { checkCoursePayment } from "@/lib/course-payment-check";
 import { checkBookingPayment } from "@/lib/booking-payment-check";
+import { reconcileInvoicePayments } from "@/lib/invoice-reconcile";
+import { syncFireIncomeToTracker } from "@/lib/fire-payments";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -52,7 +58,7 @@ export async function GET(req: NextRequest) {
     take: 40,
   });
 
-  const completed = { courses: 0, bookings: 0 };
+  const completed = { courses: 0, bookings: 0, invoices: 0, incomeSynced: 0 };
 
   for (const p of purchases) {
     try {
@@ -67,6 +73,23 @@ export async function GET(req: NextRequest) {
     } catch (err) {
       console.error("[payment-sweep] booking check failed:", b.id, err);
     }
+  }
+
+  // Invoices: mark paid the ones Fire now reports completed (link payments)
+  // or that match a manual bank transfer, and credit the income tracker
+  // that feeds the dashboard. Both are idempotent and converge on the same
+  // IncomeEntry, so running them together can't double-count.
+  try {
+    const rec = await reconcileInvoicePayments();
+    completed.invoices = rec.synced.length + rec.bankMatched.length;
+  } catch (err) {
+    console.error("[payment-sweep] invoice reconcile failed:", err);
+  }
+  try {
+    const income = await syncFireIncomeToTracker();
+    completed.incomeSynced = income.synced;
+  } catch (err) {
+    console.error("[payment-sweep] fire income sync failed:", err);
   }
 
   return NextResponse.json({
