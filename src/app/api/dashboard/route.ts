@@ -90,8 +90,22 @@ async function computeDashboardAggregates() {
   try {
     // ── Date helpers ───────────────────────────────────────────────────
     const now = new Date();
-    const startOfToday = new Date(now);
-    startOfToday.setHours(0, 0, 0, 0);
+    // Anchor "today" to the practice's timezone (Europe/London), NOT the
+    // server's UTC. Booking dates for "tomorrow" are stored at ~23:00 UTC
+    // today during BST (local midnight), so a raw-UTC day window swept
+    // tomorrow's bookings into today's schedule (Grace, 16 Sep). Computing
+    // the day boundary in London fixes the off-by-one. The offset trick
+    // (compare the same instant formatted in London vs UTC) needs no extra
+    // dependency; every downstream window derives from startOfToday, so
+    // they all shift consistently.
+    const LONDON_TZ = "Europe/London";
+    const londonOffsetMs = (d: Date) =>
+      new Date(d.toLocaleString("en-US", { timeZone: LONDON_TZ })).getTime() -
+      new Date(d.toLocaleString("en-US", { timeZone: "UTC" })).getTime();
+    const offNow = londonOffsetMs(now);
+    const startOfToday = new Date(now.getTime() + offNow);
+    startOfToday.setUTCHours(0, 0, 0, 0);
+    startOfToday.setTime(startOfToday.getTime() - offNow);
     const endOfToday = new Date(startOfToday);
     endOfToday.setDate(endOfToday.getDate() + 1);
 
