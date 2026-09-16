@@ -21,6 +21,7 @@ import { ProgressNotesSection } from "@/components/clients/progress-notes-sectio
 import { ParentEntriesSection } from "@/components/clients/parent-entries-section";
 import { GoalsSection } from "@/components/clients/goals-section";
 import { ClientAssessmentsSection } from "@/components/clients/client-assessments-section";
+import { ClientDocumentsSection } from "@/components/clients/client-documents-section";
 import { Toolbar, Panel, Chip, Empty } from "@/components/ds";
 
 /**
@@ -53,6 +54,9 @@ export default async function ClientDetailPage({
       // Referral / assessment forms attached to this client (parent
       // questionnaire, SPM, custom intakes…).
       intakeItems: {
+        orderBy: { createdAt: "desc" },
+      },
+      documents: {
         orderBy: { createdAt: "desc" },
       },
       // Forms built in /forms and sent to this client. Latest
@@ -146,6 +150,16 @@ export default async function ClientDetailPage({
     completedAt: i.completedAt ? i.completedAt.toISOString() : null,
   }));
 
+  const documentsForClient = client.documents.map((d) => ({
+    id: d.id,
+    title: d.title,
+    url: d.url,
+    filename: d.filename,
+    mimeType: d.mimeType,
+    sizeBytes: d.sizeBytes,
+    createdAt: d.createdAt.toISOString(),
+  }));
+
   const formRows = client.formInvites
     .map((inv) => {
       const submitted = inv.submissions[0];
@@ -155,7 +169,12 @@ export default async function ClientDetailPage({
         label: inv.form.title,
         status: submitted ? "submitted" : inv.openedAt ? "opened" : "sent",
         when: when.toISOString(),
-        href: `/forms/${inv.form.id}`,
+        // Open the actual submission in the client's folder (the Initial
+        // Referral Form, say) rather than the form itself. Falls back to
+        // the form's entries list when nothing's been submitted yet.
+        href: submitted
+          ? `/forms/${inv.form.id}/entries/${submitted.id}`
+          : `/forms/${inv.form.id}/entries`,
       };
     })
     .sort((a, b) => b.when.localeCompare(a.when));
@@ -476,6 +495,14 @@ export default async function ClientDetailPage({
           initialItems={intakeForClient}
           formRows={formRows}
           spmLinkUrl={spmLinkUrl}
+        />
+      )}
+
+      {/* ─── Documents — letters, external reports, anything else ─── */}
+      {adminCanEdit && (
+        <ClientDocumentsSection
+          clientId={client.id}
+          initialDocs={documentsForClient}
         />
       )}
 

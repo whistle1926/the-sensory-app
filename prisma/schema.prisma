@@ -288,6 +288,7 @@ model Client {
   progressNotes ProgressNote[]
   goals         ClientGoal[]
   intakeItems   ClientIntakeItem[]
+  documents     ClientDocument[]
   invoices      Invoice[]
   formInvites   FormInvite[]
   parentEntries ParentEntry[]
@@ -1468,6 +1469,28 @@ model ClientIntakeItem {
   fileUrl     String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  @@index([clientId])
+}
+
+/// Arbitrary documents attached to a client's folder — letters received,
+/// external reports, anything the OT wants kept alongside the client that
+/// isn't a structured assessment. File lives in Vercel Blob; this row holds
+/// the metadata. Distinct from ClientIntakeItem (which tracks an assessment's
+/// status), so the folder can hold more than just the SPM.
+model ClientDocument {
+  id           String   @id @default(cuid())
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  /// Human label, e.g. "School report — May 2026". Defaults to the filename.
+  title        String
+  url          String
+  filename     String
+  mimeType     String
+  sizeBytes    Int
+  /// Who uploaded it (soft ref — kept even if the user is later removed).
+  uploadedById String?
+  createdAt    DateTime @default(now())
 
   @@index([clientId])
 }
