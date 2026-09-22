@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { VoiceNotesRecorder } from "@/components/reports/voice-notes-recorder";
 import { RichTextView } from "@/components/ui/rich-text-view";
 
 interface ClientLite {
@@ -320,6 +321,9 @@ export default function LetterPage() {
                   {tidyError}
                 </p>
               )}
+              {/* Dictate the letter — appends what you say to the box.
+                  Same recorder used on reports and home programmes. */}
+              <VoiceNotesRecorder value={body} onChange={setBody} mode="html" />
               <RichTextEditor
                 value={body}
                 onChange={setBody}
