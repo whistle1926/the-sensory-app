@@ -213,6 +213,10 @@ type Tab =
   | "terms"
   | "services";
 
+
+/** Sentinel value for the "Other (type your own)" choice in New booking. */
+const OTHER_SERVICE = "__other__";
+
 export default function BookingsPage() {
   const today = useMemo(() => new Date(), []);
   const { data: session } = useSession();
@@ -283,6 +287,11 @@ export default function BookingsPage() {
     // Who the appointment belongs to. Defaults to the service's owner when a
     // service is picked; "" means fall back to whatever the service says.
     ownerId: "",
+    // "Other" — a one-off that isn't a catalogue service (e.g. a handwriting
+    // assessment). Only used when service === OTHER_SERVICE.
+    otherTitle: "",
+    otherPrice: "",
+    otherDuration: "",
   });
   // Extra dates for a block booking. The first session is nb.date/nb.time;
   // these are the ones after it. Each becomes its own appointment, and the
@@ -345,9 +354,24 @@ export default function BookingsPage() {
 
   async function submitNewBooking() {
     setNbError(null);
+    const isOther = nb.service === OTHER_SERVICE;
     if (!nb.service || !nb.date || !nb.time || !nb.clientName.trim() || !nb.clientEmail.trim()) {
       setNbError("Service, date, time, client name and email are all required.");
       return;
+    }
+    if (isOther && !nb.otherTitle.trim()) {
+      setNbError("Say what the appointment is, e.g. Handwriting assessment.");
+      return;
+    }
+    // Pounds as typed → pence. Blank means free / invoice separately.
+    let otherPricePence: number | undefined;
+    if (isOther && nb.otherPrice.trim()) {
+      const pounds = Number(nb.otherPrice.replace(/[£,\s]/g, ""));
+      if (!Number.isFinite(pounds) || pounds < 0) {
+        setNbError("That price doesn't look right — just the number, e.g. 85.");
+        return;
+      }
+      otherPricePence = Math.round(pounds * 100);
     }
     setNbSaving(true);
     try {
@@ -355,7 +379,10 @@ export default function BookingsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          service: nb.service,
+          service: isOther ? nb.otherTitle.trim() : nb.service,
+          ...(isOther
+            ? { price: otherPricePence ?? 0 }
+            : {}),
           // Stored as a Date — send midnight UTC of the chosen day so it
           // matches how the public flow records dates.
           date: new Date(`${nb.date}T00:00:00`).toISOString(),
@@ -370,7 +397,7 @@ export default function BookingsPage() {
                 time: x.time,
               })),
           ],
-          duration: nb.duration,
+          duration: isOther ? nb.otherDuration.trim() || undefined : nb.duration,
           clientName: nb.clientName.trim(),
           clientEmail: nb.clientEmail.trim(),
           clientPhone: nb.clientPhone.trim() || undefined,
@@ -383,7 +410,7 @@ export default function BookingsPage() {
         throw new Error(data.error ?? `Booking failed (${res.status})`);
       }
       setNbOpen(false);
-      setNb({ service: "", date: "", time: "", duration: "", clientName: "", clientEmail: "", clientPhone: "", notes: "", ownerId: "" });
+      setNb({ service: "", date: "", time: "", duration: "", clientName: "", clientEmail: "", clientPhone: "", notes: "", ownerId: "", otherTitle: "", otherPrice: "", otherDuration: "" });
       setNbExtra([]);
       await fetchBookings();
     } catch (e) {
@@ -1545,8 +1572,53 @@ export default function BookingsPage() {
                     {s.ownerName ? ` — ${s.ownerName}` : ""}
                   </option>
                 ))}
+                <option value={OTHER_SERVICE}>Other (type your own)…</option>
               </select>
             </div>
+            {/* One-offs that aren't on the booking page — e.g. a handwriting
+                assessment Grace is fitting in this week. */}
+            {nb.service === OTHER_SERVICE && (
+              <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="nb-other-title">What is it?</Label>
+                  <Input
+                    id="nb-other-title"
+                    value={nb.otherTitle}
+                    maxLength={120}
+                    onChange={(e) => setNb({ ...nb, otherTitle: e.target.value })}
+                    placeholder="e.g. Handwriting assessment"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="nb-other-price">Price £ (optional)</Label>
+                    <Input
+                      id="nb-other-price"
+                      inputMode="decimal"
+                      value={nb.otherPrice}
+                      onChange={(e) => setNb({ ...nb, otherPrice: e.target.value })}
+                      placeholder="e.g. 85"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="nb-other-duration">Length (optional)</Label>
+                    <Input
+                      id="nb-other-duration"
+                      value={nb.otherDuration}
+                      maxLength={60}
+                      onChange={(e) => setNb({ ...nb, otherDuration: e.target.value })}
+                      placeholder="e.g. 60 minutes"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Leave the price blank if it&apos;s free or you&apos;ll invoice
+                  it separately. With a price, the client is sent a payment
+                  link the same as any other booking. Pick the therapist below
+                  so it lands in the right diary.
+                </p>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="nb-owner">Therapist</Label>
               <select

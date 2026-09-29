@@ -116,6 +116,33 @@ export async function POST(req: NextRequest) {
       locationLabel: true,
     },
   });
+  // "Other" — a one-off that isn't in the service catalogue (Claire booking in
+  // a handwriting assessment, say). Only staff can do this: a public booking
+  // must name a real service, or anyone could invent a service and a price.
+  // For a custom booking the typed text IS the service label, and the price
+  // and length come from what staff entered.
+  if (!svc) {
+    if (!isStaffBooking) {
+      return NextResponse.json({ error: "Unknown service." }, { status: 400 });
+    }
+    if (typeof service !== "string" || !service.trim() || service.length > 120) {
+      return NextResponse.json(
+        { error: "Say what the appointment is (up to 120 characters)." },
+        { status: 400 },
+      );
+    }
+    if (
+      price !== undefined &&
+      price !== null &&
+      (typeof price !== "number" || !Number.isInteger(price) || price < 0 || price > 500000)
+    ) {
+      return NextResponse.json({ error: "That price doesn't look right." }, { status: 400 });
+    }
+    if (duration !== undefined && (typeof duration !== "string" || duration.length > 60)) {
+      return NextResponse.json({ error: "Keep the length short, e.g. 60 minutes." }, { status: 400 });
+    }
+  }
+
   // A staff member booking manually can hand the appointment to a specific
   // therapist, overriding the service's usual owner — the phone enquiry that
   // Grace will actually see, on a service nobody is assigned to. Only honoured
@@ -138,7 +165,8 @@ export async function POST(req: NextRequest) {
   // How many dates is this service allowed in one booking? 1/1 for an
   // ordinary appointment; a block is e.g. 2..5.
   const minSessions = Math.max(1, svc?.minSessions ?? 1);
-  const maxSessions = Math.max(minSessions, svc?.maxSessions ?? 1);
+  // A staff "Other" booking can be a run of dates (same cap as the form).
+  const maxSessions = Math.max(minSessions, svc ? (svc.maxSessions ?? 1) : 10);
   if (slots.length < minSessions || slots.length > maxSessions) {
     return NextResponse.json(
       {
