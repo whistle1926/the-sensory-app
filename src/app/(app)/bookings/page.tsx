@@ -518,6 +518,7 @@ export default function BookingsPage() {
           title: string;
           ownerId: string | null;
           ownerName: string | null;
+          isActive?: boolean;
         }>;
         if (cancelled) return;
         const shape = (r: (typeof rows)[number]) => ({
@@ -531,7 +532,11 @@ export default function BookingsPage() {
         // own service's calendar); the full list for the booking form.
         const mine = isAdmin ? rows : rows.filter((r) => r.ownerId === myId);
         setManageableServices(mine.map(shape));
-        setAllServices(rows.map(shape));
+        // The New booking form only offers live services — an inactive one
+        // (e.g. the retired Ballymoney clinic) shouldn't be bookable from the
+        // back end either (Claire, Sept 2026). The availability editor above
+        // still lists them so their calendars can be managed.
+        setAllServices(rows.filter((r) => r.isActive !== false).map(shape));
         // Initial selection: admins start on the Default calendar (null);
         // associates start on their first owned service.
         setAvailService(isAdmin ? null : (mine[0]?.slug ?? null));
