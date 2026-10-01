@@ -338,16 +338,22 @@ export async function POST(req: NextRequest) {
   // real confirmation is sent on payment (completeBookingPayment). A free
   // or no-payment booking is confirmed right away, so it gets the
   // confirmation now as before. Best-effort — never fail the booking on it.
-  if (willTakePayment) {
-    void sendBookingPendingEmail({
+  // The "complete payment" email is sent further down, once the Fire payment
+  // exists, so it can carry the Pay now link. Sending it first meant a client
+  // booked by staff from the back end had no way to pay until the reminder.
+  const sendPending = (paymentUrl: string | null) =>
+    sendBookingPendingEmail({
       to: normalisedEmail,
       clientName,
       service: svc?.title ?? service,
       date: bookingDate,
       time: firstTime,
       sessionCount: created.length,
+      paymentUrl,
+      totalPence: totalPrice,
     }).catch((err) => console.error("Booking pending email failed:", err));
-  } else {
+
+  if (!willTakePayment) {
     void sendBookingConfirmationEmail({
       to: normalisedEmail,
       clientName,
@@ -385,6 +391,8 @@ export async function POST(req: NextRequest) {
         data: { paymentRef: payment.code },
       });
 
+      if (willTakePayment) void sendPending(payment.paymentUrl);
+
       return NextResponse.json({
         success: true,
         bookingId: booking.id,
@@ -393,7 +401,10 @@ export async function POST(req: NextRequest) {
       });
     } catch (err) {
       console.error("FireBuddy payment creation failed:", err);
-      // Booking is still created — fall through to non-payment response
+      // Booking is still created — fall through to non-payment response.
+      // Still tell the client their slot is held; the email says a payment
+      // link will follow rather than pointing at one that doesn't exist.
+      if (willTakePayment) void sendPending(null);
     }
   }
 

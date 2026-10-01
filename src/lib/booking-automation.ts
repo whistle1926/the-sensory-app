@@ -325,6 +325,12 @@ export async function sendBookingPendingEmail(args: {
   date: Date;
   time: string;
   sessionCount?: number;
+  /** Fire payment page for this booking. Always included when we have it —
+   *  a staff booking made from the back end gives the client no other way
+   *  to reach it (Claire, Oct 2026). */
+  paymentUrl?: string | null;
+  /** Amount due, in pence, shown beside the button. */
+  totalPence?: number;
 }) {
   const dateLabel = args.date.toLocaleDateString("en-GB", {
     weekday: "long",
@@ -343,7 +349,11 @@ export async function sendBookingPendingEmail(args: {
 <ul>
   <li><strong>${count > 1 ? "First session" : "When"}:</strong> ${dateLabel} at ${escapeAutomationHtml(args.time)}</li>
 </ul>
-<p>Your booking isn't confirmed until payment is complete. If you closed the payment page, you can reopen it from the link we showed after booking, or reply to this email and we'll help.</p>
+${args.paymentUrl
+    ? `<p>Your booking isn't confirmed until payment is complete${args.totalPence ? ` (<strong>£${(args.totalPence / 100).toFixed(2)}</strong>)` : ""}. You can pay securely by bank transfer here:</p>
+<p style="margin:22px 0;"><a href="${escapeAutomationHtml(args.paymentUrl)}" style="display:inline-block;background:#E71D57;color:#fff;text-decoration:none;padding:13px 26px;border-radius:999px;font-weight:800;font-size:15px;">Pay now</a></p>
+<p style="font-size:13px;color:#777;">If the button doesn't work, copy this link into your browser: ${escapeAutomationHtml(args.paymentUrl)}</p>`
+    : `<p>Your booking isn't confirmed until payment is complete. We'll send you a payment link shortly — or just reply to this email and we'll help.</p>`}
 <p>Once your bank confirms the payment, we'll send your confirmation and, where relevant, your intake form.</p>
 <p><strong>The Sensory Submarine</strong></p>`,
   });
