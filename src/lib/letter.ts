@@ -167,6 +167,24 @@ export const LETTER_TEMPLATES: Record<
 <p>Yours faithfully,</p>
 <p>[Your name]<br/>Occupational Therapist</p>`,
   },
+  // Grace, Oct 2026: online video consultations are a short call with
+  // advice — a full OT report is overkill. A brief summary of what was
+  // discussed and what was suggested, dictated with the voice recorder.
+  "consultation-summary": {
+    label: "Online consultation summary",
+    title: "Online consultation summary",
+    body: `<p>Dear [Parent's name],</p>
+<p>Thank you for meeting with me for an online consultation about [child's name] on [date]. Here's a short summary of what we talked about and the ideas we discussed.</p>
+<h2>What we discussed</h2>
+<p>[Main concerns and what you've noticed at home or school.]</p>
+<h2>Tips and advice</h2>
+<ul><li>[Strategy one]</li><li>[Strategy two]</li><li>[Strategy three]</li></ul>
+<h2>Next steps</h2>
+<p>[Anything to try before we next speak, or whether a further appointment or assessment would help.]</p>
+<p>Please don't hesitate to get in touch if you have any questions.</p>
+<p>Kind regards,</p>
+<p>[Your name]<br/>Occupational Therapist</p>`,
+  },
   "statutory-assessment": {
     label: "Statutory assessment support",
     title: "Letter in support of statutory assessment",

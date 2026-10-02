@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, FileText, Loader2, School, Stamp } from "lucide-react";
+import { ArrowLeft, FileText, Loader2, School, Stamp, Video } from "lucide-react";
 
 /**
  * "New letter" — pick a starting point, then drop into the editor.
@@ -19,6 +19,13 @@ const OPTIONS = [
     icon: FileText,
     title: "Blank letter",
     blurb: "Start from nothing — just the letterhead. Write it your way.",
+  },
+  {
+    key: "consultation-summary",
+    icon: Video,
+    title: "Online consultation summary",
+    blurb:
+      "A short write-up of an online call: what you discussed, tips and advice, next steps. Use the voice recorder to dictate it.",
   },
   {
     key: "school-summary",
