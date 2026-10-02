@@ -55,22 +55,30 @@ const DASHBOARD_WIDGETS: WidgetDef[] = [
   },
 ];
 
+// Every area a template can grant — same order as the sidebar. Must match
+// NAV_KEYS in src/lib/dash-keys.ts (the server rejects anything else).
 const NAV_ITEMS: WidgetDef[] = [
   { key: "nav_dashboard", label: "Dashboard", description: "Main dashboard page" },
-  { key: "nav_clients", label: "Clients", description: "Client list and profiles" },
-  { key: "nav_reports", label: "Reports", description: "OT reports" },
+  { key: "nav_clients", label: "Clients", description: "Their own clients, session notes, goals and documents" },
+  { key: "nav_website_users", label: "Parents / Carers", description: "Parent and carer accounts" },
+  { key: "nav_reports", label: "Reports & letters", description: "OT reports, letters and consultation summaries" },
   { key: "nav_home_programmes", label: "Home Programmes", description: "Standalone home programmes — create and send without a report" },
   { key: "nav_activities", label: "Activities", description: "Activity bank" },
-  { key: "nav_programmes", label: "Programmes", description: "Home programmes" },
-  { key: "nav_bookings", label: "Bookings", description: "Session bookings" },
+  { key: "nav_programmes", label: "Programmes", description: "Programme templates" },
+  { key: "nav_bookings", label: "Bookings", description: "Session bookings and availability" },
   { key: "nav_calendar", label: "Calendar", description: "Team calendar — aggregated Google Calendar view" },
-  { key: "nav_training", label: "Courses", description: "CPD courses and training" },
+  { key: "nav_training", label: "Courses", description: "Edit and manage courses" },
+  { key: "nav_recordings", label: "Recordings", description: "Zoom recordings" },
   { key: "nav_tasks", label: "Tasks", description: "Tasks and feedback" },
+  { key: "nav_invoices", label: "Invoices & payments", description: "Invoices, payments received and income" },
+  { key: "nav_free_resources", label: "Free resources", description: "Free downloads on the website" },
+  { key: "nav_services", label: "Price list", description: "Billing price list — items shown in invoice picker" },
+  { key: "nav_forms", label: "Forms", description: "Forms and their submissions" },
+  { key: "nav_leaflets", label: "Leaflets", description: "Leaflet library" },
+  { key: "nav_pages", label: "Website pages", description: "Pages on the portal website" },
+  { key: "nav_live_sessions", label: "Live Sessions", description: "Broadcast or run interactive video rooms" },
   { key: "nav_team", label: "Team", description: "Team management" },
   { key: "nav_settings", label: "Settings", description: "App settings" },
-  { key: "nav_invoices", label: "Invoices", description: "Create and send invoices" },
-  { key: "nav_services", label: "Price list", description: "Billing price list — items shown in invoice picker" },
-  { key: "nav_live_sessions", label: "Live Sessions", description: "Broadcast or run interactive video rooms" },
 ];
 
 const ALL_KEYS: string[] = [
@@ -202,6 +210,9 @@ export function DashTemplatesSection() {
   const [newName, setNewName] = useState("");
   const [newWidgets, setNewWidgets] = useState<string[]>([...ALL_KEYS]);
   const [saving, setSaving] = useState(false);
+  // A save the server refused. Shown above the list so a change never just
+  // silently fails to stick (it used to — see src/lib/dash-keys.ts).
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [patchingId, setPatchingId] = useState<string | null>(null);
 
   /* accordion state */
@@ -238,11 +249,16 @@ export function DashTemplatesSection() {
     if (!newName.trim()) return;
     setSaving(true);
     try {
-      await fetch("/api/settings/dash-templates", {
+      const res = await fetch("/api/settings/dash-templates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newName.trim(), widgets: newWidgets }),
       });
+      if (!res.ok) {
+        setSaveError("Couldn't create that template. Please try again.");
+        return;
+      }
+      setSaveError(null);
       setDialogOpen(false);
       load();
     } finally {
@@ -263,11 +279,18 @@ export function DashTemplatesSection() {
     );
     setPatchingId(template.id);
     try {
-      await fetch(`/api/settings/dash-templates/${template.id}`, {
+      const res = await fetch(`/api/settings/dash-templates/${template.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ widgets: next }),
       });
+      if (!res.ok) {
+        // Put the screen back to what's really saved.
+        setSaveError(`Couldn't save that change to "${template.name}". Please try again.`);
+        load();
+      } else {
+        setSaveError(null);
+      }
     } finally {
       setPatchingId(null);
     }
@@ -410,6 +433,12 @@ export function DashTemplatesSection() {
           <Plus className="h-3.5 w-3.5" /> Create Template
         </button>
       </div>
+
+      {saveError && (
+        <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600 dark:bg-red-950/30 dark:text-red-400">
+          {saveError}
+        </p>
+      )}
 
       {/* Template list */}
       <div className="mt-5 space-y-2">

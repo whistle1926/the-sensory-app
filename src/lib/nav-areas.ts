@@ -18,6 +18,10 @@ const AREA_NAV: ReadonlyArray<readonly [string, string]> = [
   ["/invoices", "nav_invoices"],
   ["/api/invoices", "nav_invoices"],
   ["/api/income", "nav_invoices"],
+  // Payments received shows live Fire bank transactions — money, so it sits
+  // behind the same key as Invoices. Was previously open to any staff member.
+  ["/payments", "nav_invoices"],
+  ["/api/payments", "nav_invoices"],
   ["/website-users", "nav_website_users"],
   ["/api/website-users", "nav_website_users"],
   ["/team", "nav_team"],

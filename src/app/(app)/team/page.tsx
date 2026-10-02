@@ -31,6 +31,7 @@ import { TeamProfileDialog } from "@/components/team/team-profile-dialog";
 interface DashTemplate {
   id: string;
   name: string;
+  isDefault?: boolean;
 }
 
 interface User {
@@ -211,8 +212,8 @@ export default function TeamPage() {
                   defaultValue="TEAM_MANAGER"
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
-                  <option value="TEAM_MANAGER">Team Manager</option>
-                  <option value="SUPER_ADMIN">Super Admin</option>
+                  <option value="TEAM_MANAGER">Team member (access set by access level)</option>
+                  <option value="SUPER_ADMIN">Admin (full access)</option>
                   <option value="CLIENT">Parent / Carer</option>
                 </select>
               </div>
@@ -291,12 +292,22 @@ export default function TeamPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {visibleUsers.map((user) => {
           const initials = initialsOf(user.name);
-          const roleLabel = user.role
-            .replace(/_/g, " ")
-            .toLowerCase()
-            .replace(/\b\w/g, (l) => l.toUpperCase());
           const isStaff = user.role === "SUPER_ADMIN" || user.role === "TEAM_MANAGER";
           const templateName = templates.find((t) => t.id === user.dashTemplateId)?.name;
+          const defaultName = templates.find((t) => t.isDefault)?.name;
+          // What someone can do is set by their access level, not the raw
+          // role name — "Team Manager" read as a promotion and confused
+          // Grace (Oct 2026). Admins always have everything; everyone else
+          // is shown by the access level they're on (e.g. Clinic Associate).
+          const roleLabel =
+            user.role === "SUPER_ADMIN"
+              ? "Admin · full access"
+              : user.role === "TEAM_MANAGER"
+                ? (templateName ?? defaultName ?? "Team member")
+                : user.role
+                    .replace(/_/g, " ")
+                    .toLowerCase()
+                    .replace(/\b\w/g, (l) => l.toUpperCase());
 
           return (
             <div
@@ -347,11 +358,23 @@ export default function TeamPage() {
               </div>
 
               {/* Dashboard Template Assignment — only for staff users */}
-              {isStaff && templates.length > 0 && (
+              {user.role === "SUPER_ADMIN" && (
                 <div className="mt-3 border-t border-border pt-3">
                   <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                     <LayoutDashboard className="h-3 w-3" />
-                    Dashboard
+                    Access level
+                  </div>
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    Admins can see everything, including invoices and private
+                    accounts.
+                  </p>
+                </div>
+              )}
+              {user.role === "TEAM_MANAGER" && templates.length > 0 && (
+                <div className="mt-3 border-t border-border pt-3">
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <LayoutDashboard className="h-3 w-3" />
+                    Access level
                   </div>
                   <select
                     value={user.dashTemplateId || ""}
@@ -360,18 +383,19 @@ export default function TeamPage() {
                     }
                     className="mt-1.5 w-full rounded-lg border border-input bg-background px-2 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
-                    <option value="">Default template</option>
+                    <option value="">
+                      {defaultName ? `Default (${defaultName})` : "Default"}
+                    </option>
                     {templates.map((t) => (
                       <option key={t.id} value={t.id}>
                         {t.name}
                       </option>
                     ))}
                   </select>
-                  {templateName && (
-                    <p className="mt-1 text-[10px] text-muted-foreground">
-                      Using: {templateName}
-                    </p>
-                  )}
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Change what they can see in Settings → Dashboard Templates.
+                    Takes effect within a few minutes.
+                  </p>
                 </div>
               )}
 
@@ -507,10 +531,18 @@ export default function TeamPage() {
         <TeamProfileDialog
           member={profileUser}
           businessLabel={businessLabel}
-          roleLabel={profileUser.role
-            .replace(/_/g, " ")
-            .toLowerCase()
-            .replace(/\b\w/g, (l) => l.toUpperCase())}
+          roleLabel={
+            profileUser.role === "SUPER_ADMIN"
+              ? "Admin · full access"
+              : profileUser.role === "TEAM_MANAGER"
+                ? (templates.find((t) => t.id === profileUser.dashTemplateId)?.name ??
+                  templates.find((t) => t.isDefault)?.name ??
+                  "Team member")
+                : profileUser.role
+                    .replace(/_/g, " ")
+                    .toLowerCase()
+                    .replace(/\b\w/g, (l) => l.toUpperCase())
+          }
           onClose={() => setProfileUser(null)}
           onPasswordSet={(id) =>
             setUsers((prev) =>

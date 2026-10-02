@@ -1,33 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isValidDashKeyList, VALID_DASH_KEYS } from "@/lib/dash-keys";
 
-const VALID_WIDGETS = [
-  "stat_active_clients",
-  "stat_total_reports",
-  "new_clients",
-  "recent_reports",
-  "nav_dashboard",
-  "nav_clients",
-  "nav_reports",
-  "nav_activities",
-  "nav_programmes",
-  "nav_bookings",
-  "nav_training",
-  "nav_tasks",
-  "nav_team",
-  "nav_settings",
-  "nav_invoices",
-  "nav_live_sessions",
-] as const;
-
-type WidgetKey = (typeof VALID_WIDGETS)[number];
-
-function validateWidgets(widgets: unknown): widgets is WidgetKey[] {
-  if (!Array.isArray(widgets)) return false;
-  return widgets.every(
-    (w) => typeof w === "string" && (VALID_WIDGETS as readonly string[]).includes(w)
-  );
+function validateWidgets(widgets: unknown): widgets is string[] {
+  return isValidDashKeyList(widgets);
 }
 
 /** PATCH — update a template. SUPER_ADMIN only. */
@@ -54,7 +31,7 @@ export async function PATCH(
   if (body.widgets !== undefined) {
     if (!validateWidgets(body.widgets)) {
       return NextResponse.json(
-        { error: "widgets must be an array of valid widget keys", validKeys: VALID_WIDGETS },
+        { error: "widgets must be an array of valid widget keys", validKeys: VALID_DASH_KEYS },
         { status: 400 }
       );
     }
