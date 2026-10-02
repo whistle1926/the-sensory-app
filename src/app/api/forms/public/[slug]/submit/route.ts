@@ -158,11 +158,15 @@ export async function POST(
 
   // Associate with an invite token if one was provided.
   let inviteId: string | null = null;
+  let inviteClientId: string | null = null;
   if (typeof body?.token === "string" && body.token) {
     const invite = await prisma.formInvite.findUnique({
       where: { token: body.token },
     });
-    if (invite && invite.formId === form.id) inviteId = invite.id;
+    if (invite && invite.formId === form.id) {
+      inviteId = invite.id;
+      inviteClientId = invite.clientId;
+    }
   }
 
   const submission = await prisma.formSubmission.create({
@@ -178,16 +182,19 @@ export async function POST(
   });
 
   // Referral intake — if this form is flagged to create a client, and
-  // the submission isn't already tied to an existing client (via an
-  // invite), auto-create/reuse the client and file the submission in
-  // their folder. Best-effort: never block the parent's submission.
-  if (settings.createsClient && !inviteId) {
+  // the submission isn't already tied to an existing client, auto-create/
+  // reuse the client and file the submission in their folder. Emailed
+  // referral links (Forms → Send, or after a booking) carry an invite with
+  // no client yet, so those count as untied too. Best-effort: never block
+  // the parent's submission.
+  if (settings.createsClient && !inviteClientId) {
     await ingestReferralSubmission({
       submissionId: submission.id,
       formId: form.id,
       fields,
       data: clean as unknown as Record<string, unknown>,
       origin: req.nextUrl.origin,
+      existingInviteId: inviteId ?? undefined,
     });
   }
 

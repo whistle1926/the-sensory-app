@@ -145,6 +145,14 @@ export async function ingestReferralSubmission(opts: {
   fields: FormField[];
   data: Data;
   origin: string;
+  /** The invite the parent submitted through, when it isn't tied to a
+   *  client yet (e.g. a referral link emailed from Forms or after a
+   *  booking). It gets pointed at the client instead of creating a new one,
+   *  so the "sent" list still shows it as completed. */
+  existingInviteId?: string;
+  /** Create/link the parent's portal account (sends a set-password email).
+   *  Backfills pass false so parents aren't emailed out of the blue. */
+  linkParent?: boolean;
 }): Promise<{ clientId: string; created: boolean } | null> {
   try {
     const m = mapReferralToClient(opts.fields, opts.data);
@@ -167,7 +175,7 @@ export async function ingestReferralSubmission(opts: {
     let created = false;
     if (!client) {
       let parentId: string | undefined;
-      if (email) {
+      if (email && opts.linkParent !== false) {
         try {
           const r = await ensureParentAccount({
             email,
@@ -203,9 +211,18 @@ export async function ingestReferralSubmission(opts: {
       created = true;
     }
 
-    // Submissions attach to a client only via FormInvite — create one
-    // (already "opened/submitted") and point the submission at it so it
-    // shows in the client's folder on their profile.
+    // Submissions attach to a client only via FormInvite. If the parent
+    // came in through an unlinked invite, point that invite at the client.
+    if (opts.existingInviteId) {
+      await prisma.formInvite.update({
+        where: { id: opts.existingInviteId },
+        data: { clientId: client.id },
+      });
+      return { clientId: client.id, created };
+    }
+
+    // Otherwise create one (already "opened/submitted") and point the
+    // submission at it so it shows in the client's folder on their profile.
     const invite = await prisma.formInvite.create({
       data: {
         formId: opts.formId,
