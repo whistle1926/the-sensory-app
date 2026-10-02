@@ -258,7 +258,7 @@ export default function TeamPage() {
               value: String(admins),
               helper:
                 managers > 0
-                  ? `Plus ${managers} team manager${managers === 1 ? "" : "s"}`
+                  ? `Plus ${managers} associate${managers === 1 ? "" : "s"}`
                   : "Full access to everything",
               icon: ShieldCheck,
             },
