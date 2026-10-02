@@ -59,6 +59,27 @@ export async function PATCH(
     updateData.dateOfBirth = new Date(parsed.data.dateOfBirth);
   }
 
+  // Assign the child to a therapist. Associates (TEAM_MANAGER) only see the
+  // clients assigned to them, so this decides whose list a child is in —
+  // admins only, and only to a real staff member.
+  if ("managerId" in body) {
+    if (session.user.role !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Only an admin can change the therapist." }, { status: 403 });
+    }
+    if (body.managerId === null || body.managerId === "") {
+      updateData.managerId = null;
+    } else if (typeof body.managerId === "string") {
+      const staff = await prisma.user.findUnique({
+        where: { id: body.managerId },
+        select: { role: true, isAutomation: true },
+      });
+      if (!staff || staff.role === "CLIENT" || staff.isAutomation) {
+        return NextResponse.json({ error: "That therapist doesn't exist." }, { status: 400 });
+      }
+      updateData.managerId = body.managerId;
+    }
+  }
+
   // Accept stageId directly (not in clientSchema).
   if ("stageId" in body) {
     updateData.stageId = body.stageId === null ? null : body.stageId;

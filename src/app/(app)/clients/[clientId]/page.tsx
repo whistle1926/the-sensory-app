@@ -297,7 +297,9 @@ export default async function ClientDetailPage({
               parentCarerName: client.parentCarerName || "",
               parentCarerEmail: client.parentCarerEmail || "",
               currency: client.currency || "GBP",
+              managerId: client.managerId || "",
             }}
+            canAssignTherapist={isSuperAdmin}
           />
         ) : (
           <Panel title="Client information" padded>

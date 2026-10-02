@@ -21,15 +21,44 @@ interface ClientValues {
   parentCarerName: string;
   parentCarerEmail: string;
   currency: string;
+  /** The therapist this child is assigned to. Associates only see the
+   *  clients assigned to them, so this is what puts a child in their list. */
+  managerId: string;
 }
 
-export function ClientProfileEditor({ client }: { client: ClientValues }) {
+export function ClientProfileEditor({
+  client,
+  canAssignTherapist = false,
+}: {
+  client: ClientValues;
+  /** Admins only — the API refuses anyone else. */
+  canAssignTherapist?: boolean;
+}) {
   const router = useRouter();
   const [values, setValues] = useState<ClientValues>(client);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [currencies, setCurrencies] = useState<string[]>(["GBP", "EUR"]);
+  const [staff, setStaff] = useState<Array<{ id: string; name: string }>>([]);
+
+  useEffect(() => {
+    if (!canAssignTherapist) return;
+    fetch("/api/users")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((users: Array<{ id: string; name: string; role: string; isAutomation?: boolean }>) =>
+        setStaff(
+          users
+            .filter(
+              (u) =>
+                (u.role === "SUPER_ADMIN" || u.role === "TEAM_MANAGER") &&
+                !u.isAutomation,
+            )
+            .map((u) => ({ id: u.id, name: u.name })),
+        ),
+      )
+      .catch(() => {});
+  }, [canAssignTherapist]);
 
   useEffect(() => {
     fetch("/api/settings/currencies")
@@ -51,7 +80,7 @@ export function ClientProfileEditor({ client }: { client: ClientValues }) {
     setError("");
     setSaved(false);
 
-    const body: Record<string, string> = {
+    const body: Record<string, string | null> = {
       firstName: values.firstName,
       lastName: values.lastName,
       dateOfBirth: values.dateOfBirth,
@@ -62,6 +91,7 @@ export function ClientProfileEditor({ client }: { client: ClientValues }) {
       parentCarerEmail: values.parentCarerEmail,
       currency: values.currency,
     };
+    if (canAssignTherapist) body.managerId = values.managerId || null;
 
     try {
       const res = await fetch(`/api/clients/${client.id}`, {
@@ -196,6 +226,29 @@ export function ClientProfileEditor({ client }: { client: ClientValues }) {
               Currency used when creating invoices for this client.
             </p>
           </div>
+
+          {canAssignTherapist && (
+            <div className="space-y-2">
+              <Label htmlFor="managerId">Therapist</Label>
+              <select
+                id="managerId"
+                value={values.managerId}
+                onChange={(e) => update("managerId", e.target.value)}
+                className="flex h-8 w-full rounded-lg border border-input bg-background px-3 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="">Not assigned</option>
+                {staff.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Associates only see the clients assigned to them here — their
+                notes, reports and documents. Admins see everyone.
+              </p>
+            </div>
+          )}
 
           <p className="text-xs text-muted-foreground">
             Adding or changing the parent email will create or re-link a portal account and send a set-password email.
