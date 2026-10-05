@@ -88,6 +88,15 @@ function formatDayHeader(d: Date): string {
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 }
+/** "All day", or "09:00 – 10:00". Midnight-to-midnight counts as all day. */
+function timeRange(e: { allDay: boolean; startAt: string; endAt: string }, sep = " – "): string {
+  const midnight = (iso: string) => {
+    const d = new Date(iso);
+    return d.getHours() === 0 && d.getMinutes() === 0;
+  };
+  if (e.allDay || (midnight(e.startAt) && midnight(e.endAt) && e.endAt !== e.startAt)) return "All day";
+  return `${formatTime(e.startAt)}${sep}${formatTime(e.endAt)}`;
+}
 
 export default function CalendarPage() {
   const today = useMemo(() => startOfDay(new Date()), []);
@@ -890,7 +899,7 @@ export default function CalendarPage() {
                 {list.map((e) => (
                   <tr key={`${e.userId}:${e.uid}`} className="align-top">
                     <td className="w-28 py-0.5 pr-2 tabular-nums">
-                      {e.allDay ? "All day" : `${formatTime(e.startAt)}–${formatTime(e.endAt)}`}
+                      {timeRange(e, "–")}
                     </td>
                     <td className="w-36 py-0.5 pr-2 font-semibold">{e.userName}</td>
                     <td className="py-0.5">
@@ -928,7 +937,7 @@ function EventRow({ event: e, onClick }: { event: TeamEvent; onClick?: () => voi
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1 tabular-nums">
             <Clock className="h-3 w-3" />
-            {e.allDay ? "All day" : `${formatTime(e.startAt)} – ${formatTime(e.endAt)}`}
+            {timeRange(e)}
           </span>
           {e.location && (
             <span className="inline-flex items-center gap-1 truncate">
