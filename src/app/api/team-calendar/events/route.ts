@@ -4,8 +4,10 @@
  *   GET /api/team-calendar/events?from=ISO&to=ISO
  *
  * Returns every event in the requested window from every staff
- * member's connected Google Calendar ICS feed, flattened into a
- * single list and tagged with the owning user. Staff-only.
+ * member's connected Google Calendar ICS feed, plus every portal booking
+ * (so associates who haven't connected a Google Calendar still show up —
+ * Claire's "master calendar", Oct 2026), flattened into a single list and
+ * tagged with the owning user. Staff-only.
  *
  * Each member's feed is fetched in parallel. A failure to fetch one
  * member's feed (network error, revoked URL, bad ICS) returns an
@@ -27,6 +29,53 @@ interface TeamEvent extends IcsEvent {
   userId: string;
   userName: string;
   userColour: string;
+  /** Set when this is a portal booking rather than a diary entry. */
+  bookingId?: string;
+}
+
+/** Bookings with no owner are shown under this pseudo-member. */
+const PRACTICE_ID = "practice";
+const PRACTICE_COLOUR = "#64748b";
+
+/**
+ * A booking's start instant. `date` is the UK calendar day (stored as UK
+ * midnight — 23:00Z in summer — or, for older rows, UTC midnight) and
+ * `time` is UK wall-clock "HH:MM".
+ */
+function bookingStart(date: Date, time: string): Date {
+  // Snap to the intended calendar day whichever way it was stored.
+  const day = new Date(date.getTime() + 12 * 3_600_000);
+  const [h, m] = time.split(":").map((n) => parseInt(n, 10));
+  const guess = Date.UTC(
+    day.getUTCFullYear(),
+    day.getUTCMonth(),
+    day.getUTCDate(),
+    Number.isNaN(h) ? 9 : h,
+    Number.isNaN(m) ? 0 : m,
+  );
+  // London's offset from UTC at that moment (0 in winter, +1h in summer).
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London",
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(new Date(guess));
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  const asLondon = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour") % 24, get("minute"));
+  return new Date(guess - (asLondon - guess));
+}
+
+/** Minutes from the service, else read from the label ("1 hour", "45 min"). */
+function bookingMinutes(serviceMinutes: number | null | undefined, label: string): number {
+  if (serviceMinutes && serviceMinutes > 0) return serviceMinutes;
+  const hr = label.match(/(\d+(?:\.\d+)?)\s*(?:hour|hr)/i);
+  if (hr) return Math.round(parseFloat(hr[1]) * 60);
+  const min = label.match(/(\d+)\s*min/i);
+  if (min) return parseInt(min[1], 10);
+  return 60;
 }
 
 function parseIso(s: string | null): Date | null {
@@ -59,7 +108,6 @@ export async function GET(req: NextRequest) {
     where: {
       role: { in: ["SUPER_ADMIN", "TEAM_MANAGER"] },
       isAutomation: false,
-      OR: [{ calendarIcsUrl: { not: null } }, { googleRefreshToken: { not: null } }],
     },
     select: {
       id: true,
@@ -98,6 +146,7 @@ export async function GET(req: NextRequest) {
 
   const perStaff = await Promise.all(
     shown.map(async (u) => {
+      if (!u.googleRefreshToken && !u.calendarIcsUrl) return [];
       // Prefer the API: it's live, whereas Google only republishes the iCal
       // feed every few hours. Fall back to iCal if the API call fails, so a
       // revoked token doesn't blank someone who still has a feed configured.
@@ -131,20 +180,88 @@ export async function GET(req: NextRequest) {
     }),
   );
 
-  const merged = perStaff
-    .flat()
-    .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+  // ── Portal bookings ─────────────────────────────────────────────
+  // Widen the DB window by a day either side; exact overlap is checked
+  // after the start time is worked out.
+  const bookings = await prisma.booking.findMany({
+    where: {
+      status: { not: "cancelled" },
+      date: { gte: new Date(fromMs - 864e5), lte: new Date(toMs + 864e5) },
+      // Associates only see their own bookings, as on the Bookings page.
+      ...(session.user.role === "SUPER_ADMIN" ? {} : { ownerId: session.user.id }),
+    },
+    select: {
+      id: true,
+      service: true,
+      date: true,
+      time: true,
+      duration: true,
+      clientName: true,
+      ownerId: true,
+      groupId: true,
+      sessionIndex: true,
+      googleEventId: true,
+      status: true,
+    },
+  });
+  const services = await prisma.bookingService.findMany({
+    select: { slug: true, title: true, durationMinutes: true, locationLabel: true },
+  });
+  const serviceBySlug = new Map(services.map((sv) => [sv.slug, sv]));
+  const shownIds = new Set(shown.map((u) => u.id));
+  const staffIds = new Set(staff.map((u) => u.id));
+  const nameFor = new Map(staff.map((u) => [u.id, u.name]));
+
+  const bookingEvents: TeamEvent[] = [];
+  const syncedGoogleIds = new Set<string>();
+  let hasPracticeBookings = false;
+  for (const b of bookings) {
+    const ownerId = b.ownerId && staffIds.has(b.ownerId) ? b.ownerId : PRACTICE_ID;
+    if (ownerId !== PRACTICE_ID && !shownIds.has(ownerId)) continue;
+    const sv = serviceBySlug.get(b.service);
+    const start = bookingStart(b.date, b.time);
+    const end = new Date(start.getTime() + bookingMinutes(sv?.durationMinutes, b.duration) * 60_000);
+    if (end.getTime() < fromMs || start.getTime() > toMs) continue;
+    if (b.googleEventId) syncedGoogleIds.add(b.googleEventId);
+    if (ownerId === PRACTICE_ID) hasPracticeBookings = true;
+    const session = b.groupId && b.sessionIndex ? ` (session ${b.sessionIndex})` : "";
+    bookingEvents.push({
+      uid: `booking-${b.id}`,
+      bookingId: b.id,
+      title: `${sv?.title ?? b.service} — ${b.clientName}${session}`,
+      location: sv?.locationLabel ?? undefined,
+      description: b.status === "pending" ? "Not confirmed yet (awaiting payment)" : undefined,
+      startAt: start.toISOString(),
+      endAt: end.toISOString(),
+      allDay: false,
+      userId: ownerId,
+      userName: ownerId === PRACTICE_ID ? "Practice" : nameFor.get(ownerId) ?? "Practice",
+      userColour: ownerId === PRACTICE_ID ? PRACTICE_COLOUR : colourFor.get(ownerId)!,
+    });
+  }
+
+  // A booking already written into someone's Google Calendar would
+  // otherwise appear twice — keep the booking version.
+  const merged = [
+    ...perStaff.flat().filter((e) => !syncedGoogleIds.has(e.uid)),
+    ...bookingEvents,
+  ].sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
 
   return NextResponse.json({
     events: merged,
     // Hidden people are still listed so they can be put back — otherwise
     // removing someone would leave no way to undo it.
-    members: staff.map((u) => ({
-      id: u.id,
-      name: u.name,
-      colour: colourFor.get(u.id)!,
-      connected: !!u.calendarIcsUrl || !!u.googleRefreshToken,
-      hidden: !u.showOnTeamCalendar,
-    })),
+    members: [
+      ...staff.map((u) => ({
+        id: u.id,
+        name: u.name,
+        colour: colourFor.get(u.id)!,
+        connected: !!u.calendarIcsUrl || !!u.googleRefreshToken,
+        hidden: !u.showOnTeamCalendar,
+      })),
+      ...(hasPracticeBookings
+        ? [{ id: PRACTICE_ID, name: "Practice", colour: PRACTICE_COLOUR, connected: false, hidden: false }]
+        : []),
+    ],
   });
 }

@@ -2,7 +2,9 @@
 
 /**
  * Team Calendar — aggregated view of every connected staff member's
- * Google Calendar (read-only ICS feed model).
+ * Google Calendar (read-only ICS feed model), plus every portal booking, so
+ * it doubles as the practice's master calendar. "Print / PDF" prints the
+ * month or agenda in view as a clean day-by-day list.
  *
  * Two views:
  *   - Month  — a Google-style month grid (default). Easiest way to see
@@ -18,6 +20,7 @@ import { useSession } from "next-auth/react";
 import {
   CalendarDays,
   ChevronLeft,
+  Printer,
   ChevronRight,
   Clock,
   Link as LinkIcon,
@@ -52,6 +55,8 @@ interface TeamEvent {
   userId: string;
   userName: string;
   userColour: string;
+  /** Set for portal bookings (managed under Bookings, not removable here). */
+  bookingId?: string;
 }
 
 type View = "month" | "agenda";
@@ -239,22 +244,46 @@ export default function CalendarPage() {
   );
 
   const connectedCount = members.filter((m) => m.connected).length;
-  const todayKey = isoDay(new Date());
   const monthLabel = monthAnchor.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+  // Someone with bookings shows up even without a connected Google Calendar.
+  const activeIds = useMemo(() => new Set(events.map((e) => e.userId)), [events]);
+  const isActive = (m: Member) => m.connected || activeIds.has(m.id);
+
+  // What "Print / PDF" covers: the month on screen (not the overflow days
+  // of the 6-week grid), or the agenda window.
+  const [printFrom, printTo] = useMemo<[Date, Date]>(() => {
+    if (view === "month") {
+      const first = startOfMonth(monthAnchor);
+      return [first, new Date(first.getFullYear(), first.getMonth() + 1, 1)];
+    }
+    return [agendaFrom, addDays(agendaFrom, agendaSpan)];
+  }, [view, monthAnchor, agendaFrom, agendaSpan]);
+  const printGroups = useMemo(() => {
+    const fromKey = isoDay(printFrom);
+    const toKey = isoDay(printTo);
+    return agendaGroups.filter(([day]) => day >= fromKey && day < toKey);
+  }, [agendaGroups, printFrom, printTo]);
+  const printTitle =
+    view === "month"
+      ? monthLabel
+      : agendaSpan === 1
+        ? formatDayHeader(printFrom)
+        : `${printFrom.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} – ${addDays(printTo, -1).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`;
+  const todayKey = isoDay(new Date());
 
   /* ---------- nav ---------- */
   function goPrev() {
     if (view === "month") {
       setMonthAnchor((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1));
     } else {
-      setAgendaFrom((f) => addDays(f, -14));
+      setAgendaFrom((f) => addDays(f, -agendaSpan));
     }
   }
   function goNext() {
     if (view === "month") {
       setMonthAnchor((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1));
     } else {
-      setAgendaFrom((f) => addDays(f, 14));
+      setAgendaFrom((f) => addDays(f, agendaSpan));
     }
   }
   function goToday() {
@@ -273,7 +302,8 @@ export default function CalendarPage() {
   // already does. Nothing to scroll, nothing to miss.
 
   return (
-    <div className="space-y-6">
+    <div>
+    <div className="space-y-6 print:hidden">
       {/* People land here wondering why the calendar is empty or why their
           Google events are missing — put the guide right where they look. */}
       <a
@@ -308,6 +338,15 @@ export default function CalendarPage() {
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={() => window.print()}
+              title="Print this month (or the agenda in view), or choose Save as PDF to download and share it"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-bold transition hover:bg-muted/50"
+            >
+              <Printer className="h-3.5 w-3.5" />
+              Print / PDF
+            </button>
+            <button
+              type="button"
               onClick={() => setAddOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground transition hover:opacity-90"
             >
@@ -335,7 +374,7 @@ export default function CalendarPage() {
               type="button"
               onClick={goPrev}
               className="inline-flex items-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium hover:bg-muted/50"
-              title={view === "month" ? "Previous month" : "Previous 2 weeks"}
+              title={view === "month" ? "Previous month" : "Previous"}
             >
               <ChevronLeft className="h-3.5 w-3.5" />
             </button>
@@ -351,7 +390,7 @@ export default function CalendarPage() {
               type="button"
               onClick={goNext}
               className="inline-flex items-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium hover:bg-muted/50"
-              title={view === "month" ? "Next month" : "Next 2 weeks"}
+              title={view === "month" ? "Next month" : "Next"}
             >
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
@@ -414,21 +453,22 @@ export default function CalendarPage() {
                     hidden
                       ? "border-border text-muted-foreground/60"
                       : "border-border text-foreground"
-                  } ${!m.connected ? "opacity-40" : ""}`}
+                  } ${!isActive(m) ? "opacity-40" : ""}`}
                 >
                   <button
                     type="button"
                     onClick={() => toggleMember(m.id)}
-                    disabled={!m.connected}
+                    disabled={!isActive(m)}
                     className={`inline-flex items-center gap-1.5 ${hidden ? "line-through" : ""}`}
-                    title={m.connected ? "Click to hide / show just for you" : "Not connected yet"}
+                    title={isActive(m) ? "Click to hide / show just for you" : "Nothing on in this period"}
                   >
                     <span className="h-2.5 w-2.5 rounded-full" style={{ background: m.colour }} />
                     {m.name}
-                    {!m.connected && (
+                    {!isActive(m) && (
                       <span className="text-[10px] uppercase tracking-wider">· off</span>
                     )}
                   </button>
+                  {m.id !== "practice" && (
                   <button
                     type="button"
                     onClick={() => setMemberShown(m.id, false)}
@@ -438,6 +478,7 @@ export default function CalendarPage() {
                   >
                     <X className="h-3 w-3" />
                   </button>
+                  )}
                 </span>
               );
             })}
@@ -718,7 +759,19 @@ export default function CalendarPage() {
 
             {/* Only offered where we can actually act: an iCal-only calendar
                 is read-only, and a non-admin can only touch their own. */}
-            {(canPickPerson || selectedEvent.userId === currentUserId) && (
+            {selectedEvent.bookingId ? (
+              <div className="mt-5 flex items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground">
+                  A portal booking — change or cancel it under Bookings.
+                </p>
+                <Link
+                  href="/bookings"
+                  className="shrink-0 rounded-xl border border-border px-3 py-2 text-xs font-bold hover:bg-muted/50"
+                >
+                  Open Bookings
+                </Link>
+              </div>
+            ) : (canPickPerson || selectedEvent.userId === currentUserId) && (
               <div className="mt-5 flex justify-end">
                 <button
                   type="button"
@@ -810,6 +863,48 @@ export default function CalendarPage() {
         canPickPerson={canPickPerson}
         defaultDate={selectedDay ?? undefined}
       />
+    </div>
+
+    {/* Print / Save-as-PDF version: a plain day-by-day list of what's on
+        screen (people hidden with the chips are left out too). */}
+    <div className="hidden text-black print:block">
+      <h1 className="text-xl font-bold">The Sensory Submarine — team calendar</h1>
+      <p className="mb-4 text-sm">
+        {printTitle}
+        {hiddenMemberIds.size > 0 &&
+          ` · showing ${members
+            .filter((m) => !m.hidden && !hiddenMemberIds.has(m.id) && isActive(m))
+            .map((m) => m.name)
+            .join(", ")}`}
+      </p>
+      {printGroups.length === 0 ? (
+        <p className="text-sm">Nothing planned.</p>
+      ) : (
+        printGroups.map(([day, list]) => (
+          <section key={day} className="mb-3 break-inside-avoid">
+            <h2 className="border-b border-gray-400 pb-0.5 text-sm font-bold">
+              {formatDayHeader(new Date(`${day}T00:00:00`))}
+            </h2>
+            <table className="w-full text-xs">
+              <tbody>
+                {list.map((e) => (
+                  <tr key={`${e.userId}:${e.uid}`} className="align-top">
+                    <td className="w-28 py-0.5 pr-2 tabular-nums">
+                      {e.allDay ? "All day" : `${formatTime(e.startAt)}–${formatTime(e.endAt)}`}
+                    </td>
+                    <td className="w-36 py-0.5 pr-2 font-semibold">{e.userName}</td>
+                    <td className="py-0.5">
+                      {e.title || "(untitled event)"}
+                      {e.location ? ` · ${e.location}` : ""}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        ))
+      )}
+    </div>
     </div>
   );
 }
