@@ -554,7 +554,17 @@ export default function CalendarPage() {
           <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-sm)]">
             {/* Month label */}
             <div className="border-b border-border px-5 py-3">
-              <h2 className="text-base font-bold">{monthLabel}</h2>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-base font-bold">{monthLabel}</h2>
+                <span className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-3 w-5 rounded bg-foreground/70" /> Client booking
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-3 w-5 rounded border-l-[3px] border-foreground/70 bg-foreground/10" /> Diary entry
+                  </span>
+                </span>
+              </div>
             </div>
             {/* Weekday header */}
             <div className="grid grid-cols-7 border-b border-border bg-muted/30">
@@ -617,17 +627,25 @@ export default function CalendarPage() {
                             setSelectedEvent(e);
                           }}
                           className="flex w-full items-center gap-1 truncate rounded px-1.5 py-0.5 text-left text-[11px] font-medium hover:brightness-110"
-                          style={{
-                            // Solid block in the person's colour so who's
-                            // who reads at a glance; text flips black/white
-                            // to stay readable on any colour.
-                            background: e.userColour,
-                            color: textOn(e.userColour),
-                          }}
+                          style={
+                            e.bookingId
+                              ? {
+                                  // Client booking: solid block in the
+                                  // person's colour; text flips black/white
+                                  // to stay readable on any colour.
+                                  background: e.userColour,
+                                  color: textOn(e.userColour),
+                                }
+                              : {
+                                  // Diary entry: light tint + stripe.
+                                  background: `${e.userColour}26`,
+                                  borderLeft: `3px solid ${e.userColour}`,
+                                }
+                          }
                           title={`${e.title} — ${e.userName}`}
                         >
                           <span className="truncate">
-                            {!e.allDay && (
+                            {timeRange(e) !== "All day" && (
                               <span className="tabular-nums opacity-80">
                                 {formatTime(e.startAt)}{" "}
                               </span>
