@@ -35,7 +35,7 @@ interface TeamEvent extends IcsEvent {
 
 /** Bookings with no owner are shown under this pseudo-member. */
 const PRACTICE_ID = "practice";
-const PRACTICE_COLOUR = "#64748b";
+const PRACTICE_COLOUR = "#475569";
 
 /**
  * A booking's start instant. `date` is the UK calendar day (stored as UK
@@ -123,12 +123,16 @@ export async function GET(req: NextRequest) {
   // Default colour palette so events still look distinct even if no
   // one has set a custom colour yet. Indexed by staff-list position.
   const PALETTE = [
-    "#3b82f6", // blue
-    "#10b981", // emerald
-    "#f59e0b", // amber
-    "#ec4899", // pink
-    "#8b5cf6", // violet
-    "#14b8a6", // teal
+    // Strong, clearly different hues — events are drawn as solid blocks in
+    // these colours, so neighbours in the list mustn't look alike.
+    "#2563eb", // blue
+    "#059669", // green
+    "#d97706", // amber
+    "#db2777", // pink
+    "#ea580c", // orange
+    "#7c3aed", // purple
+    "#0891b2", // cyan
+    "#65a30d", // lime
   ];
 
   const fromMs = from.getTime();

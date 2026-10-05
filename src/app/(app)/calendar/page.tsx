@@ -70,7 +70,20 @@ function startOfDay(d: Date): Date {
   return r;
 }
 function addDays(d: Date, n: number): Date {
-  return new Date(d.getTime() + n * 86_400_000);
+  // Calendar days, not 24-hour blocks — the clock-change day is 23 or 25
+  // hours long, which used to show the same date twice in the grid.
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+/** Black or white, whichever reads better on the given hex colour. */
+function textOn(hex: string): string {
+  const h = hex.replace("#", "");
+  if (h.length < 6) return "#ffffff";
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+  const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const lum = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  return lum > 0.4 ? "#111827" : "#ffffff";
 }
 function startOfMonth(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -471,7 +484,7 @@ export default function CalendarPage() {
                     className={`inline-flex items-center gap-1.5 ${hidden ? "line-through" : ""}`}
                     title={isActive(m) ? "Click to hide / show just for you" : "Nothing on in this period"}
                   >
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: m.colour }} />
+                    <span className="h-3 w-3 rounded-full" style={{ background: m.colour }} />
                     {m.name}
                     {!isActive(m) && (
                       <span className="text-[10px] uppercase tracking-wider">· off</span>
@@ -521,7 +534,7 @@ export default function CalendarPage() {
             Loading calendar…
           </div>
         </Panel>
-      ) : connectedCount === 0 ? (
+      ) : connectedCount === 0 && events.length === 0 ? (
         <Panel padded>
           <Empty>
             <CalendarDays className="mx-auto h-7 w-7 opacity-40" />
@@ -603,19 +616,19 @@ export default function CalendarPage() {
                             ev.stopPropagation();
                             setSelectedEvent(e);
                           }}
-                          className="flex w-full items-center gap-1 truncate rounded border-l-2 px-1.5 py-0.5 text-left text-[11px] font-medium text-foreground hover:brightness-95"
+                          className="flex w-full items-center gap-1 truncate rounded px-1.5 py-0.5 text-left text-[11px] font-medium hover:brightness-110"
                           style={{
-                            // Light tint for identity, with a solid colour
-                            // stripe — but the TEXT stays dark so any member
-                            // colour (incl. amber/yellow) is readable.
-                            background: `${e.userColour}1f`,
-                            borderColor: e.userColour,
+                            // Solid block in the person's colour so who's
+                            // who reads at a glance; text flips black/white
+                            // to stay readable on any colour.
+                            background: e.userColour,
+                            color: textOn(e.userColour),
                           }}
                           title={`${e.title} — ${e.userName}`}
                         >
                           <span className="truncate">
                             {!e.allDay && (
-                              <span className="tabular-nums text-muted-foreground">
+                              <span className="tabular-nums opacity-80">
                                 {formatTime(e.startAt)}{" "}
                               </span>
                             )}
@@ -744,7 +757,7 @@ export default function CalendarPage() {
               <div className="flex items-center gap-2 pt-1">
                 <span
                   className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium text-foreground"
-                  style={{ background: `${selectedEvent.userColour}1f` }}
+                  style={{ background: `${selectedEvent.userColour}33` }}
                 >
                   <span
                     className="h-2 w-2 rounded-full"
@@ -947,7 +960,7 @@ function EventRow({ event: e, onClick }: { event: TeamEvent; onClick?: () => voi
           )}
           <span
             className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium text-foreground"
-            style={{ background: `${e.userColour}1f` }}
+            style={{ background: `${e.userColour}33` }}
           >
             <span
               className="h-1.5 w-1.5 rounded-full"
