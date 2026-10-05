@@ -31,6 +31,7 @@ import {
   type AiHealth,
 } from "@/lib/ai-model";
 import { sendDueFeedbackForms } from "@/lib/booking-feedback";
+import { sendReferralChasers } from "@/lib/booking-referral";
 import {
   appointmentTimestamp,
   sendReminderFor,
@@ -167,8 +168,19 @@ export async function GET(req: NextRequest) {
     console.error("[booking-feedback] sweep failed (non-fatal)", err);
   }
 
+  // ── Referral form chaser ───────────────────────────────────────────
+  // About a week before the appointment, re-send the referral form to
+  // anyone who hasn't returned it, and let admin know. Never breaks the run.
+  let referralChasers: Awaited<ReturnType<typeof sendReferralChasers>> | null = null;
+  try {
+    referralChasers = await sendReferralChasers(now);
+  } catch (err) {
+    console.error("[referral-chaser] sweep failed (non-fatal)", err);
+  }
+
   return NextResponse.json({
     ranAt: now.toISOString(),
+    referralChasers,
     candidates: candidates.length,
     due: due.length,
     sent,

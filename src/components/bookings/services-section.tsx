@@ -873,12 +873,13 @@ function EditorPanel({
         <label className="flex cursor-pointer items-center justify-between rounded-xl border border-border bg-muted/30 p-3 sm:col-span-2">
           <div>
             <p className="text-sm font-medium">
-              Send referral form on payment
+              Send referral form
             </p>
             <p className="text-xs text-muted-foreground">
-              When a booking for this service is paid, the client is
-              automatically emailed the intake/referral form. Recommended for
-              OT assessments.
+              The client is emailed the referral form once they&rsquo;ve paid
+              (straight away if you book them in yourself), with a reminder a
+              week before the appointment if it isn&rsquo;t back. Skipped if
+              they&rsquo;ve already returned one.
             </p>
           </div>
           <input

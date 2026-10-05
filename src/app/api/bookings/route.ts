@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
+import { sendBookingReferralForm } from "@/lib/booking-referral";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendLateBookingReminders } from "@/lib/booking-reminder";
@@ -331,6 +332,18 @@ export async function POST(req: NextRequest) {
   const willTakePayment =
     Boolean(paymentSettings?.enabled && paymentSettings.apiKey) &&
     totalPrice > 0;
+
+  // Referral form. A parent's own paid booking gets it once they've paid
+  // (completeBookingPayment / the Fire webhook). A booking made from the
+  // back end, or one with nothing to pay, would otherwise never get it, so
+  // send it now. Idempotent and best-effort.
+  if (isStaffBooking || !willTakePayment) {
+    try {
+      await sendBookingReferralForm(booking.id);
+    } catch (err) {
+      console.error("Referral form send failed:", err);
+    }
+  }
 
   // Email the client. A booking that still needs paying gets a "we've got
   // it, slot held, complete payment" note — NOT a confirmation, so nobody
