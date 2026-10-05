@@ -246,8 +246,25 @@ export async function GET(req: NextRequest) {
 
   // A booking already written into someone's Google Calendar would
   // otherwise appear twice — keep the booking version.
+  // Some synced copies predate the stored Google id, so also treat a diary
+  // entry as the same booking when it's the same person, the same start
+  // time, and its title names the client or the service.
+  const bookingKeys = new Map<string, string[]>();
+  for (const b of bookingEvents) {
+    const key = `${b.userId}|${new Date(b.startAt).getTime()}`;
+    const [service, rest = ""] = b.title.toLowerCase().split(" — ");
+    const client = rest.replace(/ \(session \d+\)$/, "");
+    bookingKeys.set(key, [...(bookingKeys.get(key) ?? []), service, client].filter(Boolean));
+  }
+  const isBookingCopy = (e: TeamEvent) => {
+    if (syncedGoogleIds.has(e.uid)) return true;
+    const words = bookingKeys.get(`${e.userId}|${new Date(e.startAt).getTime()}`);
+    if (!words) return false;
+    const t = e.title.toLowerCase();
+    return words.some((w) => w.length > 2 && t.includes(w));
+  };
   const merged = [
-    ...perStaff.flat().filter((e) => !syncedGoogleIds.has(e.uid)),
+    ...perStaff.flat().filter((e) => !isBookingCopy(e)),
     ...bookingEvents,
   ].sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
 
