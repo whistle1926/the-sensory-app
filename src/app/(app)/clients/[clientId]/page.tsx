@@ -11,6 +11,7 @@ import {
   FileText,
   GraduationCap,
   Home,
+  Mail,
   Plus,
   Target,
 } from "lucide-react";
@@ -58,6 +59,11 @@ export default async function ClientDetailPage({
       },
       documents: {
         orderBy: { createdAt: "desc" },
+      },
+      // Letters written for this client (Reports → Letters).
+      letters: {
+        orderBy: { updatedAt: "desc" },
+        select: { id: true, title: true, recipient: true, status: true, updatedAt: true, sentAt: true },
       },
       // Forms built in /forms and sent to this client. Latest
       // submission per invite is enough for the row preview.
@@ -482,6 +488,49 @@ export default async function ClientDetailPage({
                 </div>
                 <Chip tone={report.status === "final" ? "success" : "warn"}>
                   {report.status}
+                </Chip>
+              </Link>
+            ))}
+          </div>
+        )}
+      </Panel>
+
+      {/* ─── Letters — written under Reports → Letters for this client */}
+      <Panel
+        title="Letters"
+        subtitle={`${client.letters.length} letter${client.letters.length === 1 ? "" : "s"} on file`}
+        actions={
+          <Link
+            href={`/reports/letters/new?clientId=${client.id}`}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold hover:bg-muted"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            New letter
+          </Link>
+        }
+      >
+        {client.letters.length === 0 ? (
+          <Empty>No letters yet.</Empty>
+        ) : (
+          <div className="divide-y divide-border">
+            {client.letters.map((letter) => (
+              <Link
+                key={letter.id}
+                href={`/reports/letters/${letter.id}`}
+                className="flex items-center justify-between px-5 py-4 transition-colors hover:bg-muted/20"
+              >
+                <div className="flex items-center gap-3">
+                  <Mail className="h-5 w-5 text-muted-foreground/60" />
+                  <div>
+                    <p className="font-medium">{letter.title}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {letter.recipient ? `To ${letter.recipient} · ` : ""}
+                      {new Date(letter.sentAt ?? letter.updatedAt).toLocaleDateString("en-GB")}
+                    </p>
+                  </div>
+                </div>
+                <Chip tone={letter.status === "sent" ? "success" : "warn"}>
+                  {letter.status}
                 </Chip>
               </Link>
             ))}
