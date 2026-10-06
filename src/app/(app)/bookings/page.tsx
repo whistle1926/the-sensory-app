@@ -270,6 +270,44 @@ export default function BookingsPage() {
 
   // Selected booking detail
   const [selectedBooking, setSelectedBooking] = useState<BookingRecord | null>(null);
+  // Payment link for an unpaid booking — resend or copy (Claire, Oct 2026).
+  const [payLinkBusy, setPayLinkBusy] = useState<"send" | "copy" | null>(null);
+  const [payLinkMsg, setPayLinkMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => setPayLinkMsg(null), [selectedBooking?.id]);
+
+  async function paymentLink(bookingId: string, send: boolean) {
+    setPayLinkBusy(send ? "send" : "copy");
+    setPayLinkMsg(null);
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}/payment-link`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ send }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        alreadyPaid?: boolean;
+        paymentUrl?: string;
+        to?: string;
+      };
+      if (!res.ok) {
+        setPayLinkMsg({ ok: false, text: data.error ?? "Couldn't get the payment link." });
+      } else if (data.alreadyPaid) {
+        setPayLinkMsg({ ok: true, text: "Good news — this has actually been paid. It's now marked paid." });
+        setSelectedBooking((b) => (b ? { ...b, paymentStatus: "paid" } : b));
+      } else if (send) {
+        setPayLinkMsg({ ok: true, text: `Payment link emailed to ${data.to}.` });
+      } else if (data.paymentUrl) {
+        await navigator.clipboard.writeText(data.paymentUrl).catch(() => {});
+        setPayLinkMsg({ ok: true, text: `Link copied: ${data.paymentUrl}` });
+      }
+    } catch {
+      setPayLinkMsg({ ok: false, text: "Couldn't reach the server. Try again." });
+    } finally {
+      setPayLinkBusy(null);
+    }
+  }
 
   /* ------ Manual ("new") booking from the dashboard ------ */
   const [nbOpen, setNbOpen] = useState(false);
@@ -1533,6 +1571,39 @@ export default function BookingsPage() {
                   {selectedBooking.paymentStatus}
                 </span>
               </div>
+
+              {selectedBooking.status !== "cancelled" &&
+                selectedBooking.paymentStatus !== "paid" &&
+                selectedBooking.price > 0 && (
+                  <div className="space-y-2 rounded-xl border border-amber-300/60 bg-amber-50/60 p-3 dark:border-amber-700/40 dark:bg-amber-950/20">
+                    <p className="text-xs font-semibold">Not paid yet</p>
+                    <div className="flex gap-2">
+                      <Button
+                        className="flex-1 rounded-xl"
+                        disabled={payLinkBusy !== null}
+                        onClick={() => paymentLink(selectedBooking.id, true)}
+                      >
+                        <Mail className="mr-1.5 h-4 w-4" />
+                        {payLinkBusy === "send" ? "Sending…" : "Email payment link"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="rounded-xl"
+                        disabled={payLinkBusy !== null}
+                        onClick={() => paymentLink(selectedBooking.id, false)}
+                        title="Copy the link to paste into a text or WhatsApp"
+                      >
+                        <Copy className="mr-1.5 h-4 w-4" />
+                        {payLinkBusy === "copy" ? "…" : "Copy link"}
+                      </Button>
+                    </div>
+                    {payLinkMsg && (
+                      <p className={`break-all text-xs ${payLinkMsg.ok ? "text-emerald-700 dark:text-emerald-400" : "text-red-600"}`}>
+                        {payLinkMsg.text}
+                      </p>
+                    )}
+                  </div>
+                )}
 
               {selectedBooking.status !== "cancelled" && (
                 <div className="pt-2 border-t border-border">

@@ -83,6 +83,10 @@ export const PAGE_HELP: Record<string, PageHelpContent> = {
         target: '[data-help="bookings-new"]',
       },
       {
+        text: "Unpaid booking? Click it in the calendar — \"Email payment link\" resends the client their Pay now link, or \"Copy link\" to paste it into a text or WhatsApp. If they've actually paid, it marks the booking paid instead.",
+        target: '[data-help="bookings-tab-calendar"]',
+      },
+      {
         text: "Availability — choose a service from the dropdown, then set its weekly hours. Each block of hours you add is ONE bookable appointment, so 09:15–10:00 offers a 09:15 slot. Add more blocks to offer more times.",
         target: '[data-help="bookings-tab-availability"]',
       },
