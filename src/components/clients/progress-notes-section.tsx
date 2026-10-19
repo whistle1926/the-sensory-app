@@ -195,7 +195,7 @@ export function ProgressNotesSection({ clientId }: { clientId: string }) {
               <FileText className="h-4 w-4 text-primary" />
               Progress Notes
             </span>
-            <Button size="sm" onClick={openNew}>
+            <Button size="sm" onClick={openNew} data-help="client-add-note">
               <Plus className="h-3.5 w-3.5" data-icon="inline-start" />
               Add Note
             </Button>

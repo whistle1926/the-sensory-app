@@ -416,6 +416,7 @@ export default async function ClientDetailPage({
         actions={
           adminCanEdit && (
             <Link
+              data-help="client-new-home-programme"
               href={`/home-programmes/new?clientId=${client.id}`}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold hover:bg-muted"
             >
@@ -609,6 +610,7 @@ export default async function ClientDetailPage({
 
       {/* OT Club: their registration form, one click away */}
       {isOtClub && formRows.length > 0 && (
+        <div data-help="client-registration-form">
         <Panel title="Registration form">
           <div className="divide-y divide-border">
             {formRows.map((r) => (
@@ -631,6 +633,7 @@ export default async function ClientDetailPage({
             ))}
           </div>
         </Panel>
+        </div>
       )}
 
       {/* ─── Documents — letters, external reports, anything else ─── */}

@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { UpdateBanner } from "@/components/layout/update-banner";
+import { ShowMe } from "@/components/help/show-me";
 import Link from "next/link";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -74,6 +75,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <Sidebar role={role} allowedNavKeys={allowedNavKeys} navOrder={navOrder} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <UpdateBanner />
+        <ShowMe />
         <div className="flex items-center gap-2 px-4 md:px-0">
           <MobileNav role={role} allowedNavKeys={allowedNavKeys} />
           <div className="flex-1">

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowUpRight, ChevronDown, ChevronUp, Sparkles, X } from "lucide-react";
-import type { ReviewGuideStep } from "@/lib/review-guide";
+import { ArrowUpRight, ChevronDown, ChevronUp, MousePointerClick, Sparkles, X } from "lucide-react";
+import { stepLink, type ReviewGuideStep } from "@/lib/review-guide";
 
 /**
  * "How to check this update" — a numbered, visual walkthrough shown on a task
@@ -81,11 +81,12 @@ export function ReviewGuide({ steps }: { steps: ReviewGuideStep[] }) {
 
                 {s.href && (
                   <a
-                    href={s.href}
+                    href={stepLink(s)}
                     target={s.href.startsWith("/") ? undefined : "_blank"}
                     rel={s.href.startsWith("/") ? undefined : "noopener noreferrer"}
                     className="mt-3 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition hover:opacity-90"
                   >
+                    {s.highlight && <MousePointerClick className="h-4 w-4" />}
                     {s.hrefLabel}
                     <ArrowUpRight className="h-4 w-4" />
                   </a>

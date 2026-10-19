@@ -23,6 +23,21 @@ export interface ReviewGuideStep {
   href: string;
   /** Label for the link button, e.g. "Open the Training page". */
   hrefLabel: string;
+  /** Optional `data-help` key on that page to ring when it opens ("Show
+   * me" — see components/help/show-me.tsx). */
+  highlight?: string;
+  /** Tip shown beside the ringed element: how to use it. */
+  tip?: string;
+}
+
+/** The link a step's button opens: with a highlight, the page rings the
+ * element and shows the tip. */
+export function stepLink(s: ReviewGuideStep): string {
+  if (!s.href || !s.highlight || !s.href.startsWith("/")) return s.href;
+  const url = new URL(s.href, "https://portal.local");
+  url.searchParams.set("show", s.highlight);
+  if (s.tip) url.searchParams.set("tip", s.tip);
+  return `${url.pathname}${url.search}${url.hash}`;
 }
 
 const MAX_STEPS = 12;
@@ -61,7 +76,10 @@ export function cleanReviewGuide(raw: unknown): ReviewGuideStep[] {
       title,
       caption,
       href: safeHref(o.href),
-      hrefLabel: str(o.hrefLabel, 60) || "Open this page",
+      hrefLabel: str(o.hrefLabel, 60) || (o.highlight ? "Show me" : "Open this page"),
+      ...(typeof o.highlight === "string" && /^[a-z0-9-]{1,60}$/.test(o.highlight)
+        ? { highlight: o.highlight, tip: str(o.tip, 300) }
+        : {}),
     });
   }
   return out;

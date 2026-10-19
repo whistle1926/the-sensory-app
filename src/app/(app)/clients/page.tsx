@@ -302,6 +302,7 @@ export default function ClientsPage() {
         }
         actions={
           <Link
+            data-help="clients-add"
             href={folder === "ot-club" ? "/clients/new?programme=ot-club" : "/clients/new"}
             className={buttonVariants({ className: "rounded-xl" })}
           >
@@ -322,6 +323,7 @@ export default function ClientsPage() {
           <button
             key={value}
             type="button"
+            data-help={value === "ot-club" ? "clients-ot-club-tab" : undefined}
             onClick={() => setFolder(value)}
             className={cn(
               "inline-flex items-center gap-2 rounded-lg px-4 py-1.5 font-semibold transition-colors",
