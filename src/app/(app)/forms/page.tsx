@@ -335,6 +335,7 @@ export default function FormsListPage() {
                         {form.isPublished && (
                           <button
                             type="button"
+                            data-help={`form-copy-${form.slug}`}
                             onClick={() => copyLink(form.id, url)}
                             className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-semibold hover:bg-muted"
                             title="Copy public link"
@@ -355,6 +356,7 @@ export default function FormsListPage() {
                         {form.isPublished && (
                           <button
                             type="button"
+                            data-help={`form-send-${form.slug}`}
                             onClick={() => setSendFor(form)}
                             className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-semibold hover:bg-muted"
                             title="Send form to clients"
