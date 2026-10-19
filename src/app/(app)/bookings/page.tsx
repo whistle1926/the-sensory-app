@@ -1455,7 +1455,7 @@ export default function BookingsPage() {
           </div>
 
           {/* Date-specific overrides */}
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
+          <div data-help="bookings-date-overrides" className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
             <h3 className="text-base font-semibold">Date-specific overrides</h3>
             <p className="text-sm text-muted-foreground mt-1 mb-5">
               Override this service&apos;s availability for specific dates. These take priority over its weekly hours. Off altogether? Use Time off at the top instead — it covers every service.
