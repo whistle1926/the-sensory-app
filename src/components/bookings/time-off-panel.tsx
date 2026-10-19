@@ -82,7 +82,10 @@ export function TimeOffPanel({ isAdmin }: { isAdmin: boolean }) {
       .catch(() => {});
   }, [isAdmin, load]);
 
-  const whoValue = who || myId;
+  // Default to yourself — or, if you're not in the staff list (e.g. the
+  // automation login), the first person shown, so what you see is what saves.
+  const whoValue =
+    who || (!isAdmin || people.some((p) => p.id === myId) ? myId : people[0]?.id ?? myId);
   const nameOf = (userId: string | null) =>
     userId === null
       ? "Practice (unassigned services)"
