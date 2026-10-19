@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ImagePlus, Plus, X, Trash2, Loader2 } from "lucide-react";
+import { FileText, ImagePlus, Plus, X, Trash2, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -236,12 +236,12 @@ export function NewTaskDialog({ open, onOpenChange, onCreated }: Props) {
               are attached to the task on submit. */}
           <div className="space-y-2">
             <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Screenshot / image <span className="text-muted-foreground/60">(optional)</span>
+              Screenshot / image / document <span className="text-muted-foreground/60">(optional)</span>
             </label>
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,application/pdf,.doc,.docx,.txt"
               multiple
               className="hidden"
               onChange={(e) => handleFiles(e.target.files)}
@@ -265,7 +265,12 @@ export function NewTaskDialog({ open, onOpenChange, onCreated }: Props) {
                     )}
                     title={a.error ? a.error : a.filename}
                   >
-                    {a.url && !a.uploading ? (
+                    {a.url && !a.uploading && !a.mimeType.startsWith("image/") ? (
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-muted p-1 text-center">
+                        <FileText className="h-5 w-5 text-muted-foreground" />
+                        <span className="w-full truncate text-[9px]">{a.filename}</span>
+                      </div>
+                    ) : a.url && !a.uploading ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={a.url}

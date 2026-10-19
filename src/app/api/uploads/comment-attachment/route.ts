@@ -4,10 +4,19 @@ import { auth } from "@/lib/auth";
 
 // 50 MB is a reasonable ceiling for short videos / photos.
 const MAX_BYTES = 50 * 1024 * 1024;
-const ALLOWED_PREFIXES = ["image/", "video/"];
+// Photos, videos, and documents (Grace needed to attach a PDF/Word draft
+// of a form to a ticket, Oct 2026).
+const ALLOWED_PREFIXES = [
+  "image/",
+  "video/",
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/plain",
+];
 
 /**
- * Uploads a single image/video to Vercel Blob and returns metadata the
+ * Uploads a single image/video/document to Vercel Blob and returns metadata the
  * caller then attaches to a new comment via POST /api/tasks/[taskId]/comments.
  *
  * Auth: any signed-in user. We don't know which task the file belongs to yet —
@@ -33,7 +42,7 @@ export async function POST(req: NextRequest) {
   }
   if (!ALLOWED_PREFIXES.some((p) => file.type.startsWith(p))) {
     return NextResponse.json(
-      { error: "Only images and videos are allowed" },
+      { error: "Only images, videos, PDFs and Word documents are allowed" },
       { status: 400 }
     );
   }

@@ -447,7 +447,7 @@ export function CommentComposer({
         <input
           ref={inputRef}
           type="file"
-          accept="image/*,video/*"
+          accept="image/*,video/*,application/pdf,.doc,.docx,.txt"
           multiple
           className="hidden"
           onChange={(e) => handleFiles(e.target.files)}
@@ -467,7 +467,8 @@ export function CommentComposer({
             type="button"
             onClick={() => inputRef.current?.click()}
             className="inline-flex items-center justify-center rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold transition-colors hover:bg-muted"
-            title="Attach image or video"
+            title="Attach a photo, video, PDF or Word document"
+            data-help="task-attach"
           >
             <Paperclip className="h-3.5 w-3.5" />
           </button>
