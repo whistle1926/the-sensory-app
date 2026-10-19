@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { sendBookingReferralForm } from "@/lib/booking-referral";
+import { computeAvailability } from "@/lib/availability";
+import { bookingDayKey } from "@/lib/booking-duration";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendLateBookingReminders } from "@/lib/booking-reminder";
@@ -107,6 +109,7 @@ export async function POST(req: NextRequest) {
   const svc = await prisma.bookingService.findUnique({
     where: { slug: service },
     select: {
+      id: true,
       ownerId: true,
       pricePence: true,
       durationLabel: true,
@@ -217,6 +220,28 @@ export async function POST(req: NextRequest) {
         },
         { status: 409 },
       );
+    }
+  }
+
+  // A parent's own booking must also fit the live availability — time off,
+  // and appointments that overlap on the therapist's other services. (Staff
+  // booking from the back end can still place someone wherever they need.)
+  if (!isStaffBooking && svc) {
+    for (const slot of slots) {
+      const dayKey = bookingDayKey(slot.date);
+      const day = new Date(`${dayKey}T00:00:00Z`);
+      const free = await computeAvailability(day, day, { serviceId: svc.id, ownerId });
+      if (!(free[dayKey] ?? []).includes(slot.time)) {
+        return NextResponse.json(
+          {
+            error:
+              slots.length > 1
+                ? `${dayKey.split("-").reverse().join("/")} at ${slot.time} isn't available any more — please pick another time for that session.`
+                : "This time slot is no longer available. Please choose another.",
+          },
+          { status: 409 },
+        );
+      }
     }
   }
 

@@ -752,6 +752,23 @@ model DateOverride {
   @@index([serviceId])
 }
 
+/// A therapist's time off — whole days, applying to EVERY service they run
+/// (Grace, Sept 2026: "if Grace is not available on certain days, can this
+/// automatically happen across all services"). userId null = the practice:
+/// applies to services with no owner. Dates are inclusive calendar days.
+model StaffTimeOff {
+  id          String   @id @default(cuid())
+  userId      String?  @map("user_id")
+  startDate   DateTime @db.Date @map("start_date")
+  endDate     DateTime @db.Date @map("end_date")
+  note        String   @default("")
+  createdById String?  @map("created_by_id")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, startDate])
+}
+
 /// Admin-editable catalogue of booking services. Replaces the
 /// hardcoded array that used to live in src/app/book/page.tsx. Each
 /// row is uniquely addressable at /book/[slug] for ads + per-service

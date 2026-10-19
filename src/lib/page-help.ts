@@ -91,6 +91,10 @@ export const PAGE_HELP: Record<string, PageHelpContent> = {
         target: '[data-help="bookings-tab-availability"]',
       },
       {
+        text: "Time off (top of Availability) — off for a day or a week? Add it once and it's taken out of every service that person runs. Edit or remove it any time.",
+        target: '[data-help="bookings-tab-availability"]',
+      },
+      {
         text: "For a monthly clinic, skip weekly hours and add date-specific days instead (Date overrides → pick the date → Custom hours).",
         target: '[data-help="bookings-tab-availability"]',
       },

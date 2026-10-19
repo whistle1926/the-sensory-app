@@ -18,6 +18,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { fetchAndParseIcs, type IcsEvent } from "@/lib/ics-parser";
 import { listUpcomingEvents } from "@/lib/google-calendar";
+import { bookingMinutes } from "@/lib/booking-duration";
 
 export const maxDuration = 30;
 
@@ -68,15 +69,6 @@ function bookingStart(date: Date, time: string): Date {
   return new Date(guess - (asLondon - guess));
 }
 
-/** Minutes from the service, else read from the label ("1 hour", "45 min"). */
-function bookingMinutes(serviceMinutes: number | null | undefined, label: string): number {
-  if (serviceMinutes && serviceMinutes > 0) return serviceMinutes;
-  const hr = label.match(/(\d+(?:\.\d+)?)\s*(?:hour|hr)/i);
-  if (hr) return Math.round(parseFloat(hr[1]) * 60);
-  const min = label.match(/(\d+)\s*min/i);
-  if (min) return parseInt(min[1], 10);
-  return 60;
-}
 
 function parseIso(s: string | null): Date | null {
   if (!s) return null;

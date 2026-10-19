@@ -26,6 +26,7 @@ import {
   Trash2,
   Ban,
   Mail,
+  Pencil,
   ScrollText,
   PoundSterling,
 } from "lucide-react";
@@ -34,6 +35,7 @@ import { localDateKey, londonDateKey } from "@/lib/date-key";
 import { AutomationsSection } from "@/components/bookings/automations-section";
 import { TermsSection } from "@/components/bookings/terms-section";
 import { ServicesSection } from "@/components/bookings/services-section";
+import { TimeOffPanel } from "@/components/bookings/time-off-panel";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -54,6 +56,7 @@ interface DateOverrideRecord {
   date: string;
   available: boolean;
   intervals: Interval[] | null;
+  blockedIntervals?: Interval[] | null;
 }
 
 interface BookingRecord {
@@ -260,10 +263,19 @@ export default function BookingsPage() {
 
   // Date overrides state
   const [overrides, setOverrides] = useState<DateOverrideRecord[]>([]);
+  // Past dates are history — keep the list to what's still to come.
+  const upcomingOverrides = useMemo(() => {
+    const today = localDateKey(new Date());
+    return overrides.filter((o) => o.date >= today);
+  }, [overrides]);
   const [newOverrideDate, setNewOverrideDate] = useState("");
   const [newOverrideType, setNewOverrideType] = useState<OverrideType>("unavailable");
   const [newOverrideStart, setNewOverrideStart] = useState("09:00");
   const [newOverrideEnd, setNewOverrideEnd] = useState("17:00");
+  // Optional last day, to set the same override across several days at once.
+  const [newOverrideTo, setNewOverrideTo] = useState("");
+  // The override being edited (its row is highlighted; saving replaces it).
+  const [editingOverride, setEditingOverride] = useState<DateOverrideRecord | null>(null);
 
   // Computed availability for calendar view
   const [computedSlots, setComputedSlots] = useState<Record<string, string[]>>({});
@@ -714,14 +726,44 @@ export default function BookingsPage() {
   }
 
   /* ------ Date override actions ------ */
+  function editOverride(o: DateOverrideRecord) {
+    setEditingOverride(o);
+    setNewOverrideDate(o.date);
+    setNewOverrideTo("");
+    const iv = o.blockedIntervals?.[0] ?? o.intervals?.[0];
+    setNewOverrideType(!o.available ? "unavailable" : o.blockedIntervals?.length ? "block" : "custom");
+    if (iv) {
+      setNewOverrideStart(iv.start);
+      setNewOverrideEnd(iv.end);
+    }
+  }
+
+  function cancelOverrideEdit() {
+    setEditingOverride(null);
+    setNewOverrideDate("");
+    setNewOverrideTo("");
+  }
+
   async function addOverride() {
     if (!newOverrideDate) return;
+    // Every day from the date to the optional "to" date (inclusive).
+    const days: string[] = [];
+    const last = newOverrideTo && newOverrideTo >= newOverrideDate ? newOverrideTo : newOverrideDate;
+    for (
+      let d = new Date(`${newOverrideDate}T00:00:00Z`);
+      d.toISOString().slice(0, 10) <= last && days.length < 62;
+      d.setUTCDate(d.getUTCDate() + 1)
+    ) {
+      days.push(d.toISOString().slice(0, 10));
+    }
     try {
+      let ok = true;
+      for (const day of days) {
       const res = await fetch(`/api/availability/overrides${availServiceQ}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          date: newOverrideDate,
+          date: day,
           // "block" keeps the day and takes a window out of it; "custom"
           // replaces the day's hours outright.
           available: newOverrideType !== "unavailable",
@@ -735,10 +777,18 @@ export default function BookingsPage() {
               : null,
         }),
       });
-      if (res.ok) {
+      ok = ok && res.ok;
+      }
+      // Editing and moved to a different date → drop the old one.
+      if (ok && editingOverride && !days.includes(editingOverride.date)) {
+        await fetch(`/api/availability/overrides?id=${editingOverride.id}`, { method: "DELETE" });
+      }
+      if (ok) {
         fetchOverrides();
         fetchComputedSlots();
         setNewOverrideDate("");
+        setNewOverrideTo("");
+        setEditingOverride(null);
       }
     } catch { /* silent */ }
   }
@@ -1232,6 +1282,9 @@ export default function BookingsPage() {
       {tab === "availability" &&
         (isAdmin || manageableServices.length > 0) && (
         <div className="space-y-6">
+          {/* Time off for a person — applies across all their services */}
+          <TimeOffPanel isAdmin={isAdmin} />
+
           {/* Service picker — which calendar are we editing? */}
           <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
             <label className="text-sm font-semibold">
@@ -1405,14 +1458,19 @@ export default function BookingsPage() {
           <div className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-sm)]">
             <h3 className="text-base font-semibold">Date-specific overrides</h3>
             <p className="text-sm text-muted-foreground mt-1 mb-5">
-              Override your availability for specific dates. These take priority over your weekly hours.
+              Override this service&apos;s availability for specific dates. These take priority over its weekly hours. Off altogether? Use Time off at the top instead — it covers every service.
             </p>
 
             {/* Existing overrides */}
-            {overrides.length > 0 && (
+            {upcomingOverrides.length > 0 && (
               <div className="space-y-2 mb-5">
-                {overrides.map((o) => (
-                  <div key={o.id} className="flex items-center justify-between rounded-xl bg-muted/50 px-4 py-3">
+                {upcomingOverrides.map((o) => (
+                  <div
+                    key={o.id}
+                    className={`flex items-center justify-between rounded-xl px-4 py-3 ${
+                      editingOverride?.id === o.id ? "bg-primary/10 ring-1 ring-primary/40" : "bg-muted/50"
+                    }`}
+                  >
                     <div className="flex items-center gap-3">
                       <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${o.available ? "bg-green-100 dark:bg-green-950/40" : "bg-red-100 dark:bg-red-950/40"}`}>
                         {o.available ? (
@@ -1431,18 +1489,34 @@ export default function BookingsPage() {
                           })}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {o.available && o.intervals
-                            ? (o.intervals as Interval[]).map((iv) => `${formatTime12(iv.start)} — ${formatTime12(iv.end)}`).join(", ")
-                            : "Unavailable"}
+                          {!o.available
+                            ? "Unavailable all day"
+                            : o.blockedIntervals?.length
+                              ? `Blocked ${o.blockedIntervals.map((iv) => `${formatTime12(iv.start)} — ${formatTime12(iv.end)}`).join(", ")} · rest of the day as normal`
+                              : o.intervals?.length
+                                ? `Open ${o.intervals.map((iv) => `${formatTime12(iv.start)} — ${formatTime12(iv.end)}`).join(", ")} only`
+                                : "Unavailable"}
                         </p>
                       </div>
                     </div>
+                    <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => editOverride(o)}
+                      className="rounded-lg p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      aria-label="Edit"
+                      title="Edit"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
                     <button
                       onClick={() => removeOverride(o.id)}
+                      aria-label="Remove"
+                      title="Remove"
                       className="rounded-lg p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
                     >
                       <X className="h-4 w-4" />
                     </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1457,6 +1531,16 @@ export default function BookingsPage() {
                     type="date"
                     value={newOverrideDate}
                     onChange={(e) => setNewOverrideDate(e.target.value)}
+                    className="flex h-9 rounded-lg border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">To (optional)</label>
+                  <input
+                    type="date"
+                    value={newOverrideTo}
+                    min={newOverrideDate || undefined}
+                    onChange={(e) => setNewOverrideTo(e.target.value)}
                     className="flex h-9 rounded-lg border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   />
                 </div>
@@ -1501,9 +1585,14 @@ export default function BookingsPage() {
                   </>
                 )}
                 <Button onClick={addOverride} disabled={!newOverrideDate} variant="outline" className="rounded-xl">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Override
+                  {editingOverride ? <Check className="mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />}
+                  {editingOverride ? "Save changes" : "Add Override"}
                 </Button>
+                {editingOverride && (
+                  <Button onClick={cancelOverrideEdit} variant="ghost" className="rounded-xl">
+                    Cancel
+                  </Button>
+                )}
               </div>
             </div>
           </div>
