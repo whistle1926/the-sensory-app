@@ -19,7 +19,7 @@ export const clientSchema = z.object({
   currency: z.string().length(3).optional(),
   business: z.enum(["SENSORY_SUBMARINE", "LITTLE_SENSORY_EXPLORERS", "SENSORY_EATERS"]).default("SENSORY_SUBMARINE"),
   // Folder: omit for the main caseload.
-  programme: z.enum(["ot-club"]).optional(),
+  programme: z.enum(["ot-club", "school-groups"]).optional(),
 });
 
 export const generateReportSchema = z.object({

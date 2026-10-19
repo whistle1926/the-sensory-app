@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { prisma } from "./prisma";
 import { ensureParentAccount } from "./parent-account";
 import type { FormField } from "./forms";
+import { programmeFlags, type ProgrammeKey } from "./programmes";
 
 /**
  * Referral intake — when a form flagged `settings.createsClient` is
@@ -168,7 +169,7 @@ export async function ingestReferralSubmission(opts: {
    *  Backfills pass false so parents aren't emailed out of the blue. */
   linkParent?: boolean;
   /** File a newly created client in this folder (e.g. "ot-club"). */
-  programme?: string;
+  programme?: ProgrammeKey;
 }): Promise<{ clientId: string; created: boolean } | null> {
   try {
     const m = mapReferralToClient(opts.fields, opts.data);
@@ -188,10 +189,10 @@ export async function ingestReferralSubmission(opts: {
           })
         : null;
 
-    // An existing client who's joined OT Club keeps their record but is
-    // also filed in the OT Club folder.
-    if (client && opts.programme === "ot-club") {
-      await prisma.client.update({ where: { id: client.id }, data: { otClub: true } });
+    // An existing client who's joined a programme (OT Club, school group)
+    // keeps their record but is also filed in that folder.
+    if (client && opts.programme) {
+      await prisma.client.update({ where: { id: client.id }, data: programmeFlags(opts.programme) });
     }
 
     let created = false;
@@ -226,10 +227,10 @@ export async function ingestReferralSubmission(opts: {
           diagnosis: m.diagnosis || null,
           address: m.address || null,
           parentId,
-          // OT Club children aren't on the assessment pathway, so they
+          // Programme children aren't on the assessment pathway, so they
           // don't go into "New / Awaiting Assessment".
           programme: opts.programme ?? null,
-          otClub: opts.programme === "ot-club",
+          ...programmeFlags(opts.programme),
           stageId: opts.programme ? undefined : (defaultStage?.id ?? undefined),
         },
         select: { id: true },

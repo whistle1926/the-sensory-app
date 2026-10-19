@@ -170,7 +170,7 @@ export const PAGE_HELP: Record<string, PageHelpContent> = {
     steps: [
       "Open a client to see their overview, assessments, forms and home programmes.",
       "Use the panels on the client page to start a report, send a form, or build a home programme for them.",
-      "OT Club tab — children from the OT Club registration form land here automatically. Their page is kept simple: details, brief progress notes and home programmes. Existing clients who join OT Club appear in both tabs.",
+      "OT Club and School groups tabs — children from the OT Club registration form or the Small Group OT form land here automatically. Their page is kept simple: details, brief progress notes and home programmes. Existing clients who join appear in both tabs.",
     ],
   },
 

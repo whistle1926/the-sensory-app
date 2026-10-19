@@ -24,6 +24,7 @@ import { GoalsSection } from "@/components/clients/goals-section";
 import { ClientAssessmentsSection } from "@/components/clients/client-assessments-section";
 import { ClientDocumentsSection } from "@/components/clients/client-documents-section";
 import { Toolbar, Panel, Chip, Empty } from "@/components/ds";
+import { PROGRAMMES, isProgramme } from "@/lib/programmes";
 
 /**
  * Client detail — admin view.
@@ -115,9 +116,12 @@ export default async function ClientDetailPage({
 
   const adminCanEdit = session.user.role !== "CLIENT";
   const isSuperAdmin = session.user.role === "SUPER_ADMIN";
-  // OT Club children get a slimmed record: details, brief progress notes,
-  // home programmes and documents — no assessment pathway (Grace, Oct 2026).
-  const isOtClub = client.programme === "ot-club";
+  // Programme-only children (OT Club, school groups) get a slimmed record:
+  // details, brief progress notes, home programmes, their form and
+  // documents — no assessment pathway (Grace, Oct 2026).
+  const programme = isProgramme(client.programme) ? client.programme : null;
+  const isOtClub = programme !== null;
+  const programmeLabel = programme ? PROGRAMMES[programme].label : "";
   const parent = client.parent;
   const hasPendingSetup = !!parent && parent.setupTokens.length > 0;
 
@@ -196,19 +200,19 @@ export default async function ClientDetailPage({
   return (
     <div className="space-y-6">
       <Link
-        href={isOtClub ? "/clients?folder=ot-club" : "/clients"}
+        href={programme ? `/clients?folder=${programme}` : "/clients"}
         className="ds-link inline-flex items-center"
         style={{ fontWeight: 500 }}
       >
         <ArrowLeft className="mr-1 h-3.5 w-3.5" />
-        {isOtClub ? "Back to OT Club" : "Back to clients"}
+        {programme ? `Back to ${programmeLabel}` : "Back to clients"}
       </Link>
 
       <Toolbar
         title={`${client.firstName} ${client.lastName}`}
         subtitle={`DOB ${new Date(client.dateOfBirth).toLocaleDateString("en-GB")}${
           client.diagnosis ? ` · ${client.diagnosis}` : ""
-        }${isOtClub ? " · OT Club" : ""}`}
+        }${programme ? ` · ${programmeLabel}` : ""}`}
         actions={
           adminCanEdit && (
             <div className="flex flex-wrap items-center gap-2">
@@ -608,7 +612,7 @@ export default async function ClientDetailPage({
         />
       )}
 
-      {/* OT Club: their registration form, one click away */}
+      {/* Programme children: their registration form, one click away */}
       {isOtClub && formRows.length > 0 && (
         <div data-help="client-registration-form">
         <Panel title="Registration form">

@@ -277,6 +277,8 @@ model Client {
   /// In the OT Club folder. Also true for main-caseload clients who joined
   /// OT Club (they keep their full record and stay on the main list).
   otClub             Boolean  @default(false)
+  /// In the School groups folder (small-group OT in schools).
+  schoolGroups       Boolean  @default(false)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

@@ -1,3 +1,4 @@
+import { programmeFlags } from "@/lib/programmes";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
   let parentId: string | undefined;
   let parentAccountCreated = false;
   const parentEmail = parsed.data.parentCarerEmail?.trim();
-  // OT Club families aren't given a portal login (no set-password email).
+  // Programme families (OT Club, school groups) aren't given a portal login.
   if (parentEmail && !parsed.data.programme) {
     try {
       const result = await ensureParentAccount({
@@ -68,7 +69,8 @@ export async function POST(req: NextRequest) {
       managerId: session.user.role === "TEAM_MANAGER" ? session.user.id : undefined,
       parentId,
       stageId: parsed.data.programme ? undefined : (defaultStage?.id ?? undefined),
-      otClub: parsed.data.programme === "ot-club",
+      programme: parsed.data.programme ?? null,
+      ...programmeFlags(parsed.data.programme),
     },
   });
 

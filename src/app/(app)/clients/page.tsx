@@ -18,6 +18,13 @@ import {
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Toolbar, Panel, Chip, Empty } from "@/components/ds";
+import {
+  PROGRAMMES,
+  PROGRAMME_KEYS,
+  inProgramme,
+  isProgramme,
+  type ProgrammeKey,
+} from "@/lib/programmes";
 
 interface Stage {
   id: string;
@@ -36,14 +43,15 @@ interface Client {
   parentCarerEmail: string | null;
   stageId: string | null;
   stage: Stage | null;
-  /** null = main caseload; "ot-club" = OT Club folder. */
+  /** null = main caseload; otherwise a programme folder key. */
   programme: string | null;
-  /** In the OT Club folder (club-only children, or main clients who joined). */
+  /** Folder membership (programme-only children, or main clients who joined). */
   otClub: boolean;
+  schoolGroups: boolean;
   createdAt: string;
 }
 
-type Folder = "main" | "ot-club";
+type Folder = "main" | ProgrammeKey;
 
 /**
  * Clients list — admin view.
@@ -56,36 +64,40 @@ export default function ClientsPage() {
   const { data: session } = useSession();
   const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
   const [allClients, setClients] = useState<Client[]>([]);
-  // OT Club children live in their own folder (Grace, Oct 2026). Remembered
-  // in the URL so "Back to clients" from an OT Club child lands back here.
+  // OT Club / school group children live in their own folders (Grace, Oct
+  // 2026). Remembered in the URL so "Back" from a child lands back here.
   const [folder, setFolderState] = useState<Folder>("main");
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("folder") === "ot-club")
-      setFolderState("ot-club");
+    const f = new URLSearchParams(window.location.search).get("folder");
+    if (isProgramme(f)) setFolderState(f);
   }, []);
   function setFolder(next: Folder) {
     setFolderState(next);
     setStageFilter("all");
     const url = new URL(window.location.href);
-    if (next === "ot-club") url.searchParams.set("folder", "ot-club");
+    if (next !== "main") url.searchParams.set("folder", next);
     else url.searchParams.delete("folder");
     window.history.replaceState(null, "", url);
   }
   const clients = useMemo(
     () =>
       allClients.filter((c) =>
-        folder === "ot-club" ? c.otClub || c.programme === "ot-club" : c.programme !== "ot-club",
+        folder === "main" ? !isProgramme(c.programme) : inProgramme(c, folder),
       ),
     [allClients, folder],
   );
-  const otClubCount = useMemo(
-    () => allClients.filter((c) => c.otClub || c.programme === "ot-club").length,
+  const folderTabs = useMemo(
+    () => [
+      { value: "main" as Folder, label: "Clients", count: allClients.filter((c) => !isProgramme(c.programme)).length },
+      ...PROGRAMME_KEYS.map((k) => ({
+        value: k as Folder,
+        label: PROGRAMMES[k].label,
+        count: allClients.filter((c) => inProgramme(c, k)).length,
+      })),
+    ],
     [allClients],
   );
-  const mainCount = useMemo(
-    () => allClients.filter((c) => c.programme !== "ot-club").length,
-    [allClients],
-  );
+  const programme = folder === "main" ? null : PROGRAMMES[folder];
   const [stages, setStages] = useState<Stage[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -296,34 +308,29 @@ export default function ClientsPage() {
         subtitle={
           loading
             ? "Loading…"
-            : folder === "ot-club"
-              ? `${clients.length} OT Club ${clients.length === 1 ? "child" : "children"}`
+            : programme
+              ? `${clients.length} in ${programme.label}`
               : `${clients.length} ${clients.length === 1 ? "client" : "clients"}`
         }
         actions={
           <Link
             data-help="clients-add"
-            href={folder === "ot-club" ? "/clients/new?programme=ot-club" : "/clients/new"}
+            href={folder === "main" ? "/clients/new" : `/clients/new?programme=${folder}`}
             className={buttonVariants({ className: "rounded-xl" })}
           >
             <Plus className="mr-2 h-4 w-4" />
-            {folder === "ot-club" ? "Add OT Club child" : "Add Client"}
+            {programme ? `Add ${programme.child}` : "Add Client"}
           </Link>
         }
       />
 
-      {/* Folder tabs — main caseload vs OT Club */}
+      {/* Folder tabs — main caseload, then each programme folder */}
       <div className="inline-flex rounded-xl border border-border bg-card p-1 text-sm">
-        {(
-          [
-            ["main", "Clients", mainCount],
-            ["ot-club", "OT Club", otClubCount],
-          ] as const
-        ).map(([value, label, count]) => (
+        {folderTabs.map(({ value, label, count }) => (
           <button
             key={value}
             type="button"
-            data-help={value === "ot-club" ? "clients-ot-club-tab" : undefined}
+            data-help={value === "main" ? undefined : `clients-${value}-tab`}
             onClick={() => setFolder(value)}
             className={cn(
               "inline-flex items-center gap-2 rounded-lg px-4 py-1.5 font-semibold transition-colors",
@@ -349,17 +356,17 @@ export default function ClientsPage() {
         <Panel>
           <Empty>Loading clients…</Empty>
         </Panel>
-      ) : folder === "ot-club" && clients.length === 0 ? (
+      ) : programme && clients.length === 0 ? (
         <Panel>
           <div className="ds-empty">
             <Users
               className="mx-auto h-8 w-8"
               style={{ color: "var(--muted-foreground)", opacity: 0.5 }}
             />
-            <p style={{ marginTop: 10, fontWeight: 600 }}>No OT Club children yet</p>
+            <p style={{ marginTop: 10, fontWeight: 600 }}>No children in {programme.label} yet</p>
             <p style={{ marginTop: 4, fontSize: 12 }}>
-              They appear here automatically when a parent fills in the OT Club
-              registration form.
+              They appear here automatically when a parent fills in the{" "}
+              {programme.formName}.
             </p>
           </div>
         </Panel>

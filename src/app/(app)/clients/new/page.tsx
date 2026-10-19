@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { PROGRAMMES, isProgramme } from "@/lib/programmes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,8 +13,10 @@ function NewClientInner() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  // Opened from the OT Club tab → file the child in the OT Club folder.
-  const otClub = useSearchParams().get("programme") === "ot-club";
+  // Opened from a programme tab (OT Club, School groups) → file the child
+  // in that folder.
+  const param = useSearchParams().get("programme");
+  const programme = isProgramme(param) ? param : null;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -34,7 +37,7 @@ function NewClientInner() {
         referrer: form.get("referrer") || undefined,
         parentCarerName: form.get("parentCarerName") || undefined,
         parentCarerEmail: form.get("parentCarerEmail") || undefined,
-        ...(otClub ? { programme: "ot-club" } : {}),
+        ...(programme ? { programme } : {}),
       }),
     });
 
@@ -46,13 +49,13 @@ function NewClientInner() {
       return;
     }
 
-    router.push(otClub ? "/clients?folder=ot-club" : "/clients");
+    router.push(programme ? `/clients?folder=${programme}` : "/clients");
     router.refresh();
   }
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="mb-6 text-2xl font-bold">{otClub ? "Add OT Club child" : "Add New Client"}</h1>
+      <h1 className="mb-6 text-2xl font-bold">{programme ? `Add ${PROGRAMMES[programme].child}` : "Add New Client"}</h1>
       <Card>
         <CardHeader>
           <CardTitle>Client Details</CardTitle>

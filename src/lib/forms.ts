@@ -6,6 +6,8 @@
 //   - public POST /api/forms/public/[slug]/submit — validates responses
 //   - server pages + client builder — for consistent types
 
+import { isProgramme, type ProgrammeKey } from "./programmes";
+
 export type FormFieldType =
   | "short_text"
   | "long_text"
@@ -66,7 +68,7 @@ export interface FormSettings {
   createsClient?: boolean;
   // With createsClient: file the new client in this folder instead of the
   // main caseload (e.g. "ot-club" for the OT Club registration form).
-  clientProgramme?: "ot-club";
+  clientProgramme?: ProgrammeKey;
 }
 
 // ── Uploaded file shape (value of a `file` field) ───────────────────
@@ -237,7 +239,7 @@ export function sanitiseFormSettings(input: unknown): FormSettings {
 
   if (raw.requireLogin === true) out.requireLogin = true;
   if (raw.createsClient === true) out.createsClient = true;
-  if (raw.clientProgramme === "ot-club") out.clientProgramme = "ot-club";
+  if (isProgramme(raw.clientProgramme)) out.clientProgramme = raw.clientProgramme;
 
   if (Array.isArray(raw.notifyEmails)) {
     const emails = raw.notifyEmails
