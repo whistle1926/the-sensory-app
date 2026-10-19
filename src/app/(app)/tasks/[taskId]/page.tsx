@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -10,6 +10,7 @@ import {
   Check,
   Loader2,
   MessageCircle,
+  Paperclip,
   Plus,
   Save,
   Trash2,
@@ -130,6 +131,37 @@ export default function TaskDetailPage({
   const [descSaveState, setDescSaveState] = useState<
     "idle" | "saving" | "saved" | "error"
   >("idle");
+
+  // Attach a document (PDF, Word, photo…) to the ticket after it's logged.
+  const attachInputRef = useRef<HTMLInputElement>(null);
+  const [attaching, setAttaching] = useState(false);
+  const [attachError, setAttachError] = useState<string | null>(null);
+  async function attachFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setAttaching(true);
+    setAttachError(null);
+    try {
+      for (const file of Array.from(files)) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const up = await fetch("/api/uploads/comment-attachment", { method: "POST", body: fd });
+        const meta = (await up.json().catch(() => ({}))) as Record<string, unknown>;
+        if (!up.ok) throw new Error((meta.error as string) ?? "Upload failed");
+        const res = await fetch(`/api/tasks/${taskId}/attachments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(meta),
+        });
+        if (!res.ok) throw new Error("Couldn't attach it to the ticket");
+      }
+      await load();
+    } catch (err) {
+      setAttachError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setAttaching(false);
+      if (attachInputRef.current) attachInputRef.current.value = "";
+    }
+  }
 
   async function load() {
     setLoading(true);
@@ -359,14 +391,43 @@ export default function TaskDetailPage({
 
           <ReviewGuide steps={cleanReviewGuide(task.reviewGuide)} />
 
-          {task.attachments.length > 0 && (
+          {/* Attachments — always shown, so a document can be added later */}
+          {(
             <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-sm)]">
+              <div className="flex items-center justify-between gap-3">
               <h2 className="text-sm font-semibold">
                 Attachments{" "}
                 <span className="text-xs font-normal text-muted-foreground">
                   ({task.attachments.length})
                 </span>
               </h2>
+                <input
+                  ref={attachInputRef}
+                  type="file"
+                  multiple
+                  accept="image/*,video/*,application/pdf,.doc,.docx,.txt"
+                  className="hidden"
+                  onChange={(e) => attachFiles(e.target.files)}
+                />
+                <button
+                  type="button"
+                  data-help="task-attach-doc"
+                  disabled={attaching}
+                  onClick={() => attachInputRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+                >
+                  {attaching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}
+                  {attaching ? "Attaching…" : "Attach a document"}
+                </button>
+              </div>
+              {attachError && (
+                <p className="mt-2 text-xs font-medium text-red-600">{attachError}</p>
+              )}
+              {task.attachments.length === 0 && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Add a PDF, Word document, photo or video to this ticket.
+                </p>
+              )}
               <div className="mt-3 flex flex-wrap gap-3">
                 {task.attachments.map((a) =>
                   a.mimeType.startsWith("image/") ? (
