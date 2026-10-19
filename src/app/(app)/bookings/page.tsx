@@ -228,6 +228,15 @@ export default function BookingsPage() {
   const isAdmin = role === "SUPER_ADMIN";
 
   const [tab, setTab] = useState<Tab>("calendar");
+  // Deep link to a tab (e.g. a ticket's "Show me" → ?tab=availability).
+  useEffect(() => {
+    const want = new URLSearchParams(window.location.search).get("tab");
+    const t = window.setTimeout(() => {
+      if (want && ["calendar", "availability", "automations", "terms", "services"].includes(want))
+        setTab(want as Tab);
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, []);
   const [copied, setCopied] = useState(false);
 
   // ── Availability service scope ──────────────────────────────────
