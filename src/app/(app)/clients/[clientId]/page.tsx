@@ -60,6 +60,11 @@ export default async function ClientDetailPage({
       documents: {
         orderBy: { createdAt: "desc" },
       },
+      // Standalone home programmes (Home Programmes → New).
+      homeProgrammes: {
+        orderBy: { updatedAt: "desc" },
+        select: { id: true, title: true, status: true, updatedAt: true, sentAt: true },
+      },
       // Letters written for this client (Reports → Letters).
       letters: {
         orderBy: { updatedAt: "desc" },
@@ -110,6 +115,9 @@ export default async function ClientDetailPage({
 
   const adminCanEdit = session.user.role !== "CLIENT";
   const isSuperAdmin = session.user.role === "SUPER_ADMIN";
+  // OT Club children get a slimmed record: details, brief progress notes,
+  // home programmes and documents — no assessment pathway (Grace, Oct 2026).
+  const isOtClub = client.programme === "ot-club";
   const parent = client.parent;
   const hasPendingSetup = !!parent && parent.setupTokens.length > 0;
 
@@ -188,19 +196,19 @@ export default async function ClientDetailPage({
   return (
     <div className="space-y-6">
       <Link
-        href="/clients"
+        href={isOtClub ? "/clients?folder=ot-club" : "/clients"}
         className="ds-link inline-flex items-center"
         style={{ fontWeight: 500 }}
       >
         <ArrowLeft className="mr-1 h-3.5 w-3.5" />
-        Back to clients
+        {isOtClub ? "Back to OT Club" : "Back to clients"}
       </Link>
 
       <Toolbar
         title={`${client.firstName} ${client.lastName}`}
         subtitle={`DOB ${new Date(client.dateOfBirth).toLocaleDateString("en-GB")}${
           client.diagnosis ? ` · ${client.diagnosis}` : ""
-        }`}
+        }${isOtClub ? " · OT Club" : ""}`}
         actions={
           adminCanEdit && (
             <div className="flex flex-wrap items-center gap-2">
@@ -211,6 +219,7 @@ export default async function ClientDetailPage({
                 <Home className="mr-2 h-4 w-4" />
                 New Home Programme
               </Link>
+              {!isOtClub && (
               <Link
                 href={`/reports/new?clientId=${client.id}`}
                 className="inline-flex items-center rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/80"
@@ -218,13 +227,14 @@ export default async function ClientDetailPage({
                 <Plus className="mr-2 h-4 w-4" />
                 New Report
               </Link>
+              )}
             </div>
           )
         }
       />
 
       {/* ─── Overview — quick status across the case ─────────────── */}
-      {adminCanEdit && (
+      {adminCanEdit && !isOtClub && (
         <Panel
           title={`Where we are with ${client.firstName}`}
           subtitle="A snapshot of completed and pending work"
@@ -397,6 +407,50 @@ export default async function ClientDetailPage({
         )}
       </div>
 
+      {isOtClub && <ProgressNotesSection clientId={client.id} />}
+
+      {/* ─── Home programmes — standalone ones written for this child ── */}
+      <Panel
+        title="Home programmes"
+        subtitle={`${client.homeProgrammes.length} on file`}
+        actions={
+          adminCanEdit && (
+            <Link
+              href={`/home-programmes/new?clientId=${client.id}`}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold hover:bg-muted"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              New home programme
+            </Link>
+          )
+        }
+      >
+        {client.homeProgrammes.length === 0 ? (
+          <Empty>No home programmes yet.</Empty>
+        ) : (
+          <div className="divide-y divide-border">
+            {client.homeProgrammes.map((hp) => (
+              <Link
+                key={hp.id}
+                href={`/home-programmes/${hp.id}`}
+                className="flex items-center justify-between px-5 py-4 transition-colors hover:bg-muted/20"
+              >
+                <div className="flex items-center gap-3">
+                  <Home className="h-5 w-5 text-muted-foreground/60" />
+                  <div>
+                    <p className="font-medium">{hp.title}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {new Date(hp.sentAt ?? hp.updatedAt).toLocaleDateString("en-GB")}
+                    </p>
+                  </div>
+                </div>
+                <Chip tone={hp.status === "sent" ? "success" : "warn"}>{hp.status}</Chip>
+              </Link>
+            ))}
+          </div>
+        )}
+      </Panel>
+
       {adminCanEdit && parent && parent.enrollments.length > 0 && (
         <Panel
           title={
@@ -461,6 +515,7 @@ export default async function ClientDetailPage({
         </Panel>
       )}
 
+      {!isOtClub && (
       <Panel
         title="Reports"
         subtitle={`${client.reports.length} report${client.reports.length === 1 ? "" : "s"} on file`}
@@ -494,8 +549,10 @@ export default async function ClientDetailPage({
           </div>
         )}
       </Panel>
+      )}
 
       {/* ─── Letters — written under Reports → Letters for this client */}
+      {!isOtClub && (
       <Panel
         title="Letters"
         subtitle={`${client.letters.length} letter${client.letters.length === 1 ? "" : "s"} on file`}
@@ -537,9 +594,10 @@ export default async function ClientDetailPage({
           </div>
         )}
       </Panel>
+      )}
 
       {/* ─── Forms & assessments — unified intake + form-invite feed */}
-      {adminCanEdit && (
+      {!isOtClub && adminCanEdit && (
         <ClientAssessmentsSection
           clientId={client.id}
           clientFirstName={client.firstName}
@@ -547,6 +605,32 @@ export default async function ClientDetailPage({
           formRows={formRows}
           spmLinkUrl={spmLinkUrl}
         />
+      )}
+
+      {/* OT Club: their registration form, one click away */}
+      {isOtClub && formRows.length > 0 && (
+        <Panel title="Registration form">
+          <div className="divide-y divide-border">
+            {formRows.map((r) => (
+              <Link
+                key={r.id}
+                href={r.href}
+                className="flex items-center justify-between px-5 py-3 transition-colors hover:bg-muted/20"
+              >
+                <div className="flex items-center gap-3">
+                  <ClipboardList className="h-5 w-5 text-muted-foreground/60" />
+                  <div>
+                    <p className="font-medium">{r.label}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {new Date(r.when).toLocaleDateString("en-GB")}
+                    </p>
+                  </div>
+                </div>
+                <Chip tone={r.status === "submitted" ? "success" : "warn"}>{r.status}</Chip>
+              </Link>
+            ))}
+          </div>
+        </Panel>
       )}
 
       {/* ─── Documents — letters, external reports, anything else ─── */}
@@ -558,7 +642,7 @@ export default async function ClientDetailPage({
       )}
 
       {/* ─── Home programme — pulled from the latest report on file ── */}
-      {adminCanEdit && (
+      {adminCanEdit && !isOtClub && (
         <Panel
           title={
             <span className="inline-flex items-center gap-2">
@@ -606,10 +690,13 @@ export default async function ClientDetailPage({
         </Panel>
       )}
 
-      <ParentEntriesSection clientId={client.id} />
-      <ProgressNotesSection clientId={client.id} />
-
-      <GoalsSection clientId={client.id} isAdmin={adminCanEdit} />
+      {!isOtClub && (
+        <>
+          <ParentEntriesSection clientId={client.id} />
+          <ProgressNotesSection clientId={client.id} />
+          <GoalsSection clientId={client.id} isAdmin={adminCanEdit} />
+        </>
+      )}
     </div>
   );
 }

@@ -36,8 +36,14 @@ interface Client {
   parentCarerEmail: string | null;
   stageId: string | null;
   stage: Stage | null;
+  /** null = main caseload; "ot-club" = OT Club folder. */
+  programme: string | null;
+  /** In the OT Club folder (club-only children, or main clients who joined). */
+  otClub: boolean;
   createdAt: string;
 }
+
+type Folder = "main" | "ot-club";
 
 /**
  * Clients list — admin view.
@@ -49,7 +55,37 @@ interface Client {
 export default function ClientsPage() {
   const { data: session } = useSession();
   const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
-  const [clients, setClients] = useState<Client[]>([]);
+  const [allClients, setClients] = useState<Client[]>([]);
+  // OT Club children live in their own folder (Grace, Oct 2026). Remembered
+  // in the URL so "Back to clients" from an OT Club child lands back here.
+  const [folder, setFolderState] = useState<Folder>("main");
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("folder") === "ot-club")
+      setFolderState("ot-club");
+  }, []);
+  function setFolder(next: Folder) {
+    setFolderState(next);
+    setStageFilter("all");
+    const url = new URL(window.location.href);
+    if (next === "ot-club") url.searchParams.set("folder", "ot-club");
+    else url.searchParams.delete("folder");
+    window.history.replaceState(null, "", url);
+  }
+  const clients = useMemo(
+    () =>
+      allClients.filter((c) =>
+        folder === "ot-club" ? c.otClub || c.programme === "ot-club" : c.programme !== "ot-club",
+      ),
+    [allClients, folder],
+  );
+  const otClubCount = useMemo(
+    () => allClients.filter((c) => c.otClub || c.programme === "ot-club").length,
+    [allClients],
+  );
+  const mainCount = useMemo(
+    () => allClients.filter((c) => c.programme !== "ot-club").length,
+    [allClients],
+  );
   const [stages, setStages] = useState<Stage[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -260,22 +296,70 @@ export default function ClientsPage() {
         subtitle={
           loading
             ? "Loading…"
-            : `${clients.length} ${clients.length === 1 ? "client" : "clients"}`
+            : folder === "ot-club"
+              ? `${clients.length} OT Club ${clients.length === 1 ? "child" : "children"}`
+              : `${clients.length} ${clients.length === 1 ? "client" : "clients"}`
         }
         actions={
           <Link
-            href="/clients/new"
+            href={folder === "ot-club" ? "/clients/new?programme=ot-club" : "/clients/new"}
             className={buttonVariants({ className: "rounded-xl" })}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Add Client
+            {folder === "ot-club" ? "Add OT Club child" : "Add Client"}
           </Link>
         }
       />
 
+      {/* Folder tabs — main caseload vs OT Club */}
+      <div className="inline-flex rounded-xl border border-border bg-card p-1 text-sm">
+        {(
+          [
+            ["main", "Clients", mainCount],
+            ["ot-club", "OT Club", otClubCount],
+          ] as const
+        ).map(([value, label, count]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setFolder(value)}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-lg px-4 py-1.5 font-semibold transition-colors",
+              folder === value
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {label}
+            <span
+              className={cn(
+                "rounded-full px-1.5 text-[11px] font-bold tabular-nums",
+                folder === value ? "bg-white/25" : "bg-muted",
+              )}
+            >
+              {loading ? "…" : count}
+            </span>
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <Panel>
           <Empty>Loading clients…</Empty>
+        </Panel>
+      ) : folder === "ot-club" && clients.length === 0 ? (
+        <Panel>
+          <div className="ds-empty">
+            <Users
+              className="mx-auto h-8 w-8"
+              style={{ color: "var(--muted-foreground)", opacity: 0.5 }}
+            />
+            <p style={{ marginTop: 10, fontWeight: 600 }}>No OT Club children yet</p>
+            <p style={{ marginTop: 4, fontSize: 12 }}>
+              They appear here automatically when a parent fills in the OT Club
+              registration form.
+            </p>
+          </div>
         </Panel>
       ) : clients.length === 0 ? (
         <Panel>
@@ -299,6 +383,7 @@ export default function ClientsPage() {
       ) : (
         <>
           {/* KPI row — at-a-glance caseload health */}
+          {folder === "main" && (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {kpis.map((k) => {
               const Icon = k.icon;
@@ -321,6 +406,7 @@ export default function ClientsPage() {
               );
             })}
           </div>
+          )}
 
           {/* Search + stage pill row */}
           <div className="space-y-3">
@@ -334,6 +420,7 @@ export default function ClientsPage() {
                 className="pl-9"
               />
             </div>
+            {folder === "main" && (
             <div className="flex flex-wrap gap-2">
               <StagePill value="all" label="All" count={stageCounts.all} />
               {sortedStages.map((s) => (
@@ -353,6 +440,7 @@ export default function ClientsPage() {
                 />
               )}
             </div>
+            )}
           </div>
 
           <Panel

@@ -39,7 +39,8 @@ export async function POST(req: NextRequest) {
   let parentId: string | undefined;
   let parentAccountCreated = false;
   const parentEmail = parsed.data.parentCarerEmail?.trim();
-  if (parentEmail) {
+  // OT Club families aren't given a portal login (no set-password email).
+  if (parentEmail && !parsed.data.programme) {
     try {
       const result = await ensureParentAccount({
         email: parentEmail,
@@ -66,7 +67,8 @@ export async function POST(req: NextRequest) {
       dateOfBirth: new Date(parsed.data.dateOfBirth),
       managerId: session.user.role === "TEAM_MANAGER" ? session.user.id : undefined,
       parentId,
-      stageId: defaultStage?.id ?? undefined,
+      stageId: parsed.data.programme ? undefined : (defaultStage?.id ?? undefined),
+      otClub: parsed.data.programme === "ot-club",
     },
   });
 

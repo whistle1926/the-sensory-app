@@ -37,9 +37,12 @@ async function findReferralForm() {
     where: { isPublished: true },
     select: { id: true, slug: true, title: true, settings: true },
   });
-  const byFlag = forms.find(
-    (f) => (f.settings as { createsClient?: boolean } | null)?.createsClient,
-  );
+  // Not a form that files clients into another folder (e.g. OT Club
+  // registration) — that's not the referral form.
+  const byFlag = forms.find((f) => {
+    const st = f.settings as { createsClient?: boolean; clientProgramme?: string } | null;
+    return st?.createsClient && !st.clientProgramme;
+  });
   if (byFlag) return byFlag;
   // Fallback: a published form whose slug looks like a referral form.
   return forms.find((f) => /referral/i.test(f.slug)) ?? null;

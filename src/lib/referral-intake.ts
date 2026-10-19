@@ -115,6 +115,14 @@ export function mapReferralToClient(
       (f, l) => f.type === "long_text" && /address/.test(l) && !/gp/.test(l),
     );
 
+  // A single "Child's full name" box instead of first + family name.
+  const fullNameF =
+    !firstNameF && !lastNameF
+      ? find(fields, (f, l) => f.type === "short_text" && /child/.test(l) && /name/.test(l))
+      : undefined;
+  const fullName = valStr(data, fullNameF?.id).replace(/\s+/g, " ");
+  const splitAt = fullName.lastIndexOf(" ");
+
   const dobStr = valStr(data, dobF?.id);
   let dob: Date | null = null;
   if (dobStr) {
@@ -123,8 +131,14 @@ export function mapReferralToClient(
   }
 
   return {
-    firstName: valStr(data, firstNameF?.id) || "New",
-    lastName: valStr(data, lastNameF?.id) || "Referral",
+    firstName:
+      valStr(data, firstNameF?.id) ||
+      (fullName ? (splitAt > 0 ? fullName.slice(0, splitAt) : fullName) : "") ||
+      "New",
+    lastName:
+      valStr(data, lastNameF?.id) ||
+      (splitAt > 0 ? fullName.slice(splitAt + 1) : "") ||
+      "Referral",
     dateOfBirth: dob,
     parentCarerEmail: valStr(data, emailF?.id).toLowerCase(),
     parentCarerName: valStr(data, parentNameF?.id),
@@ -153,6 +167,8 @@ export async function ingestReferralSubmission(opts: {
   /** Create/link the parent's portal account (sends a set-password email).
    *  Backfills pass false so parents aren't emailed out of the blue. */
   linkParent?: boolean;
+  /** File a newly created client in this folder (e.g. "ot-club"). */
+  programme?: string;
 }): Promise<{ clientId: string; created: boolean } | null> {
   try {
     const m = mapReferralToClient(opts.fields, opts.data);
@@ -171,6 +187,12 @@ export async function ingestReferralSubmission(opts: {
             select: { id: true },
           })
         : null;
+
+    // An existing client who's joined OT Club keeps their record but is
+    // also filed in the OT Club folder.
+    if (client && opts.programme === "ot-club") {
+      await prisma.client.update({ where: { id: client.id }, data: { otClub: true } });
+    }
 
     let created = false;
     if (!client) {
@@ -204,7 +226,11 @@ export async function ingestReferralSubmission(opts: {
           diagnosis: m.diagnosis || null,
           address: m.address || null,
           parentId,
-          stageId: defaultStage?.id ?? undefined,
+          // OT Club children aren't on the assessment pathway, so they
+          // don't go into "New / Awaiting Assessment".
+          programme: opts.programme ?? null,
+          otClub: opts.programme === "ot-club",
+          stageId: opts.programme ? undefined : (defaultStage?.id ?? undefined),
         },
         select: { id: true },
       });

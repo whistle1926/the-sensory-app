@@ -64,6 +64,9 @@ export interface FormSettings {
   // intake) in the default "new" stage, with the submission attached to
   // the client's folder. Used for the OT Initial Referral Form.
   createsClient?: boolean;
+  // With createsClient: file the new client in this folder instead of the
+  // main caseload (e.g. "ot-club" for the OT Club registration form).
+  clientProgramme?: "ot-club";
 }
 
 // ── Uploaded file shape (value of a `file` field) ───────────────────
@@ -234,6 +237,7 @@ export function sanitiseFormSettings(input: unknown): FormSettings {
 
   if (raw.requireLogin === true) out.requireLogin = true;
   if (raw.createsClient === true) out.createsClient = true;
+  if (raw.clientProgramme === "ot-club") out.clientProgramme = "ot-club";
 
   if (Array.isArray(raw.notifyEmails)) {
     const emails = raw.notifyEmails

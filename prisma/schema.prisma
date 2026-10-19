@@ -270,6 +270,13 @@ model Client {
   currency           String   @default("GBP") // GBP | EUR | USD
   business           Business @default(SENSORY_SUBMARINE)
   active             Boolean  @default(true)
+  /// Which folder the client lives in. null = the main OT caseload;
+  /// "ot-club" = OT Club children (their own tab on Clients, and a slimmed
+  /// record: details, brief progress notes, home programmes).
+  programme          String?
+  /// In the OT Club folder. Also true for main-caseload clients who joined
+  /// OT Club (they keep their full record and stay on the main list).
+  otClub             Boolean  @default(false)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

@@ -195,6 +195,9 @@ export async function POST(
       data: clean as unknown as Record<string, unknown>,
       origin: req.nextUrl.origin,
       existingInviteId: inviteId ?? undefined,
+      programme: settings.clientProgramme,
+      // OT Club families don't need a portal login out of the blue.
+      linkParent: !settings.clientProgramme,
     });
   }
 

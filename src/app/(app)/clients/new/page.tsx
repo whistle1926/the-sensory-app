@@ -1,17 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default function NewClientPage() {
+function NewClientInner() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Opened from the OT Club tab → file the child in the OT Club folder.
+  const otClub = useSearchParams().get("programme") === "ot-club";
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -32,6 +34,7 @@ export default function NewClientPage() {
         referrer: form.get("referrer") || undefined,
         parentCarerName: form.get("parentCarerName") || undefined,
         parentCarerEmail: form.get("parentCarerEmail") || undefined,
+        ...(otClub ? { programme: "ot-club" } : {}),
       }),
     });
 
@@ -43,13 +46,13 @@ export default function NewClientPage() {
       return;
     }
 
-    router.push("/clients");
+    router.push(otClub ? "/clients?folder=ot-club" : "/clients");
     router.refresh();
   }
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="mb-6 text-2xl font-bold">Add New Client</h1>
+      <h1 className="mb-6 text-2xl font-bold">{otClub ? "Add OT Club child" : "Add New Client"}</h1>
       <Card>
         <CardHeader>
           <CardTitle>Client Details</CardTitle>
@@ -118,5 +121,13 @@ export default function NewClientPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function NewClientPage() {
+  return (
+    <Suspense fallback={null}>
+      <NewClientInner />
+    </Suspense>
   );
 }
