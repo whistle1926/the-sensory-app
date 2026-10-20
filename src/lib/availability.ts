@@ -319,10 +319,11 @@ function londonParts(iso: string): { day: string; time: string } {
  * date and expressed as London wall-clock windows so they line up with the
  * configured hours.
  *
- * All-day events are ignored on purpose. They're as often a birthday or a
- * reminder as they are "away", and silently wiping a whole day of bookable
- * appointments is worse than the clash it would prevent. Taking a full day
- * out is what a date override is for.
+ * All-day events block the whole day only when marked Busy in Google
+ * (Claire, Oct 2026: a conference on 10 Dec was still bookable). Google
+ * creates all-day events as Free by default, so birthdays and reminders
+ * don't wipe out a day; anything Grace sets to Busy does. Multi-day events
+ * block every day they cover.
  */
 async function busyWindowsFromGoogle(
   ownerId: string | null,
@@ -347,7 +348,19 @@ async function busyWindowsFromGoogle(
 
   const out: Record<string, Interval[]> = {};
   for (const e of events) {
-    if (e.allDay || !e.busy) continue;
+    if (!e.busy) continue;
+    if (e.allDay) {
+      // Google all-day dates are UTC midnights; the end date is exclusive.
+      const endKey = e.endAt.slice(0, 10);
+      for (
+        let d = new Date(`${e.startAt.slice(0, 10)}T00:00:00Z`);
+        d.toISOString().slice(0, 10) < endKey;
+        d.setUTCDate(d.getUTCDate() + 1)
+      ) {
+        (out[d.toISOString().slice(0, 10)] ??= []).push({ start: "00:00", end: "23:59" });
+      }
+      continue;
+    }
     const s = londonParts(e.startAt);
     const en = londonParts(e.endAt);
     // An event running past midnight is clipped to its first day; the
