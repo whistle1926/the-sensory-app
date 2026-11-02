@@ -6,6 +6,7 @@ import { Header } from "@/components/layout/header";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { UpdateBanner } from "@/components/layout/update-banner";
 import { ShowMe } from "@/components/help/show-me";
+import { ImpersonationBanner } from "@/components/impersonate/impersonation-banner";
 import Link from "next/link";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -79,6 +80,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <Sidebar role={role} allowedNavKeys={allowedNavKeys} navOrder={navOrder} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <UpdateBanner />
+        {/* An admin using "View as" on an associate: a clear way back. */}
+        {session.user.impersonatedBy && (
+          <ImpersonationBanner targetName={displayName || session.user.name || "this user"} />
+        )}
         <ShowMe />
         <div className="flex items-center gap-2 px-4 md:px-0">
           <MobileNav role={role} allowedNavKeys={allowedNavKeys} />

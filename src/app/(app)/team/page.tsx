@@ -27,6 +27,8 @@ import {
 } from "lucide-react";
 import { Toolbar } from "@/components/ds";
 import { TeamProfileDialog } from "@/components/team/team-profile-dialog";
+import { ViewAsButton } from "@/components/impersonate/view-as-button";
+import { useSession } from "next-auth/react";
 
 interface DashTemplate {
   id: string;
@@ -165,6 +167,9 @@ export default function TeamPage() {
   // Service identities the app posts as aren't people: they'd inflate the
   // headcount and offer a Message button to nobody. Listed separately below.
   const people = staffUsers.filter((u) => !u.isAutomation);
+  // Only an admin can "View as" — and only associates (not other admins).
+  const { data: viewer } = useSession();
+  const canViewAs = viewer?.user?.role === "SUPER_ADMIN";
   const automations = staffUsers.filter((u) => u.isAutomation);
   const staff = people.length;
   const clients = users.filter((u) => u.role === "CLIENT").length;
@@ -397,6 +402,19 @@ export default function TeamPage() {
                     Change what they can see in Settings → Dashboard Templates.
                     Takes effect within a few minutes.
                   </p>
+                </div>
+              )}
+
+              {/* See the portal exactly as this associate does — handy for
+                  checking their access level (Grace, Nov 2026). */}
+              {canViewAs && user.role === "TEAM_MANAGER" && !user.isAutomation && (
+                <div className="mt-3" data-help="team-view-as">
+                  <ViewAsButton
+                    targetUserId={user.id}
+                    label={`View as ${user.name.split(" ")[0]}`}
+                    returnPath="/dashboard"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-primary/40 bg-primary/[0.04] px-3 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
+                  />
                 </div>
               )}
 
