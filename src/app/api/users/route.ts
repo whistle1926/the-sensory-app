@@ -59,14 +59,17 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const existing = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+  // Emails are the sign-in id and login matches them in lower case, so a
+  // capital typed here would lock the person out (Catherine, Nov 2026).
+  const email = parsed.data.email.trim().toLowerCase();
+  const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) return NextResponse.json({ error: "Email already in use" }, { status: 409 });
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
 
   const user = await prisma.user.create({
     data: {
-      email: parsed.data.email,
+      email,
       name: parsed.data.name,
       passwordHash,
       role: parsed.data.role,
