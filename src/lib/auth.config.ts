@@ -1,6 +1,6 @@
 import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { requiredNavKey } from "./nav-areas";
+import { homePathFor, requiredNavKey } from "./nav-areas";
 
 // Routes that never require auth (prefix match)
 
@@ -169,7 +169,14 @@ export const authConfig: NextAuthConfig = {
 
       // Logged in, sitting on a login page → redirect by role
       if (isLoginPage) {
-        const target = role === "CLIENT" ? "/portal" : "/dashboard";
+        const target =
+          role === "CLIENT"
+            ? "/portal"
+            : homePathFor(
+                role === "SUPER_ADMIN"
+                  ? null
+                  : (auth?.user as { nav?: string[] | null } | undefined)?.nav,
+              );
         return Response.redirect(new URL(target, nextUrl));
       }
 
@@ -210,13 +217,18 @@ export const authConfig: NextAuthConfig = {
       if (role !== "SUPER_ADMIN") {
         const nav = (auth?.user as { nav?: string[] | null } | undefined)?.nav;
         if (Array.isArray(nav)) {
-          const required = requiredNavKey(pathname);
+          // The dashboard is everyone's landing page, so it isn't in the
+          // area map — but with Dashboard switched off in their access level
+          // they mustn't see it (it carries clinic stats and revenue).
+          const isDashboard =
+            pathname === "/dashboard" || pathname === "/api/dashboard";
+          const required = isDashboard ? "nav_dashboard" : requiredNavKey(pathname);
           if (required && !nav.includes(required)) {
             // API → hard 403 (blocks the data); page → bounce to a page
             // they're allowed to see.
             return isApi
               ? Response.json({ error: "Forbidden" }, { status: 403 })
-              : Response.redirect(new URL("/dashboard", nextUrl));
+              : Response.redirect(new URL(homePathFor(nav), nextUrl));
           }
         }
       }

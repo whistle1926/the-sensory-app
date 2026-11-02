@@ -18,16 +18,20 @@ interface HeaderProps {
   /** Shown in the account menu so a shared-login mix-up is obvious. */
   userEmail?: string | null;
   userRole: string;
+  /** Overrides the badge text, e.g. the associate's access level. */
+  roleLabel?: string;
 }
 
-export function Header({ userName, userEmail, userRole }: HeaderProps) {
+export function Header({ userName, userEmail, userRole, roleLabel: roleLabelOverride }: HeaderProps) {
   const initials = userName
     .split(" ")
     .map((n) => n[0])
     .join("")
     .toUpperCase();
 
-  const roleLabel = userRole.replace("_", " ").toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase());
+  const roleLabel =
+    roleLabelOverride ??
+    userRole.replace("_", " ").toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase());
 
   return (
     <header className="flex h-16 items-center justify-between glass border-b border-border/50 px-6">

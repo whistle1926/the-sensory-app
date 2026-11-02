@@ -55,8 +55,29 @@ export async function GET() {
     // ── Shared aggregates (cached for 20s across all admin users) ──────
     const aggregates = await getDashboardAggregates();
 
+    // Money (revenue, invoiced, collected) only for admins and anyone with
+    // Invoices access — associates shouldn't see the practice's takings
+    // (Grace, Nov 2026).
+    const nav = (session?.user as { nav?: string[] | null } | undefined)?.nav;
+    const canSeeMoney =
+      session?.user?.role === "SUPER_ADMIN" || !Array.isArray(nav) || nav.includes("nav_invoices");
+    const payload = canSeeMoney
+      ? aggregates
+      : {
+          ...aggregates,
+          kpis: aggregates.kpis.filter((k: { key: string }) => !/revenue|invoice|collect|outstanding/i.test(k.key)),
+          metricsByRange: Object.fromEntries(
+            Object.entries(aggregates.metricsByRange ?? {}).map(([k, v]) => [
+              k,
+              { ...(v as object), revenuePence: 0, revenueDeltaPct: null },
+            ]),
+          ),
+          revenue: [],
+          revenueSummary: { invoicedMtd: 0, collectedMtd: 0, outstandingMtd: 0 },
+        };
+
     return NextResponse.json(
-      { visibleWidgets, ...aggregates },
+      { visibleWidgets, canSeeMoney, ...payload },
       {
         headers: {
           "Cache-Control":

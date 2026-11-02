@@ -62,3 +62,25 @@ export function requiredNavKey(pathname: string): string | null {
   }
   return null;
 }
+
+/**
+ * Where a staff user should land: the dashboard if they have it, otherwise
+ * the first area they're allowed (an associate with Dashboard switched off
+ * lands on Clients). Calendar is ungated, so it's the last resort.
+ */
+const HOME_ORDER: ReadonlyArray<readonly [string, string]> = [
+  ["nav_dashboard", "/dashboard"],
+  ["nav_clients", "/clients"],
+  ["nav_calendar", "/calendar"],
+  ["nav_bookings", "/bookings"],
+  ["nav_reports", "/reports"],
+  ["nav_tasks", "/tasks"],
+  ["nav_activities", "/activities"],
+  ["nav_leaflets", "/leaflets"],
+];
+
+export function homePathFor(nav: readonly string[] | null | undefined): string {
+  if (!Array.isArray(nav)) return "/dashboard";
+  for (const [key, path] of HOME_ORDER) if (nav.includes(key)) return path;
+  return "/calendar";
+}

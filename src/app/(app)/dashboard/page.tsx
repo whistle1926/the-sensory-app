@@ -89,6 +89,9 @@ interface DashData {
     collectedMtd: number;
     outstandingMtd: number;
   };
+  /** False for staff without Invoices access — money panels are hidden
+   *  (and the API sends no figures). */
+  canSeeMoney?: boolean;
   now: string;
 }
 
@@ -191,14 +194,14 @@ export default function DashboardPage() {
         helper: `${data.agenda.length} today`,
         spark: sp(2),
       },
-      {
+      ...(data.canSeeMoney === false ? [] : [{
         key: "revenue",
         label: `Revenue · ${rl}`,
         value: formatCurrency((m?.revenuePence ?? 0) / 100),
         deltaPct: m?.revenueDeltaPct ?? null,
         helper: "Received in Fire",
         spark: sp(3),
-      },
+      }]),
     ];
   }, [data, dateRange]);
 
@@ -455,6 +458,7 @@ export default function DashboardPage() {
           )}
         </Panel>
 
+        {data.canSeeMoney !== false && (
         <Panel
           title={`Revenue · ${revWindow} days`}
           subtitle={
@@ -552,6 +556,7 @@ export default function DashboardPage() {
             </div>
           </div>
         </Panel>
+        )}
       </div>
     </div>
   );

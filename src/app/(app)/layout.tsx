@@ -40,6 +40,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // how "signed in as" would quietly lie.
   let displayName: string | null = null;
   let displayEmail: string | null = null;
+  // Badge in the header: an associate sees their access level ("Clinic
+  // Associate"), not the internal role name "Team Manager".
+  let accessLabel: string | null = null;
 
   try {
     // Fetch user template, default template, and the user's nav order in parallel.
@@ -49,7 +52,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         select: {
           name: true,
           email: true,
-          dashTemplate: { select: { widgets: true } },
+          dashTemplate: { select: { widgets: true, name: true } },
           navOrder: true,
         },
       }),
@@ -66,6 +69,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     if (user?.navOrder) navOrder = user.navOrder;
     displayName = user?.name ?? null;
     displayEmail = user?.email ?? null;
+    if (role === "TEAM_MANAGER") accessLabel = user?.dashTemplate?.name ?? "Team member";
   } catch {
     // If DB fails, show all nav — don't lock the user out
   }
@@ -83,6 +87,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               userName={displayName || session.user.name || "User"}
               userEmail={displayEmail}
               userRole={role}
+              roleLabel={accessLabel ?? undefined}
             />
           </div>
         </div>
