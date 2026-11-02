@@ -228,7 +228,7 @@ export function ClientProfileEditor({
           </div>
 
           {canAssignTherapist && (
-            <div className="space-y-2">
+            <div className="space-y-2" data-help="client-therapist">
               <Label htmlFor="managerId">Therapist</Label>
               <select
                 id="managerId"

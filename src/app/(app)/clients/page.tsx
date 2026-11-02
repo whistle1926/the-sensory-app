@@ -49,7 +49,11 @@ interface Client {
   otClub: boolean;
   schoolGroups: boolean;
   createdAt: string;
+  /** Assigned therapist, coloured as on the team calendar. */
+  manager: { id: string; name: string; colour: string | null } | null;
 }
+
+const UNASSIGNED = "_unassigned";
 
 type Folder = "main" | ProgrammeKey;
 
@@ -102,6 +106,8 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("all");
+  // Grace, Nov 2026: click a therapist to see just their clients.
+  const [therapistFilter, setTherapistFilter] = useState<string>("all");
 
   // GDPR erasure inline-confirm state — only the SUPER_ADMIN ever
   // sees the trash icon, so state never matters for non-admins.
@@ -143,8 +149,33 @@ export default function ClientsPage() {
     [stages],
   );
 
+  // One tab per therapist who has clients in this folder (admins only —
+  // associates only ever see their own caseload).
+  const therapists = useMemo(() => {
+    const byId = new Map<string, { id: string; name: string; colour: string | null; count: number }>();
+    let unassigned = 0;
+    for (const c of clients) {
+      if (!c.manager) {
+        unassigned++;
+        continue;
+      }
+      const t = byId.get(c.manager.id) ?? { ...c.manager, count: 0 };
+      t.count++;
+      byId.set(c.manager.id, t);
+    }
+    return {
+      list: [...byId.values()].sort((a, b) => a.name.localeCompare(b.name)),
+      unassigned,
+    };
+  }, [clients]);
+
   const filtered = useMemo(() => {
     let list = clients;
+    if (therapistFilter === UNASSIGNED) {
+      list = list.filter((c) => !c.manager);
+    } else if (therapistFilter !== "all") {
+      list = list.filter((c) => c.manager?.id === therapistFilter);
+    }
     if (stageFilter === "_uncategorised") {
       list = list.filter((c) => !c.stageId);
     } else if (stageFilter !== "all") {
@@ -170,7 +201,7 @@ export default function ClientsPage() {
         `${b.firstName} ${b.lastName}`,
       ),
     );
-  }, [clients, stageFilter, search]);
+  }, [clients, stageFilter, therapistFilter, search]);
 
   // Derived KPIs — computed once from the already-fetched list.
   const kpis = useMemo(() => {
@@ -285,6 +316,51 @@ export default function ClientsPage() {
           <span
             className="h-2 w-2 rounded-full"
             style={{ backgroundColor: dotColour }}
+          />
+        )}
+        {label}
+        <span
+          className={cn(
+            "rounded-full px-1.5 py-0 text-[11px] font-bold tabular-nums",
+            isActive ? "bg-white/25" : "bg-muted",
+          )}
+        >
+          {count}
+        </span>
+      </button>
+    );
+  };
+
+  /** Therapist filter: the active pill fills with that therapist's colour. */
+  const TherapistPill = ({
+    value,
+    label,
+    colour,
+    count,
+  }: {
+    value: string;
+    label: string;
+    colour?: string | null;
+    count: number;
+  }) => {
+    const isActive = therapistFilter === value;
+    const fill = colour ?? "var(--primary)";
+    return (
+      <button
+        type="button"
+        onClick={() => setTherapistFilter(isActive && value !== "all" ? "all" : value)}
+        className={cn(
+          "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition-all",
+          isActive
+            ? "text-white shadow-[var(--shadow-xs)]"
+            : "border border-border bg-card text-foreground hover:bg-muted",
+        )}
+        style={isActive ? { backgroundColor: fill } : colour ? { borderColor: colour } : undefined}
+      >
+        {colour && (
+          <span
+            className="h-2.5 w-2.5 rounded-full"
+            style={{ backgroundColor: isActive ? "white" : colour }}
           />
         )}
         {label}
@@ -429,6 +505,24 @@ export default function ClientsPage() {
                 className="pl-9"
               />
             </div>
+            {isSuperAdmin && therapists.list.length > 0 && (
+              <div data-help="clients-therapist-filter" className="flex flex-wrap items-center gap-2">
+                <span className="mr-1 text-xs font-semibold text-muted-foreground">Therapist</span>
+                <TherapistPill value="all" label="Everyone" count={clients.length} />
+                {therapists.list.map((t) => (
+                  <TherapistPill
+                    key={t.id}
+                    value={t.id}
+                    label={t.name}
+                    colour={t.colour}
+                    count={t.count}
+                  />
+                ))}
+                {therapists.unassigned > 0 && (
+                  <TherapistPill value={UNASSIGNED} label="Not assigned" count={therapists.unassigned} />
+                )}
+              </div>
+            )}
             {folder === "main" && (
             <div className="flex flex-wrap gap-2">
               <StagePill value="all" label="All" count={stageCounts.all} />
@@ -483,6 +577,7 @@ export default function ClientsPage() {
                         <th>Diagnosis</th>
                         <th>DOB</th>
                         <th>Parent / Carer</th>
+                        {isSuperAdmin && <th>Therapist</th>}
                         <th>Stage</th>
                         {isSuperAdmin && <th aria-label="Erase" />}
                       </tr>
@@ -500,7 +595,7 @@ export default function ClientsPage() {
                               key={c.id}
                               style={{ background: "rgba(239,68,68,0.04)" }}
                             >
-                              <td colSpan={isSuperAdmin ? 6 : 5}>
+                              <td colSpan={isSuperAdmin ? 7 : 5}>
                                 <div className="flex flex-wrap items-center justify-between gap-3 px-1 py-1">
                                   <span className="text-sm">
                                     Permanently erase{" "}
@@ -563,6 +658,11 @@ export default function ClientsPage() {
                         return (
                           <tr
                             key={c.id}
+                            style={
+                              isSuperAdmin && c.manager?.colour
+                                ? { boxShadow: `inset 4px 0 0 ${c.manager.colour}` }
+                                : undefined
+                            }
                             onClick={(e) => {
                               // Ignore clicks on the stage dropdown
                               if ((e.target as HTMLElement).closest("select")) return;
@@ -589,6 +689,27 @@ export default function ClientsPage() {
                             <td style={{ color: "var(--muted-foreground)" }}>
                               {c.parentCarerName || "—"}
                             </td>
+                            {isSuperAdmin && (
+                              <td style={{ whiteSpace: "nowrap" }}>
+                                {c.manager ? (
+                                  <span
+                                    className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold"
+                                    style={{
+                                      color: c.manager.colour ?? undefined,
+                                      backgroundColor: c.manager.colour ? `${c.manager.colour}1a` : undefined,
+                                    }}
+                                  >
+                                    <span
+                                      className="h-2 w-2 rounded-full"
+                                      style={{ backgroundColor: c.manager.colour ?? "currentColor" }}
+                                    />
+                                    {c.manager.name}
+                                  </span>
+                                ) : (
+                                  <span style={{ color: "var(--muted-foreground)" }}>—</span>
+                                )}
+                              </td>
+                            )}
                             <td>
                               <select
                                 value={c.stageId ?? ""}
@@ -643,7 +764,14 @@ export default function ClientsPage() {
                         className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-muted/30"
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-foreground">
+                          <p className="flex items-center gap-2 font-semibold text-foreground">
+                            {isSuperAdmin && c.manager?.colour && (
+                              <span
+                                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                style={{ backgroundColor: c.manager.colour }}
+                                title={c.manager.name}
+                              />
+                            )}
                             {c.firstName} {c.lastName}
                           </p>
                           <p className="mt-0.5 truncate text-xs text-muted-foreground">

@@ -175,6 +175,7 @@ export const PAGE_HELP: Record<string, PageHelpContent> = {
       "Open a client to see their overview, assessments, forms and home programmes.",
       "Use the panels on the client page to start a report, send a form, or build a home programme for them.",
       "OT Club and School groups tabs — children from the OT Club registration form or the Small Group OT form land here automatically. Their page is kept simple: details, brief progress notes and home programmes. Existing clients who join appear in both tabs.",
+      "Therapist tabs — click a therapist's name to see only their clients. Each therapist has their own colour (the same as on the team calendar), shown on the left edge of each row. Click the name again, or Everyone, to see all. To change a child's therapist, open the client and change Therapist in their details.",
     ],
   },
 

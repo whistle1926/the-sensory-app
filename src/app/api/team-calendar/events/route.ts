@@ -13,6 +13,7 @@
  * member's feed (network error, revoked URL, bad ICS) returns an
  * empty list for that member — the rest of the team still renders.
  */
+import { STAFF_WHERE, staffColourMap } from "@/lib/staff-colours";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -97,10 +98,8 @@ export async function GET(req: NextRequest) {
   // and needs no secret URL) or the older iCal feed. Someone with both is
   // read via OAuth only, so their events don't appear twice.
   const staff = await prisma.user.findMany({
-    where: {
-      role: { in: ["SUPER_ADMIN", "TEAM_MANAGER"] },
-      isAutomation: false,
-    },
+    where: STAFF_WHERE,
+    orderBy: { createdAt: "asc" },
     select: {
       id: true,
       name: true,
@@ -112,21 +111,6 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  // Default colour palette so events still look distinct even if no
-  // one has set a custom colour yet. Indexed by staff-list position.
-  const PALETTE = [
-    // Strong, clearly different hues — events are drawn as solid blocks in
-    // these colours, so neighbours in the list mustn't look alike.
-    "#2563eb", // blue
-    "#059669", // green
-    "#d97706", // amber
-    "#db2777", // pink
-    "#ea580c", // orange
-    "#7c3aed", // purple
-    "#0891b2", // cyan
-    "#65a30d", // lime
-  ];
-
   const fromMs = from.getTime();
   const toMs = to.getTime();
 
@@ -136,9 +120,7 @@ export async function GET(req: NextRequest) {
 
   // Colour comes from a person's place in the FULL list, so hiding someone
   // doesn't recolour everyone below them.
-  const colourFor = new Map(
-    staff.map((u, idx) => [u.id, u.calendarColour ?? PALETTE[idx % PALETTE.length]]),
-  );
+  const colourFor = staffColourMap(staff);
 
   const perStaff = await Promise.all(
     shown.map(async (u) => {

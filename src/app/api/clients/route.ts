@@ -1,3 +1,4 @@
+import { loadStaffColours } from "@/lib/staff-colours";
 import { programmeFlags } from "@/lib/programmes";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
@@ -21,10 +22,21 @@ export async function GET() {
   const clients = await prisma.client.findMany({
     where: { ...where, active: true },
     orderBy: { lastName: "asc" },
-    include: { stage: { select: { id: true, label: true, colour: true, order: true } } },
+    include: {
+      stage: { select: { id: true, label: true, colour: true, order: true } },
+      manager: { select: { id: true, name: true } },
+    },
   });
 
-  return NextResponse.json(clients);
+  // Therapist colour matches the team calendar (Grace, Nov 2026: see each
+  // therapist's clients at a glance).
+  const colours = await loadStaffColours();
+  return NextResponse.json(
+    clients.map((c) => ({
+      ...c,
+      manager: c.manager ? { ...c.manager, colour: colours.get(c.manager.id) ?? null } : null,
+    })),
+  );
 }
 
 export async function POST(req: NextRequest) {
