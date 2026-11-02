@@ -377,6 +377,7 @@ export default function TeamPage() {
                     Access level
                   </div>
                   <select
+                    data-help="team-access-level"
                     value={user.dashTemplateId || ""}
                     onChange={(e) =>
                       handleTemplateChange(user.id, e.target.value || null)
