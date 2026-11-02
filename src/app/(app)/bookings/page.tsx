@@ -36,6 +36,7 @@ import { AutomationsSection } from "@/components/bookings/automations-section";
 import { TermsSection } from "@/components/bookings/terms-section";
 import { ServicesSection } from "@/components/bookings/services-section";
 import { TimeOffPanel } from "@/components/bookings/time-off-panel";
+import { RescheduleBox } from "@/components/bookings/reschedule-box";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -1704,7 +1705,16 @@ export default function BookingsPage() {
                 )}
 
               {selectedBooking.status !== "cancelled" && (
-                <div className="pt-2 border-t border-border">
+                <div className="pt-2 border-t border-border space-y-2">
+                  <RescheduleBox
+                    key={selectedBooking.id}
+                    booking={selectedBooking}
+                    onMoved={(next) => {
+                      const id = selectedBooking.id;
+                      setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, ...next } : b)));
+                      setSelectedBooking((prev) => (prev && prev.id === id ? { ...prev, ...next } : prev));
+                    }}
+                  />
                   <Button variant="outline" className="w-full rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/20" onClick={() => handleCancel(selectedBooking.id)}>
                     Cancel Booking
                   </Button>

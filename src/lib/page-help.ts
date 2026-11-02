@@ -83,6 +83,9 @@ export const PAGE_HELP: Record<string, PageHelpContent> = {
         target: '[data-help="bookings-new"]',
       },
       {
+        text: "Need to move someone? Click the booking in the calendar, then \"Change date / time\". Pick the new day and time and tick whether to email the client. It moves their reminder emails and the therapist's Google Calendar too. If it clashes with another booking you'll be warned first.",
+      },
+      {
         text: "Unpaid booking? Click it in the calendar — \"Email payment link\" resends the client their Pay now link, or \"Copy link\" to paste it into a text or WhatsApp. If they've actually paid, it marks the booking paid instead.",
         target: '[data-help="bookings-tab-calendar"]',
       },

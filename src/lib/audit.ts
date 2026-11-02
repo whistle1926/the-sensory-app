@@ -53,7 +53,8 @@ export type AuditAction =
   | "user.password.reset"
   | "user.impersonate.start"
   | "user.impersonate.stop"
-  | "settings.update";
+  | "settings.update"
+  | "booking.reschedule";
 
 /** Pull the client IP out of the standard proxy headers. */
 function clientIp(req: RecordAuditArgs["req"]): string | null {
