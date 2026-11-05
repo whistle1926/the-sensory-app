@@ -89,6 +89,13 @@ export default function PaymentsReceivedPage() {
         title="Payments received"
         subtitle="Real money that has landed in your Fire account — the source of truth"
         actions={
+          <div className="flex items-center gap-2">
+          <Link
+            href="/payments/requests"
+            className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold transition-colors hover:bg-muted"
+          >
+            Payment requests
+          </Link>
           <button
             type="button"
             onClick={() => load(true)}
@@ -98,6 +105,7 @@ export default function PaymentsReceivedPage() {
             <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
             {refreshing ? "Refreshing…" : "Refresh from Fire"}
           </button>
+          </div>
         }
       />
 

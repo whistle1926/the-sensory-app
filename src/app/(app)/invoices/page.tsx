@@ -7,6 +7,7 @@ import {
   ChevronRight,
   FileText,
   Landmark,
+  ListChecks,
   Loader2,
   Plus,
   PoundSterling,
@@ -397,6 +398,15 @@ export default function InvoicesPage() {
         subtitle="Manage and track all invoices"
         actions={
           <div className="flex items-center gap-2">
+            <Link
+              href="/payments/requests"
+              data-help="invoices-payment-requests"
+              className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold transition-colors hover:bg-muted"
+              title="Everything you've asked clients to pay, paid or outstanding"
+            >
+              <ListChecks className="h-4 w-4" />
+              Payment requests
+            </Link>
             <Link
               href="/payments"
               className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold transition-colors hover:bg-muted"

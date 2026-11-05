@@ -182,6 +182,17 @@ export const PAGE_HELP: Record<string, PageHelpContent> = {
     ],
   },
 
+  "payment-requests": {
+    title: "Payment requests",
+    summary: "Every payment you've asked a client for — invoices, booking payment links and course checkouts — with whether it's been paid.",
+    steps: [
+      { text: "Outstanding shows what's still owed. Paid and All show the rest. Use the type menu to see just invoices, bookings or courses.", target: '[data-help="payment-requests-filter"]' },
+      "A block of sessions counts as one request for the full amount. \"Owed — no link sent\" means a booking was made but the client was never sent a way to pay.",
+      { text: "Chase (or Send payment link) emails the client their Fire Pay now link. If they've actually paid already, it marks the booking paid instead. For an invoice, open it and resend from there.", target: '[data-help="payment-requests-chase"]' },
+      { text: "Download CSV gives you the list as shown, to tick off against Fire or the bank statement. Payments received (top right) shows the money that's actually landed in Fire.", target: '[data-help="payment-requests-csv"]' },
+    ],
+  },
+
   reports: {
     title: "Reports",
     summary: "Turn session notes into a structured OT report you can review, export and send.",
