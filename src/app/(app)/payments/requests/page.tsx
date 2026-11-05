@@ -493,7 +493,7 @@ export default function PaymentRequestsPage() {
                               </button>
                             )}
                             {marking === r.id && (
-                              <div className="mt-2 inline-flex flex-wrap items-center justify-end gap-1.5 rounded-lg border border-border bg-muted/40 p-2 text-xs">
+                              <div className="ml-auto mt-2 flex w-max items-center gap-1.5 rounded-lg border border-border bg-muted/40 p-2 text-xs">
                                 <select
                                   value={markMethod}
                                   onChange={(e) => setMarkMethod(e.target.value)}
