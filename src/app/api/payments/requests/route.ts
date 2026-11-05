@@ -37,8 +37,9 @@ export interface PaymentRequestRow {
   payUrl: string | null;
   /** Portal page to open the record. */
   href: string;
-  /** For booking rows: the booking id the chase button sends the link for. */
+  /** For booking rows: the booking id the chase / mark-paid buttons act on. */
   bookingId?: string;
+  invoiceId?: string;
 }
 
 function dayLabel(d: Date): string {
@@ -64,7 +65,7 @@ export async function GET() {
       select: {
         id: true, service: true, date: true, time: true, price: true, clientName: true,
         clientEmail: true, status: true, paymentStatus: true, paymentRef: true,
-        groupId: true, sessionIndex: true, createdAt: true,
+        groupId: true, sessionIndex: true, createdAt: true, paidAt: true, paidMethod: true,
       },
       orderBy: [{ date: "asc" }, { time: "asc" }],
     }),
@@ -101,6 +102,7 @@ export async function GET() {
       dueDate: inv.dueDate.toISOString(),
       payUrl: inv.paymentUrl,
       href: `/invoices/${inv.id}`,
+      invoiceId: inv.id,
     });
   }
 
@@ -137,12 +139,12 @@ export async function GET() {
       amountPence: counted.reduce((s, b) => s + b.price, 0),
       currency: "GBP",
       state: paid ? "paid" : ref ? "outstanding" : "no_link",
-      paidAt: null,
-      paidMethod: paid ? "fire" : null,
+      paidAt: list.find((b) => b.paidAt)?.paidAt?.toISOString() ?? null,
+      paidMethod: paid ? (list.find((b) => b.paidMethod)?.paidMethod ?? "fire") : null,
       dueDate: first.date.toISOString(),
       payUrl: ref ? `${FIRE_PAY_BASE}${ref}` : null,
       href: `/bookings`,
-      bookingId: (live[0] ?? first).id,
+      bookingId: (paid ? first : (live[0] ?? first)).id,
     });
   }
 

@@ -871,6 +871,11 @@ model Booking {
   status        String   @default("pending")
   paymentStatus String   @default("unpaid")
   paymentRef    String?
+  // When / how the payment was confirmed. "fire" = Fire reported it paid;
+  // "cash" | "bank_transfer" | "card" | "other" = marked paid by staff from
+  // Payment requests (Claire, Nov 2026), so it won't appear in Fire.
+  paidAt        DateTime? @map("paid_at")
+  paidMethod    String?   @map("paid_method")
   // Links the sessions of a multi-session block booking so they can be
   // shown/paid/cancelled together. Each session is still its own row (so
   // it occupies its own calendar slot and can't be double-booked), and

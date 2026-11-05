@@ -9,9 +9,11 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import {
   ArrowLeft,
   CalendarCheck,
+  Check,
   Download,
   FileText,
   GraduationCap,
@@ -44,6 +46,7 @@ interface Row {
   payUrl: string | null;
   href: string;
   bookingId?: string;
+  invoiceId?: string;
 }
 
 type Show = "owed" | "paid" | "all";
@@ -62,8 +65,11 @@ const METHOD_LABEL: Record<string, string> = {
   fire: "Fire",
   cash: "Cash",
   bank_transfer: "Bank transfer",
+  card: "Card",
   other: "Other",
 };
+/** Ways to mark a payment that came in outside Fire. */
+const MANUAL_METHODS = ["bank_transfer", "cash", "card", "other"] as const;
 
 /** Owed = asked for and not paid (course checkouts left unfinished aren't debts). */
 const isOwed = (r: Row) => r.state === "outstanding" || r.state === "no_link";
@@ -89,6 +95,13 @@ function csvCell(v: string | number | null): string {
 }
 
 export default function PaymentRequestsPage() {
+  const { data: session } = useSession();
+  const canMark = session?.user?.role === "SUPER_ADMIN";
+  // Inline "Mark paid" form: which row, how, and when the money arrived.
+  const [marking, setMarking] = useState<string | null>(null);
+  const [markMethod, setMarkMethod] = useState<string>("bank_transfer");
+  const [markDate, setMarkDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [markBusy, setMarkBusy] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [show, setShow] = useState<Show>("owed");
@@ -171,6 +184,56 @@ export default function PaymentRequestsPage() {
       }));
     } finally {
       setChasing(null);
+    }
+  }
+
+  async function markPaid(r: Row) {
+    setMarkBusy(true);
+    try {
+      const paidAt = new Date(`${markDate}T12:00:00`).toISOString();
+      const res =
+        r.source === "invoice"
+          ? await fetch(`/api/invoices/${r.invoiceId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: "paid", paidMethod: markMethod, paidAt }),
+            })
+          : await fetch(`/api/bookings/${r.bookingId}/mark-paid`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ method: markMethod, paidAt }),
+            });
+      const d = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(d.error ?? "Couldn't mark it paid.");
+      setMarking(null);
+      setChased((m) => ({ ...m, [r.id]: { ok: true, text: "Marked paid." } }));
+      await load();
+    } catch (err) {
+      setChased((m) => ({ ...m, [r.id]: { ok: false, text: err instanceof Error ? err.message : "Couldn't mark it paid." } }));
+    } finally {
+      setMarkBusy(false);
+    }
+  }
+
+  async function undoPaid(r: Row) {
+    setMarkBusy(true);
+    try {
+      const res =
+        r.source === "invoice"
+          ? await fetch(`/api/invoices/${r.invoiceId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: "sent" }),
+            })
+          : await fetch(`/api/bookings/${r.bookingId}/mark-paid`, { method: "DELETE" });
+      const d = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(d.error ?? "Couldn't undo that.");
+      setChased((m) => ({ ...m, [r.id]: { ok: true, text: "Back to owed." } }));
+      await load();
+    } catch (err) {
+      setChased((m) => ({ ...m, [r.id]: { ok: false, text: err instanceof Error ? err.message : "Couldn't undo that." } }));
+    } finally {
+      setMarkBusy(false);
     }
   }
 
@@ -413,6 +476,67 @@ export default function PaymentRequestsPage() {
                                 <Mail className="h-3.5 w-3.5" />
                                 Open to resend
                               </Link>
+                            )}
+                            {canMark && isOwed(r) && r.source !== "course" && marking !== r.id && (
+                              <button
+                                type="button"
+                                data-help="payment-requests-mark-paid"
+                                onClick={() => {
+                                  setMarking(r.id);
+                                  setMarkMethod("bank_transfer");
+                                  setMarkDate(new Date().toISOString().slice(0, 10));
+                                }}
+                                className="ml-1.5 inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300"
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                                Mark paid
+                              </button>
+                            )}
+                            {marking === r.id && (
+                              <div className="mt-2 inline-flex flex-wrap items-center justify-end gap-1.5 rounded-lg border border-border bg-muted/40 p-2 text-xs">
+                                <select
+                                  value={markMethod}
+                                  onChange={(e) => setMarkMethod(e.target.value)}
+                                  className="h-7 rounded-md border border-border bg-background px-1.5"
+                                  aria-label="How it was paid"
+                                >
+                                  {MANUAL_METHODS.map((m) => (
+                                    <option key={m} value={m}>
+                                      {METHOD_LABEL[m]}
+                                    </option>
+                                  ))}
+                                </select>
+                                <input
+                                  type="date"
+                                  value={markDate}
+                                  max={new Date().toISOString().slice(0, 10)}
+                                  onChange={(e) => setMarkDate(e.target.value)}
+                                  className="h-7 rounded-md border border-border bg-background px-1.5"
+                                  aria-label="Date paid"
+                                />
+                                <button
+                                  type="button"
+                                  disabled={markBusy}
+                                  onClick={() => markPaid(r)}
+                                  className="h-7 rounded-md bg-emerald-600 px-2.5 font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                                >
+                                  {markBusy ? "Saving…" : "Save"}
+                                </button>
+                                <button type="button" onClick={() => setMarking(null)} className="h-7 px-1.5 text-muted-foreground hover:text-foreground">
+                                  Cancel
+                                </button>
+                              </div>
+                            )}
+                            {canMark && r.state === "paid" && r.paidMethod && r.paidMethod !== "fire" && r.source !== "course" && (
+                              <button
+                                type="button"
+                                disabled={markBusy}
+                                onClick={() => undoPaid(r)}
+                                className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
+                                title="Recorded by mistake? Put it back to owed."
+                              >
+                                Undo
+                              </button>
                             )}
                             {note && (
                               <div className={`mt-1 max-w-[220px] whitespace-normal text-xs ${note.ok ? "text-emerald-700 dark:text-emerald-400" : "text-red-600"}`}>

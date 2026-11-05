@@ -30,7 +30,13 @@ export async function completeBookingPayment(
 
   const booking = await prisma.booking.update({
     where: { id: bookingId },
-    data: { paymentStatus: "paid", paymentRef: paymentId, status: "confirmed" },
+    data: {
+      paymentStatus: "paid",
+      paymentRef: paymentId,
+      status: "confirmed",
+      paidAt: new Date(),
+      paidMethod: "fire",
+    },
   });
 
   const isPrimary = opts.primary !== false;

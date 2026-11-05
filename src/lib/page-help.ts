@@ -189,6 +189,7 @@ export const PAGE_HELP: Record<string, PageHelpContent> = {
       { text: "Outstanding shows what's still owed. Paid and All show the rest. Use the type menu to see just invoices, bookings or courses.", target: '[data-help="payment-requests-filter"]' },
       "A block of sessions counts as one request for the full amount. \"Owed — no link sent\" means a booking was made but the client was never sent a way to pay.",
       { text: "Chase (or Send payment link) emails the client their Fire Pay now link. If they've actually paid already, it marks the booking paid instead. For an invoice, open it and resend from there.", target: '[data-help="payment-requests-chase"]' },
+      { text: "Found the money in the bank, or paid in cash? Mark paid records how and when it was paid — no email goes to the client. Undo puts it back to owed if it was recorded by mistake.", target: '[data-help="payment-requests-mark-paid"]' },
       { text: "Download CSV gives you the list as shown, to tick off against Fire or the bank statement. Payments received (top right) shows the money that's actually landed in Fire.", target: '[data-help="payment-requests-csv"]' },
     ],
   },
