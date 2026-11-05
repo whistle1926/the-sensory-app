@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendInvoiceReceipt } from "@/lib/payment-receipt";
 import { prisma } from "@/lib/prisma";
 import { FireBuddy } from "@/lib/firebuddy";
 import { completeCoursePurchase } from "@/lib/course-purchase-complete";
@@ -209,6 +210,7 @@ async function handleInvoicePayment(
       paidMethod: "fire",
     },
   });
+  await sendInvoiceReceipt(invoiceId);
 
   // Mirror the paid status onto the matching FireBuddy invoice so
   // the accountant view in Accounting → Invoices reflects reality.

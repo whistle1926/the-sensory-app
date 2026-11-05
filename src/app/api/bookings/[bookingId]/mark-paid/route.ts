@@ -6,14 +6,15 @@
  *
  * Used from Payment requests when the money turns up in the bank or is paid
  * in person. A block of sessions is one payment, so the whole group is
- * marked together. Deliberately sends NO emails — unlike a Fire payment,
- * this is often recorded after the appointment has happened. Credits the
+ * marked together. Sends no confirmation or referral emails — this is often
+ * recorded after the appointment has happened — only a receipt, if asked. Credits the
  * income tracker the same way a manual invoice mark does. Admins only.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/audit";
+import { sendBookingReceipt } from "@/lib/payment-receipt";
 
 const METHODS = ["cash", "bank_transfer", "card", "other"];
 
@@ -38,7 +39,11 @@ export async function POST(
   if (session.user.role !== "SUPER_ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { bookingId } = await params;
-  const body = (await req.json().catch(() => ({}))) as { method?: unknown; paidAt?: unknown };
+  const body = (await req.json().catch(() => ({}))) as {
+    method?: unknown;
+    paidAt?: unknown;
+    sendReceipt?: unknown;
+  };
   const method = typeof body.method === "string" && METHODS.includes(body.method) ? body.method : "other";
   const when = typeof body.paidAt === "string" ? new Date(body.paidAt) : null;
   const paidAt =
@@ -89,7 +94,10 @@ export async function POST(
     req,
   });
 
-  return NextResponse.json({ ok: true });
+  // Optional receipt (the Mark paid form ticks it by default).
+  const receiptSent = body.sendReceipt === true ? await sendBookingReceipt(primary.id) : false;
+
+  return NextResponse.json({ ok: true, receiptSent });
 }
 
 export async function DELETE(

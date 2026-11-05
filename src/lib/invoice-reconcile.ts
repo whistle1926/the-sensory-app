@@ -16,6 +16,7 @@
  * Idempotent: an already-paid invoice is skipped; the income credit is
  * an upsert keyed on (source, reference).
  */
+import { sendInvoiceReceipt } from "./payment-receipt";
 import { prisma } from "@/lib/prisma";
 import { FireBuddy } from "@/lib/firebuddy";
 
@@ -80,6 +81,7 @@ async function markInvoicePaid(
       paidMethod: "fire",
     },
   });
+  await sendInvoiceReceipt(invoice.id);
 
   // Reflect the paid status onto the mirrored FireBuddy accounting
   // invoice (best-effort — payment is already recorded locally).
@@ -306,6 +308,7 @@ async function matchBankTransfers(
           paidMethod: "bank_transfer",
         },
       });
+      await sendInvoiceReceipt(inv.id);
       if (inv.firebuddyInvoiceId) {
         try {
           await fb.updateInvoice(inv.firebuddyInvoiceId, { status: "paid" });

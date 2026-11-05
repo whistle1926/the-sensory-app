@@ -175,6 +175,8 @@ export default function InvoicesPage() {
     Record<string, { method: string; date: string }>
   >({});
   const [markPaidId, setMarkPaidId] = useState<string | null>(null); // in flight
+  // Email the client a receipt when marking paid (Claire, Nov 2026).
+  const [markPaidReceipt, setMarkPaidReceipt] = useState(true);
   const [markPaidError, setMarkPaidError] = useState<{ id: string; message: string } | null>(null);
 
   function draftFor(id: string) {
@@ -196,7 +198,7 @@ export default function InvoicesPage() {
       const res = await fetch(`/api/invoices/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "paid", paidMethod: method, paidAt: paidOn }),
+        body: JSON.stringify({ status: "paid", paidMethod: method, paidAt: paidOn, sendReceipt: markPaidReceipt }),
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
@@ -771,6 +773,10 @@ export default function InvoicesPage() {
                                       className="rounded-lg border border-border bg-card px-2.5 py-1 text-sm text-foreground"
                                     />
                                   </label>
+                                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground" data-help="mark-paid-receipt">
+                      <input type="checkbox" checked={markPaidReceipt} disabled={busy} onChange={(e) => setMarkPaidReceipt(e.target.checked)} />
+                      Email a receipt
+                    </label>
                                   <div className="ml-auto flex items-center gap-2">
                                     {markPaidError?.id === inv.id && (
                                       <span className="text-xs text-red-600">{markPaidError.message}</span>

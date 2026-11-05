@@ -241,6 +241,8 @@ export default function InvoiceDetailPage() {
   // Choices in the "Record a payment" panel — reset whenever it opens.
   const [markPaidMethod, setMarkPaidMethod] = useState("cash");
   const [markPaidDate, setMarkPaidDate] = useState(todayKey());
+  // Email the client a receipt when marking paid (Claire, Nov 2026).
+  const [markPaidReceipt, setMarkPaidReceipt] = useState(true);
   function openMarkPaid() {
     setMarkPaidMethod("cash");
     setMarkPaidDate(todayKey());
@@ -483,7 +485,7 @@ export default function InvoiceDetailPage() {
       const res = await fetch(`/api/invoices/${invoiceId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "paid", paidMethod: method, paidAt: paidOn }),
+        body: JSON.stringify({ status: "paid", paidMethod: method, paidAt: paidOn, sendReceipt: markPaidReceipt }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -1635,6 +1637,10 @@ export default function InvoiceDetailPage() {
                         onChange={(e) => setMarkPaidDate(e.target.value)}
                         className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-sm text-foreground"
                       />
+                    </label>
+                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground" data-help="mark-paid-receipt">
+                      <input type="checkbox" checked={markPaidReceipt} disabled={actionLoading === "markpaid"} onChange={(e) => setMarkPaidReceipt(e.target.checked)} />
+                      Email a receipt
                     </label>
                     <div className="flex items-center gap-2">
                       <Button

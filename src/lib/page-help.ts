@@ -168,6 +168,8 @@ export const PAGE_HELP: Record<string, PageHelpContent> = {
       "Send the invoice by email, or use Download / Print on any invoice for a clean PDF copy (for your records, an accountant, or a finance team).",
       "If an email doesn’t land, Copy payment link or WhatsApp link get the payment link to the client another way.",
       "‘Received’ badges and the Payments received view come from real Fire transactions — never set by hand.",
+      "Receipts — when an invoice is paid through Fire, the client is emailed a receipt automatically. When you mark one paid yourself, ‘Email a receipt’ is ticked; untick it if you don’t want one sent.",
+      "Payment requests (top right) lists everything you’ve asked clients to pay — invoices and booking payment links — so you can see what’s still owed, mark payments that came in another way, and chase the rest.",
     ],
   },
 

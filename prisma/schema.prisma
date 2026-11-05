@@ -880,6 +880,8 @@ model Booking {
   // Payment requests (Claire, Nov 2026), so it won't appear in Fire.
   paidAt        DateTime? @map("paid_at")
   paidMethod    String?   @map("paid_method")
+  /// When a "payment received" receipt was emailed for a staff Mark paid.
+  receiptSentAt DateTime? @map("receipt_sent_at")
   // Links the sessions of a multi-session block booking so they can be
   // shown/paid/cancelled together. Each session is still its own row (so
   // it occupies its own calendar slot and can't be double-booked), and
@@ -1467,6 +1469,9 @@ model Invoice {
   // | "other" = manually marked paid off-Fire, so it legitimately won't
   // appear in Fire. Null on unpaid invoices.
   paidMethod    String?
+  /// When the "payment received" receipt was emailed to the client.
+  /// Idempotency key so Fire's webhook + sweep can't send it twice.
+  receiptSentAt DateTime? @map("receipt_sent_at")
   sentAt        DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

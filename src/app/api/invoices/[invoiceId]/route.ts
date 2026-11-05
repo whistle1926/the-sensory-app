@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendInvoiceReceipt } from "@/lib/payment-receipt";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/audit";
@@ -303,6 +304,13 @@ export async function PATCH(
       },
       req,
     });
+
+    // Receipt to the client (Claire, Nov 2026). On by default; the
+    // Mark paid form can untick it.
+    if (body.sendReceipt !== false) {
+      const receiptSent = await sendInvoiceReceipt(invoice.id);
+      return NextResponse.json({ ...invoice, receiptSent });
+    }
   }
 
   return NextResponse.json(invoice);

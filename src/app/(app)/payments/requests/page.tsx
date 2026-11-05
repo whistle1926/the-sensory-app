@@ -102,6 +102,7 @@ export default function PaymentRequestsPage() {
   const [markMethod, setMarkMethod] = useState<string>("bank_transfer");
   const [markDate, setMarkDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [markBusy, setMarkBusy] = useState(false);
+  const [markReceipt, setMarkReceipt] = useState(true);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [show, setShow] = useState<Show>("owed");
@@ -196,17 +197,27 @@ export default function PaymentRequestsPage() {
           ? await fetch(`/api/invoices/${r.invoiceId}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ status: "paid", paidMethod: markMethod, paidAt }),
+              body: JSON.stringify({ status: "paid", paidMethod: markMethod, paidAt, sendReceipt: markReceipt }),
             })
           : await fetch(`/api/bookings/${r.bookingId}/mark-paid`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ method: markMethod, paidAt }),
+              body: JSON.stringify({ method: markMethod, paidAt, sendReceipt: markReceipt }),
             });
-      const d = (await res.json().catch(() => ({}))) as { error?: string };
+      const d = (await res.json().catch(() => ({}))) as { error?: string; receiptSent?: boolean };
       if (!res.ok) throw new Error(d.error ?? "Couldn't mark it paid.");
       setMarking(null);
-      setChased((m) => ({ ...m, [r.id]: { ok: true, text: "Marked paid." } }));
+      setChased((m) => ({
+        ...m,
+        [r.id]: {
+          ok: true,
+          text: markReceipt
+            ? d.receiptSent
+              ? `Marked paid — receipt emailed to ${r.clientEmail}.`
+              : "Marked paid — but the receipt didn't send."
+            : "Marked paid.",
+        },
+      }));
       await load();
     } catch (err) {
       setChased((m) => ({ ...m, [r.id]: { ok: false, text: err instanceof Error ? err.message : "Couldn't mark it paid." } }));
@@ -483,6 +494,7 @@ export default function PaymentRequestsPage() {
                                 data-help="payment-requests-mark-paid"
                                 onClick={() => {
                                   setMarking(r.id);
+                                  setMarkReceipt(true);
                                   setMarkMethod("bank_transfer");
                                   setMarkDate(new Date().toISOString().slice(0, 10));
                                 }}
@@ -514,6 +526,10 @@ export default function PaymentRequestsPage() {
                                   className="h-7 rounded-md border border-border bg-background px-1.5"
                                   aria-label="Date paid"
                                 />
+                                <label className="flex items-center gap-1 text-muted-foreground" data-help="mark-paid-receipt">
+                                  <input type="checkbox" checked={markReceipt} onChange={(e) => setMarkReceipt(e.target.checked)} />
+                                  Receipt
+                                </label>
                                 <button
                                   type="button"
                                   disabled={markBusy}
