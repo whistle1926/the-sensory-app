@@ -49,6 +49,7 @@ interface ServiceRow {
   autoSendFeedbackForm?: boolean;
   minSessions: number;
   maxSessions: number;
+  packagePrice?: boolean;
   order: number;
   ownerId: string | null;
   ownerName: string | null;
@@ -504,6 +505,7 @@ function EditorPanel({
   const [minSessions, setMinSessions] = useState(service.minSessions ?? 1);
   const [maxSessions, setMaxSessions] = useState(service.maxSessions ?? 1);
   const isBlock = maxSessions > 1;
+  const [packagePrice, setPackagePrice] = useState(Boolean(service.packagePrice));
   const [ownerId, setOwnerId] = useState<string>(service.ownerId ?? "");
   const [mode, setMode] = useState(service.mode || "in_person");
   const [locationLabel, setLocationLabel] = useState(service.locationLabel ?? "");
@@ -861,13 +863,28 @@ function EditorPanel({
               className="h-9 w-20 rounded-lg"
             />
             <span className="text-xs text-muted-foreground">
-              {isBlock
-                ? `Block: client picks ${minSessions}–${maxSessions} dates · up to ${maxSessions} × £${
-                    pricePence / 100
-                  } = £${(pricePence * maxSessions) / 100}`
-                : "Single appointment"}
+              {packagePrice
+                ? `£${pricePence / 100} covers all the sessions in one booking`
+                : isBlock
+                  ? `Block: client picks ${minSessions}–${maxSessions} dates · up to ${maxSessions} × £${
+                      pricePence / 100
+                    } = £${(pricePence * maxSessions) / 100}`
+                  : "Single appointment"}
             </span>
           </div>
+          <label className="mt-2.5 flex cursor-pointer items-center gap-2 text-xs" data-help="service-package-price">
+            <input
+              type="checkbox"
+              checked={packagePrice}
+              onChange={(e) => setPackagePrice(e.target.checked)}
+            />
+            <span>
+              <span className="font-medium">Price is for the whole block</span>
+              <span className="text-muted-foreground">
+                {" "}— e.g. £497 for 4 small group sessions. Booking several dates charges this once, not per session.
+              </span>
+            </span>
+          </label>
         </div>
 
         <label className="flex cursor-pointer items-center justify-between rounded-xl border border-border bg-muted/30 p-3 sm:col-span-2">
@@ -935,6 +952,7 @@ function EditorPanel({
               autoSendFeedbackForm,
               minSessions,
               maxSessions,
+              packagePrice,
               mode,
               locationLabel: locationLabel.trim() || null,
               // Only admins may change ownership; omit otherwise so the

@@ -96,6 +96,9 @@ interface ManageableService {
   title: string;
   ownerId: string | null;
   ownerName: string | null;
+  pricePence?: number;
+  /** Price covers the whole block, not each session. */
+  packagePrice?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -1896,12 +1899,21 @@ export default function BookingsPage() {
               <Plus className="h-3.5 w-3.5" />
               Add another session
             </button>
-            {nbExtra.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {nbExtra.length + 1} appointments — each goes on the calendar
-                separately and the price is per session.
-              </p>
-            )}
+            {nbExtra.length > 0 && (() => {
+              const svc = allServices.find((x) => x.slug === nb.service);
+              const n = nbExtra.length + 1;
+              const pounds = (p: number) => `£${(p / 100).toFixed(2).replace(/\.00$/, "")}`;
+              return (
+                <p className="text-xs text-muted-foreground">
+                  {n} appointments — each goes on the calendar separately.{" "}
+                  {svc?.pricePence
+                    ? svc.packagePrice
+                      ? `One payment of ${pounds(svc.pricePence)} covers all ${n} sessions.`
+                      : `One payment of ${pounds(svc.pricePence * n)} (${n} × ${pounds(svc.pricePence)}).`
+                    : "The price is per session."}
+                </p>
+              );
+            })()}
             <div className="relative space-y-1.5">
               <Label htmlFor="nb-name">Client / parent name</Label>
               <Input

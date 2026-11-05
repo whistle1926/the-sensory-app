@@ -116,6 +116,7 @@ export async function POST(req: NextRequest) {
       durationMinutes: true,
       minSessions: true,
       maxSessions: true,
+      packagePrice: true,
       title: true,
       locationLabel: true,
     },
@@ -168,9 +169,14 @@ export async function POST(req: NextRequest) {
 
   // How many dates is this service allowed in one booking? 1/1 for an
   // ordinary appointment; a block is e.g. 2..5.
-  const minSessions = Math.max(1, svc?.minSessions ?? 1);
+  // Staff booking from the back end can book any run of dates (Claire, Nov
+  // 2026: a block of small group sessions was refused because the service is
+  // set to one date for public bookings).
+  const minSessions = isStaffBooking ? 1 : Math.max(1, svc?.minSessions ?? 1);
   // A staff "Other" booking can be a run of dates (same cap as the form).
-  const maxSessions = Math.max(minSessions, svc ? (svc.maxSessions ?? 1) : 10);
+  const maxSessions = isStaffBooking
+    ? 20
+    : Math.max(minSessions, svc ? (svc.maxSessions ?? 1) : 10);
   if (slots.length < minSessions || slots.length > maxSessions) {
     return NextResponse.json(
       {
@@ -251,7 +257,14 @@ export async function POST(req: NextRequest) {
   const groupId = isBlock ? randomUUID() : null;
   // Each session is priced at the per-session rate; the client pays the
   // sum in a single payment request (see below).
-  const totalPrice = resolvedPrice * slots.length;
+  // A package price covers the whole block: split it across the sessions
+  // (any odd penny on the first) so each row still sums to the right total.
+  const isPackage = Boolean(svc?.packagePrice) && slots.length > 1;
+  const totalPrice = isPackage ? resolvedPrice : resolvedPrice * slots.length;
+  const sessionPrice = (i: number) =>
+    isPackage
+      ? Math.floor(resolvedPrice / slots.length) + (i === 0 ? resolvedPrice % slots.length : 0)
+      : resolvedPrice;
 
   // Earliest slot first, so "session 1 of 5" means what you'd expect and
   // the confirmation lists them in order.
@@ -269,7 +282,7 @@ export async function POST(req: NextRequest) {
           date: slot.date,
           time: slot.time,
           duration: resolvedDuration,
-          price: resolvedPrice,
+          price: sessionPrice(i),
           groupId,
           sessionIndex: isBlock ? i + 1 : null,
           clientName,

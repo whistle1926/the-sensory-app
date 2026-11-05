@@ -67,6 +67,7 @@ export async function PATCH(
 
   // How many dates the client picks in one booking (1/1 = a normal
   // appointment; 2/5 = a block priced per session).
+  if (typeof body.packagePrice === "boolean") data.packagePrice = body.packagePrice;
   if (typeof body.minSessions === "number" && Number.isFinite(body.minSessions))
     data.minSessions = Math.min(20, Math.max(1, Math.floor(body.minSessions)));
   if (typeof body.maxSessions === "number" && Number.isFinite(body.maxSessions))

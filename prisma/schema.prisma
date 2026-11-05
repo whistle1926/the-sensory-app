@@ -802,6 +802,10 @@ model BookingService {
   /// Admin-set per service in Bookings → Services.
   minSessions     Int      @default(1) @map("min_sessions")
   maxSessions     Int      @default(1) @map("max_sessions")
+  /// True when pricePence is the price of the WHOLE block (e.g. a 4-session
+  /// small group package at £497), not per session. Claire, Nov 2026: a
+  /// 4-date small group booking was priced at 4 × £497.
+  packagePrice    Boolean  @default(false) @map("package_price")
   /// Friendly duration label ("60 minutes", "5 × 60 mins") shown on
   /// cards. The booking calendar always uses durationMinutes for the
   /// time-slot math.
