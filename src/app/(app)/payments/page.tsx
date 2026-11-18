@@ -16,6 +16,9 @@ interface ReceivedPayment {
   invoiceNumber: string | null;
   clientName: string | null;
   amountMatches: boolean;
+  matchKind: "invoice" | "booking" | "course" | "possible" | null;
+  forLabel: string | null;
+  href: string | null;
 }
 interface FireAccount {
   ican: number;
@@ -176,7 +179,8 @@ export default function PaymentsReceivedPage() {
                     <tr className="border-b border-border text-left text-xs uppercase tracking-wider text-muted-foreground">
                       <th className="px-5 py-2 font-semibold">Received</th>
                       <th className="px-5 py-2 font-semibold">Amount</th>
-                      <th className="px-5 py-2 font-semibold">For invoice</th>
+                      <th className="px-5 py-2 font-semibold" data-help="payments-received-from">From</th>
+                      <th className="px-5 py-2 font-semibold">For</th>
                       <th className="px-5 py-2 font-semibold">Reference</th>
                     </tr>
                   </thead>
@@ -190,27 +194,36 @@ export default function PaymentsReceivedPage() {
                           + {money(p.amountPence, p.currency)}
                         </td>
                         <td className="px-5 py-2.5">
-                          {p.invoiceId ? (
-                            <span className="inline-flex items-center gap-2">
-                              <Link
-                                href={`/invoices/${p.invoiceId}`}
-                                className="font-medium text-primary hover:underline"
-                              >
-                                {p.invoiceNumber}
-                              </Link>
-                              {p.clientName && (
-                                <span className="text-muted-foreground">
-                                  {p.clientName}
-                                </span>
+                          {p.clientName ? (
+                            <span className="inline-flex flex-wrap items-center gap-2">
+                              <span className="font-medium">{p.clientName}</span>
+                              {p.matchKind === "possible" && (
+                                <Chip tone="warn">possible match</Chip>
                               )}
-                              {!p.amountMatches && (
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">Unknown — see reference</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-2.5">
+                          {p.forLabel ? (
+                            <span className="inline-flex flex-wrap items-center gap-2">
+                              {p.href ? (
+                                <Link href={p.href} className="font-medium text-primary hover:underline">
+                                  {p.forLabel}
+                                </Link>
+                              ) : (
+                                <span>{p.forLabel}</span>
+                              )}
+                              {p.matchKind && p.matchKind !== "possible" && (
+                                <Chip tone="neutral">{p.matchKind}</Chip>
+                              )}
+                              {p.matchKind && p.matchKind !== "possible" && !p.amountMatches && (
                                 <Chip tone="warn">amount differs</Chip>
                               )}
                             </span>
                           ) : (
-                            <span className="text-muted-foreground">
-                              Not linked to an invoice
-                            </span>
+                            <span className="text-muted-foreground">Not linked</span>
                           )}
                         </td>
                         <td className="px-5 py-2.5 text-xs text-muted-foreground">

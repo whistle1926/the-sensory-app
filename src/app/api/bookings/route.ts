@@ -501,6 +501,7 @@ export async function GET() {
       clientEmail: true,
       status: true,
       paymentStatus: true,
+      referralNotNeeded: true,
     },
   });
 

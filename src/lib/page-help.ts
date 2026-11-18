@@ -79,11 +79,18 @@ export const PAGE_HELP: Record<string, PageHelpContent> = {
         target: '[data-help="bookings-tab-calendar"]',
       },
       {
+        text: "Search (above the calendar) — type a client's name, email, phone or the service. Results cover past, upcoming and cancelled bookings; click one to jump straight to it.",
+        target: '[data-help="booking-search"]',
+      },
+      {
         text: "New booking (top right) — book a client in yourself. Pick the service and the price fills in automatically.",
         target: '[data-help="bookings-new"]',
       },
       {
         text: "Need to move someone? Click the booking in the calendar, then \"Change date / time\". Pick the new day and time and tick whether to email the client. It moves their reminder emails and the therapist's Google Calendar too. If it clashes with another booking you'll be warned first.",
+      },
+      {
+        text: "Ongoing client who doesn't need a referral form? Click their booking and tick \"Referral form not needed\". It stops the form, the reminder and the \"still outstanding\" alert — for that booking and all their future ones.",
       },
       {
         text: "Unpaid booking? Click it in the calendar — \"Email payment link\" resends the client their Pay now link, or \"Copy link\" to paste it into a text or WhatsApp. If they've actually paid, it marks the booking paid instead.",
@@ -168,6 +175,7 @@ export const PAGE_HELP: Record<string, PageHelpContent> = {
       "Send the invoice by email, or use Download / Print on any invoice for a clean PDF copy (for your records, an accountant, or a finance team).",
       "If an email doesn’t land, Copy payment link or WhatsApp link get the payment link to the client another way.",
       "‘Received’ badges and the Payments received view come from real Fire transactions — never set by hand.",
+      "Payments received shows who each payment is from — matched to the invoice, booking or course it paid for. Bank transfers with their own reference (e.g. a school name) show a ‘possible match’ to check.",
       "Receipts — when an invoice is paid through Fire, the client is emailed a receipt automatically. When you mark one paid yourself, ‘Email a receipt’ is ticked; untick it if you don’t want one sent.",
       "Payment requests (top right) lists everything you’ve asked clients to pay — invoices and booking payment links — so you can see what’s still owed, mark payments that came in another way, and chase the rest.",
     ],

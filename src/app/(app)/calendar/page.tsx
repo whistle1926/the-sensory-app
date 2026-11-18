@@ -34,6 +34,7 @@ import {
 import Link from "next/link";
 import { Toolbar, Panel, Empty } from "@/components/ds";
 import { AddEventDialog } from "@/components/calendar/add-event-dialog";
+import { BookingSearch } from "@/components/bookings/booking-search";
 
 interface Member {
   id: string;
@@ -418,6 +419,16 @@ export default function CalendarPage() {
             </button>
           </div>
         }
+      />
+
+      {/* Search portal bookings across every month, then jump to that day. */}
+      <BookingSearch
+        onPick={(r) => {
+          const [y, m, d] = r.day.split("-").map(Number);
+          setView("month");
+          setMonthAnchor(startOfMonth(new Date(y, m - 1, d)));
+          setSelectedDay(r.day);
+        }}
       />
 
       {/* Quick-view buttons — fast jumps without hunting the nav. */}

@@ -23,6 +23,13 @@ export interface ReceivedPayment {
   clientName: string | null;
   /** True when a matched invoice's amount + currency equal the lodgement. */
   amountMatches: boolean;
+  /** What the payment was matched to (invoice, booking, course), or a
+   *  "possible" name match for a bank transfer with a free-text reference. */
+  matchKind: "invoice" | "booking" | "course" | "possible" | null;
+  /** Short label for what it paid for, e.g. "INV-0182" or "Block of OT". */
+  forLabel: string | null;
+  /** Where to click through to, if anywhere. */
+  href: string | null;
 }
 
 export interface FirePaymentsResult {
@@ -30,17 +37,6 @@ export interface FirePaymentsResult {
   accounts: FireAccount[];
   payments: ReceivedPayment[];
   error?: string;
-}
-
-/** Pull the invoice-id fragment out of a Fire transaction reference, e.g.
- *  "invoice:abc123" or "invoicecmpx…" → the id portion. Fire TRUNCATES
- *  references (~18 chars), so this is a PREFIX of the real invoice id —
- *  match with startsWith, not equality. */
-function invoiceFragmentFromReference(ref: string | null): string | null {
-  if (!ref) return null;
-  const m = ref.match(/invoice:?([a-z0-9]+)/i);
-  // Require a few chars so a stray short fragment can't false-match.
-  return m && m[1].length >= 6 ? m[1] : null;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -107,29 +103,162 @@ export async function getFirePaymentsReceived(): Promise<FirePaymentsResult> {
   // Money IN only — that's the definition of "received".
   const incoming = transactions.filter((t) => t.direction === "IN");
 
-  // Load all live invoices once and match by id PREFIX (Fire truncates
-  // the reference, so it's a prefix of the real cuid). Small set, so a
-  // linear scan is fine and avoids fragile `in` queries.
-  const invoices = await prisma.invoice.findMany({
-    where: { status: { not: "cancelled" } },
-    select: {
-      id: true,
-      invoiceNumber: true,
-      clientName: true,
-      total: true,
-      currency: true,
-    },
-  });
-  function matchInvoice(ref: string | null) {
-    const frag = invoiceFragmentFromReference(ref);
-    if (!frag) return undefined;
-    return invoices.find((i) => i.id.startsWith(frag));
+  // Load the portal records once and match each lodgement by its
+  // reference. Fire strips punctuation and TRUNCATES references (~18
+  // chars), so ids are matched by PREFIX after normalising. Small sets,
+  // so linear scans are fine.
+  const [invoices, bookings, purchases, services] = await Promise.all([
+    prisma.invoice.findMany({
+      where: { status: { not: "cancelled" } },
+      select: { id: true, invoiceNumber: true, clientName: true, total: true, currency: true },
+    }),
+    prisma.booking.findMany({
+      select: { id: true, groupId: true, clientName: true, service: true, price: true, status: true },
+      take: 10000,
+    }),
+    prisma.coursePurchase.findMany({
+      select: {
+        id: true,
+        groupId: true,
+        amount: true,
+        user: { select: { name: true, email: true } },
+        course: { select: { title: true } },
+      },
+      take: 10000,
+    }),
+    prisma.bookingService.findMany({ select: { slug: true, title: true } }),
+  ]);
+  const serviceTitle = new Map(services.map((sv) => [sv.slug, sv.title]));
+  const norm = (v: string | null | undefined) => (v ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  type Match = Pick<ReceivedPayment, "invoiceId" | "invoiceNumber" | "clientName" | "matchKind" | "forLabel" | "href"> & { expectedPence?: number; currency?: string };
+
+  function invoiceMatch(inv: (typeof invoices)[number]): Match {
+    return {
+      invoiceId: inv.id,
+      invoiceNumber: inv.invoiceNumber,
+      clientName: inv.clientName,
+      matchKind: "invoice",
+      forLabel: inv.invoiceNumber,
+      href: `/invoices/${inv.id}`,
+      expectedPence: inv.total,
+      currency: inv.currency || "GBP",
+    };
+  }
+  function bookingMatch(rows: (typeof bookings)): Match | undefined {
+    if (rows.length === 0) return undefined;
+    const b = rows[0];
+    const title = serviceTitle.get(b.service) ?? b.service;
+    return {
+      invoiceId: null,
+      invoiceNumber: null,
+      clientName: b.clientName,
+      matchKind: "booking",
+      forLabel: rows.length > 1 ? `${title} (${rows.length} sessions)` : title,
+      href: `/bookings?booking=${b.id}`,
+      expectedPence: rows.reduce((t, r) => t + (r.price ?? 0), 0),
+    };
+  }
+  function courseMatch(rows: (typeof purchases)): Match | undefined {
+    if (rows.length === 0) return undefined;
+    const c = rows[0];
+    return {
+      invoiceId: null,
+      invoiceNumber: null,
+      clientName: c.user?.name || c.user?.email || null,
+      matchKind: "course",
+      forLabel: rows.length > 1 ? `${rows.length} courses` : c.course?.title ?? "Course",
+      href: null,
+      // Course amounts are stored in whole pounds.
+      expectedPence: rows.reduce((t, r) => t + (r.amount ?? 0) * 100, 0),
+    };
+  }
+
+  // Free-text bank transfers ("Sacred heart ps"): suggest a record whose
+  // name shares words with the reference. Only a suggestion — flagged as
+  // "possible" so nobody mistakes it for a confirmed match.
+  const STOP = new Set(["primary", "school", "nursery", "the", "and", "payment", "invoice", "lodgement", "thanks", "ltd"]);
+  const words = (v: string | null | undefined) =>
+    (v ?? "").toLowerCase().split(/[^a-z]+/).filter((w) => w.length >= 4 && !STOP.has(w));
+  const nameCandidates = [
+    ...invoices.map((i) => ({ name: i.clientName, pence: i.total, m: () => invoiceMatch(i) })),
+    ...bookings.filter((b) => b.status !== "cancelled").map((b) => ({ name: b.clientName, pence: b.price ?? 0, m: () => bookingMatch([b])! })),
+  ];
+  function possibleMatch(ref: string, pence: number): Match | undefined {
+    const refWords = new Set(words(ref));
+    if (refWords.size === 0) return undefined;
+    let best: { score: number; m: () => Match } | undefined;
+    for (const c of nameCandidates) {
+      const overlap = words(c.name).filter((w) => refWords.has(w)).length;
+      if (overlap === 0) continue;
+      const sameAmount = c.pence === pence;
+      if (!sameAmount && overlap < 2) continue;
+      const score = overlap * 2 + (sameAmount ? 3 : 0);
+      if (!best || score > best.score) best = { score, m: c.m };
+    }
+    if (!best) return undefined;
+    const m = best.m();
+    return { ...m, invoiceId: null, matchKind: "possible" };
+  }
+
+  function match(ref: string | null, pence: number): Match | undefined {
+    const r = norm(ref);
+    if (!r) return undefined;
+    let mm: RegExpMatchArray | null;
+    // invoice:<id>
+    if ((mm = r.match(/^invoice([a-z0-9]{6,})/))) {
+      const inv = invoices.find((i) => i.id.startsWith(mm![1]));
+      if (inv) return invoiceMatch(inv);
+    }
+    // courseGroup:<uuid> / course:<id>
+    if ((mm = r.match(/^coursegroup([a-z0-9]{6,})/))) {
+      const frag = mm[1];
+      const m = courseMatch(purchases.filter((p) => p.groupId && norm(p.groupId).startsWith(frag)));
+      if (m) return m;
+    }
+    if ((mm = r.match(/^course([a-z0-9]{6,})/))) {
+      const frag = mm[1];
+      const m = courseMatch(purchases.filter((p) => p.id.startsWith(frag)));
+      if (m) return m;
+    }
+    // group:<uuid> (a block of booked sessions)
+    if ((mm = r.match(/^group([a-z0-9]{6,})/))) {
+      const frag = mm[1];
+      const m = bookingMatch(bookings.filter((b) => b.groupId && norm(b.groupId).startsWith(frag)));
+      if (m) return m;
+    }
+    // A bare id — a single booking's payment link.
+    if (/^c[a-z0-9]{9,}$/.test(r)) {
+      const b = bookings.filter((x) => x.id.startsWith(r));
+      if (b.length === 1) return bookingMatch(b);
+      const inv = invoices.find((i) => i.id.startsWith(r));
+      if (inv) return invoiceMatch(inv);
+    }
+    // A bank transfer quoting the invoice number ("INV-0172", "Inv 0184").
+    if ((mm = r.match(/inv0*(\d{1,6})/))) {
+      const n = Number(mm[1]);
+      const inv = invoices.find((i) => {
+        const d = i.invoiceNumber.match(/(\d+)/);
+        return d && Number(d[1]) === n;
+      });
+      if (inv) return invoiceMatch(inv);
+    }
+    // Just the number ("0144") — only trusted when the amount agrees too.
+    if ((mm = r.match(/^0\d{2,5}$/))) {
+      const n = Number(r);
+      const inv = invoices.find((i) => {
+        const d = i.invoiceNumber.match(/(\d+)/);
+        return d && Number(d[1]) === n && i.total === pence;
+      });
+      if (inv) return invoiceMatch(inv);
+    }
+    return possibleMatch(ref ?? "", pence);
   }
 
   const payments: ReceivedPayment[] = incoming
     .map((t) => {
-      const inv = matchInvoice(t.reference);
       const amountPence = Math.round((t.amount ?? 0) * 100);
+      const m = match(t.reference, amountPence);
       return {
         txnId: t.txnId,
         date: t.date,
@@ -137,14 +266,18 @@ export async function getFirePaymentsReceived(): Promise<FirePaymentsResult> {
         currency: t.currency,
         reference: t.reference,
         description: t.description,
-        invoiceId: inv?.id ?? null,
-        invoiceNumber: inv?.invoiceNumber ?? null,
-        clientName: inv?.clientName ?? null,
-        amountMatches: inv
-          ? amountPence === inv.total &&
-            (t.currency || "").toUpperCase() ===
-              (inv.currency || "GBP").toUpperCase()
-          : false,
+        invoiceId: m?.invoiceId ?? null,
+        invoiceNumber: m?.invoiceNumber ?? null,
+        clientName: m?.clientName ?? null,
+        matchKind: m?.matchKind ?? null,
+        forLabel: m?.forLabel ?? null,
+        href: m?.href ?? null,
+        amountMatches:
+          m && m.matchKind !== "possible" && m.expectedPence != null
+            ? amountPence === m.expectedPence &&
+              (!m.currency ||
+                (t.currency || "").toUpperCase() === m.currency.toUpperCase())
+            : false,
       };
     })
     // Newest first.

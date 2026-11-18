@@ -898,6 +898,11 @@ model Booking {
   // Stamped when the "please complete your referral form" chaser goes out
   // (~1 week before the appointment, if the form still isn't back).
   referralReminderSentAt DateTime? @map("referral_reminder_sent_at")
+  // Staff ticked "Referral form not needed" (e.g. an ongoing client who
+  // already has one on file — Claire, Nov 2026). Set on every booking for
+  // the same email, and any booking for that email with it set stops the
+  // referral form, its chaser and the admin "still outstanding" alert.
+  referralNotNeeded Boolean @default(false) @map("referral_not_needed")
   // Stamp set when the post-appointment feedback form was emailed (~1 week
   // after the appointment). Idempotency key so the daily sweep never
   // double-sends. NULL = not yet sent.

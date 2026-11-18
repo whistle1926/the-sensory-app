@@ -56,7 +56,8 @@ export type AuditAction =
   | "settings.update"
   | "booking.reschedule"
   | "booking.mark_paid"
-  | "booking.mark_unpaid";
+  | "booking.mark_unpaid"
+  | "booking.referral_not_needed";
 
 /** Pull the client IP out of the standard proxy headers. */
 function clientIp(req: RecordAuditArgs["req"]): string | null {

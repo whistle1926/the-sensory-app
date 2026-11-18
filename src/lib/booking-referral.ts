@@ -48,6 +48,17 @@ async function findReferralForm() {
   return forms.find((f) => /referral/i.test(f.slug)) ?? null;
 }
 
+/** Has staff marked this client as not needing a referral form? Any
+ * booking for the email with the flag counts, so it sticks for future
+ * bookings too. */
+export async function referralWaived(email: string): Promise<boolean> {
+  const found = await prisma.booking.findFirst({
+    where: { clientEmail: { equals: email, mode: "insensitive" }, referralNotNeeded: true },
+    select: { id: true },
+  });
+  return Boolean(found);
+}
+
 /** Has this parent already returned the referral form (by any route)? */
 async function hasReturnedReferral(formId: string, email: string): Promise<boolean> {
   const e = { equals: email, mode: "insensitive" as const };
@@ -132,6 +143,8 @@ export async function sendBookingReferralForm(bookingId: string): Promise<
 
   if (await hasReturnedReferral(form.id, booking.clientEmail))
     return { sent: false, reason: "referral form already returned" };
+  if (await referralWaived(booking.clientEmail))
+    return { sent: false, reason: "marked not needed" };
 
   // Stamp first so a concurrent/duplicate webhook can't double-send. If
   // the email then fails we log it; re-sending is a manual action.
@@ -197,6 +210,7 @@ export async function sendReferralChasers(now = new Date()): Promise<{
       status: { not: "cancelled" },
       referralFormSentAt: { not: null, lte: new Date(now.getTime() - CHASE_MIN_AGE_MS) },
       referralReminderSentAt: null,
+      referralNotNeeded: false,
       // A block chases once, on its first session.
       OR: [{ groupId: null }, { sessionIndex: 1 }],
       date: {
@@ -215,6 +229,7 @@ export async function sendReferralChasers(now = new Date()): Promise<{
       if (at <= now || ukDateString(at) > lastDay) continue;
       if (!b.clientEmail) continue;
       if (await hasReturnedReferral(form.id, b.clientEmail)) continue;
+      if (await referralWaived(b.clientEmail)) continue;
 
       // Re-use the link we sent them, so the "sent" list stays tidy.
       const invite = await prisma.formInvite.findFirst({

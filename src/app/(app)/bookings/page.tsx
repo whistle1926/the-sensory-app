@@ -37,6 +37,7 @@ import { TermsSection } from "@/components/bookings/terms-section";
 import { ServicesSection } from "@/components/bookings/services-section";
 import { TimeOffPanel } from "@/components/bookings/time-off-panel";
 import { RescheduleBox } from "@/components/bookings/reschedule-box";
+import { BookingSearch, type BookingSearchResult } from "@/components/bookings/booking-search";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -71,6 +72,7 @@ interface BookingRecord {
   clientEmail: string;
   status: string;
   paymentStatus: string;
+  referralNotNeeded?: boolean;
 }
 
 /** A Google Calendar event (from /api/team-calendar/events) overlaid on
@@ -486,6 +488,57 @@ export default function BookingsPage() {
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
   const bookingLink = typeof window !== "undefined" ? `${window.location.origin}/book` : "/book";
   const monthYear = selectedDay.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+
+  // "Referral form not needed" — applies to every booking for that email.
+  const [referralBusy, setReferralBusy] = useState(false);
+  async function toggleReferralNotNeeded(b: BookingRecord, notNeeded: boolean) {
+    setReferralBusy(true);
+    try {
+      const res = await fetch(`/api/bookings/${b.id}/referral`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notNeeded }),
+      });
+      if (res.ok) {
+        const email = b.clientEmail.toLowerCase();
+        setBookings((prev) =>
+          prev.map((x) => (x.clientEmail.toLowerCase() === email ? { ...x, referralNotNeeded: notNeeded } : x)),
+        );
+        setSelectedBooking((prev) => (prev ? { ...prev, referralNotNeeded: notNeeded } : prev));
+      }
+    } finally {
+      setReferralBusy(false);
+    }
+  }
+
+  /** Jump the calendar to a booking (from search or a ?booking= link). */
+  const jumpToBooking = useCallback(
+    (id: string, day?: string) => {
+      const b = bookings.find((x) => x.id === id);
+      const key = day ?? (b ? londonDateKey(new Date(b.date)) : null);
+      if (!key) return;
+      const [y, m, d] = key.split("-").map(Number);
+      const date = new Date(y, m - 1, d);
+      setTab("calendar");
+      setSelectedDay(date);
+      setWeekStart(getWeekStart(date));
+      setCalView("day");
+      if (b) setSelectedBooking(b);
+    },
+    [bookings],
+  );
+  // Deep link: /bookings?booking=<id> opens that booking (e.g. from the
+  // Payments received log). Runs once the bookings have loaded.
+  const [deepLinked, setDeepLinked] = useState(false);
+  useEffect(() => {
+    if (deepLinked || bookings.length === 0) return;
+    const id = new URLSearchParams(window.location.search).get("booking");
+    const t = window.setTimeout(() => {
+      setDeepLinked(true);
+      if (id) jumpToBooking(id);
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [bookings, deepLinked, jumpToBooking]);
 
   /* ------ Fetchers ------ */
   const fetchBookings = useCallback(async () => {
@@ -1040,6 +1093,9 @@ export default function BookingsPage() {
       {/* ================================================================ */}
       {/*  CALENDAR TAB                                                     */}
       {/* ================================================================ */}
+      {tab === "calendar" && (
+        <BookingSearch onPick={(r: BookingSearchResult) => jumpToBooking(r.id, r.day)} />
+      )}
       {tab === "calendar" && (
         <div className="rounded-2xl border border-border bg-card shadow-[var(--shadow-sm)] overflow-hidden">
           {/* Month header + nav */}
@@ -1718,6 +1774,24 @@ export default function BookingsPage() {
                       setSelectedBooking((prev) => (prev && prev.id === id ? { ...prev, ...next } : prev));
                     }}
                   />
+                  <label
+                    data-help="booking-referral-not-needed"
+                    className="flex cursor-pointer items-start gap-2 rounded-xl border border-border px-3 py-2.5 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={Boolean(selectedBooking.referralNotNeeded)}
+                      disabled={referralBusy}
+                      onChange={(e) => toggleReferralNotNeeded(selectedBooking, e.target.checked)}
+                    />
+                    <span>
+                      <span className="font-medium">Referral form not needed</span>
+                      <span className="block text-xs text-muted-foreground">
+                        Stops the referral form, its reminder and the &ldquo;still outstanding&rdquo; alert for {selectedBooking.clientName} — on this and all their bookings.
+                      </span>
+                    </span>
+                  </label>
                   <Button variant="outline" className="w-full rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/20" onClick={() => handleCancel(selectedBooking.id)}>
                     Cancel Booking
                   </Button>
