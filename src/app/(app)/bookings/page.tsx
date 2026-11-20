@@ -38,6 +38,7 @@ import { ServicesSection } from "@/components/bookings/services-section";
 import { TimeOffPanel } from "@/components/bookings/time-off-panel";
 import { RescheduleBox } from "@/components/bookings/reschedule-box";
 import { BookingSearch, type BookingSearchResult } from "@/components/bookings/booking-search";
+import { BookingChecklist } from "@/components/bookings/booking-checklist";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -488,28 +489,6 @@ export default function BookingsPage() {
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
   const bookingLink = typeof window !== "undefined" ? `${window.location.origin}/book` : "/book";
   const monthYear = selectedDay.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
-
-  // "Referral form not needed" — applies to every booking for that email.
-  const [referralBusy, setReferralBusy] = useState(false);
-  async function toggleReferralNotNeeded(b: BookingRecord, notNeeded: boolean) {
-    setReferralBusy(true);
-    try {
-      const res = await fetch(`/api/bookings/${b.id}/referral`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notNeeded }),
-      });
-      if (res.ok) {
-        const email = b.clientEmail.toLowerCase();
-        setBookings((prev) =>
-          prev.map((x) => (x.clientEmail.toLowerCase() === email ? { ...x, referralNotNeeded: notNeeded } : x)),
-        );
-        setSelectedBooking((prev) => (prev ? { ...prev, referralNotNeeded: notNeeded } : prev));
-      }
-    } finally {
-      setReferralBusy(false);
-    }
-  }
 
   /** Jump the calendar to a booking (from search or a ?booking= link). */
   const jumpToBooking = useCallback(
@@ -1730,38 +1709,66 @@ export default function BookingsPage() {
                 </span>
               </div>
 
-              {selectedBooking.status !== "cancelled" &&
-                selectedBooking.paymentStatus !== "paid" &&
-                selectedBooking.price > 0 && (
-                  <div className="space-y-2 rounded-xl border border-amber-300/60 bg-amber-50/60 p-3 dark:border-amber-700/40 dark:bg-amber-950/20">
-                    <p className="text-xs font-semibold">Not paid yet</p>
-                    <div className="flex gap-2">
-                      <Button
-                        className="flex-1 rounded-xl"
-                        disabled={payLinkBusy !== null}
-                        onClick={() => paymentLink(selectedBooking.id, true)}
-                      >
-                        <Mail className="mr-1.5 h-4 w-4" />
-                        {payLinkBusy === "send" ? "Sending…" : "Email payment link"}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="rounded-xl"
-                        disabled={payLinkBusy !== null}
-                        onClick={() => paymentLink(selectedBooking.id, false)}
-                        title="Copy the link to paste into a text or WhatsApp"
-                      >
-                        <Copy className="mr-1.5 h-4 w-4" />
-                        {payLinkBusy === "copy" ? "…" : "Copy link"}
-                      </Button>
+              {selectedBooking.status !== "cancelled" && (
+                <BookingChecklist
+                  key={`${selectedBooking.id}-${selectedBooking.paymentStatus}`}
+                  bookingId={selectedBooking.id}
+                  clientName={selectedBooking.clientName}
+                  onChange={(next) => {
+                    // Paid / unpaid can touch every session of a block, so
+                    // refresh the calendar; keep the popup in step.
+                    if (next.paymentStatus) {
+                      fetchBookings();
+                      setSelectedBooking((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              paymentStatus: next.paymentStatus!,
+                              ...(next.status && prev.status === "pending" ? { status: next.status } : {}),
+                            }
+                          : prev,
+                      );
+                    }
+                    if (next.referralNotNeeded !== undefined) {
+                      const email = selectedBooking.clientEmail.toLowerCase();
+                      setBookings((prev) =>
+                        prev.map((x) =>
+                          x.clientEmail.toLowerCase() === email ? { ...x, referralNotNeeded: next.referralNotNeeded } : x,
+                        ),
+                      );
+                    }
+                  }}
+                  paymentActions={
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <Button
+                          className="flex-1 rounded-xl"
+                          disabled={payLinkBusy !== null}
+                          onClick={() => paymentLink(selectedBooking.id, true)}
+                        >
+                          <Mail className="mr-1.5 h-4 w-4" />
+                          {payLinkBusy === "send" ? "Sending…" : "Email payment link"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="rounded-xl"
+                          disabled={payLinkBusy !== null}
+                          onClick={() => paymentLink(selectedBooking.id, false)}
+                          title="Copy the link to paste into a text or WhatsApp"
+                        >
+                          <Copy className="mr-1.5 h-4 w-4" />
+                          {payLinkBusy === "copy" ? "…" : "Copy link"}
+                        </Button>
+                      </div>
+                      {payLinkMsg && (
+                        <p className={`break-all text-xs ${payLinkMsg.ok ? "text-emerald-700 dark:text-emerald-400" : "text-red-600"}`}>
+                          {payLinkMsg.text}
+                        </p>
+                      )}
                     </div>
-                    {payLinkMsg && (
-                      <p className={`break-all text-xs ${payLinkMsg.ok ? "text-emerald-700 dark:text-emerald-400" : "text-red-600"}`}>
-                        {payLinkMsg.text}
-                      </p>
-                    )}
-                  </div>
-                )}
+                  }
+                />
+              )}
 
               {selectedBooking.status !== "cancelled" && (
                 <div className="pt-2 border-t border-border space-y-2">
@@ -1774,24 +1781,6 @@ export default function BookingsPage() {
                       setSelectedBooking((prev) => (prev && prev.id === id ? { ...prev, ...next } : prev));
                     }}
                   />
-                  <label
-                    data-help="booking-referral-not-needed"
-                    className="flex cursor-pointer items-start gap-2 rounded-xl border border-border px-3 py-2.5 text-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      className="mt-0.5"
-                      checked={Boolean(selectedBooking.referralNotNeeded)}
-                      disabled={referralBusy}
-                      onChange={(e) => toggleReferralNotNeeded(selectedBooking, e.target.checked)}
-                    />
-                    <span>
-                      <span className="font-medium">Referral form not needed</span>
-                      <span className="block text-xs text-muted-foreground">
-                        Stops the referral form, its reminder and the &ldquo;still outstanding&rdquo; alert for {selectedBooking.clientName} — on this and all their bookings.
-                      </span>
-                    </span>
-                  </label>
                   <Button variant="outline" className="w-full rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/20" onClick={() => handleCancel(selectedBooking.id)}>
                     Cancel Booking
                   </Button>

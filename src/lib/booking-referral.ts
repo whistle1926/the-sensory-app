@@ -32,7 +32,7 @@ function baseUrl(): string {
 
 /** The intake/referral form is the published form flagged `createsClient`
  * (e.g. "OT Initial Referral Form"). Returns null if none is configured. */
-async function findReferralForm() {
+export async function findReferralForm() {
   const forms = await prisma.form.findMany({
     where: { isPublished: true },
     select: { id: true, slug: true, title: true, settings: true },
@@ -57,6 +57,23 @@ export async function referralWaived(email: string): Promise<boolean> {
     select: { id: true },
   });
   return Boolean(found);
+}
+
+/** The parent's most recent returned referral form, if any. */
+export async function latestReferralSubmission(formId: string, email: string) {
+  const e = { equals: email, mode: "insensitive" as const };
+  return prisma.formSubmission.findFirst({
+    where: {
+      formId,
+      OR: [
+        { submitterEmail: e },
+        { invite: { email: e } },
+        { invite: { client: { parentCarerEmail: e } } },
+      ],
+    },
+    orderBy: { submittedAt: "desc" },
+    select: { id: true, submittedAt: true },
+  });
 }
 
 /** Has this parent already returned the referral form (by any route)? */

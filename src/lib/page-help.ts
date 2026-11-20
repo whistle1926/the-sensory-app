@@ -90,7 +90,8 @@ export const PAGE_HELP: Record<string, PageHelpContent> = {
         text: "Need to move someone? Click the booking in the calendar, then \"Change date / time\". Pick the new day and time and tick whether to email the client. It moves their reminder emails and the therapist's Google Calendar too. If it clashes with another booking you'll be warned first.",
       },
       {
-        text: "Ongoing client who doesn't need a referral form? Click their booking and tick \"Referral form not needed\". It stops the form, the reminder and the \"still outstanding\" alert — for that booking and all their future ones.",
+        text: "Checklist — click any booking to see whether the referral form has come back and whether it's been paid. Paid by bank transfer or cash? Click \"Mark as paid\", pick how and when, and it's ticked off (with a receipt if you want one). Ongoing client who doesn't need a referral form? Tick \"Not needed\" and the form, reminder and alert stop for all their bookings.",
+        target: '[data-help="bookings-tab-calendar"]',
       },
       {
         text: "Unpaid booking? Click it in the calendar — \"Email payment link\" resends the client their Pay now link, or \"Copy link\" to paste it into a text or WhatsApp. If they've actually paid, it marks the booking paid instead.",
