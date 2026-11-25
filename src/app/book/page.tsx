@@ -35,6 +35,7 @@ import {
   enquiryHref,
   groupMeta,
   isEnquiryCategory,
+  isEnquiryService,
   locationGroupKey,
 } from "@/lib/booking-groups";
 
@@ -245,19 +246,25 @@ function BookingPageInner() {
   const [testimonials, setTestimonials] = useState<
     { quote: string; author: string; meta?: string }[]
   >([]);
-  useEffect(() => {
-    fetch("/api/settings/storefront")
-      .then((r) => r.json())
-      .then((d: { testimonials?: { quote: string; author: string; meta?: string }[] }) => {
-        if (Array.isArray(d.testimonials)) setTestimonials(d.testimonials);
-      })
-      .catch(() => undefined);
-  }, []);
+  // "Enquire only" (Settings → Storefront): every service links to an
+  // enquiry form instead of the calendar while booking is paused.
+  const [enquireOnly, setEnquireOnly] = useState(false);
 
   useEffect(() => {
-    fetch("/api/booking-services")
+    // Read the storefront settings first so a deep link (?service=) knows
+    // whether to open the calendar or the enquiry form.
+    const storefront = fetch("/api/settings/storefront")
       .then((r) => r.json())
-      .then((data: unknown[]) => {
+      .then((d: { testimonials?: { quote: string; author: string; meta?: string }[]; bookingEnquireOnly?: boolean }) => {
+        if (Array.isArray(d.testimonials)) setTestimonials(d.testimonials);
+        const only = d.bookingEnquireOnly === true;
+        setEnquireOnly(only);
+        return only;
+      })
+      .catch(() => false);
+
+    Promise.all([fetch("/api/booking-services").then((r) => r.json()), storefront])
+      .then(([data, only]: [unknown[], boolean]) => {
         if (Array.isArray(data)) {
           const adapted = data.map((d) =>
             adaptService(d as Parameters<typeof adaptService>[0]),
@@ -272,8 +279,8 @@ function BookingPageInner() {
           if (pre) {
             // Schools & community services aren't booked here — an old
             // link to one goes to the enquiry form instead.
-            if (isEnquiryCategory(pre.category)) {
-              window.location.replace(enquiryHref(pre.title));
+            if (isEnquiryService(pre.category, only)) {
+              window.location.replace(enquiryHref(pre.title, pre.category));
               return;
             }
             setSelectedService(pre.id);
@@ -398,15 +405,15 @@ function BookingPageInner() {
   const chooseService = useCallback(
     (id: string) => {
       const picked = services.find((s) => s.id === id);
-      if (picked && isEnquiryCategory(picked.category)) {
-        window.location.href = enquiryHref(picked.title);
+      if (picked && isEnquiryService(picked.category, enquireOnly)) {
+        window.location.href = enquiryHref(picked.title, picked.category);
         return;
       }
       setSelectedService(id);
       if (picked) setSelectedGroup(locationGroupKey(picked));
       setStep("datetime");
     },
-    [services],
+    [services, enquireOnly],
   );
 
   const firstStepRender = useRef(true);
@@ -774,6 +781,7 @@ function BookingPageInner() {
                   <ServicePicker
                     services={otherServices}
                     onSelect={chooseService}
+                    enquireOnly={enquireOnly}
                   />
                 )}
               </div>
@@ -1573,9 +1581,11 @@ function TherapistMini({ service: s }: { service: ServiceCatalogueRow }) {
 function ServicePicker({
   services,
   onSelect,
+  enquireOnly = false,
 }: {
   services: ServiceCatalogueRow[];
   onSelect: (id: string) => void;
+  enquireOnly?: boolean;
 }) {
   // Full service descriptions always show — parents need to see exactly
   // what each service involves before booking (some, e.g. School
@@ -1610,7 +1620,8 @@ function ServicePicker({
               const accent = ["#17B0A7", "#E71D57", "#FFC93C"][i % 3];
               // Schools & community work is arranged around the diary, not
               // booked against it: the card links to the enquiry form.
-              const enquiry = isEnquiryCategory(s.category);
+              const enquiry = isEnquiryService(s.category, enquireOnly);
+              const schools = isEnquiryCategory(s.category);
               return (
                 <div
                   key={s.id}
@@ -1692,14 +1703,24 @@ function ServicePicker({
                           <Users className="h-4 w-4" />
                         </span>
                         <p className="text-sm font-semibold leading-relaxed text-[#3D4A6B]">
-                          Arranged around your setting&apos;s calendar and ours
-                          — send us an enquiry and we&apos;ll come back to you
-                          with dates.
+                          {schools ? (
+                            <>
+                              Arranged around your setting&apos;s calendar and
+                              ours — send us an enquiry and we&apos;ll come back
+                              to you with dates.
+                            </>
+                          ) : (
+                            <>
+                              We&apos;re taking enquiries for this at the moment
+                              — send us a few details and we&apos;ll be in touch
+                              to arrange a time that suits.
+                            </>
+                          )}
                         </p>
                       </div>
 
                       <Link
-                        href={enquiryHref(s.title)}
+                        href={enquiryHref(s.title, s.category)}
                         className="sub-press mt-6 block rounded-full border-[3px] border-[#12235B] bg-[#FFC93C] px-6 py-3.5 text-center text-base font-extrabold text-[#12235B]"
                       >
                         Enquire now

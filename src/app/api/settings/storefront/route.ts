@@ -62,6 +62,7 @@ export async function GET() {
     // accident.
     showHomeNav: row?.showHomeNav ?? true,
     showCoursesNav: row?.showCoursesNav ?? true,
+    bookingEnquireOnly: row?.bookingEnquireOnly ?? false,
     showSignIn: row?.showSignIn ?? true,
     showCreateAccount: row?.showCreateAccount ?? true,
     testimonials: cleanTestimonials(row?.testimonials),
@@ -80,6 +81,7 @@ export async function POST(req: NextRequest) {
     heroBlurb?: string;
     showHomeNav?: boolean;
     showCoursesNav?: boolean;
+    bookingEnquireOnly?: boolean;
     showSignIn?: boolean;
     showCreateAccount?: boolean;
     testimonials?: unknown;
@@ -94,9 +96,11 @@ export async function POST(req: NextRequest) {
   const partnerCourse =
     "partnerCourse" in body ? cleanPartnerCourse(body.partnerCourse) : undefined;
 
-  const tagline = trimOrNull(body.tagline, MAX_TAGLINE);
-  const heroTitle = trimOrNull(body.heroTitle, MAX_TITLE);
-  const heroBlurb = trimOrNull(body.heroBlurb, MAX_BLURB);
+  // Copy fields are only touched when sent, so a single-switch save (e.g.
+  // the "Enquire only" toggle on the Bookings page) can't blank the hero.
+  const tagline = "tagline" in body ? trimOrNull(body.tagline, MAX_TAGLINE) : undefined;
+  const heroTitle = "heroTitle" in body ? trimOrNull(body.heroTitle, MAX_TITLE) : undefined;
+  const heroBlurb = "heroBlurb" in body ? trimOrNull(body.heroBlurb, MAX_BLURB) : undefined;
 
   // Coerce only proper booleans — anything else falls back to the
   // existing value (or to visible-by-default on create).
@@ -104,6 +108,8 @@ export async function POST(req: NextRequest) {
     typeof body.showHomeNav === "boolean" ? body.showHomeNav : undefined;
   const showCoursesNav =
     typeof body.showCoursesNav === "boolean" ? body.showCoursesNav : undefined;
+  const bookingEnquireOnly =
+    typeof body.bookingEnquireOnly === "boolean" ? body.bookingEnquireOnly : undefined;
   const showSignIn =
     typeof body.showSignIn === "boolean" ? body.showSignIn : undefined;
   const showCreateAccount =
@@ -112,11 +118,12 @@ export async function POST(req: NextRequest) {
   const row = await prisma.storefrontConfig.upsert({
     where: { id: "default" },
     update: {
-      tagline,
-      heroTitle,
-      heroBlurb,
+      ...(tagline !== undefined && { tagline }),
+      ...(heroTitle !== undefined && { heroTitle }),
+      ...(heroBlurb !== undefined && { heroBlurb }),
       ...(showHomeNav !== undefined && { showHomeNav }),
       ...(showCoursesNav !== undefined && { showCoursesNav }),
+      ...(bookingEnquireOnly !== undefined && { bookingEnquireOnly }),
       ...(showSignIn !== undefined && { showSignIn }),
       ...(showCreateAccount !== undefined && { showCreateAccount }),
       ...(testimonials !== undefined && { testimonials: testimonials as unknown as Prisma.InputJsonValue }),
@@ -124,11 +131,12 @@ export async function POST(req: NextRequest) {
     },
     create: {
       id: "default",
-      tagline,
-      heroTitle,
-      heroBlurb,
+      tagline: tagline ?? null,
+      heroTitle: heroTitle ?? null,
+      heroBlurb: heroBlurb ?? null,
       showHomeNav: showHomeNav ?? true,
       showCoursesNav: showCoursesNav ?? true,
+      bookingEnquireOnly: bookingEnquireOnly ?? false,
       showSignIn: showSignIn ?? true,
       showCreateAccount: showCreateAccount ?? true,
       ...(testimonials !== undefined && { testimonials: testimonials as unknown as Prisma.InputJsonValue }),
@@ -142,6 +150,7 @@ export async function POST(req: NextRequest) {
     heroBlurb: row.heroBlurb ?? "",
     showHomeNav: row.showHomeNav,
     showCoursesNav: row.showCoursesNav,
+    bookingEnquireOnly: row.bookingEnquireOnly,
     showSignIn: row.showSignIn,
     showCreateAccount: row.showCreateAccount,
     testimonials: cleanTestimonials(row.testimonials),

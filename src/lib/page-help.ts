@@ -79,6 +79,10 @@ export const PAGE_HELP: Record<string, PageHelpContent> = {
         target: '[data-help="bookings-tab-calendar"]',
       },
       {
+        text: "Online booking (top of the page) — \"Switch to enquire only\" pauses online booking: every service on the public booking page and in the parent portal shows \"Enquire now\" instead of a calendar, and enquiries are emailed to admin@. \"Turn booking back on\" reverses it. New booking still works for you either way.",
+        target: '[data-help="bookings-enquire-only"]',
+      },
+      {
         text: "Search (above the calendar) — type a client's name, email, phone or the service. Results cover past, upcoming and cancelled bookings; click one to jump straight to it.",
         target: '[data-help="booking-search"]',
       },

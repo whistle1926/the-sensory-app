@@ -39,6 +39,7 @@ import { TimeOffPanel } from "@/components/bookings/time-off-panel";
 import { RescheduleBox } from "@/components/bookings/reschedule-box";
 import { BookingSearch, type BookingSearchResult } from "@/components/bookings/booking-search";
 import { BookingChecklist } from "@/components/bookings/booking-checklist";
+import { EnquireOnlySwitch } from "@/components/bookings/enquire-only-switch";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -974,6 +975,9 @@ export default function BookingsPage() {
           </Button>
         }
       />
+
+      {/* Public booking on / paused ("Enquire only"). */}
+      <EnquireOnlySwitch canEdit={isAdmin} />
 
       {/* Booking Link Card */}
       <div

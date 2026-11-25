@@ -18,7 +18,7 @@ import { prisma } from "@/lib/prisma";
 import { SubmarineHeader } from "@/components/storefront/submarine-header";
 import { SubmarineFooter } from "@/components/storefront/submarine-footer";
 import { ArrowRight, CheckCircle2, Clock, Sparkles } from "lucide-react";
-import { enquiryHref, isEnquiryCategory } from "@/lib/booking-groups";
+import { enquiryHref, isEnquiryCategory, isEnquiryService } from "@/lib/booking-groups";
 
 export const dynamic = "force-dynamic";
 
@@ -46,9 +46,14 @@ export default async function ServiceLandingPage({
 
   // Schools & community work is arranged by enquiry rather than booked
   // against the calendar, so both CTAs open the enquiry form instead.
-  const enquiry = isEnquiryCategory(service.category);
+  const storefront = await prisma.storefrontConfig.findUnique({
+    where: { id: "default" },
+    select: { bookingEnquireOnly: true },
+  });
+  const enquiry = isEnquiryService(service.category, storefront?.bookingEnquireOnly ?? false);
+  const schools = isEnquiryCategory(service.category);
   const ctaHref = enquiry
-    ? enquiryHref(service.title)
+    ? enquiryHref(service.title, service.category)
     : `/book?service=${encodeURIComponent(service.slug)}`;
 
   return (
@@ -114,7 +119,9 @@ export default async function ServiceLandingPage({
               </p>
               <p className="mt-1 max-w-lg text-[13px] font-semibold text-[#6B7794]">
                 {enquiry
-                  ? "Tell us a little about your setting and when suits, and we'll come back to you with dates."
+                  ? schools
+                    ? "Tell us a little about your setting and when suits, and we'll come back to you with dates."
+                    : "Send us a few details and we'll be in touch to arrange a time that suits."
                   : "Pick a date and time on the next screen — payment processed securely. T&Cs are agreed to as part of the booking flow."}
               </p>
             </div>

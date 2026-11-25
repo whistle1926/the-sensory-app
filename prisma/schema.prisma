@@ -1817,6 +1817,11 @@ model StorefrontConfig {
   /// See all courses CTA, footer link). Single switch for the
   /// whole courses surface so Patrick can take it dark in one tap.
   showCoursesNav     Boolean  @default(true) @map("show_courses_nav")
+  /// Public booking paused: every service on /book (and the parent portal's
+  /// "Book a session") shows "Enquire now" instead of a calendar, and the
+  /// public booking API refuses new bookings. Staff can still book clients
+  /// in from the dashboard. Claire, Nov 2026: "Enquire Only for the time being".
+  bookingEnquireOnly Boolean  @default(false) @map("booking_enquire_only")
   /// Show the "Sign in" button in the public header + footer link.
   /// Hiding it doesn't disable the /login page — it just stops
   /// advertising it.

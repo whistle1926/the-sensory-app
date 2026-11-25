@@ -23,14 +23,29 @@
 /** Public slug of the Form that takes schools & community enquiries. */
 export const ENQUIRY_FORM_SLUG = "schools-enquiry";
 
+/** Public slug of the Form that takes everyone else's enquiries (families)
+ * when booking is set to "Enquire only". */
+export const BOOKING_ENQUIRY_FORM_SLUG = "booking-enquiry";
+
+/** Is this service enquired about rather than booked? Schools & community
+ * always are; everything is while booking is set to "Enquire only". */
+export function isEnquiryService(
+  category: string | null | undefined,
+  enquireOnly: boolean,
+): boolean {
+  return enquireOnly || isEnquiryCategory(category);
+}
+
 /** Services in this category are enquired about, not booked. */
 export function isEnquiryCategory(category: string | null | undefined): boolean {
   return (category ?? "").trim().toLowerCase().startsWith("schools");
 }
 
-/** Link into the enquiry form with the service pre-selected. */
-export function enquiryHref(serviceTitle: string): string {
-  return `/f/${ENQUIRY_FORM_SLUG}?service=${encodeURIComponent(serviceTitle)}`;
+/** Link into the right enquiry form with the service pre-filled: the
+ * schools form for schools & community work, the family form otherwise. */
+export function enquiryHref(serviceTitle: string, category?: string | null): string {
+  const slug = isEnquiryCategory(category) ? ENQUIRY_FORM_SLUG : BOOKING_ENQUIRY_FORM_SLUG;
+  return `/f/${slug}?service=${encodeURIComponent(serviceTitle)}`;
 }
 
 /**

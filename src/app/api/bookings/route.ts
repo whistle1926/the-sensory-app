@@ -83,6 +83,21 @@ export async function POST(req: NextRequest) {
   const isStaffBooking =
     !!session?.user && session.user.role !== "CLIENT";
 
+  // Booking paused ("Enquire only"): the public page shows enquiry links,
+  // and this stops anyone posting a booking directly. Staff are unaffected.
+  if (!isStaffBooking) {
+    const sf = await prisma.storefrontConfig.findUnique({
+      where: { id: "default" },
+      select: { bookingEnquireOnly: true },
+    });
+    if (sf?.bookingEnquireOnly) {
+      return NextResponse.json(
+        { error: "Online booking is paused at the moment — please send us an enquiry and we'll be in touch to arrange a time." },
+        { status: 403 },
+      );
+    }
+  }
+
   const termsCfg = await getTermsConfig();
   if (!isStaffBooking) {
     // Validate T&C agreement: client must have ticked every applicable
