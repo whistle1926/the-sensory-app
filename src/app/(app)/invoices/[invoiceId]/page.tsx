@@ -293,6 +293,23 @@ export default function InvoiceDetailPage() {
       .catch(() => {});
   }, []);
 
+  // "Show contact details" quick switch (Invoice Details card).
+  const [contactSaving, setContactSaving] = useState(false);
+  async function toggleContactDetails(on: boolean) {
+    if (!invoice) return;
+    setContactSaving(true);
+    try {
+      const res = await fetch(`/api/invoices/${invoice.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ showContactDetails: on }),
+      });
+      if (res.ok) setInvoice((prev) => (prev ? { ...prev, showContactDetails: on } : prev));
+    } finally {
+      setContactSaving(false);
+    }
+  }
+
   /* ---- enter edit mode ---- */
   function enterEditMode() {
     if (!invoice) return;
@@ -1402,6 +1419,26 @@ export default function InvoiceDetailPage() {
             </div>
           )}
         </div>
+        {/* Quick switch — presentation only, so it works on any status
+            (a school may want a paid invoice re-printed with it). */}
+        <label
+          data-help="invoice-contact-toggle"
+          className="mt-4 flex cursor-pointer items-start gap-3 border-t border-border pt-4"
+        >
+          <input
+            type="checkbox"
+            checked={Boolean(invoice.showContactDetails)}
+            disabled={contactSaving}
+            onChange={(e) => toggleContactDetails(e.target.checked)}
+            className="mt-0.5 h-5 w-5 rounded border-border text-primary focus:ring-primary"
+          />
+          <span>
+            <span className="block text-sm font-medium">Show contact details on this invoice</span>
+            <span className="block text-xs text-muted-foreground">
+              Adds Grace&apos;s name, postal address and phone number (from Settings → Payments) to the invoice, PDF and email — for schools and others who need them.
+            </span>
+          </span>
+        </label>
       </div>
 
       {/* ---- Items Table ---- */}
