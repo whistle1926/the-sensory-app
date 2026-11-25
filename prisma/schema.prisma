@@ -679,6 +679,10 @@ model PaymentSettings {
   bankBic                  String? @map("bank_bic")
   // Shared instructions line (both accounts):
   bankTransferInstructions String? @db.Text @map("bank_transfer_instructions")
+  /// Practitioner contact block (name / postal address / phone) printed under
+  /// the practice name on invoices that tick "Show contact details" —
+  /// schools need it, individual families don't (Claire, Nov 2026).
+  invoiceContactDetails    String? @db.Text @map("invoice_contact_details")
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -1455,6 +1459,9 @@ model Invoice {
   // practice bank details (PaymentSettings) + this invoice number as the
   // reference. Used for schools / EA finance who pay by BACS.
   bankTransfer  Boolean   @default(false)    @map("bank_transfer")
+  // When true, the invoice prints Grace's contact details
+  // (PaymentSettings.invoiceContactDetails) under the practice name.
+  showContactDetails Boolean @default(false) @map("show_contact_details")
   status        String    @default("draft")  // "draft" | "sent" | "paid" | "overdue" | "cancelled"
   dueDate       DateTime
   notes         String?   @db.Text

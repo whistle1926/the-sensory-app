@@ -107,6 +107,7 @@ export async function POST(
     paymentUrl: result.paymentUrl,
     personalNote,
     contactEmail,
+    contactDetails: settings.invoiceContactDetails,
     bank: {
       accountName: settings.bankAccountName,
       sortCode: settings.bankSortCode,
@@ -205,6 +206,7 @@ interface InvoiceWithItems {
   clientAddress?: string | null;
   currency: string;
   bankTransfer?: boolean;
+  showContactDetails?: boolean;
   dueDate: Date;
   createdAt: Date;
   subtotal: number;
@@ -353,8 +355,19 @@ function buildInvoiceEmail(params: {
   personalNote?: string;
   bank?: BankDetails;
   contactEmail?: string;
+  /** Practitioner block (Settings → Payments), shown when the invoice asks. */
+  contactDetails?: string | null;
 }): string {
-  const { invoice, paymentUrl, personalNote, bank, contactEmail } = params;
+  const { invoice, paymentUrl, personalNote, bank, contactEmail, contactDetails } = params;
+  const fromBlock =
+    invoice.showContactDetails && contactDetails?.trim()
+      ? `<!-- From -->
+      <div style="margin:0 0 20px;">
+        <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#888;">From</p>
+        <p style="margin:0;font-size:14px;font-weight:700;color:#222;">The Sensory Submarine</p>
+        <p style="margin:2px 0 0;font-size:13px;line-height:1.5;color:#555;">${escapeHtml(contactDetails.trim()).replace(/\r?\n/g, "<br/>")}</p>
+      </div>`
+      : "";
 
   const formatDate = (d: Date) =>
     new Date(d).toLocaleDateString("en-GB", {
@@ -439,6 +452,8 @@ function buildInvoiceEmail(params: {
           </tr>
         </table>
       </div>
+
+      ${fromBlock}
 
       ${
         invoice.clientAddress

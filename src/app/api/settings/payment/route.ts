@@ -44,6 +44,7 @@ function bankFields(s: {
   bankIban: string | null;
   bankBic: string | null;
   bankTransferInstructions: string | null;
+  invoiceContactDetails: string | null;
 }) {
   return {
     bankAccountName: s.bankAccountName ?? "",
@@ -53,6 +54,7 @@ function bankFields(s: {
     bankIban: s.bankIban ?? "",
     bankBic: s.bankBic ?? "",
     bankTransferInstructions: s.bankTransferInstructions ?? "",
+    invoiceContactDetails: s.invoiceContactDetails ?? "",
   };
 }
 
@@ -65,6 +67,7 @@ function emptyBank() {
     bankIban: "",
     bankBic: "",
     bankTransferInstructions: "",
+    invoiceContactDetails: "",
   };
 }
 
@@ -87,6 +90,7 @@ export async function POST(req: NextRequest) {
     bankIban,
     bankBic,
     bankTransferInstructions,
+    invoiceContactDetails,
   } = body;
 
   const existing = await prisma.paymentSettings.findUnique({
@@ -109,6 +113,7 @@ export async function POST(req: NextRequest) {
   setBank("bankIban", bankIban);
   setBank("bankBic", bankBic);
   setBank("bankTransferInstructions", bankTransferInstructions);
+  setBank("invoiceContactDetails", invoiceContactDetails);
 
   if (Array.isArray(currencies)) {
     // Keep only known codes, enforce that GBP & EUR are present.

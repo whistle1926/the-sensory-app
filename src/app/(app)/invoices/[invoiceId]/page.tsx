@@ -46,6 +46,7 @@ interface Invoice {
   clientEmail: string;
   clientAddress: string | null;
   bankTransfer: boolean;
+  showContactDetails?: boolean;
   currency: string;
   status: "draft" | "sent" | "paid" | "overdue" | "cancelled";
   dueDate: string;
@@ -208,6 +209,7 @@ export default function InvoiceDetailPage() {
   const [editClientEmail, setEditClientEmail] = useState("");
   const [editClientAddress, setEditClientAddress] = useState("");
   const [editBankTransfer, setEditBankTransfer] = useState(false);
+  const [editShowContact, setEditShowContact] = useState(false);
   const [editDueDate, setEditDueDate] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editItems, setEditItems] = useState<EditableItem[]>([]);
@@ -282,6 +284,7 @@ export default function InvoiceDetailPage() {
     bankIban: string;
     bankBic: string;
     bankTransferInstructions: string;
+    invoiceContactDetails?: string;
   } | null>(null);
   useEffect(() => {
     fetch("/api/settings/bank")
@@ -297,6 +300,7 @@ export default function InvoiceDetailPage() {
     setEditClientEmail(invoice.clientEmail);
     setEditClientAddress(invoice.clientAddress || "");
     setEditBankTransfer(invoice.bankTransfer);
+    setEditShowContact(Boolean(invoice.showContactDetails));
     setEditDueDate(new Date(invoice.dueDate).toISOString().split("T")[0]);
     setEditNotes(invoice.notes || "");
     setEditItems(
@@ -377,6 +381,7 @@ export default function InvoiceDetailPage() {
         clientEmail: editClientEmail.trim().toLowerCase(),
         clientAddress: editClientAddress.trim() || null,
         bankTransfer: editBankTransfer,
+        showContactDetails: editShowContact,
         dueDate: new Date(editDueDate + "T00:00:00.000Z").toISOString(),
         notes: editNotes.trim() || null,
         items: editItems.map((item) => ({
@@ -693,6 +698,25 @@ export default function InvoiceDetailPage() {
                 <span className="block text-xs text-muted-foreground">
                   Shows your bank details + this invoice number as the
                   reference (for schools / EA finance paying by BACS).
+                </span>
+              </span>
+            </label>
+            <label
+              data-help="invoice-show-contact"
+              className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-muted/30 p-3 sm:col-span-2"
+            >
+              <input
+                type="checkbox"
+                checked={editShowContact}
+                onChange={(e) => setEditShowContact(e.target.checked)}
+                className="mt-0.5 h-5 w-5 rounded border-border text-primary focus:ring-primary"
+              />
+              <span>
+                <span className="block text-sm font-medium">Show contact details</span>
+                <span className="block text-xs text-muted-foreground">
+                  Adds Grace&apos;s name, postal address and phone number to the
+                  invoice — for schools and others who need them. (Edit them in
+                  Settings → Payments.)
                 </span>
               </span>
             </label>
@@ -1115,6 +1139,18 @@ export default function InvoiceDetailPage() {
                   <p className="text-sm text-muted-foreground">
                     Please find your invoice below.
                   </p>
+
+                  {invoice.showContactDetails && bankSettings?.invoiceContactDetails?.trim() && (
+                    <div className="text-sm">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        From
+                      </p>
+                      <p className="mt-1 font-semibold">The Sensory Submarine</p>
+                      <p className="whitespace-pre-line text-muted-foreground">
+                        {bankSettings.invoiceContactDetails.trim()}
+                      </p>
+                    </div>
+                  )}
 
                   {invoice.clientAddress && (
                     <div className="text-sm">

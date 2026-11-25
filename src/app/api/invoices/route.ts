@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
   if (session.user.role === "CLIENT") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const { clientId, clientName, clientEmail, clientAddress, currency, dueDate, notes, items, bankTransfer, taxLabel: taxLabelRaw, taxRate: taxRateRaw } = body;
+  const { clientId, clientName, clientEmail, clientAddress, currency, dueDate, notes, items, bankTransfer, showContactDetails, taxLabel: taxLabelRaw, taxRate: taxRateRaw } = body;
   // Validate currency against the enabled list in payment settings.
   const paymentSettings = await prisma.paymentSettings.findUnique({
     where: { id: "default" },
@@ -222,6 +222,7 @@ export async function POST(req: NextRequest) {
         clientAddress: addressSnapshot,
         currency: invoiceCurrency,
         bankTransfer: bankTransfer === true,
+        showContactDetails: showContactDetails === true,
         dueDate: new Date(dueDate),
         notes: notes || null,
         subtotal,

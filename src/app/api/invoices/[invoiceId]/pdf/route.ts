@@ -84,6 +84,13 @@ export async function GET(
       ? "#b91c1c"
       : "#b45309";
 
+  // Grace's name / postal address / phone, for invoices that ask for it
+  // (schools etc.). One line per line of the Settings text.
+  const contactLines =
+    invoice.showContactDetails && payment?.invoiceContactDetails
+      ? payment.invoiceContactDetails.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+      : null;
+
   const bankBlock =
     invoice.bankTransfer && payment?.bankAccountNumber
       ? `<div style="margin:24px 0 0;border:1px solid #e5e7eb;border-radius:8px;padding:16px 20px;">
@@ -120,7 +127,11 @@ export async function GET(
           <img src="https://portal.thesensorysubmarine.com/brand/logo.jpg" alt="The Sensory Submarine" width="90" style="display:block;border:0;"/>
           <p style="margin:10px 0 0;font-size:15px;font-weight:700;color:#1a1a2e;">The Sensory Submarine</p>
           <p style="margin:2px 0 0;font-size:12px;color:#777;">Occupational Therapy Services</p>
-          <p style="margin:2px 0 0;font-size:12px;color:#777;">Northern Ireland</p>
+          ${contactLines
+            ? contactLines
+                .map((l) => `<p style="margin:2px 0 0;font-size:12px;color:#555;">${escapeHtml(l)}</p>`)
+                .join("")
+            : `<p style="margin:2px 0 0;font-size:12px;color:#777;">Northern Ireland</p>`}
         </td>
         <td style="vertical-align:top;text-align:right;">
           <h1 style="margin:0;font-size:30px;letter-spacing:2px;color:#1a1a2e;">INVOICE</h1>

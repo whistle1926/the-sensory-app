@@ -116,7 +116,7 @@ export async function PATCH(
 
     return NextResponse.json(reverted);
   }
-  const { clientName, clientEmail, clientAddress, clientId, dueDate, notes, status, items, bankTransfer, paidMethod, paidAt } = body;
+  const { clientName, clientEmail, clientAddress, clientId, dueDate, notes, status, items, bankTransfer, showContactDetails, paidMethod, paidAt } = body;
 
   // Build the update payload
   const data: Record<string, unknown> = {};
@@ -128,6 +128,7 @@ export async function PATCH(
       ? clientAddress.trim()
       : null;
   if (bankTransfer !== undefined) data.bankTransfer = bankTransfer === true;
+  if (showContactDetails !== undefined) data.showContactDetails = showContactDetails === true;
   if (clientId !== undefined) data.clientId = clientId || null;
   if (dueDate !== undefined) data.dueDate = new Date(dueDate);
   if (notes !== undefined) data.notes = notes || null;

@@ -86,6 +86,8 @@ export default function NewInvoicePage() {
   const [dueDate, setDueDate] = useState(defaultDueDate);
   const [notes, setNotes] = useState("");
   const [bankTransfer, setBankTransfer] = useState(false);
+  // Grace's contact details on the invoice — schools need them.
+  const [showContactDetails, setShowContactDetails] = useState(false);
   const [items, setItems] = useState<LineItem[]>([makeItem()]);
 
   /* ---- tax ---- */
@@ -281,6 +283,7 @@ export default function NewInvoicePage() {
         dueDate: new Date(dueDate + "T00:00:00.000Z").toISOString(),
         notes: notes.trim() || undefined,
         bankTransfer,
+        showContactDetails,
         // Explicitly selected tax — send the picked label/rate, API will use it.
         // Omit (or 0) for "No tax".
         taxLabel: taxEnabled ? taxLabel : undefined,
@@ -703,6 +706,29 @@ export default function NewInvoicePage() {
                     Shows your bank details + this invoice number as the
                     reference on the invoice and email. Ideal for schools /
                     Education Authority finance. (Set your bank details in
+                    Settings → Payments.)
+                  </span>
+                </span>
+              </label>
+
+              <label
+                data-help="invoice-new-show-contact"
+                className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-muted/30 p-3"
+              >
+                <input
+                  type="checkbox"
+                  checked={showContactDetails}
+                  onChange={(e) => setShowContactDetails(e.target.checked)}
+                  className="mt-0.5 h-5 w-5 rounded border-border text-primary focus:ring-primary"
+                />
+                <span>
+                  <span className="block text-sm font-medium">
+                    Show contact details
+                  </span>
+                  <span className="block text-xs text-muted-foreground">
+                    Adds Grace&apos;s name, postal address and phone number to
+                    the invoice and email — for schools and others who need
+                    them. Leave it off for families. (Edit the details in
                     Settings → Payments.)
                   </span>
                 </span>

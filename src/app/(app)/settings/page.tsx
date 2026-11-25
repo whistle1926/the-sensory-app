@@ -77,6 +77,7 @@ interface PaymentConfig {
   bankIban: string;
   bankBic: string;
   bankTransferInstructions: string;
+  invoiceContactDetails: string;
 }
 
 const tabs = [
@@ -139,6 +140,7 @@ export default function SettingsPage() {
     bankIban: "",
     bankBic: "",
     bankTransferInstructions: "",
+    invoiceContactDetails: "",
   });
 
   const [saving, setSaving] = useState(false);
@@ -845,6 +847,28 @@ export default function SettingsPage() {
                       setPaymentConfig({
                         ...paymentConfig,
                         bankTransferInstructions: e.target.value,
+                      })
+                    }
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                </div>
+
+                <div className="mt-4 space-y-2" data-help="settings-invoice-contact">
+                  <Label htmlFor="invoiceContactDetails">
+                    Contact details for invoices (optional)
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Name, postal address and phone number. Printed under the practice name on any invoice where you tick &ldquo;Show contact details&rdquo; — e.g. for schools.
+                  </p>
+                  <textarea
+                    id="invoiceContactDetails"
+                    rows={3}
+                    placeholder={"Name\nPostal address\nPhone number"}
+                    value={paymentConfig.invoiceContactDetails}
+                    onChange={(e) =>
+                      setPaymentConfig({
+                        ...paymentConfig,
+                        invoiceContactDetails: e.target.value,
                       })
                     }
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"

@@ -26,6 +26,7 @@ export async function GET() {
       bankIban: true,
       bankBic: true,
       bankTransferInstructions: true,
+      invoiceContactDetails: true,
     },
   });
 
@@ -37,5 +38,6 @@ export async function GET() {
     bankIban: s?.bankIban ?? "",
     bankBic: s?.bankBic ?? "",
     bankTransferInstructions: s?.bankTransferInstructions ?? "",
+    invoiceContactDetails: s?.invoiceContactDetails ?? "",
   });
 }
