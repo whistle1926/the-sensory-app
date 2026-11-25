@@ -696,7 +696,9 @@ function BookingPageInner() {
                 Book a session
               </h1>
               <p className="mt-2.5 text-[18px] font-semibold text-[#5A6785]">
-                Pick what you need — we&apos;ll find you a time next.
+                {enquireOnly
+                  ? "Choose what you're interested in and send us an enquiry — we'll be in touch to arrange a time."
+                  : "Pick what you need — we\u2019ll find you a time next."}
               </p>
             </div>
 
@@ -727,6 +729,12 @@ function BookingPageInner() {
                       key={key}
                       type="button"
                       onClick={() => {
+                        // Booking paused: the group goes to the enquiry
+                        // form (they pick a clinic there) instead.
+                        if (enquireOnly) {
+                          window.location.href = enquiryHref(meta.title, first?.category);
+                          return;
+                        }
                         setSelectedGroup(key);
                         setStep("location");
                       }}
@@ -770,7 +778,7 @@ function BookingPageInner() {
                           </span>
                         </span>
                         <span className="sub-display justify-self-start whitespace-nowrap rounded-full border-[3px] border-[#0A1740] bg-[#E71D57] px-7 py-4 text-[19px] text-white shadow-[5px_5px_0_#0A1740] md:justify-self-end">
-                          See available dates →
+                          {enquireOnly ? "Enquire now →" : "See available dates →"}
                         </span>
                       </span>
                     </button>
