@@ -175,6 +175,7 @@ export const PAGE_HELP: Record<string, PageHelpContent> = {
       "Create, send and track invoices. Fire is the source of truth for what’s actually been paid.",
     steps: [
       "Create an invoice and choose the client. Pick a service on a line item and its description and price fill in for you — you can still edit either.",
+      "Schools need Grace’s postal address and phone on the invoice? Tick ‘Show contact details’ when creating it, or use the switch on any invoice’s page (it works on paid ones too). The details themselves live in Settings → Payments.",
       "Use the Travel expenses and Discount buttons for extra lines. For a discount, type the amount as a negative (e.g. -25) so it comes off the total.",
       "The due date defaults to the day you issue it. Use the ‘30 days (schools)’ button for school/EA terms.",
       "Send the invoice by email, or use Download / Print on any invoice for a clean PDF copy (for your records, an accountant, or a finance team).",
